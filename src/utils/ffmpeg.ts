@@ -16,18 +16,33 @@ export class FFmpegService {
 
         this.loadingPromise = (async () => {
             const ffmpeg = new FFmpeg();
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
 
-            console.log('Loading FFmpeg (ST) from CDN (v0.12.6)...', baseURL);
             ffmpeg.on('log', ({ message }) => {
                 console.log('FFmpeg log:', message);
             });
 
-            await ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            });
+            // 1. Try local self-hosted ESM build first (fastest, offline, zero CORS issues)
+            try {
+                const origin = window.location.origin;
+                console.log('Loading local FFmpeg ESM core from', origin + '/ffmpeg');
+                const coreURL = await toBlobURL(`${origin}/ffmpeg/ffmpeg-core.js`, 'text/javascript');
+                const wasmURL = await toBlobURL(`${origin}/ffmpeg/ffmpeg-core.wasm`, 'application/wasm');
 
+                await ffmpeg.load({ coreURL, wasmURL });
+                console.log('FFmpeg loaded successfully from local bundle.');
+                this.instance = ffmpeg;
+                return ffmpeg;
+            } catch (localErr) {
+                console.warn('Local FFmpeg load failed, attempting CDN ESM fallback:', localErr);
+            }
+
+            // 2. Fallback to unpkg ESM build if local failed
+            const cdnBase = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
+            console.log('Loading FFmpeg ESM from CDN...', cdnBase);
+            const coreURL = await toBlobURL(`${cdnBase}/ffmpeg-core.js`, 'text/javascript');
+            const wasmURL = await toBlobURL(`${cdnBase}/ffmpeg-core.wasm`, 'application/wasm');
+
+            await ffmpeg.load({ coreURL, wasmURL });
             this.instance = ffmpeg;
             return ffmpeg;
         })();
