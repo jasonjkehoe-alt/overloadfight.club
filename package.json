@@ -14,12 +14,14 @@
     "@ffmpeg/util": "^0.12.2",
     "clsx": "^2.1.1",
     "idb": "^8.0.3",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "wavesurfer.js": "^7.12.5"
   },
   "devDependencies": {
+    "@types/jszip": "^3.4.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
