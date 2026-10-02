@@ -25,10 +25,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onSelectTab }) => {
                     </div>
                     <div>
                         <h1 className="text-lg md:text-xl font-bold tracking-wider brand-font text-white flex items-center gap-2">
-                            OVERLOAD <span className="text-[#ff6600]">TAUNT</span> MAKER
+                            OVERLOAD <span className="text-[#ff6600]">FIGHT</span> CLUB
                         </h1>
                         <p className="text-[10px] text-gray-500 hidden sm:block uppercase tracking-widest">
-                            Combat Audio System // 2.0 Pro
+                            overloadfight.club // Server, Pilot & Combat Station
                         </p>
                     </div>
                 </div>

@@ -1,5 +1,6 @@
 # ==============================================================================
-# Overload Audio Taunt Maker 2.0 - Multi-stage Production Dockerfile
+# Overload Fight Club (overloadfight.club) - Multi-stage Production Dockerfile
+# Community platform: Server tracker, Player stats, Audio taunt suite & Pilot bridge
 # Optimized for Synology NAS (Container Manager / Docker) and standard Docker hosts
 # Architecture: linux/amd64 (Intel Atom C2538 on DS1515+) and linux/arm64
 # ==============================================================================

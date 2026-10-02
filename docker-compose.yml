@@ -1,5 +1,5 @@
 services:
-  overload-taunt-maker:
+  overloadfight-club:
     # Option A: Build locally from source on your Synology box or PC
     build:
       context: .
@@ -7,12 +7,12 @@ services:
     
     # Option B: Use the pre-built image published automatically by GitHub Actions
     # Replace <your-github-username> with your actual GitHub account or organization
-    # image: ghcr.io/<your-github-username>/overload-taunt-maker:latest
+    # image: ghcr.io/<your-github-username>/overloadfight.club:latest
     
-    container_name: overload-taunt-maker
+    container_name: overloadfight-club
     restart: unless-stopped
     ports:
-      # Change the left port (host port) if 5173 is already in use on your Synology NAS
+      # Change host port (left) if 5173 is already in use on your Synology NAS
       - "5173:5173"
     environment:
       - PORT=5173
@@ -21,9 +21,9 @@ services:
       - TZ=UTC
     volumes:
       # Mount Overload storage folder on your Synology NAS:
-      # Option 1 (relative): ./overload-data
-      # Option 2 (DSM absolute): /volume1/docker/overload-taunt-maker/overload:/overload
-      # Option 3 (Direct Synology Drive shared folder): /volume1/SynologyDrive/Overload:/overload
+      # Option 1 (relative): ./overload-data:/overload
+      # Option 2 (DSM absolute): /volume1/docker/overloadfight.club/data:/overload
+      # Option 3 (Direct Synology Drive share): /volume1/SynologyDrive/Overload:/overload
       - ./overload-data:/overload
 
   # ==============================================================================
@@ -33,8 +33,8 @@ services:
   # ==============================================================================
   # watchtower:
   #   image: containrrr/watchtower:latest
-  #   container_name: overload-watchtower
+  #   container_name: overloadfight-watchtower
   #   restart: unless-stopped
   #   volumes:
   #     - /var/run/docker.sock:/var/run/docker.sock
-  #   command: --interval 300 --cleanup overload-taunt-maker
+  #   command: --interval 300 --cleanup overloadfight-club

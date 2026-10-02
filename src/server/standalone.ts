@@ -166,7 +166,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
     console.log('====================================================');
-    console.log(' Overload Audio Taunt Maker 2.0 Server');
+    console.log(' Overload Fight Club (overloadfight.club) Server');
     console.log(` Listening on: http://${HOST}:${PORT}`);
     console.log(` Overload Data: ${getOverloadPath()}`);
     console.log(` Web Root:      ${DIST_PATH}`);

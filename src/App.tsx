@@ -54,10 +54,10 @@ export const App: React.FC = () => {
             <footer className="border-t border-white/10 bg-[#080808] py-6 text-center text-xs font-mono text-gray-500">
                 <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
                     <p>
-                        Overload Audio Taunt Maker 2.0 &bull; Live Overload Bridge &bull; Automated Backup Engine
+                        overloadfight.club &bull; Overload Fight Club Combat Station &bull; Live Overload Bridge
                     </p>
                     <p className="text-[11px] text-gray-600">
-                        Tailored for the Revival Productions Overload 6DOF community
+                        Tailored for the Revival Productions Overload & OLMod 6DOF Community
                     </p>
                 </div>
             </footer>
