@@ -1,11 +1,10 @@
 node_modules
 dist
 dist-server
-dist-ssr
+.git
+.github
+*.log
 overload-data
-*.local
 .env
 .env.*
-*.log
 .DS_Store
-

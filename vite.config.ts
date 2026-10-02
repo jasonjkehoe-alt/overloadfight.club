@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { createOverloadBridgePlugin } from './src/server/overloadBridge';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), createOverloadBridgePlugin()],
   server: {
     port: 5173,
     host: true,

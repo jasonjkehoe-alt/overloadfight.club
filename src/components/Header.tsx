@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Volume2, ExternalLink, Gamepad2, BookOpen, Sliders, FolderOpen, Check, Copy } from 'lucide-react';
 
 interface HeaderProps {
-    activeTab: 'editor' | 'loadout' | 'manual';
-    onSelectTab: (tab: 'editor' | 'loadout' | 'manual') => void;
+    activeTab: 'editor' | 'vault' | 'loadout' | 'manual';
+    onSelectTab: (tab: 'editor' | 'vault' | 'loadout' | 'manual') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onSelectTab }) => {
@@ -45,6 +45,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onSelectTab }) => {
                     >
                         <Sliders className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Editor</span>
+                    </button>
+
+                    <button
+                        onClick={() => onSelectTab('vault')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                            activeTab === 'vault'
+                                ? 'bg-[#ff6600] text-black font-bold shadow-lg shadow-[#ff6600]/20'
+                                : 'text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span>Vault</span>
                     </button>
 
                     <button

@@ -6,12 +6,14 @@ import { FFmpegService } from '../utils/ffmpeg';
 import { saveTaunt, getTaunts, deleteTaunt, updateTauntName } from '../utils/audioHistoryDb';
 import { generatePresetAudio } from '../utils/testPresets';
 import { VoiceRecorderModal } from './VoiceRecorderModal';
+import { WebImportModal } from './WebImportModal';
 import { fetchFile } from '@ffmpeg/util';
 import { 
     Upload, 
     Download, 
     Play, 
     Pause, 
+    Globe, 
     AlertCircle, 
     Trash2, 
     History, 
@@ -32,7 +34,8 @@ import {
     RotateCcw,
     Zap,
     Keyboard,
-    ShieldAlert
+    ShieldAlert,
+    HardDrive
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -45,9 +48,10 @@ interface HistoryItem {
 
 interface AudioEditorProps {
     onEquipToSlot?: (tauntId: string, slotNum: number) => void;
+    initialFile?: File | null;
 }
 
-export const AudioEditor: React.FC<AudioEditorProps> = () => {
+export const AudioEditor: React.FC<AudioEditorProps> = ({ initialFile }) => {
     // Refs
     const containerRef = useRef<HTMLDivElement>(null);
     const timelineRef = useRef<HTMLDivElement>(null);
@@ -56,12 +60,18 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
     const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
     // Audio & Processing State
-    const [file, setFile] = useState<File | null>(null);
+    const [file, setFile] = useState<File | null>(initialFile || null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (initialFile) {
+            loadAudioFile(initialFile);
+        }
+    }, [initialFile]);
 
     // Trimming & Waveform State
     const [regionStart, setRegionStart] = useState(0);
@@ -83,6 +93,7 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
     const [editName, setEditName] = useState('');
     const [playingId, setPlayingId] = useState<string | null>(null);
     const [isRecordingModalOpen, setIsRecordingModalOpen] = useState(false);
+    const [isWebImportModalOpen, setIsWebImportModalOpen] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const [debugLog, setDebugLog] = useState<string[]>([]);
     const [showDebug, setShowDebug] = useState(false);
@@ -412,7 +423,7 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
     };
 
     // FFmpeg WASM Audio Export Pipeline
-    const handleExport = async () => {
+    const handleExport = async (installToGame = false) => {
         if (!file || !ffmpegLoaded || isProcessing) return;
         setIsProcessing(true);
         setError(null);
@@ -488,13 +499,38 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
             await saveTaunt(finalFilename, blob);
             await loadHistory();
 
-            // Trigger download
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = finalFilename;
-            a.click();
-            URL.revokeObjectURL(url);
+            if (installToGame) {
+                addLog('Installing directly to Overload game folder...');
+                // Convert blob to base64
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = async () => {
+                    try {
+                        const base64data = (reader.result as string).split(',')[1];
+                        const res = await fetch('/api/overload/install', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ filename: finalFilename, base64: base64data })
+                        });
+                        const installData = await res.json();
+                        if (res.ok && installData.success) {
+                            setExportSuccess(`Installed directly into Overload as "${installData.filename}"! Ready in-game.`);
+                        } else {
+                            setError(`Failed to install to game: ${installData.error || 'Unknown error'}`);
+                        }
+                    } catch (e: any) {
+                        setError(`Game install error: ${e.message}`);
+                    }
+                };
+            } else {
+                // Trigger browser download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = finalFilename;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
 
             // Cleanup virtual FS
             try {
@@ -601,6 +637,14 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
 
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={() => setIsWebImportModalOpen(true)}
+                            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#ff6600]/15 hover:bg-[#ff6600]/25 border border-[#ff6600]/50 text-[#ff6600] text-xs font-bold transition-all shadow-lg hover:shadow-[#ff6600]/20"
+                        >
+                            <Globe className="w-3.5 h-3.5 text-[#ff6600]" />
+                            <span>Import from Web</span>
+                        </button>
+
+                        <button
                             onClick={() => setIsRecordingModalOpen(true)}
                             className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-red-950/40 hover:bg-red-900/40 border border-red-500/40 text-red-300 text-xs font-bold transition-all shadow-lg"
                         >
@@ -689,6 +733,21 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Web & Media Banner */}
+                        <div className="p-4 rounded-xl bg-gradient-to-r from-[#ff6600]/10 via-black to-black border border-[#ff6600]/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-2 text-gray-300">
+                                <Globe className="w-4 h-4 text-[#ff6600]" />
+                                <span>Want to sample from YouTube, Archive.org, or a video file?</span>
+                            </div>
+                            <button
+                                onClick={() => setIsWebImportModalOpen(true)}
+                                className="px-4 py-2 rounded-lg bg-[#ff6600] hover:bg-[#ff771a] text-black font-bold flex items-center gap-1.5 transition-all shadow-md shrink-0"
+                            >
+                                <Globe className="w-3.5 h-3.5" />
+                                <span>Import from Web & Media</span>
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     /* Active Audio Workspace */
@@ -701,17 +760,27 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
                                 <span className="text-gray-500">({audioDuration.toFixed(2)}s total)</span>
                             </div>
 
-                            <label className="text-[#ff6600] hover:text-[#ff8533] cursor-pointer font-bold">
-                                <span>Change Audio File</span>
-                                <input 
-                                    type="file" 
-                                    className="hidden" 
-                                    accept="audio/*" 
-                                    onChange={(e) => {
-                                        if (e.target.files && e.target.files[0]) loadAudioFile(e.target.files[0]);
-                                    }} 
-                                />
-                            </label>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setIsWebImportModalOpen(true)}
+                                    className="text-gray-300 hover:text-[#ff6600] cursor-pointer font-bold flex items-center gap-1.5 transition-colors"
+                                >
+                                    <Globe className="w-3.5 h-3.5 text-[#ff6600]" />
+                                    <span>Import from Web</span>
+                                </button>
+                                <span className="text-white/20">&bull;</span>
+                                <label className="text-[#ff6600] hover:text-[#ff8533] cursor-pointer font-bold">
+                                    <span>Change Audio File</span>
+                                    <input 
+                                        type="file" 
+                                        className="hidden" 
+                                        accept="audio/*" 
+                                        onChange={(e) => {
+                                            if (e.target.files && e.target.files[0]) loadAudioFile(e.target.files[0]);
+                                        }} 
+                                    />
+                                </label>
+                            </div>
                         </div>
 
                         {/* Waveform Canvas & DAW Timeline */}
@@ -923,28 +992,45 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
                                     </button>
                                 </div>
 
-                                <button
-                                    onClick={handleExport}
-                                    disabled={isProcessing || !ffmpegLoaded}
-                                    className={clsx(
-                                        "flex items-center px-6 py-3 rounded-xl font-bold font-mono transition-all uppercase tracking-wider text-xs",
-                                        isProcessing || !ffmpegLoaded
-                                            ? "bg-white/5 text-gray-500 cursor-not-allowed border border-white/5"
-                                            : "bg-[#ff6600] hover:bg-[#ff8533] text-black shadow-lg shadow-[#ff6600]/25 hover:shadow-[#ff6600]/40 hover:scale-[1.02]"
-                                    )}
-                                >
-                                    {isProcessing ? (
-                                        <>
-                                            <div className="animate-spin mr-2 h-4 w-4 border-2 border-black border-t-transparent rounded-full" />
-                                            Mastering Vorbis OGG...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Export Taunt (.ogg)
-                                        </>
-                                    )}
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleExport(true)}
+                                        disabled={isProcessing || !ffmpegLoaded}
+                                        className={clsx(
+                                            "flex items-center px-5 py-3 rounded-xl font-bold font-mono transition-all uppercase tracking-wider text-xs",
+                                            isProcessing || !ffmpegLoaded
+                                                ? "bg-white/5 text-gray-500 cursor-not-allowed border border-white/5"
+                                                : "bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-600/25 hover:scale-[1.02]"
+                                        )}
+                                        title="Saves directly into your Overload AudioTaunts folder without needing to move files manually"
+                                    >
+                                        <HardDrive className="w-4 h-4 mr-2" />
+                                        Install to Overload
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleExport(false)}
+                                        disabled={isProcessing || !ffmpegLoaded}
+                                        className={clsx(
+                                            "flex items-center px-6 py-3 rounded-xl font-bold font-mono transition-all uppercase tracking-wider text-xs",
+                                            isProcessing || !ffmpegLoaded
+                                                ? "bg-white/5 text-gray-500 cursor-not-allowed border border-white/5"
+                                                : "bg-[#ff6600] hover:bg-[#ff8533] text-black shadow-lg shadow-[#ff6600]/25 hover:shadow-[#ff6600]/40 hover:scale-[1.02]"
+                                        )}
+                                    >
+                                        {isProcessing ? (
+                                            <>
+                                                <div className="animate-spin mr-2 h-4 w-4 border-2 border-black border-t-transparent rounded-full" />
+                                                Mastering...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Download className="w-4 h-4 mr-2" />
+                                                Download (.ogg)
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1079,6 +1165,15 @@ export const AudioEditor: React.FC<AudioEditorProps> = () => {
                 onClose={() => setIsRecordingModalOpen(false)}
                 onAudioReady={loadAudioFile}
             />
+
+            {/* Web & Media Import Modal */}
+            {isWebImportModalOpen && (
+                <WebImportModal
+                    isOpen={isWebImportModalOpen}
+                    onClose={() => setIsWebImportModalOpen(false)}
+                    onAudioReady={loadAudioFile}
+                />
+            )}
         </div>
     );
 };
