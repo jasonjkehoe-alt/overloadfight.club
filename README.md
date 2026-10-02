@@ -51,7 +51,7 @@ The official community platform and combat station for [Overload](https://playov
 
 ```bash
 # Clone the repository
-git clone https://github.com/<YOUR_GITHUB_USERNAME>/overloadfight.club.git
+git clone https://github.com/jasonjkehoe-alt/overloadfight.club.git
 cd overloadfight.club
 
 # Install dependencies
@@ -76,7 +76,7 @@ version: '3.8'
 
 services:
   overloadfight-club:
-    image: ghcr.io/<YOUR_GITHUB_USERNAME>/overloadfight.club:latest
+    image: ghcr.io/jasonjkehoe-alt/overloadfight.club:latest
     container_name: overloadfight-club
     restart: unless-stopped
     ports:
@@ -114,7 +114,7 @@ Visit `http://<YOUR-SYNOLOGY-IP>:5173` in your browser.
 
 When you push new code or features to GitHub (`git push origin main`):
 
-1. **GitHub Actions** automatically builds multi-arch Docker images and pushes them to GitHub Container Registry (`ghcr.io/<YOUR_GITHUB_USERNAME>/overloadfight.club:latest`).
+1. **GitHub Actions** automatically builds multi-arch Docker images and pushes them to GitHub Container Registry (`ghcr.io/jasonjkehoe-alt/overloadfight.club:latest`).
 2. **Watchtower** on your Synology NAS detects the updated image within 5 minutes, pulls the latest layers, and restarts the container automatically!
 3. Alternatively, you can update manually with 1 click in DSM Container Manager or by running `sh synology-update.sh`.
 

@@ -47,7 +47,7 @@ version: '3.8'
 
 services:
   overloadfight-club:
-    image: ghcr.io/<YOUR_GITHUB_USERNAME>/overloadfight.club:latest
+    image: ghcr.io/jasonjkehoe-alt/overloadfight.club:latest
     container_name: overloadfight-club
     restart: unless-stopped
     ports:
@@ -72,7 +72,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --interval 300 --cleanup overloadfight-club
 ```
-*(Replace `<YOUR_GITHUB_USERNAME>` with your GitHub username or organization).*
 
 5. Click **Next** -> **Next** -> **Done**.
 6. Container Manager will download the container and start `overloadfight.club`.
@@ -99,7 +98,7 @@ ssh admin@<YOUR-SYNOLOGY-IP>
 cd /volume1/docker
 
 # Clone the repository
-git clone https://github.com/<YOUR_GITHUB_USERNAME>/overloadfight.club.git
+git clone https://github.com/jasonjkehoe-alt/overloadfight.club.git
 cd overloadfight.club
 
 # Build and start container
@@ -118,7 +117,7 @@ git commit -m "feat: new server and player tracker features"
 git push origin main
 ```
 
-GitHub Actions automatically builds the multi-arch Docker image and pushes it to **GitHub Container Registry (`ghcr.io/<YOUR_GITHUB_USERNAME>/overloadfight.club:latest`)**.
+GitHub Actions automatically builds the multi-arch Docker image and pushes it to **GitHub Container Registry (`ghcr.io/jasonjkehoe-alt/overloadfight.club:latest`)**.
 
 You can update your Synology NAS using any of these methods:
 
@@ -139,7 +138,7 @@ sh synology-update.sh
 
 ### Option C: Manual Update via DSM Container Manager GUI
 1. Open **Container Manager > Image**.
-2. Select `ghcr.io/<YOUR_GITHUB_USERNAME>/overloadfight.club:latest` and click **Update** (or **Action > Pull**).
+2. Select `ghcr.io/jasonjkehoe-alt/overloadfight.club:latest` and click **Update** (or **Action > Pull**).
 3. Go to **Container**, select `overloadfight-club`, and click **Action > Restart**.
 
 ---

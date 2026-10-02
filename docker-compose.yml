@@ -1,13 +1,9 @@
 services:
   overloadfight-club:
-    # Option A: Build locally from source on your Synology box or PC
+    image: ghcr.io/jasonjkehoe-alt/overloadfight.club:latest
     build:
       context: .
       dockerfile: Dockerfile
-    
-    # Option B: Use the pre-built image published automatically by GitHub Actions
-    # Replace <your-github-username> with your actual GitHub account or organization
-    # image: ghcr.io/<your-github-username>/overloadfight.club:latest
     
     container_name: overloadfight-club
     restart: unless-stopped
