@@ -1,0 +1,365 @@
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import routes from './routes.js';
+import adminRoutes from './admin-routes.js';
+import { sessionMiddleware } from './auth.js';
+import ingest from './ingest.js';
+import backfillManager from './backfill.js';
+import maintenance from './maintenance.js';
+import mapSyncService from './services/mapSyncService.js';
+import db from './db.js';
+
+import bridgeRoutes from './bridge-routes.js';
+import { warmupEngine } from './services/audioImportService.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+
+// Security Headers for SharedArrayBuffer (FFmpeg)
+app.use((req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    next();
+});
+
+app.use(sessionMiddleware); // Session support for admin auth
+
+// API Routes
+app.get('/api/stats', (req, res) => {
+    try {
+        const stats = db.getDatabaseStats.get();
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.use('/api', routes);
+app.use('/api', bridgeRoutes);
+app.use('/api/admin', adminRoutes);
+
+// In production, serve compiled static files; in development, serve the API Gateway Console
+const isProduction = process.env.NODE_ENV === 'production';
+const distPath = path.join(__dirname, '../dist');
+
+if (isProduction && fs.existsSync(path.join(distPath, 'index.html'))) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+    });
+} else {
+    // API Gateway & Status Console for Development
+    app.get('*', (req, res) => {
+        // If an API request somehow reached here without matching, return 404 JSON
+        if (req.path.startsWith('/api')) {
+            return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
+        }
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overload Tracker // API Gateway</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #080808;
+            color: #d1d5db;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 2.5rem 1.5rem;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 860px;
+            width: 100%;
+            background: #0f0f10;
+            border: 1px solid #262626;
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #262626;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .title-group h1 {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .title-group p {
+            color: #9ca3af;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+        }
+        .banner {
+            background: linear-gradient(135deg, rgba(255, 102, 0, 0.12) 0%, rgba(255, 102, 0, 0.04) 100%);
+            border: 1px solid rgba(255, 102, 0, 0.35);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .banner-text h2 {
+            color: #ff6600;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.3rem;
+        }
+        .banner-text p {
+            font-size: 0.825rem;
+            color: #e5e7eb;
+            line-height: 1.4;
+        }
+        .btn-launch {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: #ff6600;
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.875rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(255, 102, 0, 0.3);
+            align-self: flex-start;
+        }
+        .btn-launch:hover {
+            background: #ff771a;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(255, 102, 0, 0.45);
+        }
+        .section-title {
+            color: #9ca3af;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .card {
+            background: #151517;
+            border: 1px solid #262626;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .card-label {
+            font-size: 0.7rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .card-value {
+            font-size: 0.95rem;
+            color: #f3f4f6;
+            font-weight: 600;
+        }
+        .endpoints {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .endpoint-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #151517;
+            border: 1px solid #262626;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            transition: border-color 0.15s ease;
+        }
+        .endpoint-item:hover {
+            border-color: #404040;
+        }
+        .endpoint-link {
+            color: #ff6600;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .endpoint-link:hover {
+            text-decoration: underline;
+        }
+        .endpoint-desc {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+        .method {
+            background: #262626;
+            color: #9ca3af;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title-group">
+                <h1>Overload Tracker</h1>
+                <p>Backend API Gateway // Server Port 3000</p>
+            </div>
+            <div class="badge">
+                <span class="dot"></span>
+                <span>SYSTEM ONLINE</span>
+            </div>
+        </div>
+
+        <div class="banner">
+            <div class="banner-text">
+                <h2>Looking for the Web Dashboard?</h2>
+                <p>You are viewing the raw API backend on port 3000. The full live web user interface (with live taunt editor, pilot dossiers, and cold storage) is running on Vite.</p>
+            </div>
+            <a href="http://localhost:5173" class="btn-launch">
+                <span>Launch Live Web Dashboard (Port 5173) &rarr;</span>
+            </a>
+        </div>
+
+        <div class="section-title">Telemetry & Infrastructure</div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-label">Server Mode</div>
+                <div class="card-value">Node.js Express (Development)</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Hot Telemetry Database</div>
+                <div class="card-value">tracker.db (Active 365 Days)</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Cold Archival Database</div>
+                <div class="card-value">cold_storage.db (7.2 Years)</div>
+            </div>
+        </div>
+
+        <div class="section-title">Key API Endpoints</div>
+        <ul class="endpoints">
+            <li class="endpoint-item">
+                <div>
+                    <span class="method">GET</span>
+                    <a href="/api/stats" class="endpoint-link" target="_blank">/api/stats</a>
+                </div>
+                <span class="endpoint-desc">Live database statistics & match counters</span>
+            </li>
+            <li class="endpoint-item">
+                <div>
+                    <span class="method">GET</span>
+                    <a href="/api/stats/cold/deep" class="endpoint-link" target="_blank">/api/stats/cold/deep</a>
+                </div>
+                <span class="endpoint-desc">Archival deep statistics across all 75,820 sorties</span>
+            </li>
+            <li class="endpoint-item">
+                <div>
+                    <span class="method">GET</span>
+                    <a href="/api/stats/pilots?source=all" class="endpoint-link" target="_blank">/api/stats/pilots?source=all</a>
+                </div>
+                <span class="endpoint-desc">Complete pilot leaderboard with K/D, ACI, Win%</span>
+            </li>
+            <li class="endpoint-item">
+                <div>
+                    <span class="method">GET</span>
+                    <a href="/api/maps" class="endpoint-link" target="_blank">/api/maps</a>
+                </div>
+                <span class="endpoint-desc">Combat zones & arena tactical specifications</span>
+            </li>
+            <li class="endpoint-item">
+                <div>
+                    <span class="method">GET</span>
+                    <a href="/api/games?page=1" class="endpoint-link" target="_blank">/api/games?page=1</a>
+                </div>
+                <span class="endpoint-desc">Recent sorties & match telemetry records</span>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>`;
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+    });
+}
+
+// Start Server
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+
+    // Start data ingestion and polling
+    ingest.startPolling();
+
+    // Ensure map database is populated from catalog
+    mapSyncService.ensureMapsPopulated();
+
+    // Check for interrupted backfill jobs and resume
+    const activeJob = backfillManager.getActiveJob();
+    if (activeJob && activeJob.status === 'running') {
+        console.log(`Resuming interrupted backfill job ${activeJob.id}...`);
+        backfillManager.startBackfill(activeJob.id).catch(err => {
+            console.error('Failed to resume backfill job:', err);
+        });
+    }
+
+    // Schedule Daily Maintenance (Cold Storage)
+    maintenance.scheduleMaintenance();
+
+    // Pre-warm Audio Import Engine (yt-dlp & python)
+    warmupEngine().catch(() => {});
+});

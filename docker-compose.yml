@@ -1,36 +1,23 @@
+version: '3.8'
+
 services:
   overloadfight-club:
-    image: ghcr.io/jasonjkehoe-alt/overloadfight.club:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    
+    build: .
+    image: overloadfight-club:latest
     container_name: overloadfight-club
     restart: unless-stopped
     ports:
-      # Change host port (left) if 5173 is already in use on your Synology NAS
-      - "5173:5173"
-    environment:
-      - PORT=5173
-      - HOST=0.0.0.0
-      - OVERLOAD_PATH=/overload
-      - TZ=UTC
+      - "3000:3000"
     volumes:
-      # Mount Overload storage folder on your Synology NAS:
-      # Option 1 (relative): ./overload-data:/overload
-      # Option 2 (DSM absolute): /volume1/docker/overloadfight.club/data:/overload
-      # Option 3 (Direct Synology Drive share): /volume1/SynologyDrive/Overload:/overload
-      - ./overload-data:/overload
-
-  # ==============================================================================
-  # OPTIONAL: Watchtower for 100% Automated Updates from GitHub
-  # Uncomment the block below to automatically pull and restart whenever you push
-  # new changes to GitHub without having to log into DSM!
-  # ==============================================================================
-  # watchtower:
-  #   image: containrrr/watchtower:latest
-  #   container_name: overloadfight-watchtower
-  #   restart: unless-stopped
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #   command: --interval 300 --cleanup overloadfight-club
+      # Direct bind-mount to host ./data directory for persistent SQLite databases and map storage
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - TZ=America/Chicago
+      - ADMIN_PASSWORD=admin123
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

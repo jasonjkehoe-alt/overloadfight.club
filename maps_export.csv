@@ -1,0 +1,622 @@
+id,name,image,size,maxPlayers,bestTeamSize,supportsCTF,author,date,downloadLink,style
+5,6dof Doggystyle,thumbs/6dof_Doggystyle_01small.jpg,small,4,2,false,Yinut,2020-03-06,https://overloadmaps.com/6dof-doggystyle,mixed
+250,Abyss,thumbs/Abyss_01small.jpg,small,4,2,false,CHILLY_BUS,2018-10-20,https://overloadmaps.com/abyss,mixed
+8,Accelerated Dragon,thumbs/Accelerated_Dragon_01small.jpg,small,4,2,false,Maxx,2021-01-09,https://overloadmaps.com/6dof-doggystyle,tech
+12,Ancient,thumbs/Ancient_01small.jpg,large,8,4,false,Yinut,2019-09-07,https://overloadmaps.com/ancient,mixed
+200,Ancient CTF,thumbs/Ancient_CTF_01small.jpg,large,8,4,true,Yinut,2019-09-07,https://overloadmaps.com/ancient-ctf,tech
+234,Approach,thumbs/Approach_01small.jpg,large,8,4,false,Miasmic,2019-12-23,https://overloadmaps.com/approach,mixed
+9,Argus,thumbs/Argus_01small.jpg,small,2,4,false,Yinut,2018-10-06,https://overloadmaps.com/argus,mixed
+13,Ascent,thumbs/Ascent_01small.jpg,large,8,4,false,Luponix,2020-12-18,https://overloadmaps.com/ascent,tech
+15,Asteroid Outpost Delta,thumbs/Asteroid_Outpost_Delta_01small.jpg,large,8,4,false,Yinut,2020-01-29,https://overloadmaps.com/asteroid-outpost-delta,mixed
+232,Attrition,thumbs/Attrition_01small.jpg,small,4,2,false,Miasmic,2019-02-24,https://overloadmaps.com/attrition,mixed
+16,Augite,thumbs/Augite_01small.jpg,medium,6,3,false,Miasmic,2020-09-25,https://overloadmaps.com/augite,mixed
+220,BMBA,thumbs/BMBA_01small.jpg,medium,6,3,false,Blarget2,2019-05-06,https://overloadmaps.com/bmba,organic
+219,BMBCS,thumbs/BMBCS_01small.jpg,tiny,4,2,true,Blarget2,2019-05-06,https://overloadmaps.com/bmbcs,organic
+218,BMBT,thumbs/BMBT_01small.jpg,small,6,3,false,Blarget2,2019-05-13,https://overloadmaps.com/bmbt,mixed
+17,Backfire,thumbs/Backfire_01small.jpg,large,8,4,true,Revival Productions,2018-05-31,,mixed
+18,Ballroom,thumbs/Ballroom_01small.jpg,tiny,4,2,true,Crossy,2019-12-08,https://overloadmaps.com/ballroom,mixed
+251,Belted V2,thumbs/Belted_V2_01small.jpg,medium,6,3,true,Miasmic,2019-04-30,https://overloadmaps.com/belted-v2,mixed
+19,Betty Sue,thumbs/Betty_Sue_01small.jpg,medium,6,3,true,PILE,2021-11-21,https://overloadmaps.com/betty-sue,tech
+20,Biclassic,thumbs/Biclassic_01small.jpg,small,4,2,true,Lee,2021-10-10,https://overloadmaps.com/biclassic,tech
+21,Birds Nest,thumbs/Birds_Nest_V1.1_01small.jpg,small,4,2,true,Lee,2021-04-14,https://overloadmaps.com/birds-nest-v1.1,mixed
+22,Black Forest Ham,thumbs/Black_Forest_Ham_01small.jpg,small,4,2,true,Terminal,2020-04-22,https://overloadmaps.com/black-forest-ham,tech
+23,Blizzard,thumbs/Blizzard_01small.jpg,small,4,2,true,Revival Productions,2018-05-31,,mixed
+24,Burning Indika 1.1,thumbs/Burning_Indika_1.1_01small.jpg,small,4,2,true,Terminal,2019-04-03,https://overloadmaps.com/burning-indika-1.1,tech
+25,Burnout-M,thumbs/Burnout-M_01small.jpg,small,4,2,true,CHILLY_BUS,2019-01-04,https://overloadmaps.com/burnout,tech
+221,C Block,thumbs/C_Block_01small.jpg,medium,6,3,true,Miasmic,2019-08-21,https://overloadmaps.com/c-block,tech
+26,Cacophony,thumbs/Cacophon_01small.jpg,small,4,2,true,Miasmic,2019-07-31,https://overloadmaps.com/cacophony,tech
+199,Cacophony CTF,thumbs/Cacophony_CTF_01small.jpg,large,8,4,false,Miasmic,2019-11-26,https://overloadmaps.com/cacophony-ctf,tech
+27,Cage 1.1,thumbs/Cage_1.1_01small.jpg,small,4,2,true,Kevin,2019-06-02,https://overloadmaps.com/cage-1.1,mixed
+28,Calzone,thumbs/Calzone_01small.jpg,small,4,2,true,PILE,2021-12-06,https://overloadmaps.com/calzone,mixed
+29,Candy,thumbs/Candy_01small.jpg,small,4,2,true,PILE,2021-11-04,https://overloadmaps.com/candy,tech
+30,Casual V2,thumbs/Casual_V2_01small.jpg,small,4,2,true,Yinut,2020-07-27,https://overloadmaps.com/casual-v2,mixed
+31,Cathedral MP,thumbs/Cathedral_MP_01small.jpg,small,4,2,true,JosheM,2018-11-16,https://overloadmaps.com/cathedral-mp,tech
+32,Caverns,thumbs/Caverns_01small.jpg,medium,6,3,true,Terminal,2019-07-22,https://overloadmaps.com/caverns,mixed
+33,Cavernsofmobius,thumbs/Cavernsofmobius_01small.jpg,large,8,4,true,davxd666,2022-04-26,https://overloadmaps.com/cavernsofmobius,mixed
+34,Centrifuge,thumbs/Centrifuge_01small.jpg,small,6,3,true,Revival Productions,2018-05-31,,tech
+235,Cerulean,thumbs/Cerulean_01small.jpg,medium,6,3,true,CHILLY_BUS,2019-05-10,https://overloadmaps.com/cerulean,tech
+35,Chainber,thumbs/Chainber_01small.jpg,small,4,2,true,Franman,2022-11-01,https://overloadmaps.com/chainber,tech
+236,Chase,thumbs/Chase_01small.jpg,large,8,4,true,Miasmic,2019-12-23,https://overloadmaps.com/chase,mixed
+36,Chevron Infinite,thumbs/Chevron_Infinite_01small.jpg,small,4,2,true,Sirius,2019-12-23,https://overloadmaps.com/chevron-infinite,tech
+37,Chimera V2,thumbs/Chimera_V2_01small.jpg,small,4,2,true,CHILLY_BUS,2019-05-10,https://overloadmaps.com/chimera-v2,tech
+38,Chimp,thumbs/Chimp_01small.jpg,small,4,2,true,Revival Productions,2018-05-31,,tech
+40,Chromatic 3,thumbs/Chromatic_3_01small.jpg,large,8,4,true,Yinut,2020-02-12,https://overloadmaps.com/chromatic-3,mixed
+39,Chromatic Destination Fin,thumbs/Chromatic_Destination_Fin_01small.jpg,medium,6,3,true,Yinut,2018-10-01,https://overloadmaps.com/chromatic-destination-fin,mixed
+41,Chromatic2,thumbs/Chromatic2_01small.jpg,medium,6,3,true,Yinut,2019-07-01,https://overloadmaps.com/chromatic2,mixed
+237,Chrysalis,thumbs/Chrysalis_01small.jpg,medium,6,3,true,Krusty,2019-05-06,https://overloadmaps.com/chrysalis,tech
+198,Colony CTF,thumbs/Colony_CTF_01small.jpg,gigantic,10,5,false,Miasmic,2019-11-26,https://overloadmaps.com/colony-ctf,organic
+42,Colorball,thumbs/Colorball_01small.jpg,small,6,3,true,Blarget2,2018-11-20,https://overloadmaps.com/colorball,organic
+43,Convention,thumbs/Convention_01small.jpg,medium,6,3,true,Terminal,2019-10-30,https://overloadmaps.com/convention,tech
+197,Convergence,thumbs/Convergence_01small.jpg,large,10,5,false,Yinut,2020-03-29,https://overloadmaps.com/convergence,mixed
+44,Conviction,thumbs/Conviction_01small.jpg,small,6,3,true,Kevin,2019-04-01,https://overloadmaps.com/conviction,mixed
+263,Conviction Bouncy,thumbs/Conviction_bouncy_01small.jpg,medium,6,3,true,Kevin,2023-04-02,https://overloadmaps.com/conviction-bouncy,mixed
+45,Corrupted,thumbs/Courrupted_01small.jpg,medium,6,3,true,JosheM,2022-03-15,https://overloadmaps.com/corrupted,tech
+46,Criss V2,thumbs/Criss_V2_01small.jpg,large,8,4,true,Doctor_Tasty,2020-04-05,https://overloadmaps.com/criss-v2,mixed
+47,Crossover,thumbs/Crossover_01small.jpg,large,8,4,true,Miasmic,2019-12-31,https://overloadmaps.com/crossover,mixed
+48,D-DAY97 V3,thumbs/D-Day97_V3_01small.jpg,medium,6,3,true,Luponix,2022-06-05,https://overloadmaps.com/d-day97-v3,tech
+49,D-DAY97V2,thumbs/D-DAY97V2_01small.jpg,medium,6,3,true,Luponix,2019-08-07,https://overloadmaps.com/d-day97v2,tech
+50,Derelict,thumbs/Derelict_01small.jpg,small,4,2,true,JosheM,2020-03-24,https://overloadmaps.com/derelict,space
+51,Devastation V2,thumbs/Devastation_V2_01small.jpg,medium,8,4,true,JosheM,2020-01-24,https://overloadmaps.com/devastation-v2,organic
+52,Dodec,thumbs/Dodec_01small.jpg,small,6,3,true,Blarget2,2019-05-21,https://overloadmaps.com/dodec,organic
+53,Dominion V2,thumbs/Dominion_V2_01small.jpg,small,4,2,true,JosheM,2019-08-31,https://overloadmaps.com/dominion-v2,mixed
+54,Doubletake,thumbs/Doubletake_01small.jpg,small,4,2,true,CHILLY_BUS,2019-08-05,https://overloadmaps.com/doubletake,tech
+222,Dragon Altar,thumbs/Dragon_Altar_01small.jpg,gigantic,10,5,false,Revstro,2021-04-01,https://overloadmaps.com/dragon-altar,mixed
+55,Dreamcatcher,thumbs/Dreamcatcher_01small.jpg,large,8,4,true,Miasmic,2019-08-09,https://overloadmaps.com/dreamcatcher,tech
+56,Drone V2,thumbs/Drone_V2_01small.jpg,medium,6,3,true,Miasmic,2020-07-24,https://overloadmaps.com/drone-v2,organic
+208,Duplex,thumbs/Duplex_01small.jpg,medium,8,4,true,Miasmic,2018-12-06,https://overloadmaps.com/duplex,mixed
+238,Dynamo MP,thumbs/Dynamo_MP_01small.jpg,small,4,2,true,JosheM,2019-01-27,https://overloadmaps.com/dynamo-mp,tech
+217,Embedded,thumbs/Embedded_01small.jpg,medium,6,3,true,Miasmic,2019-03-25,https://overloadmaps.com/embedded,mixed
+57,Falcon Punch,thumbs/Falcon_Punch_01small.jpg,small,4,2,true,JosheM,2021-01-13,https://overloadmaps.com/falcon-punch,tech
+58,Fastblast,thumbs/Fastblast_01small.jpg,large,8,4,true,Yinut,2020-01-08,https://overloadmaps.com/fastblast,mixed
+59,Flatland,thumbs/Flatland_01small.jpg,medium,6,3,true,Doctor_Tasty,2022-02-25,https://overloadmaps.com/flatland,organic
+60,Flatland V2,thumbs/Flatland_V2_01small.jpg,medium,6,3,true,Doctor_Tasty,2022-04-06,https://overloadmaps.com/flatland-v2,organic
+61,Flywheel,thumbs/Flywheel_01small.jpg,large,8,4,true,Krusty,2019-06-01,https://overloadmaps.com/flywheel,tech
+62,Fortuna,thumbs/Fortuna_01small.jpg,small,4,2,true,Yinut,2019-08-05,https://overloadmaps.com/fortuna,mixed
+63,Foundry,thumbs/Foundry_01small.jpg,small,4,2,true,Revival Productions,2018-05-31,,tech
+196,Friction CTF,thumbs/Friction_CTF_01small.jpg,small,6,3,false,Terminal,2019-08-31,https://overloadmaps.com/friction-ctf,tech
+262,Frostbite,thumbs/frostbite_01small.jpg,large,8,4,true,Shroudeye,2018-10-21,https://overloadmaps.com/frostbite,mixed
+64,Frozen Facility,thumbs/Frozen_Facility_01small.jpg,medium,6,3,true,Yinut,2018-10-16,https://overloadmaps.com/frozen-facility,mixed
+65,Fulcrum MP,thumbs/Fulcrum_MP_01small.jpg,medium,6,3,true,Krusty,2022-06-03,https://overloadmaps.com/fulcrum-mp,mixed
+252,GENERATORARENA,thumbs/GENERATORARENA_01small.jpg,medium,8,4,true,Alt_Confirmed,2020-09-21,https://overloadmaps.com/generatorarena,tech
+195,Gambit CTF,thumbs/Gambit_CTF_01small.jpg,small,6,3,false,Terminal,2019-08-27,https://overloadmaps.com/gambit-ctf,tech
+193,Garrison CTF,thumbs/Garrison_CTF_01small.jpg,medium,6,3,false,Krusty,2020-02-17,https://overloadmaps.com/garrison-ctf,tech
+191,Grand Traverse CTF,thumbs/Grand_Traverse_CTF_01small.jpg,medium,6,3,false,JosheM,2019-12-02,https://overloadmaps.com/grand-traverse-ctf,tech
+66,Green Beret,thumbs/Green_Beret_01small.jpg,medium,6,3,true,Terminal,2022-12-06,https://overloadmaps.com/green-beret,tech
+67,Habitrail,thumbs/Habitrail_01small.jpg,small,4,2,true,Krusty,2021-04-28,https://overloadmaps.com/habitrail,tech
+194,Halcyon CTF,thumbs/Halcyon_CTF_01small.jpg,large,10,5,false,Jazzyjet,2019-08-30,https://overloadmaps.com/halcyon-ctf,tech
+192,Halcyon Curved,thumbs/Halcyon_Curved_01small.jpg,large,8,4,false,Jazzyjet,2020-01-06,https://overloadmaps.com/halcyon-curved,tech
+68,Harbinger,thumbs/Harbinger_01small.jpg,medium,6,3,true,CHILLY_BUS,2019-06-16,https://overloadmaps.com/harbinger,tech
+69,Heartbreaker,thumbs/Heartbreaker_01small.jpg,small,4,2,true,Terminal,2019-03-03,https://overloadmaps.com/heartbreaker,tech
+70,Hedgegrow,thumbs/Hedgerow_01small.jpg,medium,6,3,true,Doctor_Tasty,2020-12-27,https://overloadmaps.com/hedgerow,organic
+71,Helium,thumbs/Helium_01small.jpg,medium,6,3,true,Sirius,2018-10-05,https://overloadmaps.com/helium,mixed
+253,Helix,thumbs/Helix_01small.jpg,large,8,4,true,Yinut,2021-04-18,https://overloadmaps.com/helix,mixed
+72,Hive,thumbs/Hive_01small.jpg,small,6,3,true,Revival Productions,2018-05-31,,mixed
+73,Horizon,thumbs/Horizon_01small.jpg,small,4,2,true,Terminal,2021-12-07,https://overloadmaps.com/horizon,tech
+223,Hover V2,thumbs/Hover_V2_01small.jpg,small,6,3,true,Miasmic,2020-08-19,https://overloadmaps.com/hover-v2,tech
+98,I don't care V1.2,thumbs/I_don%27t_care_V1.2_01small.jpg,small,4,2,true,Lee,2021-04-14,https://overloadmaps.com/i-don't-care-v1.2,mixed
+74,Icecycle V2 MP,thumbs/Icecycle_V2_MP_01small.jpg,medium,6,3,true,Krusty,2020-03-11,https://overloadmaps.com/icecycle-v2,mixed
+75,Icewolf Death Match V.1,thumbs/Icewolf_Death_Match_V.1_01small.jpg,medium,8,4,true,Maxx,2020-06-26,https://overloadmaps.com/icewolf-death-match-v.1,tech
+76,Incognito 2,thumbs/Incognito_2_01small.jpg,large,8,4,true,Maxx,2020-07-01,https://overloadmaps.com/incognito-2,tech
+77,Invocation,thumbs/Invocation_01small.jpg,small,6,3,true,CHILLY_BUS,2020-04-28,https://overloadmaps.com/invocation,tech
+202,Isle Of Dogs CTF,thumbs/Isle_Of_Dogs_CTF_01small.jpg,medium,8,4,false,Terminal,2019-12-02,https://overloadmaps.com/isle-of-dogs-ctf,tech
+78,Isotoxin V2,thumbs/Isotoxin_v2_01small.jpg,small,6,3,true,CHILLY_BUS,2021-06-08,https://overloadmaps.com/isotoxin-v2,mixed
+79,Jazzybox,thumbs/Jazzybox_01small.jpg,tiny,1,1,true,Jazzyjet,2019-12-19,https://overloadmaps.com/jazzybox,tech
+80,Jega V2,thumbs/Jega_V2_01small.jpg,medium,4,2,true,Terminal,2019-06-27,https://overloadmaps.com/jega-v2,mixed
+229,Jolt,thumbs/Jolt_01small.jpg,large,8,4,true,Secretariat,2020-11-15,https://overloadmaps.com/jolt,tech
+225,Juke,thumbs/Juke_01small.jpg,small,4,2,true,Miasmic,2020-08-21,https://overloadmaps.com/juke,mixed
+81,Junebug,thumbs/Junebug_01small.jpg,small,6,3,true,Terminal,2019-02-28,https://overloadmaps.com/junebug,tech
+86,KO V1.1,thumbs/KO_V1.1_01small.jpg,tiny,1,1,true,Lee,2020-10-27,https://overloadmaps.com/ko-v1.1,tech
+82,Kaheksa,thumbs/Kaheksa_01small.jpg,small,6,3,true,Yinut,2019-07-30,https://overloadmaps.com/kaheksa,mixed
+83,Kataclysmica 1.1,thumbs/Kataclysmica_1.1_01small.jpg,gigantic,10,5,true,Jazzyjet,2019-07-02,https://overloadmaps.com/kataclysmica-1.1,mixed
+206,Kataclysmica CTF,thumbs/Kataclysmica_CTF__01small.jpg,large,8,4,false,Jazzyjet,2020-01-21,https://overloadmaps.com/kataclysmica-ctf,tech
+84,Kegparty V3,thumbs/Kegparty_V3_01small.jpg,large,10,5,true,Luponix,2020-08-29,https://overloadmaps.com/kegparty-v3,tech
+85,Klaxon,thumbs/Klaxon_01small.jpg,small,4,2,true,Krusty,2021-10-29,https://overloadmaps.com/klaxon,tech
+87,Kradenko,thumbs/Kradenko_01small.jpg,large,8,4,true,Terminal,2020-02-07,https://overloadmaps.com/kradenko,mixed
+239,Krossfire,thumbs/Krossfire_01small.jpg,medium,6,3,true,Krusty,2019-04-14,https://overloadmaps.com/krossfire,tech
+224,KrusticParkV2,thumbs/KrusticParkV2_01small.jpg,medium,6,3,true,Krusty,2021-03-06,https://overloadmaps.com/krusticparkv2,tech
+88,Krustykart,thumbs/Krustykart_01small.jpg,large,8,4,true,Krusty,2020-05-21,https://overloadmaps.com/krustykart,tech
+240,Kuberun MP,thumbs/Kuberun_MP_01small.jpg,medium,6,3,true,Krusty,2019-05-12,https://overloadmaps.com/kuberun-mp,tech
+89,Labyrinth,thumbs/Labyrinth_01small.jpg,large,8,4,true,Revival Productions,2018-05-31,,organic
+241,Lacuna MP,thumbs/Lacuna_MP_01small.jpg,small,4,2,true,Oberon,2018-10-05,https://overloadmaps.com/lacuna-mp,organic
+90,Level 3,thumbs/Level_3_01small.jpg,large,8,4,true,PILE,2021-12-14,https://overloadmaps.com/level-3,mixed
+91,Logic,thumbs/Logic_01small.jpg,medium,4,2,true,Blarget2,2018-11-16,https://overloadmaps.com/logic,tech
+230,Lola GT Racer,thumbs/Lola_GT_Racer_01small.jpg,gigantic,10,5,false,PILE,2022-03-21,https://overloadmaps.com/lola-gt-racer,tech
+92,Long MB 1.1,thumbs/Long_MB_1.1_01small.jpg,medium,4,2,true,Terminal,2019-05-01,https://overloadmaps.com/long-mb-1.1,tech
+99,Lup's box,thumbs/Lup%27s_box_01small.jpg,tiny,1,1,true,Luponix,2021-09-05,https://overloadmaps.com/lup's-box,tech
+93,Lurk,thumbs/Lurk_01small.jpg,small,4,2,true,Terminal,2019-07-23,https://overloadmaps.com/lurk,tech
+216,MB Floss,thumbs/MB_Floss_01small.jpg,medium,8,4,false,Blarget2,2019-05-15,https://overloadmaps.com/mb-floss,organic
+215,MB Hexopass,thumbs/MB_Hexopass_01small.jpg,medium,8,4,false,Blarget2,2019-05-18,https://overloadmaps.com/mb-hexopass,organic
+214,MB Tritorus,thumbs/MB_Tritorus_01small.jpg,small,6,3,false,Blarget2,2019-06-08,https://overloadmaps.com/mb-tritorus,organic
+107,MP Hubris,thumbs/MP_Hubris_01small.jpg,large,8,4,true,Kevin,2018-10-04,https://overloadmaps.com/mp-hubris,mixed
+242,MP Ventorus,thumbs/MP_Ventorus_01small.jpg,medium,8,4,true,Kevin,2018-10-04,https://overloadmaps.com/mp-ventorus,tech
+108,MPSV Galatea,thumbs/MPSV_Galatea_01small.jpg,large,8,4,true,JosheM,2020-04-06,https://overloadmaps.com/mpsv-galatea,space
+94,Magic,thumbs/Magic_01small.jpg,large,8,4,true,Yinut,2018-10-28,https://overloadmaps.com/magic,mixed
+95,Malevolence V2,thumbs/Malevolence_V2_01small.jpg,small,1,1,true,CHILLY_BUS,2019-05-10,https://overloadmaps.com/malevolence-v2,mixed
+96,Mavericks,thumbs/Mavericks_01small.jpg,large,8,4,true,PILE,2020-01-30,https://overloadmaps.com/mavericks,mixed
+97,Mercer Point MP,thumbs/Mercer_Point_MP_01small.jpg,large,8,4,true,JosheM,2020-12-07,https://overloadmaps.com/mercer-point-mp-v2,tech
+100,Mesa,thumbs/Mesa_01small.jpg,medium,4,2,true,Revstro,2019-05-19,https://overloadmaps.com/mesa,tech
+101,Metro,thumbs/Metro_01small.jpg,small,4,2,true,Terminal,2019-03-11,https://overloadmaps.com/metro,tech
+102,Minefort 1.1,thumbs/Minefort_1.1_01small.jpg,medium,6,3,true,Revstro,2020-03-15,https://overloadmaps.com/minefort-1.1,tech
+103,Minefort CTF 1.1,thumbs/Minefort_CTF_1.1_01small.jpg,large,8,4,true,Revstro,2020-03-15,https://overloadmaps.com/minefort-ctf-1.1,tech
+104,Minigun CTF,thumbs/Minigun_CTF_01small.jpg,medium,4,2,true,Sirius,2021-02-11,https://overloadmaps.com/minigun-ctf,tech
+105,Mono,thumbs/Mono_01small.jpg,medium,4,2,true,CHILLY_BUS,2020-07-30,https://overloadmaps.com/mono,mixed
+106,Mouser,thumbs/Mouser_01small.jpg,medium,6,3,true,Miasmic,2019-12-26,https://overloadmaps.com/mouser,tech
+109,Neptune Redux,thumbs/Neptune_Redux_01small.jpg,large,8,4,true,Yinut,2019-10-17,https://overloadmaps.com/neptune-redux,mixed
+110,Netherite,thumbs/Netherite_01small.jpg,medium,6,3,true,Revstro,2021-03-09,https://overloadmaps.com/netherite,mixed
+111,Newbie,thumbs/Newbie_01small.jpg,large,8,4,true,Yinut,2019-03-29,https://overloadmaps.com/newbie,mixed
+112,Nuclear,thumbs/Nuclear_01small.jpg,large,8,4,true,Yinut,2019-05-30,https://overloadmaps.com/nuclear,mixed
+265,OFS Robot Factory V1,thumbs/Ofs_robot_factory_v1_01small.jpg,large,10,5,true,Kevin,2023-09-09,https://overloadmaps.com/ofs-robot-factory-v1,mixed
+264,OFS Secret Base V1,thumbs/Ofs_secret_base_v1_01small.jpg,large,8,4,true,Kevin,2023-09-09,https://overloadmaps.com/ofs-secret-base-v1,mixed
+113,Observation Deck,thumbs/Observation_Deck_01small.jpg,large,6,3,true,Trappist,2021-05-21,https://overloadmaps.com/observation-deck,mixed
+114,Ocellus MP,thumbs/Ocellus_MP_01small.jpg,medium,6,3,true,Krusty,2018-11-20,https://overloadmaps.com/ocellus-mp,mixed
+115,Octane,thumbs/Octane_01small.jpg,medium,4,2,true,CHILLY_BUS,2020-07-31,https://overloadmaps.com/octane,mixed
+243,Op Ception,thumbs/Op Ception_01small.jpg,large,8,4,true,LLAMA,2018-10-01,https://overloadmaps.com/op-ception,mixed
+116,Ostrich Farm V1.1,thumbs/Ostrich_Farm_v1.1_01small.jpg,gigantic,10,5,true,Lee,2020-08-20,https://overloadmaps.com/ostrich-farm-v1.1,mixed
+209,Outerkrust MP,thumbs/Outerkrust_MP_01small.jpg,medium,6,3,true,Krusty,2019-05-12,https://overloadmaps.com/outerkrust-mp,mixed
+117,Overload Station,thumbs/Overload_Station_01small.jpg,medium,6,3,true,Yinut,2021-07-16,https://overloadmaps.com/overload-station,mixed
+118,Pancake,thumbs/Pancake_01small.jpg,medium,4,2,true,Krusty,2020-08-26,https://overloadmaps.com/pancake,tech
+119,Perihelion,thumbs/Perihelion_01small.jpg,small,4,2,true,CHILLY_BUS,2019-12-20,https://overloadmaps.com/perihelion,tech
+244,Phobos Hangar,thumbs/Phobos_Hangar_01small.jpg,large,8,4,true,Revstro,2019-05-27,https://overloadmaps.com/phobos-hangar,mixed
+120,Pingpong,thumbs/Pingpong_01small.jpg,tiny,1,1,true,Lee,2020-10-26,https://overloadmaps.com/pingpong,tech
+121,Pitch,thumbs/Pitch_01small.jpg,small,6,3,true,Miasmic,2019-05-04,https://overloadmaps.com/pitch,mixed
+122,Polarcell,thumbs/PolarCell_01small.jpg,large,8,4,true,Krusty,2020-08-05,https://overloadmaps.com/polarcell,mixed
+123,Polaris,thumbs/Polaris_01small.jpg,medium,6,3,true,Krusty,2021-08-17,https://overloadmaps.com/polaris,mixed
+124,Pomelo,thumbs/Pomelo_01small.jpg,medium,6,3,true,Terminal,2022-04-16,https://overloadmaps.com/pomelo,mixed
+125,Poseidon,thumbs/Poseidon_01small.jpg,small,6,3,true,CHILLY_BUS,2019-08-09,https://overloadmaps.com/poseidon,mixed
+126,Precinct,thumbs/Precinct_01small.jpg,gigantic,10,5,true,Krusty,2020-11-13,https://overloadmaps.com/precinct,mixed
+212,Pressure,thumbs/Pressure_01small.jpg,small,4,2,true,Miasmic,2019-03-07,https://overloadmaps.com/pressure,mixed
+245,Prototype 26,thumbs/Prototype_26_01small.jpg,medium,6,3,true,CHILLY_BUS,2019-05-10,https://overloadmaps.com/prototype-26,tech
+127,Pseudoscorpion's Lair,thumbs/Pseudoscorpion%27s_Lair_01small.jpg,large,8,4,true,Sirius,2021-01-04,https://overloadmaps.com/pseudoscorpion's-lair,mixed
+128,Puncture,thumbs/Puncture_01small.jpg,small,4,2,true,Miasmic,2019-02-24,https://overloadmaps.com/puncture,mixed
+129,Pyroglyphic,thumbs/Pyroglyphic_01small.jpg,gigantic,10,5,true,Jazzyjet,2019-06-17,https://overloadmaps.com/pyroglyphic,tech
+246,Quad Hall,thumbs/Quad_Hall_01small.jpg,gigantic,16,8,true,Diamond Wolf,2019-05-18,https://overloadmaps.com/quad-hall,mixed
+130,Quadratric V2-L,thumbs/Quadratic_V2-L_01small.jpg,medium,4,2,true,CHILLY_BUS,2019-05-10,https://overloadmaps.com/quadratic-v2,tech
+131,Quick1,thumbs/Quick1_01small.jpg,small,4,2,true,Yinut,2019-08-18,https://overloadmaps.com/quick1,mixed
+260,Race Signet,thumbs/Race_Signet_01_small.jpg,large,10,5,false,hattieboss,2021-03-09,https://overloadmaps.com/race-signet,tech
+132,Racketeer V2,thumbs/Racketeer_V2_01small.jpg,large,8,4,true,Terminal,2021-01-27,https://overloadmaps.com/racketeer-v2,mixed
+133,Rec Centre,thumbs/Rec_Centre_01small.jpg,medium,4,2,true,Lee,2020-10-28,https://overloadmaps.com/rec-centre,mixed
+266,Requiem V2,thumbs/Requiem_v2_01small.jpg,medium,8,3,true,CHILLY_BUS,2023-09-04,https://overloadmaps.com/requiem-v2,tech
+134,Revenge Of The Goblins,thumbs/Revenge_Of_The_Goblins_01small.jpg,medium,6,3,true,Yinut,2018-10-03,https://overloadmaps.com/revenge-of-the-goblins,mixed
+135,Riber Control V2,thumbs/Riber_Control_V2_01small.jpg,small,6,3,true,JosheM,2020-01-23,https://overloadmaps.com/riber-control-v2,tech
+254,Rise,thumbs/Rise_01small.jpg,medium,6,3,true,Miasmic,2019-05-28,https://overloadmaps.com/rise,tech
+136,Rotunda,thumbs/Rotunda_01small.jpg,medium,6,3,true,Miasmic,2019-12-25,https://overloadmaps.com/rotunda,tech
+137,Rotunda 1v1,thumbs/Rotunda_1v1_01small.jpg,small,4,2,true,Miasmic,2019-12-25,https://overloadmaps.com/rotunda-1v1,tech
+138,Rotunda CTF,thumbs/Rotunda_CTF_01small.jpg,medium,6,3,true,Miasmic,2019-12-25,https://overloadmaps.com/rotunda-ctf,tech
+139,Roundabout,thumbs/Roundabout_01small.jpg,gigantic,10,5,true,Revival Productions,2018-05-31,,mixed
+140,Scheme 1.1,thumbs/Scheme_1.1_01small.jpg,medium,4,2,true,Kevin,2019-06-02,https://overloadmaps.com/scheme-1.1,tech
+141,Scorpion's Lair,thumbs/Scorpion%27s_Lair_01small.jpg,large,8,4,true,Sirius,2021-01-04,https://overloadmaps.com/scorpion's-lair,mixed
+142,Sector X,thumbs/Sector_X_01small.jpg,small,4,2,true,JosheM,2022-12-07,https://overloadmaps.com/sector,tech
+143,Shoot2,thumbs/Shoot2_01small.jpg,medium,6,3,true,Maxx,2020-12-20,https://overloadmaps.com/shoot2,tech
+144,Sideswipe,thumbs/Sideswipe_01small.jpg,medium,6,3,true,Krusty,2019-06-01,https://overloadmaps.com/sideswipe,mixed
+145,Sigma Station 1.1,thumbs/Sigma_Station_1.1_01small.jpg,large,8,4,true,Yinut,2018-10-01,https://overloadmaps.com/sigma-station-1.1,mixed
+146,Silver,thumbs/Silver_01small.jpg,medium,4,2,true,Doctor_Tasty,2020-08-22,https://overloadmaps.com/silver,tech
+213,Silver CTF,thumbs/Silver_CTF_01small.jpg,small,6,3,false,Doctor_Tasty,2020-08-22,https://overloadmaps.com/silver-ctf,tech
+147,Simplicity,thumbs/Simplicity_01small.jpg,small,4,2,true,Yinut,2018-10-03,https://overloadmaps.com/simplicity-1.1,mixed
+148,Skull,thumbs/Skull_01small.jpg,gigantic,10,5,true,Maestro,2019-09-27,https://overloadmaps.com/skull,mixed
+149,Skybox V1.2,thumbs/Skybox_V1.2_01small.jpg,medium,6,3,true,Jazzyjet,2019-06-06,https://overloadmaps.com/skybox-v1.2,tech
+150,Slanted V2,thumbs/Slanted_V2_01small.jpg,medium,6,3,true,Yinut,2020-07-27,https://overloadmaps.com/slanted-v2,mixed
+255,Slipstream 1.1,thumbs/Slipstream_1.1_01small.jpg,medium,6,3,true,Kevin,2019-06-02,https://overloadmaps.com/slipstream-1.1,mixed
+151,Smallery,thumbs/Smallery_01small.jpg,medium,6,3,true,Yinut,2021-06-26,https://overloadmaps.com/smallery,mixed
+152,Smelter,thumbs/Smelter_01small.jpg,large,8,4,true,Miasmic,2019-12-29,https://overloadmaps.com/smelter,mixed
+153,Smooth,thumbs/Smooth_01small.jpg,large,8,4,true,Yinut,2019-11-22,https://overloadmaps.com/smooth,mixed
+257,Solstice,thumbs/Solstice_01small.jpg,medium,6,3,true,CHILLY_BUS,2019-08-09,https://overloadmaps.com/solstice,tech
+211,Space Station Omega,thumbs/Space_Station_Omega_01small.jpg,small,1,1,true,Yinut,2019-04-27,https://overloadmaps.com/space-station-omega,tech
+154,Spar V2,thumbs/Spar_V2_01small.jpg,small,4,2,true,Miasmic,2020-11-02,https://overloadmaps.com/spar-v2,tech
+155,Stoneburner MP,thumbs/Stoneburner_MP_01small.jpg,large,6,3,true,Krusty,2020-04-08,https://overloadmaps.com/stoneburner-mp,mixed
+156,Stronghold,thumbs/Stronghold_01small.jpg,large,8,4,true,Krusty,2019-09-06,https://overloadmaps.com/stronghold,tech
+157,Sub Rosa V4,thumbs/Sub_Rosa_V4_01small.jpg,small,4,2,true,CHILLY_BUS,2021-06-08,https://overloadmaps.com/sub-rosa-v4,tech
+158,Super Happy Funland V1.2,thumbs/Super_Happy_Funland_V1.2_01small.jpg,tiny,4,2,true,Lee,2020-10-07,https://overloadmaps.com/super-happy-fun-land-v1.2,tech
+159,Swat,thumbs/Swat_01small.jpg,medium,6,3,true,Terminal,2020-03-21,https://overloadmaps.com/swat,tech
+160,Synapse,thumbs/Synapse_01small.jpg,tiny,1,1,true,CHILLY_BUS,2021-09-08,https://overloadmaps.com/synapse,tech
+161,Synergistic,thumbs/Synergistic_01small.jpg,small,4,2,true,CHILLY_BUS,2019-01-18,https://overloadmaps.com/synergistic,mixed
+162,Syrinx,thumbs/Syrinx_01small.jpg,medium,8,4,true,Revival Productions,2018-05-31,,mixed
+210,TB Arena,thumbs/TB_Arena_01small.jpg,medium,6,3,true,Miasmic,2020-04-01,https://overloadmaps.com/tb-arena,mixed
+228,Taserface,thumbs/Taserface_01small.jpg,gigantic,10,5,false,PILE,2022-03-21,https://overloadmaps.com/taserface,tech
+163,Taurus,thumbs/Taurus_01small.jpg,large,8,4,true,Jazzyjet,2019-07-04,https://overloadmaps.com/taurus,tech
+164,Terminal,thumbs/Terminal_01small.jpg,small,4,2,true,Revival Productions,2018-05-31,,mixed
+226,Terrok,thumbs/Terrok_01small.jpg,medium,6,3,true,Trappist,2021-05-14,https://overloadmaps.com/terrok,tech
+258,Tesselation,thumbs/Tesselation_01small.jpg,medium,6,3,true,Kevin,2018-10-23,https://overloadmaps.com/tesselation,mixed
+261,Tetrafusion,thumbs/Tetrafusion_01_small.jpg,tiny,2,1,true,Code,2020-04-23,https://overloadmaps.com/tetrafusion,tech
+165,Tetris,thumbs/Tetris_01small.jpg,medium,6,3,true,PILE,2021-11-27,https://overloadmaps.com/tetris,tech
+166,The Core,thumbs/The_Core_01small.jpg,large,8,4,true,Shroudeye,2018-10-04,https://overloadmaps.com/the-core,tech
+269,Thecube,thumbs/Thecube_01small.jpg,medium,6,3,true,wil07012,2023-09-07,https://overloadmaps.com/thecube,tech
+259,Throne V2,thumbs/Throne_V2_01small.jpg,small,4,2,true,Miasmic,2019-05-01,https://overloadmaps.com/throne-v2,mixed
+167,Thunderdome,thumbs/Thunderdome_01small.jpg,tiny,1,1,true,Sirius,2020-04-11,https://overloadmaps.com/thunderdome,tech
+168,Thunderflex,thumbs/Thunderflex_01small.jpg,small,1,1,true,Yinut,2020-09-10,https://overloadmaps.com/thunderflex,organic
+227,Tiltfire,thumbs/Tiltfire_01small.jpg,small,4,2,true,Naleksi,2020-11-29,https://overloadmaps.com/tiltfire,tech
+169,Tree,thumbs/Tree_01small.jpg,large,8,4,true,Doctor_Tasty,2021-09-03,https://overloadmaps.com/tree,mixed
+249,Tribulation,thumbs/Tribulation_01small.jpg,medium,6,3,true,Miasmic,2019-04-23,https://overloadmaps.com/tribulation,tech
+201,Trichome CTF,thumbs/Trichome_CTF_01small.jpg,large,10,5,false,Jazzyjet,2019-11-20,https://overloadmaps.com/trichome-ctf,tech
+170,Trichome Salad,thumbs/Trichome_Salad_01small.jpg,large,8,4,true,Jazzyjet,2019-07-08,https://overloadmaps.com/trichome-salad,tech
+247,Trioptic,thumbs/Trioptic_01small.jpg,medium,6,3,true,Miasmic,2019-12-22,https://overloadmaps.com/trioptic,tech
+171,Truth Or Consequences,thumbs/Truth_Or_Consequences_01small.jpg,small,4,2,true,Terminal,2020-11-24,https://overloadmaps.com/truth-or-consequences,tech
+172,Tryhard XL,thumbs/Tryhard_XL_01small.jpg,large,8,4,true,Yinut,2020-02-21,https://overloadmaps.com/tryhard-xl,mixed
+173,Tubes,thumbs/Tubes_01small.jpg,small,6,3,true,Doctor_Tasty,2022-11-01,https://overloadmaps.com/tubes,tech
+268,Tunnels,thumbs/Tunnels_01small.jpg,large,8,4,true,wil07012,2023-09-08,https://overloadmaps.com/tunnels,mixed
+174,Turnabout,thumbs/Turnabout_01small.jpg,small,6,3,true,Yinut,2018-10-01,https://overloadmaps.com/turnabout,mixed
+203,Turnstile CTF,thumbs/Turnstile_CTF_01small.jpg,medium,6,3,false,Miasmic,2019-11-26,https://overloadmaps.com/turnstile-ctf,tech
+204,Twinspire CTF,thumbs/Twinspire_CTF_01small.jpg,medium,8,4,false,JosheM,2019-08-26,https://overloadmaps.com/twinspire-ctf,mixed
+175,Twinspire V3,thumbs/Twinspire_V3_01small.jpg,large,6,3,true,JosheM,2019-08-26,https://overloadmaps.com/twinspire-v3,mixed
+176,Twist V2,thumbs/Twist_V2_01small.jpg,large,10,5,true,Doctor_Tasty,2023-01-22,https://overloadmaps.com/twistv2,tech
+248,UGH,thumbs/UGH_01small.jpg,medium,6,3,true,Secretariat,2020-11-15,https://overloadmaps.com/ugh,tech
+177,Undermine V2 MP,thumbs/Undermine_V2_MP_01small.jpg,large,8,4,true,Krusty,2020-03-11,https://overloadmaps.com/undermine-v2-mp,organic
+178,Undertow,thumbs/Undertow_01small.jpg,large,8,4,true,Kevin,2019-04-06,https://overloadmaps.com/undertow,tech
+179,Unobtanium,thumbs/Unobtanium_01small.jpg,large,8,4,true,Yinut,2019-03-03,https://overloadmaps.com/unobtainium,mixed
+180,Vamped V1.1,thumbs/Vamped_V1.1_01small.jpg,medium,4,2,true,Lee,2021-04-14,https://overloadmaps.com/vamped-v1.1,mixed
+181,Vault,thumbs/Vault_01small.jpg,medium,6,3,true,Revival Productions,2018-05-31,,organic
+182,Vector,thumbs/Vector_01small.jpg,medium,6,3,true,JosheM,2021-01-20,https://overloadmaps.com/vector,tech
+183,Viaduct-M,thumbs/Viaduct-M_01small.jpg,medium,4,2,true,CHILLY_BUS,2019-01-14,https://overloadmaps.com/viaduct,tech
+184,Warp Rally,thumbs/Warp_Rally_01small.jpg,gigantic,10,5,true,davxd666,2021-03-23,https://overloadmaps.com/warp-rally,mixed
+185,Weslow Control MP,thumbs/Weslow_Control_MP_01small.jpg,small,4,2,true,JosheM,2020-12-07,https://overloadmaps.com/weslow-control-mp,tech
+205,Whoopass CTF,thumbs/Whoopass_CTF_01small.jpg,small,6,3,false,Jazzyjet,2020-01-19,https://overloadmaps.com/whoopass-ctf,tech
+186,Whoopass Cannery,thumbs/Whoopass_Cannery_01small.jpg,small,6,3,true,Jazzyjet,2019-12-22,https://overloadmaps.com/whoopass-cannery,tech
+187,Winchester,thumbs/Winchester_01small.jpg,medium,4,2,true,Terminal,2019-06-20,https://overloadmaps.com/winchester,tech
+188,Winona,thumbs/Winona_01small.jpg,medium,6,3,true,PILE,2021-11-08,https://overloadmaps.com/winona,mixed
+189,Wraith,thumbs/Wraith_01small.jpg,small,4,2,true,Revival Productions,2018-05-31,,tech
+190,Xenopulse V2,thumbs/Xenopulse_V_01small.jpg,gigantic,10,5,true,Miasmic,2020-07-24,https://overloadmaps.com/xenopulse-v2,mixed
+207,Ypsilon,thumbs/Ypsilon_01small.jpg,gigantic,12,6,true,Yinut,2023-02-23,https://overloadmaps.com/ypsilon,mixed
+267,Zagreb CTF,thumbs/Zagreb_ctf_01small.jpg,small,6,3,false,Terminal,2023-08-18,https://overloadmaps.com/zagreb-ctf,tech
+270,RockJumper Chronicles,https://overloadmaps.com/imgs/dd12ad54d6c7f37eeca2dec215438635/Ryugu.jpg,medium,8,4,false,Krusty,2022-04-18,https://overloadmaps.com/rockjumper-chronicles,mixed
+271,SHADES OF URANUS,https://overloadmaps.com/imgs/d51d05cac4185c21809b584f69cd29c5/shadesLR01.jpg,medium,8,4,false,Shadesmaster,2018-08-07,https://overloadmaps.com/shades-of-uranus,mixed
+272,Viaduct,https://overloadmaps.com/imgs/aed321564277507748e114f6f7f45956/Viaduct.jpg,medium,8,4,false,CHILLY_BUS,2019-01-14,https://overloadmaps.com/viaduct,mixed
+273,TOTEM,https://overloadmaps.com/imgs/83a1356d725066f194448660de941f0b/TOTEM.jpg,medium,8,4,false,PILE,2020-08-09,https://overloadmaps.com/totem,mixed
+274,fuego,https://overloadmaps.com/imgs/ab266545ed2c55b682651ce20fd3763b/fuego.jpg,medium,8,4,false,Maki,2018-08-09,https://overloadmaps.com/fuego,mixed
+275,Fulcrum_MP,https://overloadmaps.com/imgs/4cec8c17a2bbbae2293ef0a0b1ec2e79/Fulcrum_MP.jpg,medium,8,4,false,Krusty,2022-06-02,https://overloadmaps.com/fulcrum-mp,mixed
+276,ST-Arena-02-Alt,https://overloadmaps.com/imgs/cbb8f07f8782f2a21bb8f798808485b2/ST-Arena-02-Alt.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-arena-02-alt,mixed
+277,Iapetus_cm,https://overloadmaps.com/imgs/047567fe620e12d04fba086194e8638e/Iapetus_cm.jpg,medium,8,4,false,Trappist,2019-03-21,https://overloadmaps.com/iapetus-cm,mixed
+278,ofs_military_depot_v1,https://overloadmaps.com/imgs/9e65c35e321a374455758f8d59261f6f/ofs_military_depot_v1.jpg,medium,8,4,false,kevin,2023-09-10,https://overloadmaps.com/ofs-military-depot-v1,mixed
+279,MAX VERT'S TRIGGER BONANZA!,https://overloadmaps.com/imgs/74cb9274c690e5152e807a86eab6ca29/Trigger Bonanza.jpg,medium,8,4,false,PILE,2020-08-20,https://overloadmaps.com/max-vert's-trigger-bonanza!,mixed
+280,Burnout,https://overloadmaps.com/imgs/8e798aa1d9cdcad667b2e89475b8071a/Burnout.jpg,medium,8,4,false,CHILLY_BUS,2019-01-04,https://overloadmaps.com/burnout,mixed
+281,MemeCube,,medium,8,4,false,CHILLY_BUS,2018-06-28,https://overloadmaps.com/memecube,mixed
+282,Turnstile_v4,https://overloadmaps.com/imgs/082912429246dd57184c0b61ec2a144f/Turnstile_v4.jpg,medium,8,4,false,Miasmic,2019-05-01,https://overloadmaps.com/turnstile-v4,mixed
+283,Fulcrum,https://overloadmaps.com/imgs/f3e8b9839df4bf165c0ee63031e27d13/Fulcrum.jpg,medium,8,4,false,Krusty,2018-09-02,https://overloadmaps.com/fulcrum,mixed
+284,ST-Arena-09,https://overloadmaps.com/imgs/811ff78a817a903413ba9ae93cc09695/ST-Arena-09.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-arena-09,mixed
+285,slipstream,https://overloadmaps.com/imgs/14207511960bdb9d1803f954dc654e5a/slipstream.jpg,medium,8,4,false,kevin,2019-02-03,https://overloadmaps.com/slipstream,mixed
+286,LUNAR LEGACY,,medium,8,4,false,Yinut,2018-07-06,https://overloadmaps.com/lunar-legacy,mixed
+287,StoneBurner,https://overloadmaps.com/imgs/32fa7737b24463d697d8c0d83626b298/StoneBurner.jpg,medium,8,4,false,Krusty,2018-08-31,https://overloadmaps.com/stoneburner,mixed
+288,WAVE,https://overloadmaps.com/imgs/e4c087aa771140d0dd233044ab55616b/WAVE.jpg,medium,8,4,false,PILE,2021-01-18,https://overloadmaps.com/wave,mixed
+289,OPERATION ANTARCTICA,https://overloadmaps.com/imgs/331ab535cc0c09188599983cb3c3af8e/LO01.jpg,medium,8,4,false,Yinut,2020-01-04,https://overloadmaps.com/operation-antarctica,mixed
+290,CALLISTO MINING,https://overloadmaps.com/imgs/f3e8b9839df4bf165c0ee63031e27d13/Callisto Port.jpg,medium,8,4,false,Krusty,2018-09-02,https://overloadmaps.com/callisto-mining,mixed
+291,SUPER HAPPY FUN LAND,https://overloadmaps.com/imgs/9b00cd768917a2a12cce305811b87006/Super Happy Fun Land.jpg,medium,8,4,false,Lee,2020-08-14,https://overloadmaps.com/super-happy-fun-land,mixed
+292,Heat Sink CM,https://overloadmaps.com/imgs/3388cc55b5d1130b143dfa2a6e1deb38/Heat Sink CM.jpg,medium,8,4,false,JosheM,2018-07-08,https://overloadmaps.com/heat-sink-cm,mixed
+293,ST-TheSamePlace-12,https://overloadmaps.com/imgs/3b353066c08a9a8ef10776321de8d108/ST-TheSamePlace-12.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-thesameplace-12,mixed
+294,ST-TheSamePlace-10,https://overloadmaps.com/imgs/2c2cde9e159599e88216f39720a4779c/ST-TheSamePlace-10.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-thesameplace-10,mixed
+295,Drone_v2,https://overloadmaps.com/imgs/97568bdd4074bbd1bf0d93e2daa52d7b/Drone_v2.jpg,medium,8,4,false,Miasmic,2020-07-24,https://overloadmaps.com/drone-v2,mixed
+296,KrusticParkV3,https://overloadmaps.com/imgs/753e392c5d581922a42b26a5d2ab9e31/KrusticParkV3.jpg,medium,8,4,false,Krusty,2023-09-12,https://overloadmaps.com/krusticparkv3,mixed
+297,Thermocouple,https://overloadmaps.com/imgs/b9c286e5869b1985be99f2dceb704527/Thermocouple.jpg,medium,8,4,false,Fisholith,2018-09-09,https://overloadmaps.com/thermocouple,mixed
+298,Halcyon_CTF,https://overloadmaps.com/imgs/92651653083280c144f483f8c4f8981e/Halcyon_CTF.jpg,medium,8,4,true,jazzyjet,2019-08-29,https://overloadmaps.com/halcyon-ctf,mixed
+299,scheme_1.1,https://overloadmaps.com/imgs/e4719a070c26756b1ccd3c552b9e8593/scheme_1.1.jpg,medium,8,4,false,kevin,2019-06-02,https://overloadmaps.com/scheme-1.1,mixed
+300,Chromatic Destination,https://overloadmaps.com/imgs/4e0511fb409a4ee0120ee24c0ebd67f8/Chromatic Destination.jpg,medium,8,4,false,Yinut,2018-09-10,https://overloadmaps.com/chromatic-destination,mixed
+301,Ocellus_MP,,medium,8,4,false,Krusty,2018-11-20,https://overloadmaps.com/ocellus-mp,mixed
+302,THEBE MINING OUTPOST,https://overloadmaps.com/imgs/5840fdc2960b013b3ba0522977814a21/CAJ-1.jpg,medium,8,4,false,Swingarm 1032,2019-06-10,https://overloadmaps.com/thebe-mining-outpost,mixed
+303,hedgerace,https://overloadmaps.com/imgs/40672910c3e01072d0252ef101c18138/hedgerace.jpg,medium,8,4,false,Doctor_Tasty,2021-03-09,https://overloadmaps.com/hedgerace,mixed
+304,CASUAL,https://overloadmaps.com/imgs/fe5902d55a0b9965c0d069ff1cb6a661/Casual.jpg,medium,8,4,false,Yinut,2020-07-27,https://overloadmaps.com/casual,mixed
+305,ST-Toilets-00,https://overloadmaps.com/imgs/05858a753cc7a259337985ded38a466a/ST-Toilets-00.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-toilets-00,mixed
+306,Cronus Circuit Race,https://overloadmaps.com/imgs/3c3898c147f06a311eec54d188bbf4b6/Cronus Circuit Race.jpg,medium,8,4,false,JosheM,2020-06-15,https://overloadmaps.com/cronus-circuit-race,mixed
+307,Halcyon_Curved,https://overloadmaps.com/imgs/70f88a18b2269d388f0ae50eb726907a/Halcyon_Curved.jpg,medium,8,4,false,jazzyjet,2020-01-06,https://overloadmaps.com/halcyon-curved,mixed
+308,Gyroscope,https://overloadmaps.com/imgs/be1fe4ba800f167bfeb235b64a8f32f5/gyroscope.jpg,medium,8,4,false,xaxazak,2018-09-23,https://overloadmaps.com/gyroscope,mixed
+309,OuterKrust,https://overloadmaps.com/imgs/73fb4a962941ee540816565e3ff2001d/OuterKrust.jpg,medium,8,4,false,Krusty,2019-05-11,https://overloadmaps.com/outerkrust,mixed
+310,mp_ventorus,https://overloadmaps.com/imgs/7154b899c04ce6897b6774e25feafa41/mp_ventorus.jpg,medium,8,4,false,kevin,2018-10-04,https://overloadmaps.com/mp-ventorus,mixed
+311,PLANET CARNAGE,https://overloadmaps.com/imgs/c53f8c61f25be79ba7d0fd4ff60fc077/PLANET CARNAGE.jpg,medium,8,4,false,PILE,2021-01-14,https://overloadmaps.com/planet-carnage,mixed
+312,D1L2 LUNAR SCILAB,,medium,8,4,false,Yinut,2018-08-23,https://overloadmaps.com/d1l2-lunar-scilab,mixed
+313,arena,https://overloadmaps.com/imgs/96b96809d145219fd338596a3b851850/arena.jpg,medium,8,4,false,Diamond Wolf,2018-07-23,https://overloadmaps.com/arena,mixed
+314,DESCENTMAP1,,medium,8,4,false,Shadesmaster,2018-07-02,https://overloadmaps.com/descentmap1,mixed
+315,LUNAR OUTPOST REDUX VANILLA,https://overloadmaps.com/imgs/7b67e2e3560ac07aa62e1a1176ea3e6b/Lunar outpost redux vanilla.jpg,medium,8,4,false,Yinut,2019-07-19,https://overloadmaps.com/lunar-outpost-redux-vanilla,mixed
+316,ARIEL IRON MINE,https://overloadmaps.com/imgs/c800e4f79fd724a0e3482fef3520d76a/Ariel Iron Mine.jpg,medium,8,4,false,Swingarm 1032,2018-09-08,https://overloadmaps.com/ariel-iron-mine,mixed
+317,TBDB,https://overloadmaps.com/imgs/8de3a0aea2791ead8d130020da814720/TBDB.jpg,medium,8,4,false,Miasmic,2018-09-07,https://overloadmaps.com/tbdb,mixed
+318,Sub Rosa v2,https://overloadmaps.com/imgs/06ba97b832cb6688e7e0325f4e723ec9/Sub Rosa v2.jpg,medium,8,4,false,CHILLY_BUS,2019-03-29,https://overloadmaps.com/sub-rosa-v2,mixed
+319,SOC FILES,https://overloadmaps.com/imgs/d026588507c6291eed0a22d5a48576a1/SE_Storage01.jpg,medium,8,4,false,Shroudeye,2019-01-02,https://overloadmaps.com/soc-files,mixed
+320,Simplicity 1.1,https://overloadmaps.com/imgs/30f51c1102e0e04ed6b0658c93eb7f94/Simplicity 1.1.jpg,medium,8,4,false,Yinut,2018-10-03,https://overloadmaps.com/simplicity-1.1,mixed
+321,Gyroscope(EZ),https://overloadmaps.com/imgs/ba8e714e2c88d50ea212d2bccdabb041/gyroscope_ez.jpg,medium,8,4,false,xaxazak,2018-09-23,https://overloadmaps.com/gyroscope(ez),mixed
+322,atrium,https://overloadmaps.com/imgs/6af5b02fe6bd3fbf07b90f3ffeff4c4d/atrium.jpg,medium,8,4,false,Parabolicus,2018-08-03,https://overloadmaps.com/atrium,mixed
+323,HEDGEROW,https://overloadmaps.com/imgs/b78bd529aca9180298831bf5356b6ce7/hedgerow.jpg,medium,8,4,false,Doctor_Tasty,2020-12-27,https://overloadmaps.com/hedgerow,mixed
+324,Devastation,,medium,8,4,false,JosheM,2019-12-12,https://overloadmaps.com/devastation,mixed
+325,JoshBox R2,https://overloadmaps.com/imgs/b875fe15605108be2593c070ffc831aa/JoshBox R2.jpg,medium,8,4,false,JosheM,2023-11-30,https://overloadmaps.com/joshbox-r2,mixed
+326,racketeer,https://overloadmaps.com/imgs/820555578f893952eeb876ffbfaabf0d/racketeer.jpg,medium,8,4,false,terminal,2020-01-29,https://overloadmaps.com/racketeer,mixed
+327,criss_v2,https://overloadmaps.com/imgs/d137f3c02605dba7c91ebaa5a604b119/criss_v2.jpg,medium,8,4,false,Doctor_Tasty,2020-04-05,https://overloadmaps.com/criss-v2,mixed
+328,THETA RECON,https://overloadmaps.com/imgs/89b4fd1f9f3d268a6ab615158baf8138/Amalthea.jpg,medium,8,4,false,Krusty,2018-11-28,https://overloadmaps.com/theta-recon,mixed
+329,race_Signet,https://overloadmaps.com/imgs/c058942eab21d98b3736fb67a428b0fa/race_Signet.jpg,medium,8,4,false,hattieboss,2021-03-09,https://overloadmaps.com/race-signet,mixed
+330,TITAN GEOTHERMAL PLANT,https://overloadmaps.com/imgs/f94520cf12edb3119f3721dbf493f738/titangp.jpg,medium,8,4,false,Maki,2018-06-27,https://overloadmaps.com/titan-geothermal-plant,mixed
+331,COUNTER TILT,https://overloadmaps.com/imgs/e3bf5bf93191763e6ed78d8cf6673940/COUNTER TILT.jpg,medium,8,4,false,PILE,2020-08-29,https://overloadmaps.com/counter-tilt,mixed
+332,HDL TRILOGY,https://overloadmaps.com/imgs/2556aef901970ebcba23dfa58ce6b381/Dew-A.jpg,medium,8,4,false,PILE,2020-07-15,https://overloadmaps.com/hdl-trilogy,mixed
+333,LUNAR LEGACY NSL,,medium,8,4,false,Yinut,2018-07-06,https://overloadmaps.com/lunar-legacy-nsl,mixed
+334,MB_Hexopass,https://overloadmaps.com/imgs/8f4fa9e0285fed126c968e11fae5ad4d/MB_hexopass.jpg,medium,8,4,false,Blarget2,2019-05-17,https://overloadmaps.com/mb-hexopass,mixed
+335,MagicCM,https://overloadmaps.com/imgs/bea4f60114bdf458af35fd801bb27fbe/MagicCM.jpg,medium,8,4,false,Yinut,2018-10-27,https://overloadmaps.com/magiccm,mixed
+336,TITAN CRYOSTASIS FACILITY,https://overloadmaps.com/imgs/bd81747f4ea66c20638812a44631be4b/titancf.jpg,medium,8,4,false,Maki,2018-07-10,https://overloadmaps.com/titan-cryostasis-facility,mixed
+337,hubris,https://overloadmaps.com/imgs/a06faa4233862497121c7f497d1b87e2/hubris.jpg,medium,8,4,false,kevin,2019-04-02,https://overloadmaps.com/hubris,mixed
+338,Underground Fort,https://overloadmaps.com/imgs/59709fcf9b668f125e5292a2ffdfb35d/Underground Fort.jpg,medium,8,4,false,wil07012,2025-07-21,https://overloadmaps.com/underground-fort,mixed
+339,TUNNEL RUN,https://overloadmaps.com/imgs/0c1426944209a55ae2db56bef2e16139/TUNNEL RUN.jpg,medium,8,4,false,PILE,2022-01-10,https://overloadmaps.com/tunnel-run,mixed
+340,Ancient_ctf,https://overloadmaps.com/imgs/452014e8f7180ef1f172140626d0d3b3/Ancient_ctf.jpg,medium,8,4,true,Yinut,2019-09-06,https://overloadmaps.com/ancient-ctf,mixed
+341,Chimera,https://overloadmaps.com/imgs/65c8c0e4ea880f5c0c47d68a33ec0437/Chimera-M.jpg,medium,8,4,false,CHILLY_BUS,2019-01-27,https://overloadmaps.com/chimera,mixed
+342,MAGENTA,https://overloadmaps.com/imgs/3d40ac9fd51615e61a8d798445e2002f/CAULDRON OF ROBOT MAYHEM.jpg,medium,8,4,false,PILE,2020-07-28,https://overloadmaps.com/magenta,mixed
+343,Galatea Race,https://overloadmaps.com/imgs/a5f0db8dfdf7fb770495e9eee4913e06/Galatea Race.jpg,medium,8,4,false,JosheM,2020-05-21,https://overloadmaps.com/galatea-race,mixed
+344,Malevolence,https://overloadmaps.com/imgs/8804b9300bdd15dee514db86d3c4cc5e/Malevolence.jpg,medium,8,4,false,CHILLY_BUS,2018-09-30,https://overloadmaps.com/malevolence,mixed
+345,Freezer,https://overloadmaps.com/imgs/80f466bd8b483b514605e43057019d18/Freezer.jpg,medium,8,4,false,Miasmic,2019-03-12,https://overloadmaps.com/freezer,mixed
+346,VAMPED,https://overloadmaps.com/imgs/9c1278e7f70bf7d061e5c208f7b86a14/vamped.jpg,medium,8,4,false,secretariat,2020-11-15,https://overloadmaps.com/vamped,mixed
+347,Whoopass_Cannery,https://overloadmaps.com/imgs/13866d1f2da141abe26a790359ec48e8/Whoopass_Cannery.jpg,medium,8,4,false,jazzyjet,2019-12-22,https://overloadmaps.com/whoopass-cannery,mixed
+348,ST-TheSamePlace-10-BlankState,https://overloadmaps.com/imgs/15ecb1e2657572d1b52b2fbed786e0ca/ST-TheSamePlace-10-BlankState.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-thesameplace-10-blankstate,mixed
+349,Quadratic v2,https://overloadmaps.com/imgs/1aea6eb899ab63185b3deaba4d70be12/Quadratic v2-L.jpg,medium,8,4,false,CHILLY_BUS,2019-05-10,https://overloadmaps.com/quadratic-v2,mixed
+350,D1L6 MERCURY SOLAR LAB,,medium,8,4,false,Yinut,2018-08-23,https://overloadmaps.com/d1l6-mercury-solar-lab,mixed
+351,ST-Cage-Fight-00-Sunset-Alt,https://overloadmaps.com/imgs/e9b61d55275857064c59c48f654487ee/ST-Cage-Fight-00-Sunset-Alt.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-cage-fight-00-sunset-alt,mixed
+352,Titan Core,https://overloadmaps.com/imgs/a32f5e8d09176c481a542f74f63e6dd5/Titan Core.jpg,medium,8,4,false,ziqidel,2018-07-05,https://overloadmaps.com/titan-core,mixed
+353,THE GREEN DONUT,,medium,8,4,false,LusTuccc,2018-08-15,https://overloadmaps.com/the-green-donut,mixed
+354,LABYRINTHIA,https://overloadmaps.com/imgs/a9b74dbe0088018cadd148650fc24fab/LABYRINTHIA.jpg,medium,8,4,false,PILE,2022-02-01,https://overloadmaps.com/labyrinthia,mixed
+355,Stomping Grounds,https://overloadmaps.com/imgs/678b85c46083539cd4d5abff8a6b00ac/Stomping Grounds.jpg,medium,8,4,false,Tarcisius,2019-01-31,https://overloadmaps.com/stomping-grounds,mixed
+356,Bride of FlubbaBuB,https://overloadmaps.com/imgs/d8e3803d92e4e78e02ad84cf0ad82c5b/Bride of FlubbaBuB.jpg,medium,8,4,false,PILE,2021-05-15,https://overloadmaps.com/bride-of-flubbabub,mixed
+357,D-Day97v1.4,https://overloadmaps.com/imgs/5b3970b96a8ec33263a1d43f562a4b31/D-Day97v1.4.jpg,medium,8,4,false,Ghal,2019-02-25,https://overloadmaps.com/d-day97v1.4,mixed
+358,MADAME CHAOS'S PALACE,https://overloadmaps.com/imgs/45b4c19e059ec067a42a22fd12011a7d/CAROUSEL.jpg,medium,8,4,false,PILE,2020-08-02,https://overloadmaps.com/madame-chaos's-palace,mixed
+359,Cacophony_CTF,https://overloadmaps.com/imgs/21461c18581b85f54b8a042a6e91af27/Cacophony_CTF.jpg,medium,8,4,true,Miasmic,2019-11-26,https://overloadmaps.com/cacophony-ctf,mixed
+360,THEBE OUTPOST,https://overloadmaps.com/imgs/8208d640daa7ed840615d67c6ccc3cb5/Thebe Outpost.jpg,medium,8,4,false,Swingarm 1032,2018-06-29,https://overloadmaps.com/thebe-outpost,mixed
+361,gambit,https://overloadmaps.com/imgs/4fb174b6e9d7374e5a3ab4e78fda2f37/gambit.jpg,medium,8,4,false,terminal,2019-08-27,https://overloadmaps.com/gambit,mixed
+362,ST-Arena-Shadow-05,https://overloadmaps.com/imgs/06fe72855025f51c20f5c3263d5cdbdf/ST-Arena-Shadow-05.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-arena-shadow-05,mixed
+363,Turnstile_CTF,https://overloadmaps.com/imgs/c446a4a6e4ea98a3e1463298670524fe/Turnstile_CTF.jpg,medium,8,4,true,Miasmic,2019-11-26,https://overloadmaps.com/turnstile-ctf,mixed
+364,GODS OF THE ROBOT,https://overloadmaps.com/imgs/a5771f2d2e07ee250a783bc167df02af/GODS OF THE ROBOT.jpg,medium,8,4,false,PILE,2021-10-07,https://overloadmaps.com/gods-of-the-robot,mixed
+365,Twinspire,https://overloadmaps.com/imgs/fc20a2e24f10feb457c6644ff135f35f/Twinspire.jpg,medium,8,4,false,JosheM,2019-05-19,https://overloadmaps.com/twinspire,mixed
+366,SP POLYTROPY 1.0.2,https://overloadmaps.com/imgs/4b43b50b4a24205850222aa832137576/SP_Polytropy_1.0.2.jpg,medium,8,4,false,LusTuccc,2019-03-26,https://overloadmaps.com/sp-polytropy-1.0.2,mixed
+367,TETRIS BLUE,https://overloadmaps.com/imgs/fac9164ab60251942cd3ea68dc3263cb/TETRIS BLUE.jpg,medium,8,4,false,PILE,2021-11-29,https://overloadmaps.com/tetris-blue,mixed
+368,Super Happy Fun Land v1.2,https://overloadmaps.com/imgs/13f0b43efea24ecc14bae785444b8247/Super Happy Fun Land v1.2.jpg,medium,8,4,false,Lee,2020-10-07,https://overloadmaps.com/super-happy-fun-land-v1.2,mixed
+369,Super Happy Fun Land v1.1,https://overloadmaps.com/imgs/dac7c419f484ee041a765c0fd10a5f31/Super Happy Fun Land v1.1.jpg,medium,8,4,false,Lee,2020-08-14,https://overloadmaps.com/super-happy-fun-land-v1.1,mixed
+370,Lava and Ice,https://overloadmaps.com/imgs/860daeff7ba34a35651feeb5ac474436/Lava and Ice.jpg,medium,8,4,false,wil07012,2025-07-21,https://overloadmaps.com/lava-and-ice,mixed
+371,Office,https://overloadmaps.com/imgs/23d2e46d5f1f62e69922322324f1c6de/Office.jpg,medium,8,4,false,wil07012,2025-07-21,https://overloadmaps.com/office,mixed
+372,B2DM_Tubular,https://overloadmaps.com/imgs/15b41d140f9e172bb25107dcbfd43f04/B2DM_Tubular.jpg,medium,8,4,false,Blarget2,2018-07-04,https://overloadmaps.com/b2dm-tubular,mixed
+373,Yinut Stream Level 4:49:37,https://overloadmaps.com/imgs/42b06658241a02f5a1018c383e9974f0/StreamTest1.jpg,medium,8,4,false,Yinut,2018-11-28,https://overloadmaps.com/yinut-stream-level-4:49:37,mixed
+374,AFiB,https://overloadmaps.com/imgs/212dadcc58c6e2d4662e3e16dae6d4af/AFiB.jpg,medium,8,4,false,PILE,2021-10-21,https://overloadmaps.com/afib,mixed
+375,CONCENTRIC,https://overloadmaps.com/imgs/66664d444d4093a3aed66b9aadd6f40d/CONCENTRIC.jpg,medium,8,4,false,PILE,2022-02-17,https://overloadmaps.com/concentric,mixed
+376,TBDB_v2,https://overloadmaps.com/imgs/6609d75fcc7cf4a8a783f2dc967f07a3/TBDB_v2.jpg,medium,8,4,false,Miasmic,2019-04-30,https://overloadmaps.com/tbdb-v2,mixed
+377,StoneBurner_MP,https://overloadmaps.com/imgs/e5d1f14871a29688c624238c249c51ec/StoneBurner_MP.jpg,medium,8,4,false,Krusty,2020-04-08,https://overloadmaps.com/stoneburner-mp,mixed
+378,ST-HighWall-00-Nouveau,https://overloadmaps.com/imgs/063e3e37ceb8429e0c81e0b942ae21b5/ST-HighWall-00-Nouveau.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-highwall-00-nouveau,mixed
+379,Belted,https://overloadmaps.com/imgs/58f07113d57e34f445ed16131e922ad5/Belted.jpg,medium,8,4,false,Miasmic,2018-09-07,https://overloadmaps.com/belted,mixed
+380,Plastic Fantastic,https://overloadmaps.com/imgs/555ad112fa3ee4997c5e093cbc7d9bcf/Plastic Fantastic.jpg,medium,8,4,false,PILE,2021-09-18,https://overloadmaps.com/plastic-fantastic,mixed
+381,ROOM OF 1000 GOLEMS,,medium,8,4,false,hattieboss,2019-07-22,https://overloadmaps.com/room-of-1000-golems,mixed
+382,Chromatic,https://overloadmaps.com/imgs/cfac8f81f3a3dc93719b94c5225ddfd5/Chromatic.jpg,medium,8,4,false,Yinut,2018-07-04,https://overloadmaps.com/chromatic,mixed
+383,Belted_v2,https://overloadmaps.com/imgs/c4046a06a927cb89e48646a20cd110a9/Belted_v2.jpg,medium,8,4,false,Miasmic,2019-04-30,https://overloadmaps.com/belted-v2,mixed
+384,minefort,https://overloadmaps.com/imgs/51d65f3511cd4e1e2faaab0486928640/minefort.jpg,medium,8,4,false,Revstro,2019-09-05,https://overloadmaps.com/minefort,mixed
+385,BOSS RUSH,https://overloadmaps.com/imgs/c30658ab675bf9d517f7c59a3611e507/Cold Fusion Big Boss 1.jpg,medium,8,4,false,Tarcisius,2018-09-09,https://overloadmaps.com/boss-rush,mixed
+386,cage,https://overloadmaps.com/imgs/88c41178308f830af4dd7b129435009a/cage.jpg,medium,8,4,false,kevin,2019-03-20,https://overloadmaps.com/cage,mixed
+387,ofs_military_depot,https://overloadmaps.com/imgs/653147c4872f387ea978319391312434/ofs_military_depot.jpg,medium,8,4,false,kevin,2023-08-26,https://overloadmaps.com/ofs-military-depot,mixed
+388,Upstream Rotation,https://overloadmaps.com/imgs/5417a081da6a11118e809ec12db4eec2/Upstream Rotation.jpg,medium,8,4,false,PILE,2022-02-26,https://overloadmaps.com/upstream-rotation,mixed
+389,mp_hubris,https://overloadmaps.com/imgs/d63251f642a25f8d9878e95d2ce36054/mp_hubris.jpg,medium,8,4,false,kevin,2018-10-04,https://overloadmaps.com/mp-hubris,mixed
+390,silver-ctf,https://overloadmaps.com/imgs/528f7e51bb44185f6a2cbffedd74bc6f/silver-ctf.jpg,medium,8,4,true,Doctor_Tasty,2020-08-22,https://overloadmaps.com/silver-ctf,mixed
+391,slipstream_1.1,https://overloadmaps.com/imgs/b26d7231230e5a211e4c4473e79b2f8b/slipstream_1.1.jpg,medium,8,4,false,kevin,2019-06-02,https://overloadmaps.com/slipstream-1.1,mixed
+392,Long-MB 1.1,https://overloadmaps.com/imgs/ab6f6e18020fd23f13aafd4d33ef3f30/long-mb 1.1.jpg,medium,8,4,false,terminal,2019-05-01,https://overloadmaps.com/long-mb-1.1,mixed
+393,MB_Floss,https://overloadmaps.com/imgs/d0ce358bc69e701ae5eba6ae56034341/MB_Floss.jpg,medium,8,4,false,Blarget2,2019-05-15,https://overloadmaps.com/mb-floss,mixed
+394,Kegparty,https://overloadmaps.com/imgs/c7494c2b0dc78ea96ab7f895e63c8789/Kegparty.jpg,medium,8,4,false,luponix,2019-02-18,https://overloadmaps.com/kegparty,mixed
+395,ST-TerminalPalace-02-BlankState,https://overloadmaps.com/imgs/fa6807325b520090809e62e73a7f7082/ST-TerminalPalace-02-BlankState.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-terminalpalace-02-blankstate,mixed
+396,FALCON RUN,https://overloadmaps.com/imgs/69f459bb61a92f3a702109e4580bf3cc/FALCON RUN.jpg,medium,8,4,false,PILE,2022-03-21,https://overloadmaps.com/falcon-run,mixed
+397,ALPHA2,https://overloadmaps.com/imgs/9845b7201f8437bb77363ad7f810977b/alpha2.jpg,medium,8,4,false,Yinut,2019-03-07,https://overloadmaps.com/alpha2,mixed
+398,ALPHA3,https://overloadmaps.com/imgs/9845b7201f8437bb77363ad7f810977b/alpha3.jpg,medium,8,4,false,Yinut,2019-03-07,https://overloadmaps.com/alpha3,mixed
+399,ALPHA1,https://overloadmaps.com/imgs/9845b7201f8437bb77363ad7f810977b/alpha1.jpg,medium,8,4,false,Yinut,2019-03-07,https://overloadmaps.com/alpha1,mixed
+400,TETRYNOS GENERATOR,https://overloadmaps.com/imgs/5c8a262605b5ae23a2671dc2b500fe4a/Tetrynos_Generator.jpg,medium,8,4,false,LusTuccc,2019-01-12,https://overloadmaps.com/tetrynos-generator,mixed
+401,ALPHA4,https://overloadmaps.com/imgs/9845b7201f8437bb77363ad7f810977b/alpha4.jpg,medium,8,4,false,Yinut,2019-03-07,https://overloadmaps.com/alpha4,mixed
+402,ST-TheSamePlace-02,https://overloadmaps.com/imgs/67378330169d89539e965c0386edb099/ST-TheSamePlace-02.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-thesameplace-02,mixed
+403,the_core_wip1,https://overloadmaps.com/imgs/034d0544c028675f7e0321d53a8cc977/the_core_wip1.jpg,medium,8,4,false,kevin,2023-10-07,https://overloadmaps.com/the-core-wip1,mixed
+404,LUNAR OUTPOST REDUX,https://overloadmaps.com/imgs/c96c8b6f5a6b8073710b877626c9e338/Lunar outpost redux.jpg,medium,8,4,false,Yinut,2019-07-19,https://overloadmaps.com/lunar-outpost-redux,mixed
+405,ST-TheSamePlace-08,https://overloadmaps.com/imgs/1c3b169a72746168cbd9455f588898ee/ST-TheSamePlace-08.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-thesameplace-08,mixed
+406,PROTOTYPE 24,,medium,8,4,false,CHILLY_BUS,2019-02-26,https://overloadmaps.com/prototype-24,mixed
+407,100SEGS01,https://overloadmaps.com/imgs/f635e449c3bab945b95336d5589baa93/100segs01.jpg,medium,8,4,false,Yinut,2020-05-22,https://overloadmaps.com/100segs01,mixed
+408,dose.,https://overloadmaps.com/imgs/6ebd623c20f3eceee2a877880602186f/SLIP-SLIDE & PLUNGE.jpg,medium,8,4,false,PILE,2020-10-02,https://overloadmaps.com/dose.,mixed
+409,Olorun Circus,https://overloadmaps.com/imgs/15812ca67d8ef1c3e3a362f97f5df176/Olorun Circus.jpg,medium,8,4,false,ziqidel,2018-07-05,https://overloadmaps.com/olorun-circus,mixed
+410,RED FIN,https://overloadmaps.com/imgs/0613c92d3de97c3ad4517017af04a102/RED FIN.jpg,medium,8,4,false,PILE,2022-01-16,https://overloadmaps.com/red-fin,mixed
+411,MB_TriTorus,https://overloadmaps.com/imgs/cd38f4a42f756fce82513d96fbaf8f55/MB_TriTorus.jpg,medium,8,4,false,Blarget2,2019-06-07,https://overloadmaps.com/mb-tritorus,mixed
+412,BIRDS NEST V1.1,https://overloadmaps.com/imgs/a5449e107b5ca95c7c99fd3273f69e61/Birds Nest v1.1.jpg,medium,8,4,false,Lee,2021-04-14,https://overloadmaps.com/birds-nest-v1.1,mixed
+413,JOHN WICK,https://overloadmaps.com/imgs/bc433cfc478a09ab30de384b69ff830f/JOHN WICK.jpg,medium,8,4,false,PILE,2021-06-10,https://overloadmaps.com/john-wick,mixed
+414,Bouncehouse,https://overloadmaps.com/imgs/bed3720e5ed0da0b7d17a4f4137dde23/Bouncehouse.jpg,medium,8,4,false,JosheM,2019-06-02,https://overloadmaps.com/bouncehouse,mixed
+415,Garrison_CTF,https://overloadmaps.com/imgs/523d11006211ea97254c45d3ec07791f/Garrison_CTF.jpg,medium,8,4,true,Krusty,2020-02-17,https://overloadmaps.com/garrison-ctf,mixed
+416,chevron_infinite,https://overloadmaps.com/imgs/bc14c0b68ce5733b02298cb3b608617e/chevron_infinite.jpg,medium,8,4,false,Sirius,2019-12-23,https://overloadmaps.com/chevron-infinite,mixed
+417,TARVOS REFINERY,https://overloadmaps.com/imgs/b1f7ac0b63c4815fb371ee5cb1145965/tarvosr.jpg,medium,8,4,false,Maki,2018-11-24,https://overloadmaps.com/tarvos-refinery,mixed
+418,minefort ctf,https://overloadmaps.com/imgs/5d922d382a02f670102ab5af014b12cf/minefort ctf.jpg,medium,8,4,true,Revstro,2020-02-05,https://overloadmaps.com/minefort-ctf,mixed
+419,KrusticPark,https://overloadmaps.com/imgs/94fc5d82b88c7b6fc495c25230e1fd40/KrusticPark.jpg,medium,8,4,false,Krusty,2019-05-11,https://overloadmaps.com/krusticpark,mixed
+420,ofs_robot_factory,https://overloadmaps.com/imgs/df19bfdc098b1c8b5b10a0594558e6ed/ofs_robot_factory.jpg,medium,8,4,false,kevin,2023-08-26,https://overloadmaps.com/ofs-robot-factory,mixed
+421,Isotoxin,https://overloadmaps.com/imgs/a33c90352ca19ed4a7a7f985fc6bac18/Isotoxin.jpg,medium,8,4,false,CHILLY_BUS,2021-06-05,https://overloadmaps.com/isotoxin,mixed
+422,Heirloom,https://overloadmaps.com/imgs/6c5f82a71c28bce5c0728e839d995700/Heirloom.jpg,medium,8,4,false,CHILLY_BUS,2018-06-27,https://overloadmaps.com/heirloom,mixed
+423,Pyro 7B-Delta,https://overloadmaps.com/imgs/18009dc0711b8c72be738671fdcaf4ef/Pyro 7B-Delta.jpg,medium,8,4,false,.soupist.,2025-10-02,https://overloadmaps.com/pyro-7b-delta,mixed
+424,upper_manifold,https://overloadmaps.com/imgs/83408f0e6e5e562af079c6e338917fba/upper_manifold.jpg,medium,8,4,false,0beron,2019-02-04,https://overloadmaps.com/upper-manifold,mixed
+425,mp_conviction,https://overloadmaps.com/imgs/5079ffa00514a01ebcda686097845329/mp_conviction.jpg,medium,8,4,false,kevin,2018-10-04,https://overloadmaps.com/mp-conviction,mixed
+426,scheme,https://overloadmaps.com/imgs/5b5f49c02b3c807357f7f8e7127a742e/scheme.jpg,medium,8,4,false,kevin,2019-02-03,https://overloadmaps.com/scheme,mixed
+427,Conduit,https://overloadmaps.com/imgs/94d98729016d94e9f7b13f7c83659ce8/Conduit.jpg,medium,8,4,false,CHILLY_BUS,2018-09-24,https://overloadmaps.com/conduit,mixed
+428,Quarry,,medium,8,4,false,CHILLY_BUS,2018-06-23,https://overloadmaps.com/quarry,mixed
+429,jega,https://overloadmaps.com/imgs/d25ec0dd4ea5b500feb7fd6a08bfa176/jega.jpg,medium,8,4,false,terminal,2019-06-27,https://overloadmaps.com/jega,mixed
+430,Skybox Classic Race Preview,https://overloadmaps.com/imgs/e2127ec3ca5c401c7bc5f62351e858a8/Skybox Classic Race Preview.jpg,medium,8,4,false,secretariat,2021-03-05,https://overloadmaps.com/skybox-classic-race-preview,mixed
+431,Houndstooth,https://overloadmaps.com/imgs/9e6bb6936756efc99a393b8c5b7fba18/Houndstooth.jpg,medium,8,4,false,CHILLY_BUS,2018-09-21,https://overloadmaps.com/houndstooth,mixed
+432,BRAINING GROUNDS,https://overloadmaps.com/imgs/69913d6f14198df52d10db127183dd77/Braining grounds.jpg,medium,8,4,false,Yinut,2019-05-13,https://overloadmaps.com/braining-grounds,mixed
+433,FIRST STRIKE: MARS,https://overloadmaps.com/imgs/39d774057db2ac63f17f452c3ca60b02/skip.jpg,medium,8,4,false,kevin,2020-11-01,https://overloadmaps.com/first-strike:-mars,mixed
+434,Garrison,https://overloadmaps.com/imgs/523d11006211ea97254c45d3ec07791f/Garrison.jpg,medium,8,4,false,Krusty,2020-02-17,https://overloadmaps.com/garrison,mixed
+435,ST-HighWall-00,https://overloadmaps.com/imgs/f398482aadd6f6e7adc0f1b792f39c02/ST-Highwall-00.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-highwall-00,mixed
+436,InnerEar,https://overloadmaps.com/imgs/f3e8b9839df4bf165c0ee63031e27d13/InnerEar.jpg,medium,8,4,false,Krusty,2018-09-02,https://overloadmaps.com/innerear,mixed
+437,THE OUTPOST (DEMO LEVEL),https://overloadmaps.com/imgs/ef60c9a2dbf085f09c193b77c677e7f3/outpost.jpg,medium,8,4,false,Giant,2018-06-20,https://overloadmaps.com/the-outpost-(demo-level),mixed
+438,Meltdown,https://overloadmaps.com/imgs/f78018ef047a752ba921656c0469d578/Meltdown.jpg,medium,8,4,false,Tarcisius,2019-03-07,https://overloadmaps.com/meltdown,mixed
+439,SP JONAS,https://overloadmaps.com/imgs/318c3b43b3f9a331ecacdb0f114bcc30/SP_Jonas.jpg,medium,8,4,false,LusTuccc,2018-09-09,https://overloadmaps.com/sp-jonas,mixed
+440,Isotoxin v3,https://overloadmaps.com/imgs/8083403666a838e32cf502678d402ccf/Isotoxin v3.jpg,medium,8,4,false,CHILLY_BUS,2023-10-14,https://overloadmaps.com/isotoxin-v3,mixed
+441,crab rave,https://overloadmaps.com/imgs/a6579a067031f584674918a269ca7c00/crab rave.jpg,medium,8,4,false,hattieboss,2019-03-15,https://overloadmaps.com/crab-rave,mixed
+442,StarRumble,,medium,8,4,false,.soupist.,2025-09-04,https://overloadmaps.com/starrumble,mixed
+443,Cold Fusion,https://overloadmaps.com/imgs/7dd2aaf0bc3e83e1cbc5d948ed8f9b8a/Cold Fusion.jpg,medium,8,4,false,Tarcisius,2018-09-10,https://overloadmaps.com/cold-fusion,mixed
+444,ST-HK-04-Alt,https://overloadmaps.com/imgs/a5d53c1947e3f0abe9dbaae1c70d0bed/ST-HK-04-Alt.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-hk-04-alt,mixed
+445,KubeRun,https://overloadmaps.com/imgs/57a35956ab9cd59adb189fee2ea45ffb/KubeRun.jpg,medium,8,4,false,Krusty,2019-05-11,https://overloadmaps.com/kuberun,mixed
+446,K1000,https://overloadmaps.com/imgs/c740b4101009da63a724516bc8aae8f2/THE STARLIGHT LOUNGE.jpg,medium,8,4,false,PILE,2021-03-14,https://overloadmaps.com/k1000,mixed
+447,Sigma Station,https://overloadmaps.com/imgs/4e0511fb409a4ee0120ee24c0ebd67f8/Sigma Station.jpg,medium,8,4,false,Yinut,2018-09-10,https://overloadmaps.com/sigma-station,mixed
+448,WHAT BIG TEETH YOU HAVE,https://overloadmaps.com/imgs/d2a3a49f6c0d66985958bf7324261840/callistolab.jpg,medium,8,4,false,Ne'b!ula!F'ang!!!!!,2020-05-18,https://overloadmaps.com/what-big-teeth-you-have,mixed
+449,Rotunda_1v1,https://overloadmaps.com/imgs/3189962ae07371efbcefbf2f1753cded/Rotunda_1v1.jpg,medium,8,4,false,Miasmic,2019-12-25,https://overloadmaps.com/rotunda-1v1,mixed
+450,HEWYAHA GATE,,medium,8,4,false,hattieboss,2019-03-02,https://overloadmaps.com/hewyaha-gate,mixed
+451,Turnstile,https://overloadmaps.com/imgs/121de3713e3c117c24f0a66632fc3918/Turnstile.jpg,medium,8,4,false,Miasmic,2018-09-07,https://overloadmaps.com/turnstile,mixed
+452,Xenopulse_v2,https://overloadmaps.com/imgs/21e95e6e59bc0fc871741ceb57af4e3b/XenoPulse_v2.jpg,medium,8,4,false,Miasmic,2020-07-24,https://overloadmaps.com/xenopulse-v2,mixed
+453,SomeTimes,https://overloadmaps.com/imgs/a3dc581be4ce3a2014b0f62566b1452f/SomeTimes.jpg,medium,8,4,false,PILE,2025-10-28,https://overloadmaps.com/sometimes,mixed
+454,KO,https://overloadmaps.com/imgs/a1d695d5cac46db7f3a7d68bcecf9aa6/ko.jpg,medium,8,4,false,Lee,2020-08-14,https://overloadmaps.com/ko,mixed
+455,lacuna,https://overloadmaps.com/imgs/5c41a4c0d4c41f22965ec6fe3701df72/lacuna.jpg,medium,8,4,false,0beron,2018-09-09,https://overloadmaps.com/lacuna,mixed
+456,Shogun25,https://overloadmaps.com/imgs/9282b24b7db49813cdf0d0bb3ecdbaf7/Shogun25.jpg,medium,8,4,false,CHILLY_BUS,2025-05-09,https://overloadmaps.com/shogun25,mixed
+457,Kataclysmica_1.1,https://overloadmaps.com/imgs/ede3d8344c859520b7033dc0fa72154b/Kataclysmica_1.1.jpg,medium,8,4,false,jazzyjet,2019-07-01,https://overloadmaps.com/kataclysmica-1.1,mixed
+458,IceCycle_V2,https://overloadmaps.com/imgs/55c54d0f226112a5fa8cc4b8b0e387e5/IceCycle_V2.jpg,medium,8,4,false,Krusty,2020-03-11,https://overloadmaps.com/icecycle-v2,mixed
+459,ST-TheSamePlace-08-BlankState,https://overloadmaps.com/imgs/da387ba9643a3aa9a7851a4513cf5730/ST-TheSamePlace-08-BlankState.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-thesameplace-08-blankstate,mixed
+460,The Guggen,https://overloadmaps.com/imgs/1463213b9852942f515416a46cce6536/The Guggen.jpg,medium,8,4,false,PILE,2022-01-03,https://overloadmaps.com/the-guggen,mixed
+461,Stomping Grounds_Split,https://overloadmaps.com/imgs/678b85c46083539cd4d5abff8a6b00ac/Stomping Grounds_Split.jpg,medium,8,4,false,Tarcisius,2019-01-31,https://overloadmaps.com/stomping-grounds-split,mixed
+462,Dorothy,https://overloadmaps.com/imgs/8613c0975e9f00ec9a5c56f68d787535/DOROTHY.jpg,medium,8,4,false,PILE,2021-09-06,https://overloadmaps.com/dorothy,mixed
+463,Death Race,https://overloadmaps.com/imgs/08b9191192563b2f53e3118123c9570e/Death Race.jpg,medium,8,4,false,JosheM,2020-04-17,https://overloadmaps.com/death-race,mixed
+464,SEVEN POINT ONE,https://overloadmaps.com/imgs/3d6c377f7a503806a8c89a3ebdbfc5ab/SEVEN POINT ONE.jpg,medium,8,4,false,PILE,2021-03-01,https://overloadmaps.com/seven-point-one,mixed
+465,BLENDER,https://overloadmaps.com/imgs/b3f3d851a5f2649abec9fdf8b4d068df/BLENDER.jpg,medium,8,4,false,PILE,2021-02-03,https://overloadmaps.com/blender,mixed
+466,THE FULL DYNACORE,https://overloadmaps.com/imgs/5c9eb9657b985527cabe1439574201ee/Benton Outpost.jpg,medium,8,4,false,JosheM,2021-03-23,https://overloadmaps.com/the-full-dynacore,mixed
+467,GROUND XENO,,medium,8,4,false,Diamond Wolf,2020-05-27,https://overloadmaps.com/ground-xeno,mixed
+468,silver_v2,https://overloadmaps.com/imgs/62828181e7cf4f57930e1d99f3f67088/silver_v2.jpg,medium,8,4,false,Doctor_Tasty,2020-08-28,https://overloadmaps.com/silver-v2,mixed
+469,SAO OUTPOST,https://overloadmaps.com/imgs/b181a878a0fa0a27929791886a3c3ac0/sp_sao.jpg,medium,8,4,false,kevin,2018-09-08,https://overloadmaps.com/sao-outpost,mixed
+470,ST-Patio-00,https://overloadmaps.com/imgs/977155b49aa1de63537d58240fb85a49/ST-Patio-00.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-patio-00,mixed
+471,Icewolfe_Death_Match,,medium,8,4,false,Maxx,2020-05-31,https://overloadmaps.com/icewolfe-death-match,mixed
+472,Kataclysmica_CTF,https://overloadmaps.com/imgs/ef36b0de023cc92bbb93b5c16ed6ef8f/Kataclysmica_CTF.jpg,medium,8,4,true,jazzyjet,2020-01-21,https://overloadmaps.com/kataclysmica-ctf,mixed
+473,Colony_CTF,https://overloadmaps.com/imgs/8469779216fa7fd5e634cb5d4155ec5e/Colony_CTF.jpg,medium,8,4,true,Miasmic,2019-11-26,https://overloadmaps.com/colony-ctf,mixed
+474,Continuum,https://overloadmaps.com/imgs/65a5c30b7603c69b2afa953adc122559/Continuum.jpg,medium,8,4,false,CHILLY_BUS,2018-10-10,https://overloadmaps.com/continuum,mixed
+475,ST-Drain-00-Force,https://overloadmaps.com/imgs/7b431ede48ec0bd76332cae9aec6cffc/ST-Drain-00-Force.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-drain-00-force,mixed
+476,colossus,,medium,8,4,false,Diamond Wolf,2019-04-23,https://overloadmaps.com/colossus,mixed
+477,SUPERSHAFT,https://overloadmaps.com/imgs/1abf20205b645d9a5bbf7356a511cf6d/Supershaft.jpg,medium,8,4,false,Yinut,2020-05-26,https://overloadmaps.com/supershaft,mixed
+478,EPIC POS,https://overloadmaps.com/imgs/29900e6b75394c23899c945565631160/EPIC POS.jpg,medium,8,4,false,PILE,2021-05-03,https://overloadmaps.com/epic-pos,mixed
+479,lower_manifold,https://overloadmaps.com/imgs/136fc041a736dfd943087a3ac998a06b/lower_manifold.jpg,medium,8,4,false,0beron,2019-02-04,https://overloadmaps.com/lower-manifold,mixed
+480,Twinspire V2,https://overloadmaps.com/imgs/139f82612087dc1e99749b9764f49066/Twinspire V2.jpg,medium,8,4,false,JosheM,2019-08-09,https://overloadmaps.com/twinspire-v2,mixed
+481,Spar_v2,https://overloadmaps.com/imgs/50b5dd5b802fa6be1621b5ca2e359ad1/Spar_v2.jpg,medium,8,4,false,Miasmic,2020-11-02,https://overloadmaps.com/spar-v2,mixed
+482,ST-Republic-05-Alt,https://overloadmaps.com/imgs/604501d9250c9fe6af989392e5f04c48/ST-Republic-05-Alt.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-republic-05-alt,mixed
+483,INVISIBLE MAZE,,medium,8,4,false,Diamond Wolf,2019-05-13,https://overloadmaps.com/invisible-maze,mixed
+484,Op-ception,https://overloadmaps.com/imgs/20af0c04ad648420eea3ce6653cb48a4/Op-ception.jpg,medium,8,4,false,LLAMA,2018-10-01,https://overloadmaps.com/op-ception,mixed
+485,ST-Republic-05,https://overloadmaps.com/imgs/a8ca53fb35b51ce694bbd82952e664ad/ST-Republic-05.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-republic-05,mixed
+486,Slanted,https://overloadmaps.com/imgs/dc169f164ee27894813b8f501926bb33/Slanted.jpg,medium,8,4,false,Yinut,2020-06-11,https://overloadmaps.com/slanted,mixed
+487,ST-Republic-00,https://overloadmaps.com/imgs/72e59a91fb28277b65d695030715bc89/ST-Republic-00.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-republic-00,mixed
+488,turbine,https://overloadmaps.com/imgs/09e278657cc0b1680cc04fe0869b252d/turbine.jpg,medium,8,4,false,Parabolicus,2018-07-05,https://overloadmaps.com/turbine,mixed
+489,Hewyaha Gate Classic,,medium,8,4,false,hattieboss,2019-03-02,https://overloadmaps.com/hewyaha-gate-classic,mixed
+490,RABOOTAGE,https://overloadmaps.com/imgs/ad7e85295cf30c08cc374865fe1a9f9d/Rabootage.jpg,medium,8,4,false,LusTuccc,2019-06-12,https://overloadmaps.com/rabootage,mixed
+491,ST-TerminalPalace-02,https://overloadmaps.com/imgs/07b0ed6aca4ee08f8735f7718b532e67/ST-TerminalPalace-02.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-terminalpalace-02,mixed
+492,ST-Arena-Shadow-05-Nouveau,https://overloadmaps.com/imgs/840325265423dba65603cf9411fed243/ST-Arena-Shadow-05-Nouveau.jpg,medium,8,4,false,CHILLY_BUS,2025-09-10,https://overloadmaps.com/st-arena-shadow-05-nouveau,mixed
+493,BURNING SATIVA,https://overloadmaps.com/imgs/a754bf9d9932b362522ffeccd7b1355e/burning_sativa.jpg,medium,8,4,false,Doctor_Tasty,2024-02-15,https://overloadmaps.com/burning-sativa,mixed
+494,OuterKrust_MP,,medium,8,4,false,Krusty,2019-05-11,https://overloadmaps.com/outerkrust-mp,mixed
+495,ST-Arena-27,https://overloadmaps.com/imgs/4f20aa73e2d89217109f07a8721ea905/ST-Arena-27.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-arena-27,mixed
+496,DESCENTMAP17,,medium,8,4,false,ziqidel,2018-07-15,https://overloadmaps.com/descentmap17,mixed
+497,UnderMine,https://overloadmaps.com/imgs/2d719e8d76b50debadcf3e65d69bd35c/UnderMine.jpg,medium,8,4,false,Krusty,2018-09-14,https://overloadmaps.com/undermine,mixed
+498,TWISTV2,https://overloadmaps.com/imgs/e6673c7613fec1654749eed3491c14f7/twistv2.jpg,medium,8,4,false,Doctor_Tasty,2023-01-22,https://overloadmaps.com/twistv2,mixed
+499,Kegparty_v3,https://overloadmaps.com/imgs/947312cae5430f638f5b2a2788677509/Kegparty_v3.jpg,medium,8,4,false,luponix,2020-08-29,https://overloadmaps.com/kegparty-v3,mixed
+500,testhorizon,https://overloadmaps.com/imgs/310886cdc306dee459919e7cd2eca241/testhorizon.jpg,medium,8,4,false,terminal,2021-12-06,https://overloadmaps.com/testhorizon,mixed
+501,Colony,https://overloadmaps.com/imgs/5a37e39f04f5b45b6c5991c7aa5d707d/Colony.jpg,medium,8,4,false,Miasmic,2019-06-16,https://overloadmaps.com/colony,mixed
+502,Tryhard,https://overloadmaps.com/imgs/1b15699936dda58ec526adfe03ed227f/Tryhard.jpg,medium,8,4,false,Yinut,2019-05-10,https://overloadmaps.com/tryhard,mixed
+503,Icewolf_Death_Match_V.1,,medium,8,4,false,Maxx,2020-06-26,https://overloadmaps.com/icewolf-death-match-v.1,mixed
+504,Sub Rosa,https://overloadmaps.com/imgs/637c250dcd0f9e22bf0f1474b58c86ec/Sub Rosa.jpg,medium,8,4,false,CHILLY_BUS,2019-01-28,https://overloadmaps.com/sub-rosa,mixed
+505,Drilled,https://overloadmaps.com/imgs/1d513c15debc7c6f04da7b95c4cef4a8/Drilled.jpg,medium,8,4,false,Yinut,2018-09-25,https://overloadmaps.com/drilled,mixed
+506,FIRST STRIKE: MARS (MOD),https://overloadmaps.com/imgs/39d774057db2ac63f17f452c3ca60b02/skip.jpg,medium,8,4,false,kevin,2020-11-01,https://overloadmaps.com/first-strike:-mars-(mod),mixed
+507,Kataclysmica,,medium,8,4,false,jazzyjet,2019-06-21,https://overloadmaps.com/kataclysmica,mixed
+508,stadium,https://overloadmaps.com/imgs/c0faa8507dbac362c809a17836461453/stadium.jpg,medium,8,4,false,Danimal,2018-12-31,https://overloadmaps.com/stadium,mixed
+509,lacuna_mp,https://overloadmaps.com/imgs/673e838b31bb00c646e6a8e389c9c4d0/lacuna_mp.jpg,medium,8,4,false,0beron,2018-10-04,https://overloadmaps.com/lacuna-mp,mixed
+510,ST-Chateaux-13-Alt,https://overloadmaps.com/imgs/efbbcc2f1c5cb78497fe747c3d774cc5/ST-Chateaux-13-Alt.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-chateaux-13-alt,mixed
+511,Impermanence,https://overloadmaps.com/imgs/936db0b85fac5e05e6bad7b7a99921ad/Impermanence.jpg,medium,8,4,false,CHILLY_BUS,2018-08-15,https://overloadmaps.com/impermanence,mixed
+512,ofs_secret_base_v1,https://overloadmaps.com/imgs/bd6a3a1a17a5f36ee799a21d97524806/ofs_secret_base_v1.jpg,medium,8,4,false,kevin,2023-09-09,https://overloadmaps.com/ofs-secret-base-v1,mixed
+513,ST-Barren-00,https://overloadmaps.com/imgs/ceb80bf331abfcfec826db5d40763efa/ST-Barren-00.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-barren-00,mixed
+514,KILLJOY CAVERN,,medium,8,4,false,Diamond Wolf,2020-05-27,https://overloadmaps.com/killjoy-cavern,mixed
+515,IceCycle_V2_MP,https://overloadmaps.com/imgs/55c54d0f226112a5fa8cc4b8b0e387e5/IceCycle_V2_MP.jpg,medium,8,4,false,Krusty,2020-03-11,https://overloadmaps.com/icecycle-v2-mp,mixed
+516,ol_iceworld,https://overloadmaps.com/imgs/bbd541b7215334c828f8aeb6f52abb8d/ol_iceworld.jpg,medium,8,4,false,CHILLY_BUS,2023-09-30,https://overloadmaps.com/ol-iceworld,mixed
+517,Garrison_MP,https://overloadmaps.com/imgs/523d11006211ea97254c45d3ec07791f/Garrison_MP.jpg,medium,8,4,false,Krusty,2020-02-17,https://overloadmaps.com/garrison-mp,mixed
+518,Cathedral CM,https://overloadmaps.com/imgs/21cf0d70069ab674251976591d8a7f61/Cathedral CM.jpg,medium,8,4,false,JosheM,2018-11-16,https://overloadmaps.com/cathedral-cm,mixed
+519,Ignition,https://overloadmaps.com/imgs/0c6ae2ab596ae25d4487a99eea1051e5/Ignition.jpg,medium,8,4,false,CHILLY_BUS,2019-06-16,https://overloadmaps.com/ignition,mixed
+520,mp_undertow,https://overloadmaps.com/imgs/543adb967f72272fb722744ae7b41304/mp_undertow.jpg,medium,8,4,false,kevin,2018-10-04,https://overloadmaps.com/mp-undertow,mixed
+521,Mercer Point MP V2,https://overloadmaps.com/imgs/cdf37b94a6972721dfc14cc9f476af07/Mercer Point MP V2.jpg,medium,8,4,false,JosheM,2020-12-07,https://overloadmaps.com/mercer-point-mp-v2,mixed
+522,EIGHTEEN,https://overloadmaps.com/imgs/4758e1c02919914f386e971ba3ea5e05/EIGHTEEN.jpg,medium,8,4,false,PILE,2025-11-19,https://overloadmaps.com/eighteen,mixed
+523,Star Rumble XL,https://overloadmaps.com/imgs/0557043f52c67296e21053b8de1d0693/Star Rumble XL.jpg,medium,8,4,false,.soupist.,2025-10-18,https://overloadmaps.com/star-rumble-xl,mixed
+524,Skybox_V1.2,https://overloadmaps.com/imgs/09a5b02c610a464765c4f2f0a5aeaec0/Skybox_V1.2.jpg,medium,8,4,false,jazzyjet,2019-06-05,https://overloadmaps.com/skybox-v1.2,mixed
+525,ST-ICE-01,https://overloadmaps.com/imgs/4099a06c3173a2d9ff0e56a11e2e3d40/ST-ICE-01.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-ice-01,mixed
+526,ST-Neo-Arena-07,https://overloadmaps.com/imgs/fe2bcbfe4bdd18a54af2918f4b8ede82/ST-Neo-Arena-07.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-neo-arena-07,mixed
+527,ofs_military_depot_ctf_v1,https://overloadmaps.com/imgs/bbc8620fe2332346e1e2cb3b04ab584a/ofs_military_depot_ctf_v1.jpg,medium,8,4,true,kevin,2023-09-10,https://overloadmaps.com/ofs-military-depot-ctf-v1,mixed
+528,CENTISEGMENTUM - SHROUDEYE,https://overloadmaps.com/imgs/56642dbd9503c2649f8a7ef07e06a84a/SE_CentiSegmentum_05.jpg,medium,8,4,false,Shroudeye,2020-06-04,https://overloadmaps.com/centisegmentum---shroudeye,mixed
+529,the_core_d3,https://overloadmaps.com/imgs/c3aa16c73c24f8d781c0ea70acbab8b6/the_core_d3.jpg,medium,8,4,false,kevin,2024-03-23,https://overloadmaps.com/the-core-d3,mixed
+530,ST-Cage-Fight-00-Sunset,https://overloadmaps.com/imgs/266606285ca55b8595182db0da3f4ed5/ST-Cage-Fight-00-Sunset.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-cage-fight-00-sunset,mixed
+531,DESCENT SHAREWARE OVERLOADED,https://overloadmaps.com/imgs/7da4c84362619c20f15dc2c41886b3d5/D1L1.jpg,medium,8,4,false,Yinut,2020-09-13,https://overloadmaps.com/descent-shareware-overloaded,mixed
+532,Unobtainium,https://overloadmaps.com/imgs/3b3ad7a9a6e257b050981d4f6b73a2a3/Unobtainium.jpg,medium,8,4,false,Yinut,2019-03-03,https://overloadmaps.com/unobtainium,mixed
+533,Harry Carry's Fubar Cafe,https://overloadmaps.com/imgs/a4c7a0a11dc35893e7e073fbdac89f64/Harry Carry's Fubar Cafe.jpg,medium,8,4,false,PILE,2021-01-09,https://overloadmaps.com/harry-carry's-fubar-cafe,mixed
+534,ofs_secret_base,https://overloadmaps.com/imgs/83f7503a85f3b807450649d22052d4d4/ofs_secret_base.jpg,medium,8,4,false,kevin,2023-08-26,https://overloadmaps.com/ofs-secret-base,mixed
+535,ofs_robot_factory_v1,https://overloadmaps.com/imgs/1dd69eb1be9051f7fa1d0f4d40daddd0/ofs_robot_factory_v1.jpg,medium,8,4,false,kevin,2023-09-09,https://overloadmaps.com/ofs-robot-factory-v1,mixed
+536,OPERATION VEGA,https://overloadmaps.com/imgs/9845b7201f8437bb77363ad7f810977b/alpha0.jpg,medium,8,4,false,Yinut,2019-03-07,https://overloadmaps.com/operation-vega,mixed
+537,Compartments,https://overloadmaps.com/imgs/8a1d09435dd19c35d0d112fcdf1eb147/Compartments.jpg,medium,8,4,false,Yinut,2019-06-04,https://overloadmaps.com/compartments,mixed
+538,Drone,https://overloadmaps.com/imgs/af235f446b22d6d9d38034170cf19846/Drone.jpg,medium,8,4,false,Miasmic,2019-05-20,https://overloadmaps.com/drone,mixed
+539,El Diablo,https://overloadmaps.com/imgs/b4866a65101cc199650d621660343dd5/El Diablo.jpg,medium,8,4,false,PILE,2021-12-26,https://overloadmaps.com/el-diablo,mixed
+540,SHADESTEST,https://overloadmaps.com/imgs/dd1ee0bfaa7ebc4e0435de827cc0b521/shadesTest.jpg,medium,8,4,false,Shadesmaster,2018-07-18,https://overloadmaps.com/shadestest,mixed
+541,AHAYWEH GATE,https://overloadmaps.com/imgs/669442bf80daf7f90d44e5fd2571557e/Ahayweh Gate.jpg,medium,8,4,false,Yinut,2019-05-28,https://overloadmaps.com/ahayweh-gate,mixed
+542,manifold,https://overloadmaps.com/imgs/bbf156f837326e01fb8dd56d68750551/manifold.jpg,medium,8,4,false,0beron,2018-09-09,https://overloadmaps.com/manifold,mixed
+543,Sub Rosa v3,https://overloadmaps.com/imgs/27d306597047ee249ac19c80347c82b7/Sub Rosa v3.jpg,medium,8,4,false,CHILLY_BUS,2019-05-10,https://overloadmaps.com/sub-rosa-v3,mixed
+544,KubeRun-MP,,medium,8,4,false,Krusty,2019-05-11,https://overloadmaps.com/kuberun-mp,mixed
+545,conviction_bouncy,https://overloadmaps.com/imgs/25e29b38d60be100140e65c119e036d0/conviction_bouncy.jpg,medium,8,4,false,kevin,2023-04-02,https://overloadmaps.com/conviction-bouncy,mixed
+546,DEARDRA FIVE,https://overloadmaps.com/imgs/98fc50bed03e488dffd896ddefc19fa4/DEARDRA FIVE.jpg,medium,8,4,false,PILE,2023-04-10,https://overloadmaps.com/deardra-five,mixed
+547,Dramamine,https://overloadmaps.com/imgs/873e6d2c148abe124926f312b8ae7334/Dramamine.jpg,medium,8,4,false,PILE,2022-02-11,https://overloadmaps.com/dramamine,mixed
+548,Trichome_CTF,https://overloadmaps.com/imgs/822389a1420f11ed61489a571275cbfc/Trichome_CTF.jpg,medium,8,4,true,jazzyjet,2019-11-20,https://overloadmaps.com/trichome-ctf,mixed
+549,Burning Indika,https://overloadmaps.com/imgs/35d1bd5af43f64e0744f2b53e8ae9394/Burning Indika.jpg,medium,8,4,false,terminal,2018-12-17,https://overloadmaps.com/burning-indika,mixed
+550,idunno,https://overloadmaps.com/imgs/bd4599131723a0d8545fe0dc33372d2c/Idunno.jpg,medium,8,4,false,Blarget2,2018-07-06,https://overloadmaps.com/idunno,mixed
+551,SEDNA STATION,https://overloadmaps.com/imgs/5bfe6d87234c37cae3253ac4022ca0b8/Sedna Station.jpg,medium,8,4,false,Krusty,2019-03-07,https://overloadmaps.com/sedna-station,mixed
+552,UnderMine_V2,https://overloadmaps.com/imgs/d1d06ca9e6853ae3a7ccfebf9078eff0/UnderMine_V2.jpg,medium,8,4,false,Krusty,2020-03-11,https://overloadmaps.com/undermine-v2,mixed
+553,TracerBolt,https://overloadmaps.com/imgs/31a710e4dc055743946e8dd773160089/TracerBolt.jpg,medium,8,4,false,Krusty,2020-06-15,https://overloadmaps.com/tracerbolt,mixed
+554,Throne_v2,https://overloadmaps.com/imgs/046e84b4b7327e45cf11907901dbe2b8/Throne_v2.jpg,medium,8,4,false,Miasmic,2019-05-01,https://overloadmaps.com/throne-v2,mixed
+555,Hover,https://overloadmaps.com/imgs/6089edc096c01aa8a8e17489ace07826/Hover.jpg,medium,8,4,false,Miasmic,2019-03-12,https://overloadmaps.com/hover,mixed
+556,Dominion MP 1.1,https://overloadmaps.com/imgs/0ae60f46bf2522bd73db16098247517a/Dominion MP 1.1.jpg,medium,8,4,false,JosheM,2018-11-09,https://overloadmaps.com/dominion-mp-1.1,mixed
+557,ST-valhalla-02,https://overloadmaps.com/imgs/6646173d156d36532f7f1233ff7dd1d2/ST-valhalla-02.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-valhalla-02,mixed
+558,ST-valhalla-01,https://overloadmaps.com/imgs/1ca2d3b60c96085a2c7a5032a8358c3e/ST-valhalla-01.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-valhalla-01,mixed
+559,JONAS111,https://overloadmaps.com/imgs/165e0556d09f2c86ee053c00a864072a/Jonas111.jpg,medium,8,4,false,LusTuccc,2019-01-02,https://overloadmaps.com/jonas111,mixed
+560,ST-valhalla-05,https://overloadmaps.com/imgs/27dd32414f43afd89a5f84ed0367e4b6/ST-valhalla-05.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-valhalla-05,mixed
+561,Criss,https://overloadmaps.com/imgs/0b49a8b67a4b890d0c06eac482a93fb0/Criss.jpg,medium,8,4,false,Doctor_Tasty,2020-03-31,https://overloadmaps.com/criss,mixed
+562,The_Core_V2,https://overloadmaps.com/imgs/57abb44f9d8c2e52f3fa090769384f7e/The_Core_V2.jpg,medium,8,4,false,Shroudeye,2018-10-04,https://overloadmaps.com/the-core-v2,mixed
+563,ON SPEED,https://overloadmaps.com/imgs/b092bf7035a528c559cba2aaf50775ac/On Speed.jpg,medium,8,4,false,PILE,2020-09-15,https://overloadmaps.com/on-speed,mixed
+564,CALLISTO PROCESS,https://overloadmaps.com/imgs/f3e8b9839df4bf165c0ee63031e27d13/Callisto Process.jpg,medium,8,4,false,Krusty,2018-09-02,https://overloadmaps.com/callisto-process,mixed
+565,DUCE,https://overloadmaps.com/imgs/8709ea294eea72381a83a58fc4a4eddc/DUCE.jpg,medium,8,4,false,PILE,2025-06-10,https://overloadmaps.com/duce,mixed
+566,Hover_v2,https://overloadmaps.com/imgs/1f37eabca7fd04a2ca5061921958b6ac/Hover_v2.jpg,medium,8,4,false,Miasmic,2020-08-19,https://overloadmaps.com/hover-v2,mixed
+567,HEXAMATRIX,,medium,8,4,false,Diamond Wolf,2020-05-27,https://overloadmaps.com/hexamatrix,mixed
+568,I DON'T CARE,https://overloadmaps.com/imgs/c75c8eff8ea2d422a4717d71a123f814/I Don't Care.jpg,medium,8,4,false,Lee,2020-08-20,https://overloadmaps.com/i-don't-care,mixed
+569,DRAGON'S HOARD,https://overloadmaps.com/imgs/90ae102f8da2e0016ef0e8d829275763/horde.jpg,medium,8,4,false,Ne'b!ula!F'ang!!!!!,2020-03-15,https://overloadmaps.com/dragon's-hoard,mixed
+570,JUNO OFFWORLD ADVANCED ALLOYS,https://overloadmaps.com/imgs/0603fdf4a63c078550519768ce8f4f7c/Juno Offworld Advanced Alloys.jpg,medium,8,4,false,Yinut,2020-05-23,https://overloadmaps.com/juno-offworld-advanced-alloys,mixed
+571,pentaprism,https://overloadmaps.com/imgs/e2bc5350f317021b4d86d7586e398908/pentaprism.jpg,medium,8,4,false,0beron,2019-02-04,https://overloadmaps.com/pentaprism,mixed
+572,TAKING A.I.M.,https://overloadmaps.com/imgs/bc929e4d8d1f83dcdde83aeb38339c4a/Grand Traverse 1A.jpg,medium,8,4,false,Krusty,2020-01-15,https://overloadmaps.com/taking-a.i.m.,mixed
+573,TINMAN,https://overloadmaps.com/imgs/428fdebfb8bb3de3232997d275bcd11a/TINMAN.jpg,medium,8,4,false,PILE,2021-08-24,https://overloadmaps.com/tinman,mixed
+574,Combustion Race,https://overloadmaps.com/imgs/d48fa21d167a6089828c4cc4dfd2e137/Combustion Race.jpg,medium,8,4,false,JosheM,2020-05-21,https://overloadmaps.com/combustion-race,mixed
+575,IceCycle,https://overloadmaps.com/imgs/beafec53297a1c36c4e78d31b66728dd/IceCycle.jpg,medium,8,4,false,Krusty,2018-09-02,https://overloadmaps.com/icecycle,mixed
+576,Requiem,https://overloadmaps.com/imgs/3ef8703893ffdb8438ae1ce11ddf3d88/Requiem.jpg,medium,8,4,false,CHILLY_BUS,2023-09-02,https://overloadmaps.com/requiem,mixed
+577,Rotunda_CTF,https://overloadmaps.com/imgs/3189962ae07371efbcefbf2f1753cded/Rotunda_CTF.jpg,medium,8,4,true,Miasmic,2019-12-25,https://overloadmaps.com/rotunda-ctf,mixed
+578,Throne,https://overloadmaps.com/imgs/85827bd25af7811878969c2cd218c80f/Throne.jpg,medium,8,4,false,Miasmic,2018-07-07,https://overloadmaps.com/throne,mixed
+579,ANOTHER FINE MESS L1,https://overloadmaps.com/imgs/e2bdb584e751bc0aca06795bfe0a694a/AFM_Collins_Space_Services_A.jpg,medium,8,4,false,Tarcisius,2018-08-25,https://overloadmaps.com/another-fine-mess-l1,mixed
+580,Riber Control,https://overloadmaps.com/imgs/5c9eb9657b985527cabe1439574201ee/Riber Control.jpg,medium,8,4,false,JosheM,2020-01-20,https://overloadmaps.com/riber-control,mixed
+581,ST-HK-04,https://overloadmaps.com/imgs/6bb5815106066a3d0f48166fd8958407/ST-HK-04.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-hk-04,mixed
+582,CHARON HEAVY VOLATILE MINE MN8838,https://overloadmaps.com/imgs/d5af8ba9e9e338ded686111aa723022e/D1L27.jpg,medium,8,4,false,Tarcisius,2020-08-25,https://overloadmaps.com/charon-heavy-volatile-mine-mn8838,mixed
+583,C_Block,https://overloadmaps.com/imgs/584c40a4f6716e83167b5b0da9e3aa42/C_Block.jpg,medium,8,4,false,Miasmic,2019-08-21,https://overloadmaps.com/c-block,mixed
+584,CARRIER,https://overloadmaps.com/imgs/a140397e5d2223c83f1e5a8a66d2ce12/Carrier.jpg,medium,8,4,false,Girbat,2021-11-19,https://overloadmaps.com/carrier,mixed
+585,Oz,https://overloadmaps.com/imgs/cdf19a80e79fe66f32b14599319e37bb/Oz.jpg,medium,8,4,false,PILE,2021-08-15,https://overloadmaps.com/oz,mixed
+586,Infinite Abyss Race,https://overloadmaps.com/imgs/e99ee386091a57449873e22ffb8e7d2a/Infinite Abyss Race.jpg,medium,8,4,false,Shroudeye,2021-03-22,https://overloadmaps.com/infinite-abyss-race,mixed
+587,SHINY,https://overloadmaps.com/imgs/6db747b11b8765278a0a87af1a31fe31/SHINY.jpg,medium,8,4,false,PILE,2023-06-27,https://overloadmaps.com/shiny,mixed
+588,ST-Cage-Fight-00-Eclipse,https://overloadmaps.com/imgs/9b018219c4596416bf3249329689959e/ST-Cage-Fight-00-Eclipse.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-cage-fight-00-eclipse,mixed
+589,DESCENT - FIRST STRIKE,,medium,8,4,false,Sottises,2019-05-21,https://overloadmaps.com/descent---first-strike,mixed
+590,MIDNIGHT SILVER LEVEL 2,https://overloadmaps.com/imgs/2fad50d005d35f42657c2703b3c6358c/nyxrefinery.jpg,medium,8,4,false,Ne'b!ula!F'ang!!!!!,2018-08-13,https://overloadmaps.com/midnight-silver-level-2,mixed
+591,Iapetus,https://overloadmaps.com/imgs/9532d0bd5ff467d066f3d9f722c30c1e/Iapetus.jpg,medium,8,4,false,Trappist,2019-03-16,https://overloadmaps.com/iapetus,mixed
+592,SON OF FLUBBABUB,https://overloadmaps.com/imgs/7f52abb1b51c706ff3384a658a4582e1/SON OF FLUBBABUB.jpg,medium,8,4,false,PILE,2021-04-21,https://overloadmaps.com/son-of-flubbabub,mixed
+593,OVERLOAD FIRST STRIKE,https://overloadmaps.com/imgs/622c618dfd4f5e1cdc3f6c38dc004fc0/D1L01Lunar-Outpost.jpg,medium,8,4,false,Yinut,2023-08-19,https://overloadmaps.com/overload-first-strike,mixed
+594,Quadratic,https://overloadmaps.com/imgs/4ec19c027dc1226fcf6df5adc54b50bc/Quadratic.jpg,medium,8,4,false,CHILLY_BUS,2018-10-04,https://overloadmaps.com/quadratic,mixed
+595,Spar,https://overloadmaps.com/imgs/2f6568ebf2c36971a2aee02fd15ef821/Spar.jpg,medium,8,4,false,Miasmic,2020-08-19,https://overloadmaps.com/spar,mixed
+596,DOUBLE DOWN,https://overloadmaps.com/imgs/1d1e80c93863ff15bac432b74f398576/DOUBLE DOWN.jpg,medium,8,4,false,PILE,2021-01-05,https://overloadmaps.com/double-down,mixed
+597,MAINTENANCE,,medium,8,4,false,Girbat,2021-07-06,https://overloadmaps.com/maintenance,mixed
+598,TB_ARENA,https://overloadmaps.com/imgs/488083251361f5e5849a95cd3bc87a2f/TB_ARENA.jpg,medium,8,4,false,Miasmic,2020-04-01,https://overloadmaps.com/tb-arena,mixed
+599,flatland_v2,https://overloadmaps.com/imgs/2dff5634d85c5cecad2d8c55b93ffda2/flatland_v2.jpg,medium,8,4,false,Doctor_Tasty,2022-04-06,https://overloadmaps.com/flatland-v2,mixed
+600,cage_1.1,https://overloadmaps.com/imgs/094e4a8be67a7661e546c4573cf11111/cage_1.1.jpg,medium,8,4,false,kevin,2019-06-02,https://overloadmaps.com/cage-1.1,mixed
+601,Whoopass_CTF,https://overloadmaps.com/imgs/4a1fcf87add87c2f74ef1f96703238b0/Whoopass_CTF.jpg,medium,8,4,true,jazzyjet,2020-01-19,https://overloadmaps.com/whoopass-ctf,mixed
+602,BURNING SATIVA 2,https://overloadmaps.com/imgs/2682b30cabdb7099055515597f53019c/burning_sativa_2.jpg,medium,8,4,false,Doctor_Tasty,2024-05-27,https://overloadmaps.com/burning-sativa-2,mixed
+603,ventorus,https://overloadmaps.com/imgs/2798e701488e8c04272c8cbbdd045b3f/ventorus.jpg,medium,8,4,false,kevin,2018-08-29,https://overloadmaps.com/ventorus,mixed
+604,level25 2.16,https://overloadmaps.com/imgs/74fda4997c4dcf68eaa3e72684688dc4/level25 2.16.jpg,medium,8,4,false,mark18mod1,2024-01-19,https://overloadmaps.com/level25-2.16,mixed
+605,Ocellus,https://overloadmaps.com/imgs/be2c6d3013026531e4bb72f6d6e44550/Ocellus.jpg,medium,8,4,false,Krusty,2018-11-17,https://overloadmaps.com/ocellus,mixed
+606,microcosm,,medium,8,4,false,Sirius,2018-07-07,https://overloadmaps.com/microcosm,mixed
+607,Tourette's Rainbow,https://overloadmaps.com/imgs/6c23b5e9a3f4a083cf7b7b4f7821a884/Tourette's Rainbow.jpg,medium,8,4,false,PILE,2021-04-11,https://overloadmaps.com/tourette's-rainbow,mixed
+608,twist,https://overloadmaps.com/imgs/5dac81ef24acbdd80d6e7208b4e4d152/twist.jpg,medium,8,4,false,Doctor_Tasty,2022-09-26,https://overloadmaps.com/twist,mixed
+609,ST-Neo-Arena-08,https://overloadmaps.com/imgs/da297070377e280583af5088ba522adc/ST-Neo-Arena-08.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-neo-arena-08,mixed
+610,PYRE PROVING GROUNDS,https://overloadmaps.com/imgs/481b1f6aae30432b7ae6d20ac62144ae/pyre.jpg,medium,8,4,false,DH,2018-09-08,https://overloadmaps.com/pyre-proving-grounds,mixed
+611,long-MB,https://overloadmaps.com/imgs/2ec359291ee7f3f08a1531ab48863e0a/long-mb.jpg,medium,8,4,false,terminal,2019-04-28,https://overloadmaps.com/long-mb,mixed
+612,ST-Drain-00,https://overloadmaps.com/imgs/c5157b6a4cc07dd52fd3b07558ba0fde/ST-Drain-00.jpg,medium,8,4,false,CHILLY_BUS,2025-08-27,https://overloadmaps.com/st-drain-00,mixed
+613,FLUBBABUB,https://overloadmaps.com/imgs/459dcffbce56a63fdfd4b1401bb8536b/FLUBBABUB.jpg,medium,8,4,false,PILE,2021-03-29,https://overloadmaps.com/flubbabub,mixed
+614,BOSS RUSH+,https://overloadmaps.com/imgs/c30658ab675bf9d517f7c59a3611e507/Cold Fusion Big Boss 1.jpg,medium,8,4,false,Tarcisius,2018-09-09,https://overloadmaps.com/boss-rush+,mixed
+615,ST-valhalla-05-joust,https://overloadmaps.com/imgs/fd9f0a732a591370317b22abb995705e/ST-valhalla-05-joust.jpg,medium,8,4,false,CHILLY_BUS,2025-09-07,https://overloadmaps.com/st-valhalla-05-joust,mixed
+616,PEACE,https://overloadmaps.com/imgs/87fb39078753c518a14ca326bf785149/PEACE.jpg,medium,8,4,false,PILE,2021-01-28,https://overloadmaps.com/peace,mixed
+617,Tempest,https://overloadmaps.com/imgs/0ce93c7ad3a9eef84921cea06a612cc1/Tempest.jpg,medium,8,4,false,Krusty,2018-09-02,https://overloadmaps.com/tempest,mixed
+618,UnderMine_V2_MP,https://overloadmaps.com/imgs/d1d06ca9e6853ae3a7ccfebf9078eff0/UnderMine_V2_MP.jpg,medium,8,4,false,Krusty,2020-03-11,https://overloadmaps.com/undermine-v2-mp,mixed
+619,AMBER'S ATONEMENT,https://overloadmaps.com/imgs/5c9eb9657b985527cabe1439574201ee/Galatea Escape.jpg,medium,8,4,false,JosheM,2020-12-24,https://overloadmaps.com/amber's-atonement,mixed
+620,YPSILON MP ALT,https://overloadmaps.com/imgs/ad5b2195209b9d7e6e369dc1ed24d239/ypsilon.jpg,medium,8,4,false,Yinut,2023-02-23,https://overloadmaps.com/ypsilon-mp-alt,mixed
+621,Xenopulse,https://overloadmaps.com/imgs/d075f11482efcf9d939bb9db9af02162/XenoPulse.jpg,medium,8,4,false,Miasmic,2020-07-21,https://overloadmaps.com/xenopulse,mixed
+622,SILPH CO,,medium,8,4,false,ziqidel,2018-07-21,https://overloadmaps.com/silph-co,mixed
+623,Dominion XB,https://overloadmaps.com/imgs/a8ff0464086883d46851216618703853/Dominion XB.jpg,medium,8,4,false,JosheM,2019-12-15,https://overloadmaps.com/dominion-xb,mixed
+624,I DON'T CARE V1.1,https://overloadmaps.com/imgs/02cd21878246fe13988f9dd7cd22faf6/I Don't Care v1.1.jpg,medium,8,4,false,Lee,2020-10-27,https://overloadmaps.com/i-don't-care-v1.1,mixed
+625,Cyanosis,https://overloadmaps.com/imgs/d2a86e5127ff1b29ea35fea74648ffea/Cyanosis.jpg,medium,8,4,false,CHILLY_BUS,2023-11-06,https://overloadmaps.com/cyanosis,mixed
+626,PATHWAYS,https://overloadmaps.com/imgs/5630af5f57797dcb313f8928108ec97e/pathways.jpg,medium,8,4,false,kevin,2019-05-13,https://overloadmaps.com/pathways,mixed
+627,rEvolve,https://overloadmaps.com/imgs/24b44fcec19a4e528e5b2c8a23a5a87f/VOLVE.jpg,medium,8,4,false,PILE,2020-10-18,https://overloadmaps.com/revolve,mixed
+628,Death Race V2,https://overloadmaps.com/imgs/04e66d965c55e0aeb5d100954a008625/Death Race V2.jpg,medium,8,4,false,JosheM,2020-05-21,https://overloadmaps.com/death-race-v2,mixed
+629,quad_hall,https://overloadmaps.com/imgs/38ddd04694db37a6cbec0a445f0058d3/quad_hall.jpg,medium,8,4,false,Diamond Wolf,2019-05-18,https://overloadmaps.com/quad-hall,mixed
+630,MIRANDA OUTPOST,https://overloadmaps.com/imgs/285b05a752c3a73ac1949163796eeaa2/Miranda Outpost.jpg,medium,8,4,false,Swingarm 1032,2018-09-08,https://overloadmaps.com/miranda-outpost,mixed
+631,ALPHA5,https://overloadmaps.com/imgs/9845b7201f8437bb77363ad7f810977b/alpha5.jpg,medium,8,4,false,Yinut,2019-03-07,https://overloadmaps.com/alpha5,mixed
+632,PYRE,https://overloadmaps.com/imgs/481b1f6aae30432b7ae6d20ac62144ae/pyre.jpg,medium,8,4,false,DH,2018-07-05,https://overloadmaps.com/pyre,mixed
+633,The_Core,https://overloadmaps.com/imgs/c3bfbbbcd26afc3a47efb7afd692f381/The_Core.jpg,medium,8,4,false,Shroudeye,2018-10-04,https://overloadmaps.com/the-core,mixed

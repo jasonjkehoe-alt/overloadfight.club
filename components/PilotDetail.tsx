@@ -1,0 +1,516 @@
+import React, { useEffect, useState } from 'react';
+import { GameData } from '../types';
+import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink, Zap, Clock, Flame } from 'lucide-react';
+import PilotPerformanceCard from './PilotPerformanceCard';
+
+interface PilotStats {
+    games: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    last_seen: string;
+    favorite_map: string;
+    favorite_weapon: string;
+    pure_kd?: number;
+    kda?: number;
+    wins?: number;
+    losses?: number;
+    ties?: number;
+    win_rate?: number;
+    flight_time_seconds?: number;
+    flight_hours?: number;
+    kpm?: number;
+    aci?: number;
+    total_damage_dealt?: number;
+    total_damage_taken?: number;
+    dpm?: number;
+    weapons?: Array<{
+        name: string;
+        damage: number;
+        hits: number;
+        kills: number;
+        isPrimary: boolean;
+        pctOfTotalDamage: number;
+    }>;
+    weapon_summary?: {
+        primaryDamage: number;
+        secondaryDamage: number;
+        primaryPct: number;
+        secondaryPct: number;
+        totalDamage: number;
+    };
+}
+
+interface MapStat {
+    map: string;
+    games: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    kd: number;
+}
+
+interface RivalStat {
+    name: string;
+    encounters: number;
+    their_kills: number;
+    their_deaths: number;
+    their_kd: number;
+}
+
+interface PilotBreakdown {
+    mapStats: MapStat[];
+    rivals: RivalStat[];
+}
+
+interface PilotDetailProps {
+    pilotName: string;
+    onBack?: () => void;
+    onSelectGame: (gameId: number) => void;
+    onSelectPilot?: (name: string) => void;
+}
+
+const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGame, onSelectPilot }) => {
+    const [stats, setStats] = useState<PilotStats | null>(null);
+    const [breakdown, setBreakdown] = useState<PilotBreakdown>({ mapStats: [], rivals: [] });
+    const [games, setGames] = useState<GameData[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const [statsRes, gamesRes, breakdownRes] = await Promise.all([
+                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/stats`),
+                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/games`),
+                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/breakdown`)
+                ]);
+
+                if (statsRes.ok) {
+                    setStats(await statsRes.json());
+                }
+                if (gamesRes.ok) {
+                    const gamesData = await gamesRes.json();
+                    setGames(gamesData.games || []);
+                }
+                if (breakdownRes.ok) {
+                    const bData = await breakdownRes.json();
+                    setBreakdown(bData);
+                }
+            } catch (err) {
+                console.error("Failed to load pilot detail", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, [pilotName]);
+
+    if (!pilotName) return null;
+
+    // Real Stats Only - No "Fluff"
+    const pureKd = stats?.pure_kd !== undefined ? stats.pure_kd : (stats ? stats.kills / Math.max(1, stats.deaths) : 0);
+    const kda = stats?.kda !== undefined ? stats.kda : (stats ? (stats.kills + stats.assists * 0.5) / Math.max(1, stats.deaths) : 0);
+    const eff = stats ? stats.kills / Math.max(1, stats.games) : 0; // Kills per game
+    const survival = stats ? stats.deaths / Math.max(1, stats.games) : 0; // Deaths per game
+    const lastActiveDate = stats ? new Date(stats.last_seen).toLocaleDateString() : 'Unknown';
+
+    return (
+        <div className="animate-fade-in w-full max-w-7xl mx-auto pb-12">
+            {onBack && (
+                <button
+                    onClick={onBack}
+                    className="mb-6 flex items-center text-gray-500 hover:text-[#ff6600] transition-colors font-mono text-sm"
+                >
+                    <span className="mr-1">&lt;</span> RETURN TO PILOT ROSTER
+                </button>
+            )}
+
+            <div className="flex flex-col lg:flex-row gap-8">
+                {/* Left Sidebar: Profile & Key Metrics */}
+                <div className="w-full lg:w-[320px] shrink-0 space-y-6">
+                    <div className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-8 flex flex-col items-center relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-[#ff6600]"></div>
+
+                        <div className="relative mb-6 group">
+                            <div className="w-24 h-24 rounded-2xl border border-gray-800 bg-[#0d0d0f] shadow-[0_4px_20px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300 group-hover:border-[#ff6600]/50 group-hover:shadow-[0_0_20px_rgba(255,102,0,0.15)]">
+                                <PilotAvatar name={pilotName} />
+                            </div>
+                            {/* Status Indicator Pip */}
+                            <div className="absolute -bottom-1 -right-1 bg-black/90 px-1.5 py-0.5 rounded-full border border-gray-800 flex items-center gap-1 shadow">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span className="text-[8px] font-mono text-gray-400 uppercase tracking-wider font-semibold">PILOT</span>
+                            </div>
+                        </div>
+                        <h2 className="text-3xl font-bold text-white mb-2 text-center tracking-tight break-all">{pilotName}</h2>
+                        <div className="text-[#ff6600] font-mono text-xs uppercase tracking-[0.2em] mb-6">Overload Pilot</div>
+
+                        <div className="text-gray-500 text-xs font-mono mb-6">
+                            Last Active: <span className="text-gray-300">{lastActiveDate}</span>
+                        </div>
+
+                        {stats && (
+                            <div className="w-full grid grid-cols-1 gap-2">
+                                <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
+                                    <span className="text-gray-500 text-xs uppercase">Sorties</span>
+                                    <span className="text-xl font-bold text-white">{stats.games}</span>
+                                </div>
+                                {stats.wins !== undefined && (
+                                    <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase">Record (W-L)</span>
+                                        <div className="text-right">
+                                            <span className="text-lg font-bold text-white">{stats.wins}W - {stats.losses}L</span>
+                                            <div className="text-[11px] font-mono text-emerald-400 font-bold">{stats.win_rate}% Win Rate</div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
+                                    <span className="text-gray-500 text-xs uppercase">Combat Ratio</span>
+                                    <div className="text-right">
+                                        <span className="text-lg font-bold text-[#ff6600]">{pureKd.toFixed(2)} <span className="text-xs text-gray-500 font-normal">K/D</span></span>
+                                        <div className="text-[10px] font-mono text-gray-400">{kda.toFixed(2)} KDA</div>
+                                    </div>
+                                </div>
+                                <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
+                                    <span className="text-gray-500 text-xs uppercase">Total Kills</span>
+                                    <span className="text-xl font-bold text-white">{stats.kills.toLocaleString()}</span>
+                                </div>
+                                {stats.total_damage_dealt !== undefined && stats.total_damage_dealt > 0 && (
+                                    <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase">Damage Dealt</span>
+                                        <div className="text-right">
+                                            <span className="text-lg font-bold text-white">
+                                                {stats.total_damage_dealt >= 1000000
+                                                    ? `${(stats.total_damage_dealt / 1000000).toFixed(2)}M`
+                                                    : stats.total_damage_dealt.toLocaleString()}
+                                            </span>
+                                            {stats.dpm ? <div className="text-[10px] font-mono text-[#ff6600]">{stats.dpm} DPM</div> : null}
+                                        </div>
+                                    </div>
+                                )}
+                                {stats.flight_hours !== undefined && stats.flight_hours > 0 && (
+                                    <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase">Flight Hours</span>
+                                        <span className="text-lg font-bold font-mono text-gray-300">{stats.flight_hours} hrs</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Main Content: Detailed Stats & History */}
+                <div className="flex-grow space-y-8">
+                    {loading ? (
+                        <div className="flex justify-center items-center h-64 bg-[#0a0a0a] border border-gray-800 rounded-xl">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-12 h-12 border-2 border-[#ff6600] border-t-transparent rounded-full animate-spin"></div>
+                                <div className="text-gray-500 font-mono text-sm">RETRIEVING COMBAT DATA...</div>
+                            </div>
+                        </div>
+                    ) : stats ? (
+                        <div className="space-y-6">
+
+                            {/* PPI Framework Dashboard */}
+                            <PilotPerformanceCard pilotName={pilotName} />
+
+                            {/* Arsenal Breakdown & Weapon Mastery */}
+                            {stats.weapons && stats.weapons.length > 0 && (
+                                <div>
+                                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-gray-800 pb-2 flex items-center justify-between">
+                                        <span className="flex items-center gap-2">
+                                            <Crosshair size={16} className="text-[#ff6600]" />
+                                            Arsenal Breakdown & Weapon Mastery
+                                        </span>
+                                        <span className="text-[10px] text-gray-600 font-normal">DAMAGE TELEMETRY</span>
+                                    </h3>
+
+                                    {stats.weapon_summary && (
+                                        <div className="bg-[#0e0e0e] border border-gray-800 p-4 rounded-lg mb-4">
+                                            <div className="flex justify-between text-xs font-mono mb-2">
+                                                <span className="text-[#00ffff] font-bold">Primary Guns: {stats.weapon_summary.primaryPct}% ({stats.weapon_summary.primaryDamage >= 1000000 ? `${(stats.weapon_summary.primaryDamage / 1000000).toFixed(1)}M` : stats.weapon_summary.primaryDamage.toLocaleString()} DMG)</span>
+                                                <span className="text-[#ff6600] font-bold">Secondary Missiles: {stats.weapon_summary.secondaryPct}% ({stats.weapon_summary.secondaryDamage >= 1000000 ? `${(stats.weapon_summary.secondaryDamage / 1000000).toFixed(1)}M` : stats.weapon_summary.secondaryDamage.toLocaleString()} DMG)</span>
+                                            </div>
+                                            <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden flex">
+                                                <div className="bg-[#00ffff] h-full transition-all" style={{ width: `${stats.weapon_summary.primaryPct}%` }}></div>
+                                                <div className="bg-[#ff6600] h-full transition-all" style={{ width: `${stats.weapon_summary.secondaryPct}%` }}></div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        {stats.weapons.slice(0, 8).map((w) => (
+                                            <div key={w.name} className="bg-[#0e0e0e] border border-gray-800 p-3 rounded-lg hover:border-[#ff6600]/50 transition-colors">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className={`text-xs font-bold ${w.isPrimary ? 'text-[#00ffff]' : 'text-[#ff6600]'}`}>{w.name}</span>
+                                                    <span className="text-[10px] font-mono text-gray-400 bg-black/60 px-1.5 py-0.5 rounded border border-gray-800">{w.pctOfTotalDamage}%</span>
+                                                </div>
+                                                <div className="text-lg font-bold font-mono text-white">
+                                                    {w.damage >= 1000000 ? `${(w.damage / 1000000).toFixed(2)}M` : w.damage.toLocaleString()}
+                                                    <span className="text-[10px] text-gray-500 ml-1 font-normal">DMG</span>
+                                                </div>
+                                                <div className="text-[11px] font-mono text-gray-400 flex justify-between mt-1 pt-1 border-t border-gray-900">
+                                                    <span>{w.kills.toLocaleString()} Kills</span>
+                                                    <span className="text-gray-600">{w.hits.toLocaleString()} Hits</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Performance Grid */}
+                            <div>
+                                <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">Combat Performance</h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                                    <StatCard icon={<Skull size={16} />} label="Efficiency" value={eff.toFixed(1)} sub="Kills/Match" />
+                                    <StatCard icon={<Shield size={16} />} label="Survival" value={survival.toFixed(1)} sub="Deaths/Match" />
+                                    <StatCard icon={<Zap size={16} />} label="Damage Rate" value={stats.dpm ? `${stats.dpm}` : "N/A"} sub="Damage / Min" />
+                                    <StatCard icon={<Crosshair size={16} />} label="Lethality" value={stats.kpm ? `${stats.kpm}` : "N/A"} sub="Kills / Min" />
+                                    <StatCard icon={<MapIcon size={16} />} label="Fav Map" value={stats.favorite_map} truncate />
+                                    <StatCard icon={<Crosshair size={16} />} label="Fav Weapon" value={stats.favorite_weapon} truncate />
+                                </div>
+                            </div>
+
+                            {/* Frequent Adversaries & Rivalries */}
+                            {breakdown.rivals && breakdown.rivals.length > 0 && (
+                                <div>
+                                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-gray-800 pb-2 flex items-center justify-between">
+                                        <span className="flex items-center gap-2">
+                                            <Swords size={16} className="text-[#ff6600]" />
+                                            Frequent Adversaries & Combat Rivalries
+                                        </span>
+                                        <span className="text-[10px] text-gray-600 font-normal">HISTORICAL ENCOUNTERS</span>
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {breakdown.rivals.map((rival) => (
+                                            <div
+                                                key={rival.name}
+                                                className="bg-[#0e0e0e] border border-gray-800 hover:border-[#ff6600]/60 p-4 rounded-lg transition-all group relative overflow-hidden"
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <button
+                                                        onClick={() => onSelectPilot && onSelectPilot(rival.name)}
+                                                        className="font-bold text-white group-hover:text-[#ff6600] transition-colors flex items-center gap-1.5 text-left truncate max-w-[160px]"
+                                                        title={`View ${rival.name}'s dossier`}
+                                                    >
+                                                        <span>{rival.name}</span>
+                                                        <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 text-[#ff6600] transition-opacity shrink-0" />
+                                                    </button>
+                                                    <span className="text-[10px] font-mono bg-black text-gray-400 px-2 py-0.5 rounded border border-gray-800">
+                                                        {rival.encounters} {rival.encounters === 1 ? 'Match' : 'Matches'}
+                                                    </span>
+                                                </div>
+                                                <div className="text-xs font-mono text-gray-500 flex justify-between items-center mt-3 pt-2 border-t border-gray-900">
+                                                    <span>Their K/D:</span>
+                                                    <span className={`font-bold ${rival.their_kd >= 1.0 ? 'text-[#ff6600]' : 'text-gray-400'}`}>
+                                                        {rival.their_kd.toFixed(2)} ({rival.their_kills}K / {rival.their_deaths}D)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Theater of Operations: Map Performance */}
+                            {breakdown.mapStats && breakdown.mapStats.length > 0 && (
+                                <div>
+                                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-gray-800 pb-2 flex items-center justify-between">
+                                        <span className="flex items-center gap-2">
+                                            <MapIcon size={16} className="text-[#00ffff]" />
+                                            Theater of Operations (Map Combat Breakdown)
+                                        </span>
+                                        <span className="text-[10px] text-gray-600 font-normal">TOP ENGAGEMENTS</span>
+                                    </h3>
+                                    <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg overflow-hidden">
+                                        <table className="w-full text-left text-sm font-mono">
+                                            <thead className="bg-[#111] text-gray-500 text-xs uppercase">
+                                                <tr>
+                                                    <th className="p-3">Sector / Map</th>
+                                                    <th className="p-3 text-center">Sorties</th>
+                                                    <th className="p-3 text-center">Kills</th>
+                                                    <th className="p-3 text-center">Deaths</th>
+                                                    <th className="p-3 text-right">K/D Ratio</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-800/60">
+                                                {breakdown.mapStats.map((ms) => (
+                                                    <tr key={ms.map} className="hover:bg-[#121212] transition-colors">
+                                                        <td className="p-3 font-bold text-white flex items-center gap-2">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-[#00ffff]"></span>
+                                                            {ms.map}
+                                                        </td>
+                                                        <td className="p-3 text-center text-gray-400">{ms.games}</td>
+                                                        <td className="p-3 text-center text-gray-300 font-bold">{ms.kills}</td>
+                                                        <td className="p-3 text-center text-red-400">{ms.deaths}</td>
+                                                        <td className="p-3 text-right">
+                                                            <span className={`font-bold ${ms.kd >= 1 ? 'text-[#00ffff]' : 'text-gray-500'}`}>
+                                                                {ms.kd.toFixed(2)}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Match History Table */}
+                            <div>
+                                <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-gray-800 pb-2 flex items-center justify-between">
+                                    <span>Combat Sorties</span>
+                                    <span className="text-[10px] text-gray-600 font-normal">MISSION ARCHIVE</span>
+                                </h3>
+                                <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg overflow-hidden">
+                                    <table className="w-full text-left text-sm font-mono">
+                                        <thead className="bg-[#111] text-gray-500 text-xs uppercase">
+                                            <tr>
+                                                <th className="p-4">Date</th>
+                                                <th className="p-4">Mission Info</th>
+                                                <th className="p-4 text-center">Outcome</th>
+                                                <th className="p-4 text-right">K / A / D</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-800">
+                                            {games.map((game) => {
+                                                const pStats = game.players?.find(p => p.name?.toLowerCase() === pilotName?.toLowerCase());
+                                                if (!pStats) return null;
+
+                                                const isGoodGame = pStats.kills >= pStats.deaths;
+
+                                                return (
+                                                    <tr
+                                                        key={game.id}
+                                                        className="hover:bg-[#111] transition-colors cursor-pointer group"
+                                                        onClick={() => game.id && onSelectGame(game.id)}
+                                                    >
+                                                        <td className="p-4 text-gray-500">
+                                                            {new Date(game.date || '').toLocaleDateString()}
+                                                            <div className="text-[10px] text-gray-700">{new Date(game.date || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="text-white font-bold group-hover:text-[#ff6600] transition-colors">{game.settings?.level}</div>
+                                                            <div className="text-[10px] text-gray-600">{game.settings?.matchMode}</div>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <span className={`text-xs px-2 py-1 rounded border ${isGoodGame ? 'border-green-900/50 text-green-500' : 'border-red-900/50 text-red-500'}`}>
+                                                                {isGoodGame ? 'POSITIVE' : 'NEGATIVE'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-right">
+                                                            <div className="font-bold text-white text-lg">{pStats.kills} <span className="text-gray-600 text-sm font-normal">/ {pStats.assists} / {pStats.deaths}</span></div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 text-gray-500 border border-gray-800 rounded-xl bg-[#0a0a0a]">
+                            No data found within the requested timeframe.
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Sub-components
+
+const PilotAvatar = ({ name }: { name: string }) => {
+    // Deterministic accent styling based on the pilot's callsign
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const accents = [
+        { visorColor: '#ff6600', glow: 'rgba(255,102,0,0.3)', border: 'border-[#ff6600]/40' },
+        { visorColor: '#00d2ff', glow: 'rgba(0,210,255,0.3)', border: 'border-cyan-500/40' },
+        { visorColor: '#10b981', glow: 'rgba(16,185,129,0.3)', border: 'border-emerald-500/40' },
+        { visorColor: '#f59e0b', glow: 'rgba(245,158,11,0.3)', border: 'border-amber-500/40' },
+        { visorColor: '#a855f7', glow: 'rgba(168,85,247,0.3)', border: 'border-purple-500/40' },
+    ];
+    const theme = accents[Math.abs(hash) % accents.length];
+    const initials = (name.slice(0, 2) || 'OP').toUpperCase();
+
+    return (
+        <div className="relative w-full h-full flex flex-col items-center justify-center select-none overflow-hidden bg-gradient-to-b from-[#151518] to-[#09090b]">
+            {/* Tactical HUD grid overlay */}
+            <div className="absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:8px_8px] opacity-40 pointer-events-none" />
+
+            {/* Corner telemetry markers */}
+            <div className="absolute top-1.5 left-1.5 w-1.5 h-1.5 border-t border-l border-gray-600/70 pointer-events-none" />
+            <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 border-t border-r border-gray-600/70 pointer-events-none" />
+            <div className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 border-b border-l border-gray-600/70 pointer-events-none" />
+            <div className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 border-b border-r border-gray-600/70 pointer-events-none" />
+
+            {/* Tactical 6-DOF Pilot Flight Helmet Silhouette */}
+            <svg viewBox="0 0 72 72" fill="none" className="w-14 h-14 relative z-10 drop-shadow-md">
+                {/* Outer Helmet Crown & Silhouette */}
+                <path
+                    d="M20 28C20 17 26.5 10 36 10C45.5 10 52 17 52 28C52 36.5 48.5 43.5 46.5 46.5L47.5 53.5L43 55L42 51.5H30L29 55L24.5 53.5L25.5 46.5C23.5 43.5 20 36.5 20 28Z"
+                    fill="#18181b"
+                    stroke="#3f3f46"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                />
+
+                {/* Tactical Earpiece / Comm Armor Plates */}
+                <path d="M17.5 30C17.5 25 19 21.5 21 19.5L20 37C18.5 34.5 17.5 32.5 17.5 30Z" fill="#27272a" stroke="#52525b" strokeWidth="1" />
+                <path d="M54.5 30C54.5 25 53 21.5 51 19.5L52 37C53.5 34.5 54.5 32.5 54.5 30Z" fill="#27272a" stroke="#52525b" strokeWidth="1" />
+
+                {/* Pilot Visor Outer Shield */}
+                <path
+                    d="M23 27.5C23 22 28 19 36 19C44 19 49 22 49 27.5C49 33.5 43.5 37 36 37C28.5 37 23 33.5 23 27.5Z"
+                    fill={theme.visorColor}
+                    fillOpacity="0.22"
+                    stroke={theme.visorColor}
+                    strokeWidth="1.6"
+                />
+
+                {/* Visor Glare / Specular highlight arc */}
+                <path
+                    d="M27 24C30 21.8 33 21.5 36 21.5"
+                    stroke="#ffffff"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeOpacity="0.65"
+                />
+
+                {/* HUD Targeting Reticle & Alignment Ticks */}
+                <circle cx="36" cy="28" r="3" stroke={theme.visorColor} strokeWidth="0.8" strokeDasharray="1.5 1.5" />
+                <line x1="36" y1="23.5" x2="36" y2="25.5" stroke={theme.visorColor} strokeWidth="0.8" />
+                <line x1="36" y1="30.5" x2="36" y2="32.5" stroke={theme.visorColor} strokeWidth="0.8" />
+                <line x1="31.5" y1="28" x2="33.5" y2="28" stroke={theme.visorColor} strokeWidth="0.8" />
+                <line x1="38.5" y1="28" x2="40.5" y2="28" stroke={theme.visorColor} strokeWidth="0.8" />
+
+                {/* Respirator Filter / Mouth Intake Grille */}
+                <path d="M31.5 42H40.5L39.5 49.5H32.5L31.5 42Z" fill="#18181b" stroke="#3f3f46" strokeWidth="1" />
+                <line x1="34" y1="44.5" x2="38" y2="44.5" stroke="#71717a" strokeWidth="0.9" strokeLinecap="round" />
+                <line x1="34.5" y1="47" x2="37.5" y2="47" stroke="#71717a" strokeWidth="0.9" strokeLinecap="round" />
+            </svg>
+
+            {/* Pilot Callsign Tag */}
+            <div className="relative z-10 -mt-1 px-2 py-0.5 bg-black/90 rounded border border-zinc-800 flex items-center gap-1 shadow-sm">
+                <span className="font-mono text-[9px] font-bold tracking-widest text-zinc-300">
+                    {initials}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+const StatCard = ({ icon, label, value, sub, truncate }: any) => (
+    <div className="bg-[#111] border border-gray-800 p-4 rounded-lg hover:border-[#ff6600]/30 transition-colors">
+        <div className="flex items-center gap-2 text-gray-500 text-xs uppercase mb-2">
+            {icon} {label}
+        </div>
+        <div className={`text-xl font-bold text-white ${truncate ? 'truncate' : ''}`} title={truncate ? value : undefined}>{value || "N/A"}</div>
+        {sub && <div className="text-[10px] text-gray-600 mt-1">{sub}</div>}
+    </div>
+);
+
+export default PilotDetail;

@@ -1,10 +1,10 @@
 node_modules
-dist
-dist-server
-.git
-.github
-*.log
-overload-data
+npm-debug.log
+
+.gitignore
+README.md
 .env
-.env.*
+dist
+server/tracker.db
+server/tracker.db-journal
 .DS_Store

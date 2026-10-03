@@ -1,70 +1,32 @@
-# ==============================================================================
-# Overload Fight Club (overloadfight.club) - Multi-stage Production Dockerfile
-# Community platform: Server tracker, Player stats, Audio taunt suite & Pilot bridge
-# Optimized for Synology NAS (Container Manager / Docker) and standard Docker hosts
-# Architecture: linux/amd64 (Intel Atom C2538 on DS1515+) and linux/arm64
-# ==============================================================================
+FROM node:22-alpine
 
-# Stage 1: Build client and standalone server
-FROM node:20-slim AS builder
-
+# Set working directory
 WORKDIR /app
 
-# Copy dependency manifests
-COPY package.json package-lock.json ./
+# Copy package files
+COPY package*.json ./
 
-# Install all dependencies
-RUN npm ci
+# Install build dependencies for native modules (better-sqlite3), git for version info, plus ffmpeg and yt-dlp for audio import
+RUN apk add --no-cache python3 py3-pip make g++ git ffmpeg curl \
+    && pip install --no-cache-dir --break-system-packages yt-dlp
 
-# Copy full source tree
+# Install ALL dependencies (including devDeps for building)
+RUN npm install
+
+# Copy application files
 COPY . .
 
-# Build both static client (dist/) and standalone server (dist-server/)
+# Build the frontend
 RUN npm run build
 
-# ==============================================================================
-# Stage 2: Production runtime image
-# ==============================================================================
-FROM node:20-slim AS runner
+# Remove dev dependencies to keep image small
+RUN npm prune --omit=dev
 
-WORKDIR /app
+# Expose port
+EXPOSE 3000
 
-# Install system dependencies:
-# - python3 & curl: for yt-dlp audio extraction
-# - ffmpeg: audio inspection/conversion utilities
-# - ca-certificates: secure HTTPS downloads from Internet Archive & YouTube
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    curl \
-    ca-certificates \
-    ffmpeg \
-    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp \
-    && rm -rf /var/lib/apt/lists/*
+# Set environment variable for production
+ENV NODE_ENV=production
 
-# Copy built artifacts from builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/dist-server ./dist-server
-COPY --from=builder /app/package.json ./package.json
-
-# Prepare default Overload data directory
-RUN mkdir -p /overload/AudioTaunts /overload/AudioTaunts/external
-
-# Environment defaults
-ENV NODE_ENV=production \
-    PORT=5173 \
-    HOST=0.0.0.0 \
-    OVERLOAD_PATH=/overload
-
-# Synology / Docker port
-EXPOSE 5173
-
-# Persistent volume for Overload taunts and pilot profiles
-VOLUME ["/overload"]
-
-# Built-in lightweight healthcheck
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD node -e "fetch('http://localhost:' + (process.env.PORT || 5173) + '/healthz').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
-
-# Start the standalone production server
-CMD ["node", "dist-server/index.js"]
+# Start the application
+CMD ["npm", "start"]

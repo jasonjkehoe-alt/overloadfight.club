@@ -1,0 +1,5 @@
+{
+  "name": "overloadfight.club",
+  "description": "A high-performance, real-time dashboard for tracking Overload game statistics, featuring live match monitoring, historical archives, interactive score graphs, and damage matrices.",
+  "requestFramePermissions": []
+}
