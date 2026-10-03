@@ -112,7 +112,20 @@ export const OverloadFsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // Connect to local directory via browser folder picker
     const connectLocalFolder = async (): Promise<boolean> => {
         if (!isSupported) {
-            alert('Your browser does not support the File System Access API. Please use Google Chrome or Microsoft Edge.');
+            const isRemoteHttp = window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+            if (isRemoteHttp) {
+                alert(
+                    `Chrome Security Requirement:\n\n` +
+                    `Because you are connecting to your Synology NAS over plain HTTP (http://${window.location.host}), Chrome blocks website access to your local PC hard drive unless this IP is allowed.\n\n` +
+                    `Quick 15-second fix:\n` +
+                    `1. In Chrome, open: chrome://flags/#unsafely-treat-insecure-origin-as-secure\n` +
+                    `2. Type in: http://${window.location.host}\n` +
+                    `3. Set dropdown to "Enabled" and click "Relaunch".\n\n` +
+                    `This will immediately enable the native folder picker!`
+                );
+            } else {
+                alert('Your browser does not support the File System Access API. Please use Google Chrome or Microsoft Edge.');
+            }
             return false;
         }
 
