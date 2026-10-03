@@ -311,21 +311,25 @@ router.get('/stats/pilots', async (req, res) => {
     try {
         const startDate = req.query.startDate || null;
         const source = req.query.source || 'hot';
+        const limitParam = req.query.limit !== undefined ? parseInt(req.query.limit, 10) : null;
+        const offsetParam = req.query.offset ? parseInt(req.query.offset, 10) : 0;
         const cacheKey = `pilot_stats_${startDate || 'all'}_${source}`;
 
-        const cachedStats = await cacheService.get(cacheKey);
-        if (cachedStats) {
-            return res.json(cachedStats);
+        let stats = await cacheService.get(cacheKey);
+        if (!stats) {
+            if (source === 'all') {
+                stats = db.getAllTimePilotStats.all();
+            } else {
+                stats = db.getPilotStats.all(startDate);
+            }
+            await cacheService.set(cacheKey, stats, 300); // 5 minutes
         }
 
-        let stats;
-        if (source === 'all') {
-            stats = db.getAllTimePilotStats.all();
-        } else {
-            stats = db.getPilotStats.all(startDate);
+        // Honor limit parameter if provided (e.g. ?limit=50 or ?limit=50&offset=0)
+        if (limitParam !== null && !isNaN(limitParam) && limitParam >= 0) {
+            return res.json(stats.slice(offsetParam, offsetParam + limitParam));
         }
 
-        await cacheService.set(cacheKey, stats, 300); // 5 minutes
         res.json(stats);
 
     } catch (error) {

@@ -1383,12 +1383,10 @@ const buildMapStatsCache = () => {
         const pName = p.name ? p.name.trim() : null;
         const kills = Number(p.kills) || 0;
         const deaths = Number(p.deaths) || 0;
-        const dmg = Number(p.damage_dealt) || 0;
 
         matchKills += kills;
         entry.total_kills += kills;
         entry.total_deaths += deaths;
-        entry.total_damage += dmg;
 
         if (pName) {
           const pKey = pName.toLowerCase();
@@ -1402,6 +1400,22 @@ const buildMapStatsCache = () => {
           pEntry.deaths += deaths;
         }
       }
+
+      // Aggregate combat damage from match telemetry (either details.damage or player damage fields)
+      let matchDamage = 0;
+      if (Array.isArray(details?.damage)) {
+        for (let j = 0; j < details.damage.length; j++) {
+          const d = details.damage[j];
+          if (d && typeof d.damage === 'number') {
+            matchDamage += d.damage;
+          }
+        }
+      } else if (Array.isArray(details?.players)) {
+        for (const p of details.players) {
+          matchDamage += Number(p.damage_dealt || p.damage || p.total_damage || 0);
+        }
+      }
+      entry.total_damage += Math.round(matchDamage);
 
       if (matchKills > entry.record_match.kills) {
         entry.record_match = {

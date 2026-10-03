@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -20,6 +21,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
@@ -46,13 +48,33 @@ app.use('/api', routes);
 app.use('/api', bridgeRoutes);
 app.use('/api/admin', adminRoutes);
 
-// In production, serve compiled static files; in development, serve the API Gateway Console
+// In production (or if dist exists), serve compiled static files with optimal caching
 const isProduction = process.env.NODE_ENV === 'production';
 const distPath = path.join(__dirname, '../dist');
 
-if (isProduction && fs.existsSync(path.join(distPath, 'index.html'))) {
-    app.use(express.static(distPath));
+if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) {
+    app.use(express.static(distPath, {
+        maxAge: '1y',
+        immutable: true,
+        setHeaders: (res, filePath) => {
+            // Never cache index.html or version manifest so users get new builds instantly
+            if (filePath.endsWith('.html') || filePath.endsWith('version.json')) {
+                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
+            } else if (filePath.includes(path.sep + 'assets' + path.sep) || filePath.includes('/assets/')) {
+                // Content-hashed Vite assets: 1 year immutable cache
+                res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            }
+        }
+    }));
     app.get('*', (req, res) => {
+        if (req.path.startsWith('/api')) {
+            return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
+        }
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         res.sendFile(path.join(distPath, 'index.html'));
     });
 } else {

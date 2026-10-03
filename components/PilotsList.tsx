@@ -267,7 +267,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                         <Trophy size={64} />
                                     </div>
                                     <div className="relative z-10">
-                                        <h3 className="text-[#ff6600] text-xs font-bold uppercase mb-2 flex items-center gap-2 group cursor-help" title={`Pilot with highest KDA Ratio (Min ${Math.max(minGamesThreshold > 1 ? minGamesThreshold : 25, 25)} games)`}>
+                                        <h3 className="text-[#ff6600] text-xs font-bold uppercase mb-2 flex items-center gap-2 group cursor-help" title={`Pilot with highest KDA Ratio (Min ${Math.max(minGamesThreshold > 1 ? minGamesThreshold : 25, 25)} games) • Formula: (Kills + 0.5 × Assists) ÷ Deaths`}>
                                             <Trophy size={14} /> Top Gun (Highest KDA) <Info size={10} className="text-gray-600 group-hover:text-[#ff6600]" />
                                         </h3>
                                         <div className="text-2xl font-bold text-white mb-1">{highlights.topGun.name}</div>
@@ -422,7 +422,13 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                             <th className="p-3 cursor-pointer hover:text-white" onClick={() => handleSort('name')}>Pilot {sortConfig.key === 'name' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('games')}>Matches {sortConfig.key === 'games' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('win_rate')}>Win Rate {sortConfig.key === 'win_rate' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kd')}>Combat Ratio {sortConfig.key === 'kd' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
+                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kd')}>
+                                                <span className="inline-flex items-center gap-1 cursor-help group/kda" title="Combat Ratio: KDA is computed as (Kills + 0.5 × Assists) ÷ Deaths. Assists receive a 0.5 weighting to reflect combat contribution without inflating scores. K/D below shows unassisted Kills ÷ Deaths.">
+                                                    <span>Combat Ratio (KDA)</span>
+                                                    <Info size={11} className="text-gray-500 group-hover/kda:text-[#ff6600] inline-block transition-colors" />
+                                                    {sortConfig.key === 'kd' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                                </span>
+                                            </th>
                                             <th className="p-3 text-right text-gray-600">Breakdown (K / A / D)</th>
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('lastSeen')}>Last Seen {sortConfig.key === 'lastSeen' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
                                         </tr>
