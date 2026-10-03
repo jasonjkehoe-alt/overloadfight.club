@@ -636,7 +636,7 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
                                     >
                                         <option value="" disabled>Change / Replace taunt...</option>
                                         <optgroup label="Overload In-Game Vault">
-                                            {allVaultTaunts.map(t => (
+                                            {vaultTaunts.map(t => (
                                                 <option key={t.id + '-' + t.relativePath} value={t.id}>{t.cleanName} ({t.location})</option>
                                             ))}
                                         </optgroup>
@@ -663,7 +663,7 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
                                     >
                                         <option value="" disabled>Equip from Vault / History...</option>
                                         <optgroup label="Overload In-Game Vault">
-                                            {allVaultTaunts.map(t => (
+                                            {vaultTaunts.map(t => (
                                                 <option key={t.id + '-' + t.relativePath} value={t.id}>{t.cleanName} ({t.location})</option>
                                             ))}
                                         </optgroup>
