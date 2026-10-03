@@ -17,9 +17,13 @@ import {
     ShieldCheck,
     Clock,
     ArrowUpDown,
-    X
+    X,
+    FolderOpen,
+    Unplug
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useOverloadFs } from '../context/OverloadFsContext';
+import { getPilotDataClient } from '../utils/overloadFsBridge';
 
 export interface GameTauntItem {
     id: string; // MD5 hash (lowercase)
@@ -40,53 +44,55 @@ interface OverloadVaultProps {
 export type VaultSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc';
 
 export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, onEquipToSlot }) => {
-    const [taunts, setTaunts] = useState<GameTauntItem[]>([]);
-    const [loading, setLoading] = useState(true);
+    const {
+        isSupported,
+        isServerNative,
+        isClientConnected,
+        isConnecting,
+        folderName,
+        pilots: fsPilots,
+        activePilot: fsActivePilot,
+        setActivePilot: setFsActivePilot,
+        vaultTaunts,
+        dirHandle,
+        connectLocalFolder,
+        disconnectLocalFolder,
+        refreshData
+    } = useOverloadFs();
+
+    const [loading, setLoading] = useState(false);
     const [filterLocation, setFilterLocation] = useState<'all' | 'user' | 'external'>('all');
     const [sortBy, setSortBy] = useState<VaultSortOption>('date-desc');
     const [searchQuery, setSearchQuery] = useState('');
     const [playingId, setPlayingId] = useState<string | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
-    const [selectedPilot, setSelectedPilot] = useState<string>('Soup');
-    const [pilots, setPilots] = useState<string[]>([]);
+    const [selectedPilot, setSelectedPilot] = useState<string>(fsActivePilot || 'Soup');
     const [pilotTauntHashes, setPilotTauntHashes] = useState<string[]>([]);
-    const [gamePath, setGamePath] = useState<string>('');
 
     const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-    const fetchVaultData = async () => {
-        setLoading(true);
-        try {
-            // 1. Fetch status
-            const statusRes = await fetch('/api/overload/status');
-            if (statusRes.ok) {
-                const statusData = await statusRes.json();
-                setGamePath(statusData.gamePath);
-                setPilots(statusData.pilots || []);
-                if (statusData.activePilot) {
-                    setSelectedPilot(statusData.activePilot);
-                }
-            }
-
-            // 2. Fetch taunts
-            const tauntsRes = await fetch('/api/overload/taunts');
-            if (tauntsRes.ok) {
-                const data = await tauntsRes.json();
-                setTaunts(data.taunts || []);
-            }
-        } catch (err) {
-            console.error('Failed to fetch Overload vault data', err);
-        } finally {
-            setLoading(false);
+    // Sync selectedPilot when fsActivePilot updates
+    useEffect(() => {
+        if (fsActivePilot) {
+            setSelectedPilot(fsActivePilot);
         }
-    };
+    }, [fsActivePilot]);
 
+    // Load pilot selected taunts
     const fetchPilotData = async (name: string) => {
+        if (!name) return;
         try {
-            const res = await fetch(`/api/overload/pilot/${encodeURIComponent(name)}`);
-            if (res.ok) {
-                const data = await res.json();
-                setPilotTauntHashes(data.selectedTaunts || []);
+            if (dirHandle) {
+                const pData = await getPilotDataClient(dirHandle, name);
+                if (pData) {
+                    setPilotTauntHashes(pData.selectedTaunts || []);
+                }
+            } else if (isServerNative) {
+                const res = await fetch(`/api/overload/pilot/${encodeURIComponent(name)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setPilotTauntHashes(data.selectedTaunts || []);
+                }
             }
         } catch (err) {
             console.error('Failed to fetch pilot data', err);
@@ -94,14 +100,14 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
     };
 
     useEffect(() => {
-        fetchVaultData();
-    }, []);
-
-    useEffect(() => {
         if (selectedPilot) {
             fetchPilotData(selectedPilot);
         }
-    }, [selectedPilot]);
+    }, [selectedPilot, dirHandle, isServerNative]);
+
+    // Use vaultTaunts from context
+    const taunts = vaultTaunts;
+    const pilots = fsPilots;
 
     const handlePlayPause = (item: GameTauntItem) => {
         if (playingId === item.id) {
@@ -209,23 +215,48 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                             <h2 className="text-2xl md:text-3xl font-bold text-[#ff6600] tracking-tight brand-font">
                                 OVERLOAD VAULT
                             </h2>
-                            <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest bg-green-500/10 border border-green-500/30 text-green-400 rounded-full flex items-center gap-1.5">
-                                <ShieldCheck className="w-3.5 h-3.5" />
-                                Live Game Link Active
-                            </span>
+                            {isClientConnected ? (
+                                <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center gap-1.5">
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    PC Folder Connected
+                                </span>
+                            ) : isServerNative ? (
+                                <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full flex items-center gap-1.5">
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    Server Link Active
+                                </span>
+                            ) : (
+                                <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full flex items-center gap-1.5">
+                                    Folder Not Connected
+                                </span>
+                            )}
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
-                            Installed Game Taunts &bull; {gamePath}
+                            {isClientConnected 
+                                ? `Connected: ${folderName} (${taunts.length} game taunts indexed)` 
+                                : isServerNative 
+                                ? `Installed Game Taunts • ${folderName}` 
+                                : 'Remote Synology Deployment • Connect your PC game folder to browse your taunts'}
                         </p>
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {!isClientConnected && !isServerNative && (
+                            <button
+                                onClick={connectLocalFolder}
+                                disabled={isConnecting}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#ff6600] hover:bg-[#ff8533] text-black font-bold text-xs shadow-lg shadow-[#ff6600]/20 transition-all uppercase tracking-wider"
+                            >
+                                {isConnecting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />}
+                                <span>{isConnecting ? 'Connecting...' : 'Connect Folder'}</span>
+                            </button>
+                        )}
                         <button
-                            onClick={fetchVaultData}
+                            onClick={refreshData}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs transition-all"
                             title="Refresh game files"
                         >
-                            <RefreshCw className={clsx("w-3.5 h-3.5", loading && "animate-spin")} />
+                            <RefreshCw className={clsx("w-3.5 h-3.5", (loading || isConnecting) && "animate-spin")} />
                             <span>Refresh Vault</span>
                         </button>
                     </div>
@@ -366,8 +397,26 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                 {/* Taunt List */}
                 <div className="space-y-2 pt-2">
                     {processedTaunts.length === 0 ? (
-                        <div className="py-12 text-center text-gray-500 text-sm">
-                            {loading ? 'Scanning game files...' : 'No matching audio taunts found in Overload folder.'}
+                        <div className="py-12 text-center text-gray-500 text-sm flex flex-col items-center justify-center gap-3 font-mono">
+                            <FolderOpen className="w-10 h-10 text-gray-600 mb-1" />
+                            {!isClientConnected && !isServerNative ? (
+                                <>
+                                    <p className="text-gray-300 font-bold">Your PC Overload folder is not connected.</p>
+                                    <p className="text-xs text-gray-400 max-w-md">
+                                        Connect your local game directory (<code className="text-[#ff6600] bg-black/40 px-1 py-0.5 rounded">AppData\LocalLow\Revival\Overload</code>) to index your custom taunts and opponent audio in the Vault.
+                                    </p>
+                                    <button
+                                        onClick={connectLocalFolder}
+                                        disabled={isConnecting}
+                                        className="mt-2 flex items-center gap-2 px-5 py-2.5 bg-[#ff6600] text-black font-bold text-xs rounded-xl shadow-lg hover:bg-[#ff8533] transition-all uppercase tracking-wider"
+                                    >
+                                        {isConnecting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />}
+                                        <span>{isConnecting ? 'Connecting...' : 'Connect Overload Folder'}</span>
+                                    </button>
+                                </>
+                            ) : (
+                                <p>{loading ? 'Scanning game files...' : 'No matching audio taunts found in Overload folder.'}</p>
+                            )}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[600px] overflow-y-auto pr-1">

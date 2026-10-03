@@ -14,10 +14,14 @@ import {
     Save,
     AlertCircle,
     User,
-    RefreshCw
+    RefreshCw,
+    HardDrive,
+    Unplug
 } from 'lucide-react';
 import { GameTauntItem } from './OverloadVault';
 import { getTaunts } from '../utils/audioHistoryDb';
+import { useOverloadFs } from '../context/OverloadFsContext';
+import { getPilotDataClient, applyPilotTauntsClient } from '../utils/overloadFsBridge';
 
 interface LoadoutSlot {
     slotNumber: number; // 1 to 6
@@ -42,9 +46,23 @@ interface LoadoutManagerProps {
 }
 
 export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoEditor, pendingAssignment }) => {
-    const [selectedPilot, setSelectedPilot] = useState<string>('Soup');
-    const [pilots, setPilots] = useState<string[]>([]);
-    const [allVaultTaunts, setAllVaultTaunts] = useState<GameTauntItem[]>([]);
+    const {
+        isSupported,
+        isServerNative,
+        isClientConnected,
+        isConnecting,
+        folderName,
+        pilots: fsPilots,
+        activePilot: fsActivePilot,
+        setActivePilot: setFsActivePilot,
+        vaultTaunts,
+        dirHandle,
+        connectLocalFolder,
+        disconnectLocalFolder,
+        refreshData
+    } = useOverloadFs();
+
+    const [selectedPilot, setSelectedPilot] = useState<string>(fsActivePilot || 'Soup');
     const [localHistoryTaunts, setLocalHistoryTaunts] = useState<Array<{ id: string; name: string; blob: Blob }>>([]);
     const [slots, setSlots] = useState<LoadoutSlot[]>([1, 2, 3, 4, 5, 6].map(i => ({
         slotNumber: i,
@@ -64,6 +82,13 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
     const previewAudioRef = useRef<HTMLAudioElement | null>(null);
     const pendingAssignmentRef = useRef<PendingSlotAssignment | null>(pendingAssignment || null);
 
+    // Sync selectedPilot when fsActivePilot changes
+    useEffect(() => {
+        if (fsActivePilot) {
+            setSelectedPilot(fsActivePilot);
+        }
+    }, [fsActivePilot]);
+
     // Keep pending ref synchronized
     useEffect(() => {
         if (pendingAssignment) {
@@ -71,86 +96,65 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
         }
     }, [pendingAssignment]);
 
-    // 1. Initial Load: Fetch Pilots and Vault Taunts
-    const initData = async () => {
-        try {
-            // Status & pilots
-            const statusRes = await fetch('/api/overload/status');
-            let activeP = 'Soup';
-            if (statusRes.ok) {
-                const statusData = await statusRes.json();
-                setPilots(statusData.pilots || []);
-                if (statusData.isGameRunning !== undefined) {
-                    setIsGameRunning(statusData.isGameRunning);
-                }
-                if (statusData.activePilot) {
-                    activeP = statusData.activePilot;
-                    setSelectedPilot(activeP);
-                }
-            }
+    // Load local history taunts from IndexedDB
+    useEffect(() => {
+        getTaunts().then(items => setLocalHistoryTaunts(items)).catch(() => {});
+    }, []);
 
-            // Game Vault Taunts
-            const tauntsRes = await fetch('/api/overload/taunts');
-            let vaultItems: GameTauntItem[] = [];
-            if (tauntsRes.ok) {
-                const tData = await tauntsRes.json();
-                vaultItems = tData.taunts || [];
-                setAllVaultTaunts(vaultItems);
-            }
-
-            // Local History Taunts
-            const historyItems = await getTaunts();
-            setLocalHistoryTaunts(historyItems);
-
-            // Load Pilot Config
-            await loadPilotSlots(activeP, vaultItems);
-        } catch (err) {
-            console.error('Failed to init loadout manager data', err);
-        }
-    };
-
-    // 2. Load active pilot slots
+    // Load pilot slots whenever active pilot, directory handle, or vault taunts change
     const loadPilotSlots = async (pilotName: string, vaultList: GameTauntItem[]) => {
+        if (!pilotName) return;
         try {
-            const res = await fetch(`/api/overload/pilot/${encodeURIComponent(pilotName)}`);
-            if (res.ok) {
-                const data = await res.json();
-                const hashes: string[] = data.selectedTaunts || [];
-                const pending = pendingAssignmentRef.current;
+            let hashes: string[] = [];
+            if (dirHandle) {
+                const clientData = await getPilotDataClient(dirHandle, pilotName);
+                if (clientData) {
+                    hashes = clientData.selectedTaunts || [];
+                }
+            } else if (isServerNative) {
+                const res = await fetch(`/api/overload/pilot/${encodeURIComponent(pilotName)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    hashes = data.selectedTaunts || [];
+                }
+            }
 
-                setSlots([1, 2, 3, 4, 5, 6].map(idx => {
-                    // If this slot was assigned from Vault/Editor, prioritize it!
-                    if (pending && pending.slotNum === idx) {
-                        return {
-                            slotNumber: idx,
-                            keybind: `F${idx}`,
-                            tauntId: pending.tauntId,
-                            tauntName: pending.tauntName,
-                            audioUrl: pending.audioUrl || null,
-                            blob: null,
-                        };
-                    }
+            const pending = pendingAssignmentRef.current;
 
-                    const hash = hashes[idx - 1] || null;
-                    const matched = vaultList.find(v => v.id.toLowerCase() === hash?.toLowerCase());
+            setSlots([1, 2, 3, 4, 5, 6].map(idx => {
+                // If this slot was assigned from Vault/Editor, prioritize it!
+                if (pending && pending.slotNum === idx) {
                     return {
                         slotNumber: idx,
                         keybind: `F${idx}`,
-                        tauntId: hash,
-                        tauntName: matched ? matched.cleanName : (hash ? `${hash.substring(0, 10)}...` : null),
-                        audioUrl: matched ? matched.audioUrl : null,
+                        tauntId: pending.tauntId,
+                        tauntName: pending.tauntName,
+                        audioUrl: pending.audioUrl || null,
                         blob: null,
                     };
-                }));
-            }
+                }
+
+                const hash = hashes[idx - 1] || null;
+                const matched = vaultList.find(v => v.id.toLowerCase() === hash?.toLowerCase());
+                return {
+                    slotNumber: idx,
+                    keybind: `F${idx}`,
+                    tauntId: hash,
+                    tauntName: matched ? matched.cleanName : (hash ? `${hash.substring(0, 10)}...` : null),
+                    audioUrl: matched ? matched.audioUrl : null,
+                    blob: null,
+                };
+            }));
         } catch (err) {
             console.error('Failed to load pilot slots', err);
         }
     };
 
     useEffect(() => {
-        initData();
-    }, []);
+        if (selectedPilot) {
+            loadPilotSlots(selectedPilot, vaultTaunts);
+        }
+    }, [selectedPilot, dirHandle, isServerNative, vaultTaunts]);
 
     // React immediately to any incoming assignment from Vault or Editor
     useEffect(() => {
@@ -185,7 +189,7 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
     }, [pendingAssignment]);
 
     const handleAssignTaunt = (slotNum: number, tauntId: string) => {
-        const foundVault = allVaultTaunts.find(t => t.id.toLowerCase() === tauntId.toLowerCase());
+        const foundVault = vaultTaunts.find(t => t.id.toLowerCase() === tauntId.toLowerCase());
         const foundLocal = localHistoryTaunts.find(t => t.id === tauntId);
 
         setSlots(prev => prev.map(s => {
@@ -266,78 +270,129 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
 
     // Apply to Pilot with MANDATORY BACKUP
     const handleApplyToPilot = async () => {
+        if (!selectedPilot) {
+            setSaveFeedback({ success: false, message: 'Please select a pilot first.' });
+            return;
+        }
+
+        if (!dirHandle && !isServerNative) {
+            setSaveFeedback({
+                success: false,
+                message: 'Your Overload game folder is not connected. Please click "Connect Overload Folder" above to grant browser access to your AppData\\LocalLow\\Revival\\Overload directory.'
+            });
+            return;
+        }
+
         setIsSaving(true);
         setSaveFeedback(null);
 
         try {
-            // 1. Auto-upload/install any browser-created or web-history blobs so they have real files and MD5 hashes
-            const updatedSlots = [...slots];
-            for (let i = 0; i < updatedSlots.length; i++) {
-                const slot = updatedSlots[i];
-                const isMd5 = slot.tauntId && /^[0-9a-f]{32}$/i.test(slot.tauntId);
-
-                if (slot.blob && (!slot.tauntId || !isMd5)) {
-                    try {
-                        const formData = new FormData();
-                        formData.append('audio', slot.blob, `${slot.tauntName || `taunt_${slot.slotNumber}`}.ogg`);
-                        formData.append('name', slot.tauntName || `taunt_${slot.slotNumber}`);
-
-                        const installRes = await fetch('/api/overload/install', {
-                            method: 'POST',
-                            body: formData
+            if (dirHandle) {
+                // Option 1: Browser File System Access API
+                const blobsToInstall: Array<{ name: string; blob: Blob; hash?: string }> = [];
+                for (let i = 0; i < slots.length; i++) {
+                    const slot = slots[i];
+                    if (slot.blob) {
+                        blobsToInstall.push({
+                            name: slot.tauntName || `taunt_${slot.slotNumber}`,
+                            blob: slot.blob,
+                            hash: slot.tauntId || undefined
                         });
-                        if (installRes.ok) {
-                            const installData = await installRes.json();
-                            if (installData.success && installData.hash) {
-                                updatedSlots[i] = {
-                                    ...slot,
-                                    tauntId: installData.hash,
-                                    audioUrl: `/api/overload/audio?file=${encodeURIComponent(installData.filename)}`
-                                };
-                            }
-                        }
-                    } catch (uploadErr) {
-                        console.error('Failed to auto-install audio blob to game folder', uploadErr);
                     }
                 }
-            }
-            setSlots(updatedSlots);
 
-            const hashes = updatedSlots.map(s => s.tauntId || 'EMPTY');
+                const hashes = slots.map(s => s.tauntId || 'EMPTY');
+                const result = await applyPilotTauntsClient(dirHandle, selectedPilot, hashes, blobsToInstall);
 
-            const res = await fetch(`/api/overload/pilot/${encodeURIComponent(selectedPilot)}/apply`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedTaunts: hashes })
-            });
+                if (result.success) {
+                    let extraMsg = '';
+                    if (result.promotedCount > 0) {
+                        extraMsg += ` (Auto-promoted ${result.promotedCount} opponent taunt(s) into your game folder).`;
+                    }
+                    if (result.installedCount > 0) {
+                        extraMsg += ` (Saved ${result.installedCount} custom taunt audio file(s) into AudioTaunts).`;
+                    }
+                    setSaveFeedback({
+                        success: true,
+                        message: `Applied to ${selectedPilot}! (Backup: "${result.backupFileName}" saved in Pilot Backup).${extraMsg}`
+                    });
+                    await refreshData();
+                } else {
+                    setSaveFeedback({
+                        success: false,
+                        message: `Failed to save: ${result.error || 'Unknown error'}`
+                    });
+                }
+            } else if (isServerNative) {
+                // Option 2: Server running on local PC
+                const updatedSlots = [...slots];
+                for (let i = 0; i < updatedSlots.length; i++) {
+                    const slot = updatedSlots[i];
+                    const isMd5 = slot.tauntId && /^[0-9a-f]{32}$/i.test(slot.tauntId);
 
-            const data = await res.json();
-            if (res.ok && data.success) {
-                if (data.isGameRunning !== undefined) {
-                    setIsGameRunning(data.isGameRunning);
+                    if (slot.blob && (!slot.tauntId || !isMd5)) {
+                        try {
+                            const formData = new FormData();
+                            formData.append('audio', slot.blob, `${slot.tauntName || `taunt_${slot.slotNumber}`}.ogg`);
+                            formData.append('name', slot.tauntName || `taunt_${slot.slotNumber}`);
+
+                            const installRes = await fetch('/api/overload/install', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            if (installRes.ok) {
+                                const installData = await installRes.json();
+                                if (installData.success && installData.hash) {
+                                    updatedSlots[i] = {
+                                        ...slot,
+                                        tauntId: installData.hash,
+                                        audioUrl: `/api/overload/audio?file=${encodeURIComponent(installData.filename)}`
+                                    };
+                                }
+                            }
+                        } catch (uploadErr) {
+                            console.error('Failed to auto-install audio blob to game folder', uploadErr);
+                        }
+                    }
                 }
-                const backupBaseName = data.backupPath.split(/[\\/]/).pop();
-                let extraMsg = '';
-                if (data.promotedCount > 0) {
-                    extraMsg += ` (Auto-promoted ${data.promotedCount} opponent taunt(s) into your game folder).`;
-                }
-                if (data.isGameRunning) {
-                    extraMsg += ` ⚠️ Note: Overload is currently running. In Overload, please switch to another pilot and switch back to ${selectedPilot} (or restart the game) so OLMod reloads your new taunts without overwriting them.`;
-                }
-                setSaveFeedback({
-                    success: true,
-                    message: `Applied to ${selectedPilot}! (Backup: "${backupBaseName}" saved in Pilot Backup).${extraMsg}`
+                setSlots(updatedSlots);
+
+                const hashes = updatedSlots.map(s => s.tauntId || 'EMPTY');
+
+                const res = await fetch(`/api/overload/pilot/${encodeURIComponent(selectedPilot)}/apply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ selectedTaunts: hashes })
                 });
-            } else {
-                setSaveFeedback({
-                    success: false,
-                    message: `Failed to save: ${data.error || 'Unknown error'}`
-                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    if (data.isGameRunning !== undefined) {
+                        setIsGameRunning(data.isGameRunning);
+                    }
+                    const backupBaseName = data.backupPath.split(/[\\/]/).pop();
+                    let extraMsg = '';
+                    if (data.promotedCount > 0) {
+                        extraMsg += ` (Auto-promoted ${data.promotedCount} opponent taunt(s) into your game folder).`;
+                    }
+                    if (data.isGameRunning) {
+                        extraMsg += ` ⚠️ Note: Overload is currently running. In Overload, please switch to another pilot and switch back to ${selectedPilot} (or restart the game) so OLMod reloads your new taunts without overwriting them.`;
+                    }
+                    setSaveFeedback({
+                        success: true,
+                        message: `Applied to ${selectedPilot}! (Backup: "${backupBaseName}" saved in Pilot Backup).${extraMsg}`
+                    });
+                } else {
+                    setSaveFeedback({
+                        success: false,
+                        message: `Failed to save: ${data.error || 'Unknown error'}`
+                    });
+                }
             }
         } catch (err: any) {
             setSaveFeedback({
                 success: false,
-                message: `Network error: ${err.message}`
+                message: `Error saving loadout: ${err.message}`
             });
         } finally {
             setIsSaving(false);
@@ -401,11 +456,14 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
                                 value={selectedPilot}
                                 onChange={(e) => {
                                     setSelectedPilot(e.target.value);
-                                    loadPilotSlots(e.target.value, allVaultTaunts);
+                                    setFsActivePilot(e.target.value);
                                 }}
                                 className="bg-transparent font-bold text-[#ff6600] focus:outline-none"
                             >
-                                {pilots.map(p => (
+                                {fsPilots.length === 0 && (
+                                    <option value="" className="bg-black text-gray-400">No Pilots Detected</option>
+                                )}
+                                {fsPilots.map(p => (
                                     <option key={p} value={p} className="bg-black text-white">{p}</option>
                                 ))}
                             </select>
@@ -426,6 +484,56 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
                         </button>
                     </div>
                 </div>
+
+                {/* Connection Status / Banner */}
+                {!isClientConnected && !isServerNative && (
+                    <div className="p-4 rounded-xl border border-[#ff6600]/40 bg-[#ff6600]/10 flex flex-col md:flex-row items-center justify-between gap-4 font-mono shadow-[0_0_20px_rgba(255,102,0,0.1)]">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-[#ff6600]/20 text-[#ff6600] flex-shrink-0 mt-0.5">
+                                <HardDrive className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                                    Connect Your PC's Overload Folder
+                                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/30 font-semibold">Remote Host</span>
+                                </h4>
+                                <p className="text-xs text-gray-300 mt-1 leading-relaxed">
+                                    Overload Fight Club is hosted on your Synology NAS. Grant browser access to your local Overload directory (<code className="text-[#ff6600] bg-black/50 px-1 py-0.5 rounded">AppData\LocalLow\Revival\Overload</code>) so the Loadout Manager can read your pilot configs and apply taunts directly to your PC!
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={connectLocalFolder}
+                            disabled={isConnecting}
+                            className="px-4 py-2.5 bg-[#ff6600] hover:bg-[#ff7711] disabled:opacity-50 text-black font-bold text-xs rounded-xl transition-all shadow-lg flex-shrink-0 flex items-center gap-2 uppercase tracking-wider"
+                        >
+                            {isConnecting ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <FolderOpen className="w-4 h-4" />
+                            )}
+                            <span>{isConnecting ? 'Connecting...' : 'Connect Overload Folder'}</span>
+                        </button>
+                    </div>
+                )}
+
+                {isClientConnected && (
+                    <div className="p-3 px-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-300 font-mono">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>Connected to Local PC Folder: <strong className="text-white">{folderName}</strong></span>
+                            <span className="text-emerald-400/60 text-[11px]">({fsPilots.length} pilot(s) loaded)</span>
+                        </div>
+                        <button
+                            onClick={disconnectLocalFolder}
+                            className="text-gray-400 hover:text-red-400 text-[11px] flex items-center gap-1 transition-colors self-end sm:self-auto"
+                            title="Disconnect local PC folder"
+                        >
+                            <Unplug className="w-3 h-3" />
+                            <span>Disconnect Folder</span>
+                        </button>
+                    </div>
+                )}
 
                 {/* Overload Running Warning */}
                 {isGameRunning && (
