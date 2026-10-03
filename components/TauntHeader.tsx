@@ -55,7 +55,7 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                         }`}
                     >
                         <Sliders className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Editor</span>
+                        <span>Create</span>
                     </button>
 
                     <button
@@ -67,7 +67,7 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                         }`}
                     >
                         <FolderOpen className="w-3.5 h-3.5" />
-                        <span>Vault</span>
+                        <span>Library</span>
                     </button>
 
                     <button
@@ -79,7 +79,7 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                         }`}
                     >
                         <Gamepad2 className="w-3.5 h-3.5" />
-                        <span>Loadout (F1–F6)</span>
+                        <span>Loadout</span>
                     </button>
 
                     <button
@@ -91,7 +91,7 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                         }`}
                     >
                         <BookOpen className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Manual</span>
+                        <span>Guide</span>
                     </button>
                 </nav>
 

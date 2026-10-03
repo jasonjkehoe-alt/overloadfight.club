@@ -620,7 +620,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
                     {/* TAB 1: YOUTUBE */}
                     {activeTab === 'youtube' && (
                         <div className="space-y-5">
-                            {/* Mode Switcher: Search vs Direct Link */}
+                            {/* Mode Switcher: Search by Keyword vs Paste URL */}
                             <div className="flex items-center justify-between gap-4 p-1.5 bg-black/60 rounded-xl border border-white/10">
                                 <div className="flex gap-1 flex-1">
                                     <button
@@ -632,7 +632,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
                                         }`}
                                     >
                                         <Search className="w-3.5 h-3.5" />
-                                        <span>Search YouTube Clips</span>
+                                        <span>Search by Keyword</span>
                                     </button>
                                     <button
                                         onClick={() => { stopPreview(); setYtMode('url'); }}
@@ -643,7 +643,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
                                         }`}
                                     >
                                         <Link2 className="w-3.5 h-3.5" />
-                                        <span>Direct Video URL</span>
+                                        <span>Paste Video URL</span>
                                     </button>
                                 </div>
                             </div>
@@ -729,7 +729,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
                                             ) : (
                                                 <>
                                                     <Search className="w-4 h-4" />
-                                                    <span>Search YouTube</span>
+                                                    <span>Search</span>
                                                 </>
                                             )}
                                         </button>
