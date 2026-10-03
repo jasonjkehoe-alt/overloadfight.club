@@ -48,8 +48,8 @@ Write-Host "[4/4] Activating release: deploying index.html and version.json..." 
 Copy-Item -Path "dist/version.json" -Destination $targetDist -Force
 Copy-Item -Path "dist/index.html" -Destination $targetDist -Force
 
-# 6. Synchronize backend files (server, routes, package.json)
-Write-Host "Synchronizing server backend..." -ForegroundColor Yellow
+# 6. Synchronize source and backend files (components, src, server, routes, package.json)
+Write-Host "Synchronizing source and server backend..." -ForegroundColor Yellow
 $targetServer = Join-Path $TargetRoot "server"
 if (-not (Test-Path $targetServer)) {
     New-Item -ItemType Directory -Force -Path $targetServer | Out-Null
@@ -59,6 +59,12 @@ Copy-Item -Path "server/routes.js" -Destination (Join-Path $targetServer "routes
 Copy-Item -Path "server/db.js" -Destination (Join-Path $targetServer "db.js") -Force
 Copy-Item -Path "package.json" -Destination (Join-Path $TargetRoot "package.json") -Force
 Copy-Item -Path "package-lock.json" -Destination (Join-Path $TargetRoot "package-lock.json") -Force
+
+Copy-Item -Path "components\*" -Destination (Join-Path $TargetRoot "components") -Recurse -Force
+Copy-Item -Path "src\*" -Destination (Join-Path $TargetRoot "src") -Recurse -Force
+Copy-Item -Path "public\*" -Destination (Join-Path $TargetRoot "public") -Recurse -Force
+if (Test-Path "vite.config.ts") { Copy-Item -Path "vite.config.ts" -Destination $TargetRoot -Force }
+if (Test-Path "index.html") { Copy-Item -Path "index.html" -Destination $TargetRoot -Force }
 
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host " Deployment Complete! Atomic release active." -ForegroundColor Green
