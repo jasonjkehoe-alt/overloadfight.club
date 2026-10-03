@@ -16,8 +16,10 @@ import {
     User,
     RefreshCw,
     HardDrive,
-    Unplug
+    Unplug,
+    X
 } from 'lucide-react';
+import { clsx } from 'clsx';
 import { GameTauntItem } from './OverloadVault';
 import { getTaunts } from '../utils/audioHistoryDb';
 import { useOverloadFs } from '../context/OverloadFsContext';
@@ -81,6 +83,25 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
     const [copiedPath, setCopiedPath] = useState(false);
     const previewAudioRef = useRef<HTMLAudioElement | null>(null);
     const pendingAssignmentRef = useRef<PendingSlotAssignment | null>(pendingAssignment || null);
+
+    const [isConnectBannerDismissed, setIsConnectBannerDismissed] = useState<boolean>(() => {
+        try {
+            return localStorage.getItem('overload_hide_connect_banner') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    const handleDismissBanner = () => {
+        setIsConnectBannerDismissed(true);
+        try {
+            localStorage.setItem('overload_hide_connect_banner', 'true');
+        } catch {}
+    };
+
+    const hasValidPilot = fsPilots.length > 0 && Boolean(selectedPilot && selectedPilot !== 'No Pilots Detected' && fsPilots.includes(selectedPilot));
+    const hasFilledSlot = slots.some(s => Boolean(s.tauntId || s.blob));
+    const canApply = hasValidPilot && hasFilledSlot && (dirHandle !== null || isServerNative);
 
     // Sync selectedPilot when fsActivePilot changes
     useEffect(() => {
@@ -471,11 +492,25 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
                             </select>
                         </div>
 
-                        {/* Apply to Overload Game Button */}
+                        {/* Apply to Overload Game Button - Disabled until actionable */}
                         <button
                             onClick={handleApplyToPilot}
-                            disabled={isSaving}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#ff6600] hover:bg-[#ff8533] disabled:bg-white/10 disabled:text-gray-500 text-black font-bold text-xs shadow-lg shadow-[#ff6600]/25 transition-all uppercase tracking-wider"
+                            disabled={!canApply || isSaving}
+                            className={clsx(
+                                "flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all uppercase tracking-wider",
+                                canApply && !isSaving
+                                    ? "bg-[#ff6600] hover:bg-[#ff8533] text-black shadow-lg shadow-[#ff6600]/25 cursor-pointer"
+                                    : "bg-white/5 border border-white/10 text-gray-500 cursor-not-allowed opacity-50 shadow-none"
+                            )}
+                            title={
+                                !hasValidPilot
+                                    ? "Connect your Overload folder to detect an active pilot"
+                                    : !hasFilledSlot
+                                    ? "Equip at least one taunt slot to apply"
+                                    : !dirHandle && !isServerNative
+                                    ? "Connect your Overload folder to apply"
+                                    : "Apply taunt loadout directly to your pilot configuration"
+                            }
                         >
                             {isSaving ? (
                                 <div className="animate-spin h-3.5 w-3.5 border-2 border-black border-t-transparent rounded-full" />
@@ -487,20 +522,27 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
                     </div>
                 </div>
 
-                {/* Connection Status / Banner */}
-                {!isClientConnected && !isServerNative && (
-                    <div className="p-4 rounded-xl border border-[#ff6600]/40 bg-[#ff6600]/10 flex flex-col md:flex-row items-center justify-between gap-4 font-mono shadow-[0_0_20px_rgba(255,102,0,0.1)]">
-                        <div className="flex items-start gap-3">
+                {/* Connection Status / Dismissible First-Run Banner */}
+                {!isClientConnected && !isServerNative && !isConnectBannerDismissed && (
+                    <div className="relative p-4 rounded-xl border border-[#ff6600]/40 bg-[#ff6600]/10 flex flex-col md:flex-row items-center justify-between gap-4 font-mono shadow-[0_0_20px_rgba(255,102,0,0.1)]">
+                        <button
+                            onClick={handleDismissBanner}
+                            className="absolute top-2.5 right-2.5 p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                            title="Dismiss notice (you can connect anytime using the top bar)"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                        <div className="flex items-start gap-3 pr-6">
                             <div className="p-2 rounded-lg bg-[#ff6600]/20 text-[#ff6600] flex-shrink-0 mt-0.5">
                                 <HardDrive className="w-5 h-5" />
                             </div>
                             <div>
                                 <h4 className="text-white font-bold text-sm flex items-center gap-2">
                                     Connect Your PC's Overload Folder
-                                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/30 font-semibold">Remote Host</span>
+                                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/30 font-semibold">Web Browser</span>
                                 </h4>
                                 <p className="text-xs text-gray-300 mt-1 leading-relaxed">
-                                    Overload Fight Club is hosted on your Synology NAS. Grant browser access to your local Overload directory (<code className="text-[#ff6600] bg-black/50 px-1 py-0.5 rounded">AppData\LocalLow\Revival\Overload</code>) so the Loadout Manager can read your pilot configs and apply taunts directly to your PC!
+                                    Overload Fight Club is running in your web browser. Grant access to your local Overload directory (<code className="text-[#ff6600] bg-black/50 px-1 py-0.5 rounded">AppData\LocalLow\Revival\Overload</code>) so the Loadout Manager can read your pilot configs and apply taunts directly to your PC!
                                 </p>
                             </div>
                         </div>

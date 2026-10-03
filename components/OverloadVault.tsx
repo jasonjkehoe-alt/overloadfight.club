@@ -213,7 +213,7 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                     <div>
                         <div className="flex items-center gap-3">
                             <h2 className="text-2xl md:text-3xl font-bold text-[#ff6600] tracking-tight brand-font">
-                                OVERLOAD VAULT
+                                OVERLOAD LIBRARY
                             </h2>
                             {isClientConnected ? (
                                 <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center gap-1.5">
@@ -236,7 +236,7 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                                 ? `Connected: ${folderName} (${taunts.length} game taunts indexed)` 
                                 : isServerNative 
                                 ? `Installed Game Taunts • ${folderName}` 
-                                : 'Remote Synology Deployment • Connect your PC game folder to browse your taunts'}
+                                : 'Connect your PC game folder to browse and preview your installed combat taunts'}
                         </p>
                     </div>
 
@@ -251,64 +251,40 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                                 <span>{isConnecting ? 'Connecting...' : 'Connect Folder'}</span>
                             </button>
                         )}
-                        <button
-                            onClick={refreshData}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs transition-all"
-                            title="Refresh game files"
-                        >
-                            <RefreshCw className={clsx("w-3.5 h-3.5", (loading || isConnecting) && "animate-spin")} />
-                            <span>Refresh Vault</span>
-                        </button>
+                        {(isClientConnected || isServerNative) && (
+                            <button
+                                onClick={refreshData}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs transition-all"
+                                title="Refresh game files"
+                            >
+                                <RefreshCw className={clsx("w-3.5 h-3.5", (loading || isConnecting) && "animate-spin")} />
+                                <span>Refresh Library</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* Active Pilot Loadout Quick View */}
-                <div className="bg-black/50 p-4 rounded-xl border border-white/5 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                {/* Active Pilot Indicator (when folder is connected) */}
+                {(isClientConnected || isServerNative) && selectedPilot && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-black/40 px-4 py-2.5 rounded-xl border border-white/5 text-xs">
                         <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-[#ff6600]" />
-                            <span className="text-sm font-bold text-white">Active Pilot:</span>
+                            <User className="w-3.5 h-3.5 text-[#ff6600]" />
+                            <span className="text-gray-400 font-semibold">Active Pilot:</span>
                             <select
                                 value={selectedPilot}
                                 onChange={(e) => setSelectedPilot(e.target.value)}
-                                className="bg-black border border-white/20 rounded px-2 py-1 text-xs text-[#ff6600] font-bold focus:outline-none"
+                                className="bg-black/60 border border-white/20 rounded px-2 py-0.5 text-xs text-[#ff6600] font-bold focus:outline-none"
                             >
                                 {pilots.map(p => (
                                     <option key={p} value={p}>{p}</option>
                                 ))}
                             </select>
                         </div>
-                        <span className="text-xs text-gray-500">
-                            Equipped Taunts from <code className="text-gray-400">{selectedPilot}.extendedconfig</code>
+                        <span className="text-[11px] text-gray-500">
+                            Equip any taunt below to assign it to your pilot's F1–F6 Loadout slots
                         </span>
                     </div>
-
-                    {/* 6 Equipped Mini-Slots */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-                        {[0, 1, 2, 3, 4, 5].map(idx => {
-                            const hash = pilotTauntHashes[idx];
-                            const matched = taunts.find(t => t.id === hash);
-                            return (
-                                <div 
-                                    key={idx}
-                                    className={`p-2 rounded-lg border text-left flex flex-col justify-between ${
-                                        matched 
-                                            ? 'bg-black/60 border-[#ff6600]/40' 
-                                            : 'bg-black/30 border-white/5'
-                                    }`}
-                                >
-                                    <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
-                                        <span className="font-bold text-gray-300">Slot {idx + 1}</span>
-                                        <span className="text-[#ff6600]">F{idx + 1}</span>
-                                    </div>
-                                    <div className="text-xs font-bold text-gray-200 truncate" title={matched?.cleanName || hash || 'Empty'}>
-                                        {matched?.cleanName || (hash ? `${hash.substring(0, 8)}...` : 'Empty')}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
+                )}
 
                 {/* Filter, Sort, and Search Bar */}
                 <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2">
@@ -371,8 +347,8 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                             </select>
                         </div>
 
-                        {/* Search Input */}
-                        <div className="relative flex-grow sm:w-64">
+                        {/* Search Input - Widened to prevent placeholder truncation */}
+                        <div className="relative flex-grow sm:w-80 md:w-96">
                             <Search className="w-4 h-4 text-gray-500 absolute left-3 top-2.5" />
                             <input
                                 type="text"
@@ -403,7 +379,7 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                                 <>
                                     <p className="text-gray-300 font-bold">Your PC Overload folder is not connected.</p>
                                     <p className="text-xs text-gray-400 max-w-md">
-                                        Connect your local game directory (<code className="text-[#ff6600] bg-black/40 px-1 py-0.5 rounded">AppData\LocalLow\Revival\Overload</code>) to index your custom taunts and opponent audio in the Vault.
+                                        Connect your local game directory (<code className="text-[#ff6600] bg-black/40 px-1 py-0.5 rounded">AppData\LocalLow\Revival\Overload</code>) to index your custom taunts and opponent audio in your Library.
                                     </p>
                                     <button
                                         onClick={connectLocalFolder}
