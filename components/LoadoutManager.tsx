@@ -409,12 +409,14 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
         try {
             const zip = new JSZip();
             for (const slot of activeSlots) {
+                const keyPrefix = slot.keybind || `F${slot.slotNumber}`;
+                const fileName = `${keyPrefix}_${slot.tauntName}.ogg`;
                 if (slot.audioUrl) {
                     const res = await fetch(slot.audioUrl);
                     const b = await res.blob();
-                    zip.file(`${slot.tauntName}.ogg`, b);
+                    zip.file(fileName, b);
                 } else if (slot.blob) {
-                    zip.file(`${slot.tauntName}.ogg`, slot.blob);
+                    zip.file(fileName, slot.blob);
                 }
             }
 
