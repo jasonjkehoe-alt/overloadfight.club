@@ -54,15 +54,19 @@ $targetServer = Join-Path $TargetRoot "server"
 if (-not (Test-Path $targetServer)) {
     New-Item -ItemType Directory -Force -Path $targetServer | Out-Null
 }
-Copy-Item -Path "server/index.js" -Destination (Join-Path $targetServer "index.js") -Force
-Copy-Item -Path "server/routes.js" -Destination (Join-Path $targetServer "routes.js") -Force
-Copy-Item -Path "server/db.js" -Destination (Join-Path $targetServer "db.js") -Force
+Copy-Item -Path "server\*" -Destination $targetServer -Recurse -Force
 Copy-Item -Path "package.json" -Destination (Join-Path $TargetRoot "package.json") -Force
 Copy-Item -Path "package-lock.json" -Destination (Join-Path $TargetRoot "package-lock.json") -Force
 
 Copy-Item -Path "components\*" -Destination (Join-Path $TargetRoot "components") -Recurse -Force
-Copy-Item -Path "src\*" -Destination (Join-Path $TargetRoot "src") -Recurse -Force
+if (Test-Path "src") { Copy-Item -Path "src\*" -Destination (Join-Path $TargetRoot "src") -Recurse -Force }
+if (Test-Path "context") { Copy-Item -Path "context\*" -Destination (Join-Path $TargetRoot "context") -Recurse -Force }
+if (Test-Path "utils") { Copy-Item -Path "utils\*" -Destination (Join-Path $TargetRoot "utils") -Recurse -Force }
+if (Test-Path "services") { Copy-Item -Path "services\*" -Destination (Join-Path $TargetRoot "services") -Recurse -Force }
 Copy-Item -Path "public\*" -Destination (Join-Path $TargetRoot "public") -Recurse -Force
+if (Test-Path "App.tsx") { Copy-Item -Path "App.tsx" -Destination $TargetRoot -Force }
+if (Test-Path "index.tsx") { Copy-Item -Path "index.tsx" -Destination $TargetRoot -Force }
+if (Test-Path "types.ts") { Copy-Item -Path "types.ts" -Destination $TargetRoot -Force }
 if (Test-Path "vite.config.ts") { Copy-Item -Path "vite.config.ts" -Destination $TargetRoot -Force }
 if (Test-Path "index.html") { Copy-Item -Path "index.html" -Destination $TargetRoot -Force }
 

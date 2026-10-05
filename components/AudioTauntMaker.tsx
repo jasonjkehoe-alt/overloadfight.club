@@ -4,11 +4,12 @@ import { AudioEditor } from './AudioEditor';
 import { OverloadVault, GameTauntItem } from './OverloadVault';
 import { LoadoutManager, PendingSlotAssignment } from './LoadoutManager';
 import { AudioManual } from './AudioManual';
+import { PilotSettingsPanel } from './PilotSettingsPanel';
 import { ErrorBoundary } from './ErrorBoundary';
 import { OverloadFsProvider } from '../context/OverloadFsContext';
 
 export const AudioTauntMaker: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'editor' | 'vault' | 'loadout' | 'manual'>('vault');
+    const [activeTab, setActiveTab] = useState<'editor' | 'vault' | 'settings' | 'loadout' | 'manual'>('vault');
     const [editorFile, setEditorFile] = useState<File | null>(null);
     const [pendingSlotAssignment, setPendingSlotAssignment] = useState<PendingSlotAssignment | null>(null);
 
@@ -44,7 +45,11 @@ export const AudioTauntMaker: React.FC = () => {
                             <OverloadVault 
                                 onLoadIntoEditor={handleLoadIntoEditor}
                                 onEquipToSlot={handleEquipFromVault}
+                                onNavigateSettings={() => setActiveTab('settings')}
                             />
+                        </div>
+                        <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
+                            <PilotSettingsPanel />
                         </div>
                         <div className={activeTab === 'loadout' ? 'block' : 'hidden'}>
                             <LoadoutManager 

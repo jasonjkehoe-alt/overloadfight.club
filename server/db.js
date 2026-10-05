@@ -591,24 +591,50 @@ function getPilotTelemetry(name, startDate) {
     try {
         const cached = hotDb.prepare('SELECT * FROM pilot_stats_cache WHERE name = ? COLLATE NOCASE').get(name);
 
-        const gamesQuery = hotDb.prepare(`
-            SELECT details, date
-            FROM (
+        const pattern = `%"${name}"%`;
+        const lowerName = name.toLowerCase();
+        let gameRows;
+        if (startDate) {
+            gameRows = hotDb.prepare(`
                 SELECT details, date FROM games
-                UNION ALL
-                SELECT details, date FROM cold.games
-            )
-            WHERE EXISTS (
-                SELECT 1 FROM json_each(details, '$.players')
-                WHERE json_extract(value, '$.name') = @name COLLATE NOCASE
-            )
-            AND (@startDate IS NULL OR date >= @startDate)
-            ORDER BY date DESC
-        `);
+                WHERE date >= @startDate AND details LIKE @pattern
+                ORDER BY date DESC
+            `).all({ startDate, pattern });
 
-        let gameRows = gamesQuery.all({ name, startDate });
-        if ((!gameRows || gameRows.length === 0) && startDate) {
-            gameRows = gamesQuery.all({ name, startDate: null });
+            if (!gameRows || gameRows.length === 0) {
+                // Fallback to all-time
+                const hotAll = hotDb.prepare(`
+                    SELECT details, date FROM games
+                    WHERE details LIKE @pattern
+                    ORDER BY date DESC
+                `).all({ pattern });
+                if (hotAll && hotAll.length >= 5) {
+                    gameRows = hotAll;
+                } else {
+                    const coldAll = hotDb.prepare(`
+                        SELECT details, date FROM cold.games
+                        WHERE details LIKE @pattern
+                        ORDER BY date DESC
+                    `).all({ pattern });
+                    gameRows = (hotAll || []).concat(coldAll);
+                }
+            }
+        } else {
+            const hotAll = hotDb.prepare(`
+                SELECT details, date FROM games
+                WHERE details LIKE @pattern
+                ORDER BY date DESC
+            `).all({ pattern });
+            if (hotAll && hotAll.length >= 5) {
+                gameRows = hotAll;
+            } else {
+                const coldAll = hotDb.prepare(`
+                    SELECT details, date FROM cold.games
+                    WHERE details LIKE @pattern
+                    ORDER BY date DESC
+                `).all({ pattern });
+                gameRows = (hotAll || []).concat(coldAll);
+            }
         }
 
         if (!gameRows || gameRows.length === 0) {
@@ -638,7 +664,7 @@ function getPilotTelemetry(name, startDate) {
             }
 
             const players = g.players || [];
-            const me = players.find(p => p && p.name && p.name.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0);
+            const me = players.find(p => p && p.name && p.name.toLowerCase() === lowerName);
             if (!me) continue;
 
             totalKills += (me.kills || 0);
@@ -694,8 +720,8 @@ function getPilotTelemetry(name, startDate) {
             if (Array.isArray(g.damage)) {
                 for (const d of g.damage) {
                     if (!d || !d.damage) continue;
-                    const isAttacker = d.attacker && d.attacker.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0;
-                    const isDefender = d.defender && d.defender.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0;
+                    const isAttacker = d.attacker && d.attacker.toLowerCase() === lowerName;
+                    const isDefender = d.defender && d.defender.toLowerCase() === lowerName;
 
                     if (isAttacker) {
                         totalDamageDealt += d.damage;
@@ -715,7 +741,7 @@ function getPilotTelemetry(name, startDate) {
             if (Array.isArray(g.kills)) {
                 for (const k of g.kills) {
                     if (!k) continue;
-                    const isAttacker = k.attacker && k.attacker.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0;
+                    const isAttacker = k.attacker && k.attacker.toLowerCase() === lowerName;
                     if (isAttacker) {
                         const wName = normalizeWeaponName(k.weapon);
                         if (!weaponAgg[wName]) {
@@ -1401,18 +1427,19 @@ const buildMapStatsCache = () => {
         }
       }
 
-      // Aggregate combat damage from match telemetry (either details.damage or player damage fields)
+      // Aggregate combat damage from match telemetry (prefer pre-aggregated player damage, fallback to raw damage array)
       let matchDamage = 0;
-      if (Array.isArray(details?.damage)) {
+      if (Array.isArray(details?.players) && details.players.length > 0) {
+        for (let j = 0; j < details.players.length; j++) {
+          const p = details.players[j];
+          matchDamage += Number(p?.damage_dealt || p?.damage || p?.total_damage || 0);
+        }
+      } else if (Array.isArray(details?.damage)) {
         for (let j = 0; j < details.damage.length; j++) {
           const d = details.damage[j];
           if (d && typeof d.damage === 'number') {
             matchDamage += d.damage;
           }
-        }
-      } else if (Array.isArray(details?.players)) {
-        for (const p of details.players) {
-          matchDamage += Number(p.damage_dealt || p.damage || p.total_damage || 0);
         }
       }
       entry.total_damage += Math.round(matchDamage);
@@ -2072,19 +2099,28 @@ VALUES(@id, @date, @ip, @details)
       const d = 0.85;
 
       for (let iter = 0; iter < 25; iter++) {
+        let danglingWeight = 0;
         const nextScores = {};
-        pilotList.forEach(p => nextScores[p] = (1 - d) / N);
+        for (let i = 0; i < N; i++) {
+          nextScores[pilotList[i]] = 0;
+        }
 
         for (const victim of pilotList) {
-          const killers = killGraph[victim] || {};
-          const totalDeaths = Object.values(killers).reduce((a, b) => a + b, 0);
+          const killers = killGraph[victim];
+          const totalDeaths = killers ? Object.values(killers).reduce((a, b) => a + b, 0) : 0;
           if (totalDeaths > 0) {
+            const factor = (d * scores[victim]) / totalDeaths;
             for (const [killer, weight] of Object.entries(killers)) {
-              nextScores[killer] += d * scores[victim] * (weight / totalDeaths);
+              nextScores[killer] += weight * factor;
             }
           } else {
-            pilotList.forEach(v => nextScores[v] += d * scores[victim] / N);
+            danglingWeight += scores[victim];
           }
+        }
+
+        const baseScore = ((1 - d) + d * danglingWeight) / N;
+        for (let i = 0; i < N; i++) {
+          nextScores[pilotList[i]] += baseScore;
         }
         scores = nextScores;
       }
@@ -2178,6 +2214,15 @@ VALUES(@id, @date, @ip, @details)
     }
   },
 
+  hasPilotStatsCache: () => {
+    try {
+      const row = hotDb.prepare('SELECT COUNT(*) as count FROM pilot_stats_cache').get();
+      return Boolean(row && row.count > 0);
+    } catch {
+      return false;
+    }
+  },
+
   getPilotPPI: (name) => {
     try {
       const stmt = hotDb.prepare('SELECT * FROM pilot_stats_cache WHERE name = ? COLLATE NOCASE');
@@ -2190,50 +2235,79 @@ VALUES(@id, @date, @ip, @details)
 
   getPilotBreakdown: (name) => {
     try {
-      const mapStats = hotDb.prepare(`
-        SELECT 
-          json_extract(g.details, '$.settings.level') as map,
-          COUNT(*) as games,
-          SUM(json_extract(p.value, '$.kills')) as kills,
-          SUM(json_extract(p.value, '$.deaths')) as deaths,
-          SUM(json_extract(p.value, '$.assists')) as assists
-        FROM (
-          SELECT details FROM games UNION ALL SELECT details FROM cold.games
-        ) g, json_each(g.details, '$.players') p
-        WHERE json_extract(p.value, '$.name') = ?
-          AND json_extract(g.details, '$.settings.level') IS NOT NULL
-        GROUP BY map
-        ORDER BY games DESC
-        LIMIT 6
-      `).all(name);
+      const pattern = `%"${name}"%`;
+      const lowerName = name.toLowerCase();
+      // Query hot games (instant)
+      let allRows = hotDb.prepare(`
+        SELECT details FROM games WHERE details LIKE @pattern
+      `).all({ pattern });
 
-      const rivals = hotDb.prepare(`
-        SELECT 
-          json_extract(p2.value, '$.name') as name,
-          COUNT(*) as encounters,
-          SUM(json_extract(p2.value, '$.kills')) as their_kills,
-          SUM(json_extract(p2.value, '$.deaths')) as their_deaths
-        FROM (
-          SELECT details FROM games UNION ALL SELECT details FROM cold.games
-        ) g, json_each(g.details, '$.players') p1, json_each(g.details, '$.players') p2
-        WHERE json_extract(p1.value, '$.name') = ?
-          AND json_extract(p2.value, '$.name') != ?
-          AND json_extract(p2.value, '$.name') IS NOT NULL
-        GROUP BY name
-        ORDER BY encounters DESC
-        LIMIT 6
-      `).all(name, name);
+      // Fallback to cold games only if hot games have very few matches (e.g. historical pilot)
+      if (!allRows || allRows.length < 5) {
+        const coldRows = hotDb.prepare(`
+          SELECT details FROM cold.games WHERE details LIKE @pattern
+        `).all({ pattern });
+        allRows = (allRows || []).concat(coldRows);
+      }
 
-      return {
-        mapStats: mapStats.map(m => ({
+      const mapMap = new Map();
+      const rivalMap = new Map();
+
+      for (let i = 0; i < allRows.length; i++) {
+        let g;
+        try {
+          g = typeof allRows[i].details === 'string' ? JSON.parse(allRows[i].details) : allRows[i].details;
+        } catch {
+          continue;
+        }
+        const players = g.players || [];
+        const me = players.find(p => p?.name && p.name.toLowerCase() === lowerName);
+        if (!me) continue;
+
+        const map = g.settings?.level;
+        if (map) {
+          let m = mapMap.get(map);
+          if (!m) {
+            m = { map, games: 0, kills: 0, deaths: 0, assists: 0 };
+            mapMap.set(map, m);
+          }
+          m.games++;
+          m.kills += (me.kills || 0);
+          m.deaths += (me.deaths || 0);
+          m.assists += (me.assists || 0);
+        }
+
+        for (let j = 0; j < players.length; j++) {
+          const other = players[j];
+          if (!other?.name || other.name.toLowerCase() === lowerName) continue;
+          let r = rivalMap.get(other.name);
+          if (!r) {
+            r = { name: other.name, encounters: 0, their_kills: 0, their_deaths: 0 };
+            rivalMap.set(other.name, r);
+          }
+          r.encounters++;
+          r.their_kills += (other.kills || 0);
+          r.their_deaths += (other.deaths || 0);
+        }
+      }
+
+      const mapStats = Array.from(mapMap.values())
+        .sort((a, b) => b.games - a.games)
+        .slice(0, 6)
+        .map(m => ({
           ...m,
           kd: m.kills / Math.max(1, m.deaths)
-        })),
-        rivals: rivals.map(r => ({
+        }));
+
+      const rivals = Array.from(rivalMap.values())
+        .sort((a, b) => b.encounters - a.encounters)
+        .slice(0, 6)
+        .map(r => ({
           ...r,
           their_kd: r.their_kills / Math.max(1, r.their_deaths)
-        }))
-      };
+        }));
+
+      return { mapStats, rivals };
     } catch (err) {
       console.error("Failed to get pilot breakdown", err);
       return { mapStats: [], rivals: [] };

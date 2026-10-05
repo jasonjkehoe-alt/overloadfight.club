@@ -737,13 +737,14 @@ router.get('/pilot/:name/stats', async (req, res) => {
         if (startDate === 'all') startDate = null;
 
         // Default to checking 365d first
-        if (!startDate && req.query.timeframe !== 'all') {
+        const isDefault365 = (!startDate && req.query.timeframe !== 'all');
+        if (isDefault365) {
             const oneYearAgo = new Date();
             oneYearAgo.setDate(oneYearAgo.getDate() - 365);
             startDate = oneYearAgo.toISOString();
         }
 
-        const cacheKey = `pilot_telemetry_${name.toLowerCase()}_${startDate || 'all'}`;
+        const cacheKey = `pilot_telemetry_${name.toLowerCase()}_${isDefault365 ? '365d' : (startDate ? startDate.slice(0, 10) : 'all')}`;
         const cached = await cacheService.get(cacheKey);
         if (cached) return res.json(cached);
 
@@ -809,7 +810,14 @@ router.get('/pilot/:name/ppi', async (req, res) => {
 router.get('/pilot/:name/breakdown', async (req, res) => {
     try {
         const name = req.params.name;
+        const cacheKey = `pilot_breakdown_${name.toLowerCase()}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return res.json(cached);
+
         const breakdown = db.getPilotBreakdown(name);
+        if (breakdown) {
+            await cacheService.set(cacheKey, breakdown, 300);
+        }
         res.json(breakdown);
     } catch (e) {
         console.error("Pilot Breakdown Error:", e);

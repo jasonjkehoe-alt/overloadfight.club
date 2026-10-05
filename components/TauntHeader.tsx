@@ -3,8 +3,8 @@ import { Volume2, ExternalLink, Gamepad2, BookOpen, Sliders, FolderOpen, Check, 
 import { useOverloadFs } from '../context/OverloadFsContext';
 
 interface TauntHeaderProps {
-    activeTab: 'editor' | 'vault' | 'loadout' | 'manual';
-    onSelectTab: (tab: 'editor' | 'vault' | 'loadout' | 'manual') => void;
+    activeTab: 'editor' | 'vault' | 'settings' | 'loadout' | 'manual';
+    onSelectTab: (tab: 'editor' | 'vault' | 'settings' | 'loadout' | 'manual') => void;
 }
 
 export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab }) => {
@@ -54,7 +54,7 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                                 : 'text-gray-400 hover:text-white'
                         }`}
                     >
-                        <Sliders className="w-3.5 h-3.5" />
+                        <Volume2 className="w-3.5 h-3.5" />
                         <span>Create</span>
                     </button>
 
@@ -68,6 +68,18 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                     >
                         <FolderOpen className="w-3.5 h-3.5" />
                         <span>Library</span>
+                    </button>
+
+                    <button
+                        onClick={() => onSelectTab('settings')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                            activeTab === 'settings'
+                                ? 'bg-[#ff6600] text-black font-bold shadow-lg shadow-[#ff6600]/20'
+                                : 'text-gray-400 hover:text-white'
+                        }`}
+                    >
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>Pilot Settings</span>
                     </button>
 
                     <button

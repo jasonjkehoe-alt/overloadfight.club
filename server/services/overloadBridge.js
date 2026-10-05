@@ -3,12 +3,14 @@ import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
 import { execSync } from 'child_process';
+import JSZip from 'jszip';
 
-// Check if Overload process is currently active
+// Check if Overload or olmod process is currently active
 export function isOverloadRunning() {
+    if (process.platform !== 'win32') return false;
     try {
-        const out = execSync('tasklist').toString();
-        return out.toLowerCase().includes('overload.exe');
+        const out = execSync('tasklist').toString().toLowerCase();
+        return out.includes('overload.exe') || out.includes('olmod.exe');
     } catch {
         return false;
     }
@@ -121,19 +123,25 @@ export function scanGameTaunts(overloadDir) {
     return items;
 }
 
-// List all pilot names with extendedconfig
+// List all pilot names with config files
 export function listPilots(overloadDir) {
     if (!fs.existsSync(overloadDir)) return [];
     const files = fs.readdirSync(overloadDir);
-    const pilots = [];
+    const pilotsSet = new Set();
+    const exts = ['.extendedconfig', '.xprefs', '.xconfig', '.xprefsmod', '.xscores'];
 
     for (const f of files) {
-        if (f.toLowerCase().endsWith('.extendedconfig')) {
-            const name = f.substring(0, f.length - '.extendedconfig'.length);
-            pilots.push(name);
+        for (const ext of exts) {
+            if (f.toLowerCase().endsWith(ext)) {
+                const name = f.substring(0, f.length - ext.length);
+                if (name && name.length > 0 && !name.startsWith('.')) {
+                    pilotsSet.add(name);
+                }
+                break;
+            }
         }
     }
-    return pilots;
+    return Array.from(pilotsSet).sort();
 }
 
 // Read pilot config
@@ -263,4 +271,283 @@ export function applyPilotTaunts(overloadDir, pilotName, newTauntHashes) {
         promotedCount,
         isGameRunning
     };
+}
+
+// 6-File Pilot Family Extensions
+export const PILOT_FAMILY_EXTS = [
+    '.xconfig',
+    '.xprefs',
+    '.xprefsmod',
+    '.xscores',
+    '.extendedconfig',
+    '.xconfigmod'
+];
+
+// Read pilot settings (.xprefs, .xprefsmod, .xconfig)
+export function getPilotSettings(overloadDir, pilotName) {
+    if (!fs.existsSync(overloadDir)) {
+        return { error: 'Overload directory not found' };
+    }
+
+    const xprefsPath = path.join(overloadDir, `${pilotName}.xprefs`);
+    const xprefsmodPath = path.join(overloadDir, `${pilotName}.xprefsmod`);
+    const xconfigPath = path.join(overloadDir, `${pilotName}.xconfig`);
+    const extendedconfigPath = path.join(overloadDir, `${pilotName}.extendedconfig`);
+
+    let xprefsRaw = '';
+    let xprefsmodRaw = '';
+    let xconfigRaw = '';
+    let extendedconfigRaw = '';
+
+    if (fs.existsSync(xprefsPath)) {
+        xprefsRaw = fs.readFileSync(xprefsPath, 'utf8');
+    }
+    if (fs.existsSync(xprefsmodPath)) {
+        xprefsmodRaw = fs.readFileSync(xprefsmodPath, 'utf8');
+    }
+    if (fs.existsSync(xconfigPath)) {
+        xconfigRaw = fs.readFileSync(xconfigPath, 'utf8');
+    }
+    if (fs.existsSync(extendedconfigPath)) {
+        extendedconfigRaw = fs.readFileSync(extendedconfigPath, 'utf8');
+    }
+
+    // Extract XP (PS_XP2)
+    let xp = 0;
+    const xpMatch = xprefsRaw.match(/PS_XP2:(\d+):I/);
+    if (xpMatch) {
+        xp = parseInt(xpMatch[1], 10) || 0;
+    }
+
+    return {
+        pilotName,
+        xprefsRaw,
+        xprefsmodRaw,
+        xconfigRaw,
+        extendedconfigRaw,
+        xp,
+        isGameRunning: isOverloadRunning()
+    };
+}
+
+// Save pilot settings with process guard and auto-backup
+export function savePilotSettings(overloadDir, pilotName, { xprefsRaw, xprefsmodRaw, xconfigRaw, extendedconfigRaw }) {
+    if (isOverloadRunning()) {
+        return { success: false, error: 'Close Overload to change settings' };
+    }
+
+    const backupDir = path.join(overloadDir, 'Pilot Backup');
+    if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    const backupsCreated = [];
+
+    // Helper to backup and write file
+    const backupAndWrite = (ext, content) => {
+        if (content === undefined || content === null) return;
+        const filePath = path.join(overloadDir, `${pilotName}${ext}`);
+        if (fs.existsSync(filePath)) {
+            const backupFile = `${pilotName}_backup_${timeStr}${ext}`;
+            const backupPath = path.join(backupDir, backupFile);
+            fs.copyFileSync(filePath, backupPath);
+            fs.copyFileSync(filePath, `${filePath}.bak`);
+            backupsCreated.push(backupFile);
+        }
+        fs.writeFileSync(filePath, content, 'utf8');
+    };
+
+    if (xprefsRaw !== undefined) backupAndWrite('.xprefs', xprefsRaw);
+    if (xprefsmodRaw !== undefined) backupAndWrite('.xprefsmod', xprefsmodRaw);
+    if (xconfigRaw !== undefined) backupAndWrite('.xconfig', xconfigRaw);
+    if (extendedconfigRaw !== undefined) backupAndWrite('.extendedconfig', extendedconfigRaw);
+
+    return {
+        success: true,
+        backups: backupsCreated
+    };
+}
+
+// Set pilot SP XP (PS_XP2)
+export function setPilotXP(overloadDir, pilotName, xp) {
+    if (isOverloadRunning()) {
+        return { success: false, error: 'Close Overload to change settings' };
+    }
+
+    const xprefsPath = path.join(overloadDir, `${pilotName}.xprefs`);
+    if (!fs.existsSync(xprefsPath)) {
+        return { success: false, error: `Pilot .xprefs not found: ${xprefsPath}` };
+    }
+
+    const raw = fs.readFileSync(xprefsPath, 'utf8');
+    const backupDir = path.join(overloadDir, 'Pilot Backup');
+    if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    const backupFileName = `${pilotName}_backup_${timeStr}.xprefs`;
+    fs.writeFileSync(path.join(backupDir, backupFileName), raw, 'utf8');
+
+    let updated = '';
+    if (raw.includes('PS_XP2:')) {
+        updated = raw.replace(/PS_XP2:\d+:I/g, `PS_XP2:${xp}:I`);
+    } else {
+        updated = raw.endsWith(';') ? `${raw}PS_XP2:${xp}:I;` : `${raw};PS_XP2:${xp}:I;`;
+    }
+
+    fs.writeFileSync(xprefsPath, updated, 'utf8');
+    return { success: true, backupFileName };
+}
+
+// Backup all pilots into a timestamped zip in Pilot Backup/
+export async function backupAllPilotsZip(overloadDir) {
+    const backupDir = path.join(overloadDir, 'Pilot Backup');
+    if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const zip = new JSZip();
+    let fileCount = 0;
+
+    const files = fs.readdirSync(overloadDir);
+    for (const f of files) {
+        const lower = f.toLowerCase();
+        const isFamily = PILOT_FAMILY_EXTS.some(ext => lower.endsWith(ext));
+        if (isFamily) {
+            const filePath = path.join(overloadDir, f);
+            const stat = fs.statSync(filePath);
+            if (stat.isFile()) {
+                const buf = fs.readFileSync(filePath);
+                zip.file(f, buf);
+                fileCount++;
+            }
+        }
+    }
+
+    if (fileCount === 0) {
+        return { success: false, error: 'No pilot files found to backup' };
+    }
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    const zipName = `Pilots_Full_Backup_${timeStr}.zip`;
+    const zipPath = path.join(backupDir, zipName);
+
+    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    fs.writeFileSync(zipPath, zipBuffer);
+
+    return {
+        success: true,
+        fileName: zipName,
+        fileCount,
+        backupPath: zipPath
+    };
+}
+
+// Clone pilot across the 6-file family
+export function clonePilot(overloadDir, sourcePilot, targetPilot) {
+    if (!targetPilot || !targetPilot.trim()) {
+        return { success: false, error: 'Target pilot name is required' };
+    }
+    const cleanTarget = targetPilot.trim();
+
+    let clonedCount = 0;
+    for (const ext of PILOT_FAMILY_EXTS) {
+        const srcPath = path.join(overloadDir, `${sourcePilot}${ext}`);
+        const dstPath = path.join(overloadDir, `${cleanTarget}${ext}`);
+
+        if (fs.existsSync(srcPath)) {
+            fs.copyFileSync(srcPath, dstPath);
+            clonedCount++;
+        }
+    }
+
+    if (clonedCount === 0) {
+        return { success: false, error: `No files found for source pilot: ${sourcePilot}` };
+    }
+
+    return { success: true, clonedCount, targetPilot: cleanTarget };
+}
+
+// Rename pilot across the 6-file family
+export function renamePilot(overloadDir, sourcePilot, targetPilot) {
+    if (isOverloadRunning()) {
+        return { success: false, error: 'Close Overload to change settings' };
+    }
+    if (!targetPilot || !targetPilot.trim()) {
+        return { success: false, error: 'Target pilot name is required' };
+    }
+    const cleanTarget = targetPilot.trim();
+
+    const filesToRename = [];
+    for (const ext of PILOT_FAMILY_EXTS) {
+        const srcPath = path.join(overloadDir, `${sourcePilot}${ext}`);
+        const dstPath = path.join(overloadDir, `${cleanTarget}${ext}`);
+        if (fs.existsSync(srcPath)) {
+            filesToRename.push({ src: srcPath, dst: dstPath });
+        }
+    }
+
+    if (filesToRename.length === 0) {
+        return { success: false, error: `No files found for pilot ${sourcePilot}` };
+    }
+
+    const renamed = [];
+    try {
+        for (const item of filesToRename) {
+            fs.renameSync(item.src, item.dst);
+            renamed.push(item);
+        }
+    } catch (err) {
+        // Rollback
+        for (const item of renamed) {
+            try { fs.renameSync(item.dst, item.src); } catch {}
+        }
+        return { success: false, error: `Rename failed: ${err.message}` };
+    }
+
+    return { success: true, renamedCount: renamed.length, targetPilot: cleanTarget };
+}
+
+// Delete pilot across the 6-file family
+export function deletePilot(overloadDir, pilotName) {
+    if (isOverloadRunning()) {
+        return { success: false, error: 'Close Overload to change settings' };
+    }
+
+    const pilots = listPilots(overloadDir);
+    if (pilots.length <= 1) {
+        return { success: false, error: 'Cannot delete the only remaining pilot' };
+    }
+
+    // Mandatory safety backup before deletion
+    const backupDir = path.join(overloadDir, 'Pilot Backup');
+    if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+    let deletedCount = 0;
+    for (const ext of PILOT_FAMILY_EXTS) {
+        const filePath = path.join(overloadDir, `${pilotName}${ext}`);
+        if (fs.existsSync(filePath)) {
+            // Copy to backup first
+            const bkpPath = path.join(backupDir, `${pilotName}_predelete_${timeStr}${ext}`);
+            fs.copyFileSync(filePath, bkpPath);
+            fs.unlinkSync(filePath);
+            deletedCount++;
+        }
+    }
+
+    return { success: true, deletedCount };
 }

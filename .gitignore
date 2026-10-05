@@ -32,3 +32,15 @@ build_*.txt
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch & diagnostic scripts
+scripts/benchmark_*.py
+scripts/check_*.py
+scripts/count_*.py
+scripts/debug_*.py
+scripts/deploy_server_to_container.py
+scripts/remote_exec.py
+scripts/test_*.py
+scripts/test_*.cjs
+scripts/test_*.mjs
+scripts/verify_*.py

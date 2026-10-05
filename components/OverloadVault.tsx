@@ -19,11 +19,25 @@ import {
     ArrowUpDown,
     X,
     FolderOpen,
-    Unplug
+    Unplug,
+    Archive,
+    Copy as CopyIcon,
+    Edit2,
+    Trash2,
+    Award
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useOverloadFs } from '../context/OverloadFsContext';
 import { getPilotDataClient } from '../utils/overloadFsBridge';
+import {
+    backupAllPilotsZipClient,
+    clonePilotClient,
+    renamePilotClient,
+    deletePilotClient,
+    readPilotXPClient,
+    setPilotXPClient,
+    checkOverloadRunningClient
+} from '../utils/pilotSettingsBridge';
 
 export interface GameTauntItem {
     id: string; // MD5 hash (lowercase)
@@ -39,11 +53,12 @@ export interface GameTauntItem {
 interface OverloadVaultProps {
     onLoadIntoEditor: (file: File) => void;
     onEquipToSlot: (item: GameTauntItem, slotNum: number) => void;
+    onNavigateSettings?: () => void;
 }
 
 export type VaultSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc';
 
-export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, onEquipToSlot }) => {
+export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, onEquipToSlot, onNavigateSettings }) => {
     const {
         isSupported,
         isServerNative,
@@ -69,6 +84,13 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
     const [selectedPilot, setSelectedPilot] = useState<string>(fsActivePilot || 'Soup');
     const [pilotTauntHashes, setPilotTauntHashes] = useState<string[]>([]);
 
+    // Pilot Management State (P1)
+    const [pilotXP, setPilotXP] = useState<number | null>(null);
+    const [pilotModal, setPilotModal] = useState<'clone' | 'rename' | 'delete' | 'xp' | null>(null);
+    const [pilotModalInput, setPilotModalInput] = useState<string>('');
+    const [pilotOpLoading, setPilotOpLoading] = useState<boolean>(false);
+    const [pilotOpMessage, setPilotOpMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
     const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
     // Sync selectedPilot when fsActivePilot updates
@@ -78,7 +100,7 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
         }
     }, [fsActivePilot]);
 
-    // Load pilot selected taunts
+    // Load pilot selected taunts and XP
     const fetchPilotData = async (name: string) => {
         if (!name) return;
         try {
@@ -87,11 +109,14 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                 if (pData) {
                     setPilotTauntHashes(pData.selectedTaunts || []);
                 }
+                const xp = await readPilotXPClient(dirHandle, name);
+                setPilotXP(xp);
             } else if (isServerNative) {
                 const res = await fetch(`/api/overload/pilot/${encodeURIComponent(name)}`);
                 if (res.ok) {
                     const data = await res.json();
                     setPilotTauntHashes(data.selectedTaunts || []);
+                    if (data.xp !== undefined) setPilotXP(data.xp);
                 }
             }
         } catch (err) {
@@ -205,38 +230,98 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
     const userTauntsCount = taunts.filter(t => t.location === 'user').length;
     const externalTauntsCount = taunts.filter(t => t.location === 'external').length;
 
+
+    // Pilot Management Actions (P1)
+    const handleBackupAll = async () => {
+        if (!dirHandle) return;
+        setPilotOpLoading(true);
+        setPilotOpMessage(null);
+        try {
+            const res = await backupAllPilotsZipClient(dirHandle, pilots);
+            if (res.success) {
+                setPilotOpMessage({ type: 'success', text: `Archived ${res.fileCount} pilot files to "${res.fileName}" in Pilot Backup/` });
+            } else {
+                setPilotOpMessage({ type: 'error', text: res.error || 'Backup failed' });
+            }
+        } catch (e: any) {
+            setPilotOpMessage({ type: 'error', text: e.message || 'Backup failed' });
+        } finally {
+            setPilotOpLoading(false);
+        }
+    };
+
+    const handleConfirmPilotModal = async () => {
+        if (!dirHandle) return;
+        setPilotOpLoading(true);
+        setPilotOpMessage(null);
+
+        try {
+            if (pilotModal === 'clone') {
+                const res = await clonePilotClient(dirHandle, selectedPilot, pilotModalInput, pilots);
+                if (res.success) {
+                    setPilotOpMessage({ type: 'success', text: `Cloned ${selectedPilot} → ${pilotModalInput.trim()} (${res.clonedCount} files)` });
+                    setPilotModal(null);
+                    await refreshData();
+                } else {
+                    setPilotOpMessage({ type: 'error', text: res.error || 'Clone failed' });
+                }
+            } else if (pilotModal === 'rename') {
+                const res = await renamePilotClient(dirHandle, selectedPilot, pilotModalInput, fsActivePilot, pilots);
+                if (res.success) {
+                    setPilotOpMessage({ type: 'success', text: `Renamed ${selectedPilot} → ${pilotModalInput.trim()}` });
+                    setSelectedPilot(pilotModalInput.trim());
+                    setFsActivePilot(pilotModalInput.trim());
+                    setPilotModal(null);
+                    await refreshData();
+                } else {
+                    setPilotOpMessage({ type: 'error', text: res.error || 'Rename failed' });
+                }
+            } else if (pilotModal === 'delete') {
+                const res = await deletePilotClient(dirHandle, selectedPilot, pilots, fsActivePilot);
+                if (res.success) {
+                    setPilotOpMessage({ type: 'success', text: `Deleted pilot ${selectedPilot} (${res.deletedCount} files)` });
+                    setPilotModal(null);
+                    await refreshData();
+                } else {
+                    setPilotOpMessage({ type: 'error', text: res.error || 'Delete failed' });
+                }
+            } else if (pilotModal === 'xp') {
+                const xpNum = parseInt(pilotModalInput, 10);
+                if (isNaN(xpNum) || xpNum < 0 || xpNum > 9999999) {
+                    setPilotOpMessage({ type: 'error', text: 'XP must be a number between 0 and 9,999,999' });
+                    setPilotOpLoading(false);
+                    return;
+                }
+                const res = await setPilotXPClient(dirHandle, selectedPilot, xpNum);
+                if (res.success) {
+                    setPilotXP(xpNum);
+                    setPilotOpMessage({ type: 'success', text: `Updated ${selectedPilot} XP to ${xpNum.toLocaleString()} (Backup created: ${res.backupFileName})` });
+                    setPilotModal(null);
+                } else {
+                    setPilotOpMessage({ type: 'error', text: res.error || 'Failed to update XP' });
+                }
+            }
+        } catch (e: any) {
+            setPilotOpMessage({ type: 'error', text: e.message || 'Operation failed' });
+        } finally {
+            setPilotOpLoading(false);
+        }
+    };
+
     return (
-        <div className="w-full max-w-6xl mx-auto space-y-6 font-mono animate-fade-in">
-            {/* Top Vault Header */}
-            <div className="bg-[#121212] rounded-2xl border border-white/10 p-6 md:p-8 shadow-2xl space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/10">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-2xl md:text-3xl font-bold text-[#ff6600] tracking-tight brand-font">
-                                OVERLOAD LIBRARY
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 font-mono text-gray-200">
+            {/* Top Toolbar Card */}
+            <div className="bg-[#121215] border border-gray-800 rounded-2xl p-6 shadow-2xl space-y-4">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                            <Folder className="w-5 h-5 text-[#ff6600]" />
+                            <h2 className="text-xl font-bold tracking-wider brand-font text-white">
+                                TAUNT <span className="text-[#ff6600]">LIBRARY</span> &amp; PILOT REPOSITORY
                             </h2>
-                            {isClientConnected ? (
-                                <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center gap-1.5">
-                                    <ShieldCheck className="w-3.5 h-3.5" />
-                                    PC Folder Connected
-                                </span>
-                            ) : isServerNative ? (
-                                <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full flex items-center gap-1.5">
-                                    <ShieldCheck className="w-3.5 h-3.5" />
-                                    Server Link Active
-                                </span>
-                            ) : (
-                                <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-widest bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full flex items-center gap-1.5">
-                                    Folder Not Connected
-                                </span>
-                            )}
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">
-                            {isClientConnected 
-                                ? `Connected: ${folderName} (${taunts.length} game taunts indexed)` 
-                                : isServerNative 
-                                ? `Installed Game Taunts • ${folderName}` 
-                                : 'Connect your PC game folder to browse and preview your installed combat taunts'}
+                        <p className="text-xs text-gray-400">
+                            Local OGG audio library and pilot client file family (.xconfig, .xprefs, .extendedconfig)
                         </p>
                     </div>
 
@@ -264,25 +349,119 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                     </div>
                 </div>
 
-                {/* Active Pilot Indicator (when folder is connected) */}
+                {/* Operation Feedback Toast */}
+                {pilotOpMessage && (
+                    <div className={clsx(
+                        "p-3 rounded-xl border text-xs flex items-center justify-between",
+                        pilotOpMessage.type === 'success' ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-300" : "bg-red-950/40 border-red-500/40 text-red-300"
+                    )}>
+                        <span>{pilotOpMessage.text}</span>
+                        <button onClick={() => setPilotOpMessage(null)} className="opacity-60 hover:opacity-100 ml-3">✕</button>
+                    </div>
+                )}
+
+                {/* Pilot Management Toolbar (P1) */}
                 {(isClientConnected || isServerNative) && selectedPilot && (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-black/40 px-4 py-2.5 rounded-xl border border-white/5 text-xs">
-                        <div className="flex items-center gap-2">
-                            <User className="w-3.5 h-3.5 text-[#ff6600]" />
-                            <span className="text-gray-400 font-semibold">Active Pilot:</span>
-                            <select
-                                value={selectedPilot}
-                                onChange={(e) => setSelectedPilot(e.target.value)}
-                                className="bg-black/60 border border-white/20 rounded px-2 py-0.5 text-xs text-[#ff6600] font-bold focus:outline-none"
-                            >
-                                {pilots.map(p => (
-                                    <option key={p} value={p}>{p}</option>
-                                ))}
-                            </select>
+                    <div className="bg-black/50 p-3.5 rounded-xl border border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <User className="w-3.5 h-3.5 text-[#ff6600]" />
+                                <span className="text-gray-400 font-semibold">Pilot:</span>
+                                <select
+                                    value={selectedPilot}
+                                    onChange={(e) => {
+                                        setSelectedPilot(e.target.value);
+                                        setFsActivePilot(e.target.value);
+                                    }}
+                                    className="bg-black/80 border border-white/20 focus:border-[#ff6600] rounded-lg px-2.5 py-1 text-xs text-white font-bold focus:outline-none cursor-pointer"
+                                >
+                                    {pilots.map(p => (
+                                        <option key={p} value={p}>{p} {p === fsActivePilot ? '(Active)' : ''}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Pilot XP Chip */}
+                            {pilotXP !== null && (
+                                <button
+                                    onClick={() => {
+                                        setPilotModalInput(String(pilotXP));
+                                        setPilotModal('xp');
+                                    }}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-950/40 border border-purple-500/30 text-purple-300 hover:bg-purple-900/40 transition-colors"
+                                    title="Campaign XP (Single-player only) — click to edit"
+                                >
+                                    <Award className="w-3.5 h-3.5 text-purple-400" />
+                                    <span>XP: {pilotXP.toLocaleString()}</span>
+                                    <span className="text-[10px] text-purple-400/60 uppercase">SP</span>
+                                </button>
+                            )}
                         </div>
-                        <span className="text-[11px] text-gray-500">
-                            Equip any taunt below to assign it to your pilot's F1–F6 Loadout slots
-                        </span>
+
+                        {/* Pilot Family Operations */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                onClick={handleBackupAll}
+                                disabled={pilotOpLoading}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all text-xs"
+                                title="Backup all pilots into a timestamped zip in Pilot Backup/"
+                            >
+                                <Archive className="w-3 h-3 text-[#ff6600]" />
+                                <span>Backup All</span>
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setPilotModalInput(`${selectedPilot}_Copy`);
+                                    setPilotModal('clone');
+                                }}
+                                disabled={pilotOpLoading}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all text-xs"
+                                title="Clone this pilot across the 6-file family"
+                            >
+                                <CopyIcon className="w-3 h-3 text-blue-400" />
+                                <span>Clone</span>
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setPilotModalInput(selectedPilot);
+                                    setPilotModal('rename');
+                                }}
+                                disabled={pilotOpLoading}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all text-xs"
+                                title="Rename this pilot across the 6-file family"
+                            >
+                                <Edit2 className="w-3 h-3 text-yellow-400" />
+                                <span>Rename</span>
+                            </button>
+
+                            <button
+                                onClick={() => setPilotModal('delete')}
+                                disabled={pilotOpLoading || pilots.length <= 1}
+                                className={clsx(
+                                    "flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all text-xs",
+                                    pilots.length <= 1 
+                                        ? "bg-black/40 border-white/5 text-gray-600 cursor-not-allowed" 
+                                        : "bg-white/5 hover:bg-red-950/40 border-white/10 text-gray-300 hover:text-red-400"
+                                )}
+                                title={pilots.length <= 1 ? "Cannot delete the only pilot" : "Delete this pilot across the 6-file family"}
+                            >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Delete</span>
+                            </button>
+
+                            {onNavigateSettings && (
+                                <button
+                                    onClick={onNavigateSettings}
+                                    className="flex items-center gap-1 px-3 py-1 rounded-lg bg-[#ff6600]/15 hover:bg-[#ff6600]/25 border border-[#ff6600]/40 text-[#ff6600] font-bold transition-all text-xs"
+                                    title="Open Pilot Settings (.xprefs, .xconfig, keybinds)"
+                                >
+                                    <Sliders className="w-3 h-3" />
+                                    <span>Settings</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -511,6 +690,172 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                     )}
                 </div>
             </div>
+
+            {/* Pilot Management Modal (Clone, Rename, Delete, XP) */}
+            {pilotModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-[#121214] border border-white/15 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-up">
+                        {/* Header */}
+                        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-black/40">
+                            <div className="flex items-center gap-2.5">
+                                {pilotModal === 'clone' && <CopyIcon className="w-5 h-5 text-blue-400" />}
+                                {pilotModal === 'rename' && <Edit2 className="w-5 h-5 text-yellow-400" />}
+                                {pilotModal === 'delete' && <Trash2 className="w-5 h-5 text-red-400" />}
+                                {pilotModal === 'xp' && <Award className="w-5 h-5 text-purple-400" />}
+                                <h3 className="font-bold text-base text-white tracking-wide">
+                                    {pilotModal === 'clone' && `Clone Pilot: ${selectedPilot}`}
+                                    {pilotModal === 'rename' && `Rename Pilot: ${selectedPilot}`}
+                                    {pilotModal === 'delete' && `Delete Pilot: ${selectedPilot}`}
+                                    {pilotModal === 'xp' && `Campaign XP: ${selectedPilot}`}
+                                </h3>
+                            </div>
+                            <button
+                                onClick={() => setPilotModal(null)}
+                                disabled={pilotOpLoading}
+                                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-5 space-y-4 text-xs font-mono">
+                            {pilotModal === 'clone' && (
+                                <>
+                                    <p className="text-gray-300 leading-relaxed font-sans">
+                                        Creates an exact copy of <span className="text-[#ff6600] font-bold">{selectedPilot}</span> across all 6 pilot family files (<code className="text-gray-400">.xconfig, .xprefs, .xprefsmod, .xscores, .extendedconfig, .xconfigmod</code>).
+                                    </p>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1.5 uppercase tracking-wider text-[11px] font-bold">New Pilot Name</label>
+                                        <input
+                                            type="text"
+                                            value={pilotModalInput}
+                                            onChange={(e) => setPilotModalInput(e.target.value)}
+                                            placeholder="Enter new pilot name"
+                                            maxLength={32}
+                                            autoFocus
+                                            className="w-full bg-black/60 border border-white/20 focus:border-[#ff6600] rounded-xl px-3.5 py-2.5 text-white font-bold text-sm focus:outline-none placeholder:text-gray-600"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {pilotModal === 'rename' && (
+                                <>
+                                    <p className="text-gray-300 leading-relaxed font-sans">
+                                        Renames the entire file family for <span className="text-[#ff6600] font-bold">{selectedPilot}</span>. 
+                                        Make sure <strong className="text-white">Overload is closed</strong> before renaming.
+                                    </p>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1.5 uppercase tracking-wider text-[11px] font-bold">New Pilot Name</label>
+                                        <input
+                                            type="text"
+                                            value={pilotModalInput}
+                                            onChange={(e) => setPilotModalInput(e.target.value)}
+                                            placeholder="Enter new pilot name"
+                                            maxLength={32}
+                                            autoFocus
+                                            className="w-full bg-black/60 border border-white/20 focus:border-[#ff6600] rounded-xl px-3.5 py-2.5 text-white font-bold text-sm focus:outline-none placeholder:text-gray-600"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {pilotModal === 'delete' && (
+                                <div className="space-y-3 font-sans">
+                                    <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-500/30 text-red-200 text-xs leading-relaxed">
+                                        <p className="font-bold text-red-400 mb-1">Are you sure you want to delete {selectedPilot}?</p>
+                                        <p className="text-red-300/80">
+                                            This permanently removes all 6 configuration and score files. A safety backup will automatically be archived in <code className="text-white">Pilot Backup/</code> before deletion.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {pilotModal === 'xp' && (
+                                <>
+                                    <p className="text-gray-300 leading-relaxed font-sans">
+                                        Adjust single-player campaign XP stored in <code className="text-purple-400">PS_XP2</code>. An automatic backup will be saved to <code className="text-gray-400">Pilot Backup/</code> before saving.
+                                    </p>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1.5 uppercase tracking-wider text-[11px] font-bold">XP Amount (0 – 9,999,999)</label>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={9999999}
+                                            value={pilotModalInput}
+                                            onChange={(e) => setPilotModalInput(e.target.value)}
+                                            autoFocus
+                                            className="w-full bg-black/60 border border-white/20 focus:border-purple-500 rounded-xl px-3.5 py-2.5 text-white font-bold text-base focus:outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPilotModalInput(String(Math.min(9999999, (parseInt(pilotModalInput, 10) || 0) + 10000)))}
+                                            className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] text-gray-300"
+                                        >
+                                            +10,000
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPilotModalInput(String(Math.min(9999999, (parseInt(pilotModalInput, 10) || 0) + 50000)))}
+                                            className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] text-gray-300"
+                                        >
+                                            +50,000
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPilotModalInput('9999999')}
+                                            className="px-2 py-1 rounded bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-[11px] text-purple-300"
+                                        >
+                                            Max (9,999,999)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPilotModalInput('0')}
+                                            className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] text-gray-400"
+                                        >
+                                            Reset (0)
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-5 py-3.5 bg-black/50 border-t border-white/10 flex items-center justify-end gap-2.5 font-sans">
+                            <button
+                                onClick={() => setPilotModal(null)}
+                                disabled={pilotOpLoading}
+                                className="px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-xs font-semibold"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmPilotModal}
+                                disabled={pilotOpLoading || (pilotModal !== 'delete' && !pilotModalInput.trim())}
+                                className={clsx(
+                                    "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg",
+                                    pilotModal === 'delete'
+                                        ? "bg-red-600 hover:bg-red-500 text-white"
+                                        : pilotModal === 'xp'
+                                            ? "bg-purple-600 hover:bg-purple-500 text-white"
+                                            : "bg-[#ff6600] hover:bg-[#ff8533] text-black"
+                                )}
+                            >
+                                {pilotOpLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                                <span>
+                                    {pilotModal === 'clone' && 'Clone Pilot'}
+                                    {pilotModal === 'rename' && 'Rename Pilot'}
+                                    {pilotModal === 'delete' && 'Delete Pilot'}
+                                    {pilotModal === 'xp' && 'Save XP'}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

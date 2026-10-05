@@ -86,7 +86,7 @@ export async function clearStoredDirectoryHandle(): Promise<void> {
  */
 export async function verifyDirectoryPermission(handle: FileSystemDirectoryHandle, readWrite = true): Promise<boolean> {
     try {
-        const options: FileSystemHandlePermissionDescriptor = {
+        const options: { mode: 'readwrite' | 'read' } = {
             mode: readWrite ? 'readwrite' : 'read'
         };
         // Check current permission state

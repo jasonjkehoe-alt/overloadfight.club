@@ -11,6 +11,13 @@ import {
     getPilotData,
     applyPilotTaunts,
     getBufferMd5,
+    getPilotSettings,
+    savePilotSettings,
+    setPilotXP,
+    backupAllPilotsZip,
+    clonePilot,
+    renamePilot,
+    deletePilot,
 } from './services/overloadBridge.js';
 import {
     warmupEngine,
@@ -106,6 +113,107 @@ router.post('/overload/pilot/:name/apply', (req, res) => {
         const pilotName = req.params.name;
         const hashes = req.body.selectedTaunts || [];
         const result = applyPilotTaunts(overloadDir, pilotName, hashes);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 5b. GET /api/overload/pilot/:name/settings (Read .xprefs, .xprefsmod, .xconfig)
+router.get('/overload/pilot/:name/settings', (req, res) => {
+    try {
+        const pilotName = req.params.name;
+        const result = getPilotSettings(overloadDir, pilotName);
+        if (result.error) {
+            return res.status(404).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 5c. POST /api/overload/pilot/:name/settings (Save settings with process guard & auto backup)
+router.post('/overload/pilot/:name/settings', (req, res) => {
+    try {
+        const pilotName = req.params.name;
+        const result = savePilotSettings(overloadDir, pilotName, req.body);
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 5d. POST /api/overload/pilot/:name/xp (Edit single-player XP PS_XP2)
+router.post('/overload/pilot/:name/xp', (req, res) => {
+    try {
+        const pilotName = req.params.name;
+        const xp = parseInt(req.body.xp, 10);
+        if (isNaN(xp) || xp < 0 || xp > 9999999) {
+            return res.status(400).json({ success: false, error: 'XP must be between 0 and 9,999,999' });
+        }
+        const result = setPilotXP(overloadDir, pilotName, xp);
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 5e. POST /api/overload/pilots/backup (Backup all pilots to timestamped zip in Pilot Backup/)
+router.post('/overload/pilots/backup', async (req, res) => {
+    try {
+        const result = await backupAllPilotsZip(overloadDir);
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 5f. POST /api/overload/pilots/clone (Clone pilot across 6-file family)
+router.post('/overload/pilots/clone', (req, res) => {
+    try {
+        const { sourcePilot, targetPilot } = req.body;
+        const result = clonePilot(overloadDir, sourcePilot, targetPilot);
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 5g. POST /api/overload/pilots/rename (Rename pilot across 6-file family)
+router.post('/overload/pilots/rename', (req, res) => {
+    try {
+        const { sourcePilot, targetPilot } = req.body;
+        const result = renamePilot(overloadDir, sourcePilot, targetPilot);
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 5h. POST /api/overload/pilots/delete (Delete pilot across 6-file family with safety backup)
+router.post('/overload/pilots/delete', (req, res) => {
+    try {
+        const { pilotName } = req.body;
+        const result = deletePilot(overloadDir, pilotName);
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
         res.json(result);
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });

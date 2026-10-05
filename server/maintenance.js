@@ -25,9 +25,20 @@ function refreshPilotStats() {
 }
 
 function scheduleMaintenance() {
-    // Run immediately on startup
-    runDailyMaintenance();
-    refreshPilotStats();
+    // Only run on startup if cache is missing/empty, preventing 5-minute event loop lock on boot
+    setTimeout(() => {
+        try {
+            if (db.hasPilotStatsCache && !db.hasPilotStatsCache()) {
+                console.log('[Maintenance] Cache empty on startup, initializing...');
+                runDailyMaintenance();
+                refreshPilotStats();
+            } else {
+                console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');
+            }
+        } catch (e) {
+            console.error('[Maintenance] Error checking initial cache:', e);
+        }
+    }, 10000);
 
     // Schedule Cold Storage every 24 hours (86400000 ms)
     setInterval(runDailyMaintenance, 86400000);
