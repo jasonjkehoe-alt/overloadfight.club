@@ -57,6 +57,16 @@ hotDb.exec(`
     data TEXT,
     last_updated TEXT
   );
+  CREATE TABLE IF NOT EXISTS fight_night_recaps (
+    date TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS pilot_first_seen (
+    name TEXT PRIMARY KEY COLLATE NOCASE,
+    first_seen TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_fight_night_date ON fight_night_recaps(date);
 `);
 
 // Backfill Jobs Table (HOT)
@@ -2485,14 +2495,32 @@ VALUES(@id, @date, @ip, @details)
           kd: m.kills / Math.max(1, m.deaths)
         }));
 
+      const getRivalStatsStmt = hotDb.prepare(`
+        SELECT kd, kda, win_rate, flight_hours, threat_centrality, dominance_index
+        FROM pilot_stats_cache
+        WHERE name = ? COLLATE NOCASE
+      `);
+
       const rivals = Array.from(rivalMap.values())
         .sort((a, b) => b.encounters - a.encounters)
         .slice(0, 9)
-        .map(r => ({
-          ...r,
-          h2h_kd: r.their_kills > 0 ? Math.round((r.your_kills / r.their_kills) * 100) / 100 : r.your_kills,
-          their_kd: r.their_kills > 0 ? Math.round((r.their_kills / Math.max(1, r.your_kills)) * 100) / 100 : 0
-        }));
+        .map(r => {
+          let s = null;
+          try {
+            s = getRivalStatsStmt.get(r.name);
+          } catch {}
+          return {
+            ...r,
+            h2h_kd: r.their_kills > 0 ? Math.round((r.your_kills / r.their_kills) * 100) / 100 : r.your_kills,
+            their_kd: r.their_kills > 0 ? Math.round((r.their_kills / Math.max(1, r.your_kills)) * 100) / 100 : 0,
+            kd: s?.kd ?? (r.their_deaths > 0 ? Math.round((r.their_kills / r.their_deaths) * 100) / 100 : 1.0),
+            kda: s?.kda ?? (s?.kd ?? 1.0),
+            win_rate: s?.win_rate ?? 0,
+            flight_hours: s?.flight_hours ?? 0,
+            threat_centrality: s?.threat_centrality ?? 0,
+            dominance_index: s?.dominance_index ?? 0
+          };
+        });
 
       return { mapStats, rivals };
     } catch (err) {
@@ -2808,6 +2836,138 @@ VALUES(@id, @date, @ip, @details)
 
   deleteMap: (id) => {
     return hotDb.prepare('DELETE FROM maps WHERE id = ?').run(id);
+  },
+
+  getGamesForDate: (dateStr) => {
+    return hotDb.prepare(`
+      SELECT id, date, details FROM games 
+      WHERE date LIKE ? 
+      ORDER BY date ASC
+    `).all(`${dateStr}%`);
+  },
+
+  getAllCachedPilotStats: () => {
+    return hotDb.prepare(`
+      SELECT name, kd, kda, win_rate, threat_centrality, dominance_index 
+      FROM pilot_stats_cache
+    `).all();
+  },
+
+  isPilotFirstSeenOnDate: (pilotName, dateStr) => {
+    try {
+      const checkRow = hotDb.prepare(`
+        SELECT first_seen FROM pilot_first_seen WHERE name = ? COLLATE NOCASE
+      `).get(pilotName);
+      if (checkRow && checkRow.first_seen) {
+        return checkRow.first_seen.startsWith(dateStr);
+      }
+
+      const minRow = hotDb.prepare(`
+        SELECT MIN(date) as first_seen FROM games WHERE details LIKE ?
+      `).get(`%"${pilotName}"%`);
+
+      if (minRow && minRow.first_seen) {
+        hotDb.prepare(`
+          INSERT INTO pilot_first_seen (name, first_seen) VALUES (?, ?)
+          ON CONFLICT(name) DO UPDATE SET first_seen = excluded.first_seen
+        `).run(pilotName, minRow.first_seen);
+        return minRow.first_seen.startsWith(dateStr);
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
+  getQualifyingFightNightDates: (thresholds = { minMatches: 16, minPilots: 14, minFrags: 1600 }) => {
+    const minMatches = thresholds.minMatches || 16;
+    const minPilots = thresholds.minPilots || 14;
+    const minFrags = thresholds.minFrags || 1600;
+
+    const dayRows = hotDb.prepare(`
+      SELECT substr(date, 1, 10) as day, COUNT(*) as match_count
+      FROM games
+      WHERE date > date('now', '-365 days')
+      GROUP BY substr(date, 1, 10)
+      HAVING match_count >= ?
+      ORDER BY day DESC
+    `).all(minMatches);
+
+    const qualifying = [];
+    for (const row of dayRows) {
+      const dayMatches = hotDb.prepare(`
+        SELECT details FROM games WHERE date LIKE ?
+      `).all(`${row.day}%`);
+
+      const pilots = new Set();
+      let frags = 0;
+      for (const m of dayMatches) {
+        try {
+          const d = JSON.parse(m.details);
+          if (Array.isArray(d.players)) {
+            for (const p of d.players) {
+              if (p?.name) pilots.add(p.name.toLowerCase());
+              frags += (Number(p?.kills) || 0);
+            }
+          }
+        } catch {}
+      }
+
+      if (pilots.size >= minPilots || frags >= minFrags) {
+        qualifying.push(row.day);
+      }
+    }
+    return qualifying;
+  },
+
+  getFightNightRecaps: (limit = 20) => {
+    try {
+      const rows = hotDb.prepare(`
+        SELECT date, data, created_at FROM fight_night_recaps ORDER BY date DESC LIMIT ?
+      `).all(limit);
+      return rows.map(r => ({
+        date: r.date,
+        created_at: r.created_at,
+        ...JSON.parse(r.data)
+      }));
+    } catch (e) {
+      console.error("Failed to get fight night recaps", e);
+      return [];
+    }
+  },
+
+  getFightNightRecapByDate: (date) => {
+    try {
+      const row = hotDb.prepare(`
+        SELECT date, data, created_at FROM fight_night_recaps WHERE date = ?
+      `).get(date);
+      if (!row) return null;
+      return {
+        date: row.date,
+        created_at: row.created_at,
+        ...JSON.parse(row.data)
+      };
+    } catch (e) {
+      console.error("Failed to get fight night recap by date", e);
+      return null;
+    }
+  },
+
+  saveFightNightRecap: (date, data) => {
+    try {
+      const stmt = hotDb.prepare(`
+        INSERT INTO fight_night_recaps (date, data) 
+        VALUES (@date, @data) 
+        ON CONFLICT(date) DO UPDATE SET data = excluded.data, created_at = CURRENT_TIMESTAMP
+      `);
+      return stmt.run({
+        date,
+        data: typeof data === 'string' ? data : JSON.stringify(data)
+      });
+    } catch (e) {
+      console.error("Failed to save fight night recap", e);
+      return null;
+    }
   },
 
   getPilotTelemetry,

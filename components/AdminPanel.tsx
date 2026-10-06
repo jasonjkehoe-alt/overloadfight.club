@@ -322,7 +322,7 @@ const AdminPanel: React.FC = () => {
     };
 
     const handleStartArchiveSync = async () => {
-        if (!window.confirm('Start historical archive ingest (2019-07 through 2022-04)? This will download and bulk-insert ~20,000 matches into cold storage.')) {
+        if (!window.confirm('Start historical archive ingest (2019-07 through 2022-04)? This will download and bulk-insert ~20,000 matches into the historical archive.')) {
             return;
         }
         setArchiveLoading(true);
@@ -680,7 +680,7 @@ const AdminPanel: React.FC = () => {
                     <div className="space-y-4">
                         <div className="flex items-center justify-between bg-gray-700/50 p-4 rounded-lg border border-gray-600">
                             <div>
-                                <p className="font-bold text-white text-sm">Show Cold Storage</p>
+                                <p className="font-bold text-white text-sm">Show Archive</p>
                                 <p className="text-xs text-gray-400">Enable historical archive view</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -785,7 +785,7 @@ const AdminPanel: React.FC = () => {
                                 </div>
 
                                 <div className="bg-gray-900/60 p-4 rounded-lg border border-gray-700">
-                                    <p className="text-gray-400 text-xs uppercase font-semibold">Cold Storage Target</p>
+                                    <p className="text-gray-400 text-xs uppercase font-semibold">Archive Target</p>
                                     <p className="text-sm font-mono text-gray-300 mt-2">
                                         cold_storage.db
                                     </p>

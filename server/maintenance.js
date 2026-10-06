@@ -1,4 +1,5 @@
 import db from './db.js';
+import fightNightService from './services/fightNightService.js';
 
 function runDailyMaintenance() {
     console.log('[Maintenance] Starting daily maintenance...');
@@ -9,6 +10,11 @@ function runDailyMaintenance() {
         } else {
             console.log('[Maintenance] No games needed moving to Cold Storage.');
         }
+
+        // Run Fight Night Recap Big Night Detector
+        fightNightService.checkAndGenerateRecentFightNight().catch(err => {
+            console.error('[Maintenance] Fight night check error:', err);
+        });
     } catch (error) {
         console.error('[Maintenance] Error running maintenance:', error);
     }
@@ -38,9 +44,14 @@ function scheduleMaintenance() {
         } catch (e) {
             console.error('[Maintenance] Error checking initial cache:', e);
         }
+
+        // Initialize Fight Nights (generates recaps if empty, checks recent days)
+        fightNightService.initializeFightNights().catch(err => {
+            console.error('[Maintenance] Initial fight night check error:', err);
+        });
     }, 10000);
 
-    // Schedule Cold Storage every 24 hours (86400000 ms)
+    // Schedule Cold Storage and Fight Night checks every 24 hours (86400000 ms)
     setInterval(runDailyMaintenance, 86400000);
 
     // Schedule Pilot Stats Cache Refresh every 6 hours (21600000 ms)

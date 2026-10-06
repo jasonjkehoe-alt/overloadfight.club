@@ -260,7 +260,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                         onClick={() => onNavigate('cold-storage')}
                         className="mb-3 mr-4 text-xs font-mono text-blue-500 hover:text-blue-400 uppercase font-bold flex items-center gap-2 transition-colors"
                     >
-                        <span className="flex items-center gap-1"><Database size={12} /> Cold Storage Archive</span>
+                        <span className="flex items-center gap-1"><Database size={12} /> Historical Archive</span>
                         <span>→</span>
                     </button>
                 )}
@@ -494,7 +494,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                     {historyGames && historyGames.length > 0 && (
                         <div className="pt-2">
                             <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-gray-500 font-bold text-xs uppercase tracking-widest">Recently Completed Matches</h3>
+                                <h3 className="text-gray-500 font-bold text-xs uppercase tracking-widest">Recent Bouts</h3>
                                 <button
                                     onClick={() => setActiveTab('history')}
                                     className="text-xs font-mono text-[#ff6600] hover:underline"

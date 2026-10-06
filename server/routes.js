@@ -6,6 +6,7 @@ import db from './db.js';
 import scraperService from './services/scraperService.js';
 import ingest from './ingest.js';
 import cacheService from './services/cacheService.js';
+import fightNightService from './services/fightNightService.js';
 import { GoogleGenAI } from "@google/genai";
 
 const router = express.Router();
@@ -916,6 +917,43 @@ router.get('/config', (req, res) => {
     } catch (error) {
         console.error('Error fetching config:', error);
         res.status(500).json({ error: 'Failed to fetch config' });
+    }
+});
+
+// GET /api/fight-nights - List Fight Night Recaps
+router.get('/fight-nights', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 20;
+        let recaps = db.getFightNightRecaps(limit);
+        if (!recaps || recaps.length === 0) {
+            await fightNightService.initializeFightNights();
+            recaps = db.getFightNightRecaps(limit);
+        }
+        res.json({
+            count: recaps.length,
+            recaps: recaps
+        });
+    } catch (error) {
+        console.error('Error fetching fight nights:', error);
+        res.status(500).json({ error: 'Failed to fetch fight nights' });
+    }
+});
+
+// GET /api/fight-nights/:date - Specific Fight Night Recap
+router.get('/fight-nights/:date', async (req, res) => {
+    const { date } = req.params;
+    try {
+        let recap = db.getFightNightRecapByDate(date);
+        if (!recap) {
+            recap = await fightNightService.generateRecapForDate(date);
+        }
+        if (!recap) {
+            return res.status(404).json({ error: `No fight night recap available for ${date}` });
+        }
+        res.json(recap);
+    } catch (error) {
+        console.error(`Error fetching fight night for ${date}:`, error);
+        res.status(500).json({ error: 'Failed to fetch fight night recap' });
     }
 });
 

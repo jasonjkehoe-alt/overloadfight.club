@@ -12,6 +12,7 @@ import ColdStorage from './components/ColdStorage';
 import Resources from './components/Resources';
 import AudioTauntMaker from './components/AudioTauntMaker';
 import PilotManager from './components/PilotManager';
+import FightNightSection from './components/FightNightSection';
 import { OverloadFsProvider } from './context/OverloadFsContext';
 import { fetchActiveGames, fetchArchivedGames, fetchGameDetail, getGlobalStats, fetchConfig } from './services/apiService';
 import { BrowserApiResponse, GameData, AdminSettings } from './types';
@@ -30,6 +31,7 @@ const getUrlForView = (view: string, param?: string | number): string => {
     case 'tools':
     case 'taunts': return '/taunts';
     case 'pilot-manager': return '/pilot';
+    case 'fight-night': return param ? `/fight-night/${encodeURIComponent(String(param))}` : '/fight-night';
     case 'resources': return '/resources';
     case 'cold-storage': return '/archive';
     case 'admin': return '/admin';
@@ -52,6 +54,7 @@ const parseUrlPath = (): RouteState => {
   if (first === 'maps') return { view: 'maps', param: second ? decodeURIComponent(second) : '' };
   if (first === 'olmod') return { view: 'olmod' };
   if (first === 'tools' || first === 'taunts') return { view: 'taunts' };
+  if (first === 'fight-night' || first === 'fight-nights') return { view: 'fight-night', param: second ? decodeURIComponent(second) : undefined };
   if (first === 'resources') return { view: 'resources' };
   if (first === 'cold-storage' || first === 'archive') return { view: 'cold-storage' };
   if (first === 'admin') return { view: 'admin' };
@@ -81,6 +84,9 @@ const App: React.FC = () => {
   );
   const [selectedPilot, setSelectedPilot] = useState<string | null>(
     initialRoute.view === 'pilot' && typeof initialRoute.param === 'string' ? initialRoute.param : null
+  );
+  const [selectedFightNightDate, setSelectedFightNightDate] = useState<string | undefined>(
+    initialRoute.view === 'fight-night' && typeof initialRoute.param === 'string' ? initialRoute.param : undefined
   );
 
   // Shared State Params
@@ -213,6 +219,9 @@ const App: React.FC = () => {
       window.scrollTo(0, 0);
       return;
     }
+    if (view === 'fight-night') {
+      setSelectedFightNightDate(typeof param === 'string' ? param : undefined);
+    }
     setCurrentView(view);
     if (view === 'maps' && param) {
       setMapSearchTerm(String(param));
@@ -220,7 +229,7 @@ const App: React.FC = () => {
       setMapSearchTerm('');
     }
 
-    if (view === 'dashboard' || view === 'history' || view === 'pilots' || view === 'maps' || view === 'weapons' || view === 'olmod' || view === 'admin' || view === 'tools' || view === 'taunts' || view === 'pilot-manager' || view === 'resources' || view === 'cold-storage') {
+    if (view === 'dashboard' || view === 'history' || view === 'pilots' || view === 'maps' || view === 'weapons' || view === 'olmod' || view === 'admin' || view === 'tools' || view === 'taunts' || view === 'pilot-manager' || view === 'fight-night' || view === 'resources' || view === 'cold-storage') {
       setSelectedGameId(null);
       setSelectedGameData(null);
       setGameDetailError(false);
@@ -278,10 +287,13 @@ const App: React.FC = () => {
         <div className="space-y-8 animate-fade-in">
           <div className="bg-gradient-to-r from-[#1a1a1a] to-black p-8 rounded border border-gray-800 mb-8 flex justify-between items-end">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2 brand-font">
+              <h1 className="text-4xl font-bold text-white mb-1 brand-font">
                 overloadfight<span className="text-[#ff6600]">.club</span>
               </h1>
-              <p className="text-gray-400 max-w-2xl text-sm font-mono">
+              <p className="text-[#ff6600] font-mono text-xs font-semibold uppercase tracking-wider mb-2">
+                First rule of Overload Fight Club: tell everyone.
+              </p>
+              <p className="text-gray-400 max-w-2xl text-xs font-mono">
                 Monitoring live server telemetry and historical combat logs (Last 365 Days).
               </p>
             </div>
@@ -291,6 +303,13 @@ const App: React.FC = () => {
               TOTAL GAMES TRACKED (365 Days): <span className="text-gray-400">{stats?.total_games || '...'}</span>
             </div>
           </div>
+
+          {/* Fight Night Recaps Section */}
+          <FightNightSection
+            onNavigate={handleNavigate}
+            onSelectGame={handleSelectGame}
+            onSelectPilot={(name) => handleNavigate('pilot', name)}
+          />
 
           {loading && activeGames === null && archivedGames === null ? (
             <div className="flex flex-col items-center justify-center py-12">
@@ -310,6 +329,26 @@ const App: React.FC = () => {
               showColdStorage={showColdStorage}
             />
           )}
+        </div>
+      )}
+
+      {currentView === 'fight-night' && (
+        <div className="space-y-8 animate-fade-in">
+          <div className="bg-gradient-to-r from-[#1a1a1a] to-black p-8 rounded border border-gray-800 mb-8">
+            <h1 className="text-4xl font-bold text-white mb-1 brand-font">Fight Night Recaps</h1>
+            <p className="text-[#ff6600] font-mono text-xs font-semibold uppercase tracking-wider mb-2">
+              First rule of Overload Fight Club: tell everyone.
+            </p>
+            <p className="text-gray-400 max-w-2xl text-xs font-mono">
+              Auto-generated post-fight intelligence reports from high-traffic combat evenings.
+            </p>
+          </div>
+          <FightNightSection
+            initialDate={selectedFightNightDate}
+            onNavigate={handleNavigate}
+            onSelectGame={handleSelectGame}
+            onSelectPilot={(name) => handleNavigate('pilot', name)}
+          />
         </div>
       )}
 

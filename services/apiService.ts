@@ -420,6 +420,98 @@ export const fetchConfig = async (): Promise<any> => {
     return null;
 };
 
+export interface FightNightRecap {
+    date: string;
+    formattedDate: string;
+    totalMatches: number;
+    totalPilots: number;
+    totalFrags: number;
+    topFragger: { name: string; kills: number };
+    mostActivePilot: { name: string; matches: number };
+    headlineBout: {
+        gameId: number;
+        map: string;
+        matchMode: string;
+        pilotCount: number;
+        totalFrags: number;
+        topPilot: string;
+        topKills: number;
+        copy: string;
+    };
+    biggestUpset: {
+        gameId: number;
+        map: string;
+        winner?: string;
+        winnerKd?: number;
+        defeated?: string;
+        defeatedKd?: number;
+        winnerKills?: number;
+        defeatedKills?: number;
+        copy: string;
+    };
+    biggestBlowout: {
+        gameId: number;
+        map: string;
+        differential: number;
+        winner: string;
+        runnerUp: string;
+        score: string;
+        copy: string;
+    };
+    closestFinish: {
+        gameId: number;
+        map: string;
+        margin: number;
+        winner: string;
+        runnerUp: string;
+        score: string;
+        copy: string;
+    };
+    hottestArena: {
+        name: string;
+        matches: number;
+        frags: number;
+        topPilot: string;
+        copy: string;
+    };
+    newBlood: {
+        pilots: string[];
+        count: number;
+        copy: string;
+    };
+    longestStreak: {
+        pilot: string;
+        streak: number;
+        gameId: number;
+        map: string;
+        copy: string;
+    };
+}
+
+export const fetchFightNights = async (limit = 20): Promise<{ count: number; recaps: FightNightRecap[] } | null> => {
+    try {
+        const response = await fetch(`${API_BASE}/fight-nights?limit=${limit}`);
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch (e) {
+        console.error('Failed to fetch fight nights', e);
+    }
+    return null;
+};
+
+export const fetchFightNightDetail = async (date: string): Promise<FightNightRecap | null> => {
+    try {
+        const response = await fetch(`${API_BASE}/fight-nights/${encodeURIComponent(date)}`);
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch (e) {
+        console.error(`Failed to fetch fight night for ${date}`, e);
+    }
+    return null;
+};
+
 export const apiService = {
     getGame: fetchGameDetail,
     fetchActiveGames,

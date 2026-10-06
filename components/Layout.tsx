@@ -56,7 +56,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
                 <div className="w-8 h-8 bg-[#ff6600] rounded-sm flex items-center justify-center transform rotate-45">
                   <div className="w-4 h-4 bg-black transform -rotate-45"></div>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tighter text-[#ff6600] brand-font lowercase">
+                <h1 className="text-2xl font-bold tracking-tighter text-[#ff6600] brand-font lowercase" title="First rule of Overload Fight Club: tell everyone.">
                   overloadfight<span className="text-white">.club</span>
                 </h1>
               </div>

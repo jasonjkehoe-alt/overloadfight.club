@@ -164,7 +164,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                             </div>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h1 className="text-3xl font-black text-white tracking-tight">Cold Storage Archive</h1>
+                                    <h1 className="text-3xl font-black text-white tracking-tight">Historical Archive</h1>
                                     <span className="text-[10px] font-mono font-bold bg-blue-900/40 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded uppercase">
                                         Active Archive
                                     </span>
@@ -704,7 +704,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                         {loadingGames ? (
                             <div className="text-center py-16 text-gray-500 font-mono animate-pulse space-y-2">
                                 <Database size={32} className="mx-auto text-blue-500 animate-bounce" />
-                                <p>Scanning Cold Storage Records...</p>
+                                <p>Scanning Archive Records...</p>
                             </div>
                         ) : games.length === 0 ? (
                             <div className="text-center py-16 text-gray-500 font-mono space-y-2 bg-[#111] rounded-lg border border-gray-800/60">
