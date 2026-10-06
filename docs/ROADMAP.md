@@ -41,12 +41,14 @@ On resume:
 ## Status
 
 S1 is on branch `ofc/s01-secrets-auth`, based on `origin/main` at `10223be`
-plus the docs commit `12be4ea`, PR __PR__ open and not merged, 2026-10-06.
+plus the docs commit `12be4ea`, 2026-10-06. Not pushed and no PR yet: GitHub
+account `kehoej` has read-only access to the repo (push denied). Waiting on
+collaborator access.
 `main` has not moved since the audits. `overload-site-redesign-13ed9872` still
 holds the docs-only commit; S1's branch carries it too, so later sessions can
 base on S1's branch until it merges, then on `origin/main`.
 
-Counts: 1 of 28 sessions done (PR open, not merged). Phase 1: 1/6. Phase 2:
+Counts: 1 of 28 sessions done (code complete, PR not opened). Phase 1: 1/6. Phase 2:
 0/5. Phase 3: 0/6. Phase 4: 0/11.
 
 ## Validated (as of 2026-10-06, commit 10223be, plus S1 on `ofc/s01-secrets-auth`)
@@ -199,6 +201,9 @@ Counts: 1 of 28 sessions done (PR open, not merged). Phase 1: 1/6. Phase 2:
       server refuses to start in production without both.
 - [ ] [HUMAN] Create a Discord webhook URL for the fight-night channel (needed
       by S18).
+- [ ] [HUMAN] Add GitHub user `kehoej` as a collaborator on
+      `jasonjkehoe-alt/overloadfight.club` so session branches can be pushed
+      and PRs opened. Blocks S1's PR.
 - [ ] [HUMAN] Merge each PR. Pull the new image on the NAS.
 
 ## Session queue
@@ -207,7 +212,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 
 ### Phase 1: fast and true
 
-- [x] **S1 Secrets and auth hardening** (S). PR __PR__. Done when: `grep -rnE
+- [x] **S1 Secrets and auth hardening** (S). PR not yet opened. Done when: `grep -rnE
       "password=['\"]" scripts/` is empty; the three scripts read credentials
       from env or prompt; `server/auth.js` refuses to start with
       `NODE_ENV=production` unless `ADMIN_PASSWORD` and `SESSION_SECRET` are
@@ -484,7 +489,8 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   `renamePilot`'s name check ahead of `tasklist`. Skipped folding the eight
   pilot-name guards into one throwing path helper (it would turn 400/404 into
   500) and moving the production check out of `auth.js` (index.js body runs
-  after `db.js` has opened the databases). PR __PR__, not merged.
+  after `db.js` has opened the databases). Push denied (`kehoej` has read
+  access only), so the branch is local and no PR exists yet.
 
 ## Next session prompt
 
