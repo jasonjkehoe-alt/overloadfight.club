@@ -40,17 +40,50 @@ On resume:
 
 ## Status
 
-Branch `overload-site-redesign-13ed9872` (local branch, holds `docs/` only) at
-`10223be` of `origin/main`, 2026-10-06. No PRs open. No sessions complete.
+S1 is on branch `ofc/s01-secrets-auth`, based on `origin/main` at `10223be`
+plus the docs commit `12be4ea`, PR __PR__ open and not merged, 2026-10-06.
+`main` has not moved since the audits. `overload-site-redesign-13ed9872` still
+holds the docs-only commit; S1's branch carries it too, so later sessions can
+base on S1's branch until it merges, then on `origin/main`.
 
-Counts: 0 of 28 sessions done. Phase 1: 0/6. Phase 2: 0/5. Phase 3: 0/6.
-Phase 4: 0/11.
+Counts: 1 of 28 sessions done (PR open, not merged). Phase 1: 1/6. Phase 2:
+0/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-06, commit 10223be)
+## Validated (as of 2026-10-06, commit 10223be, plus S1 on `ofc/s01-secrets-auth`)
 
-- Three scripts contain a plaintext SSH password: `grep -rnE "password=['\"]" scripts/`
-  returns `analyze_fight_nights.py:6`, `evaluate_thresholds.py:7`,
-  `inspect_game_sample.py:6`. Checked by grep.
+- S1, scripts: `grep -rnE "password=['\"]" scripts/` prints nothing and
+  `git grep -n` for the old password prints nothing. Before S1 it was in five
+  tracked scripts, not three: the grep pattern missed `inspect_ds1515b.py` and
+  `update_reverse_proxy.py`, which pass it positionally and target
+  `192.168.0.105`. All five now read `NAS_SSH_PASSWORD` or prompt with
+  `getpass`, and all five pass `python3 -m py_compile`.
+- S1, startup: on Node 22.17.0, `NODE_ENV=production npm start` with both
+  secrets unset prints `Refusing to start: ADMIN_PASSWORD and SESSION_SECRET
+  must be set when NODE_ENV=production. See .env.example.` and exits 1 before
+  creating any file in `DATA_DIR`. With only `SESSION_SECRET` unset it names
+  just that one. With both set it starts and `/api/stats/global` returns JSON
+  (`total_games: 25` after the startup sync). Without `NODE_ENV` it logs a
+  warning and `admin123` logs in.
+- S1, routes (curl against the running server): without a session,
+  `/api/overload/status`, `/api/overload/pilot/Soup`, `POST
+  /api/overload/install`, `POST /api/overload/pilots/delete`, `POST
+  /api/fight-nights/check` and `POST /api/analyze-match` return 401. After
+  login, `/api/overload/status` and `POST /api/fight-nights/check` return 200.
+  `/api/import/warmup` stays public (200).
+- S1, pilot names: logged in, a clone to `../../evil` and settings for `../x`
+  return `Invalid pilot name`. `npx vitest run` passes 3 tests; removing the
+  guard in `getPilotData` makes the traversal test fail.
+- S1, login: ten wrong passwords return 401, the eleventh and twelfth 429, and
+  the right password from the same IP is also 429 until the window ends.
+  Fifty wrong passwords, each with a different `X-Forwarded-For`, return 401
+  and then 429 from the 51st (the cap across all clients). After a restart the
+  right password returns 200, and a password one character shorter or longer
+  returns 401. The session cookie carries `Secure` when the request has
+  `X-Forwarded-Proto: https` and not on plain HTTP.
+- S1, compose: `docker compose -f docker-compose.prod.yml config` with neither
+  secret set fails with `required variable ADMIN_PASSWORD is missing a value`.
+  With both set, both appear in the rendered environment. Checked with Docker
+  Desktop's `docker compose` v2, not the NAS's `/usr/local/bin/docker-compose`.
 - `server/routes.js:723` pins `gemini-2.0-flash`. Checked by grep.
 - CSP at `server/index.js:70-74` has no `frame-src`; COEP is `require-corp`.
   Read from source.
@@ -73,9 +106,17 @@ Phase 4: 0/11.
 - Mobile overflow at 375 px and nav crowding between 768 and 1,150 px were
   inferred from CSS.
 - Whether the single-thread ffmpeg core still needs COOP/COEP.
-- The server has never been started locally in this work. `better-sqlite3@11.8`
-  fails to compile on Node 24; Node 22 is expected to work (Docker uses
-  `node:22-alpine`) but was not tried.
+- Whether the DSM reverse proxy on `192.168.0.105` sends `X-Forwarded-For`
+  and `X-Forwarded-Proto`. S1 sets `trust proxy` to one hop and relies on both
+  (per-IP login limit, `Secure` cookie). The existing HTTPS redirect already
+  reads `X-Forwarded-Proto`, which suggests it is sent, but nobody checked
+  on the NAS.
+- None of the five SSH scripts was run against the NAS after the change.
+- The taunt and pilot-settings pages for a visitor who is not logged in were
+  not opened in a browser. `/api/overload/status` now returns 401 for them;
+  `OverloadFsContext` reads that as "no server access" and falls back to the
+  browser folder picker, which is what the code says should happen.
+- The Docker image was not built or run with the new compose files.
 
 ## Ground rules
 
@@ -122,8 +163,11 @@ Phase 4: 0/11.
   empty databases. There is no production data locally; use the sample JSON
   files as fixtures.
 - Env vars the server reads: `PORT`, `DATA_DIR`, `NODE_ENV`, `ADMIN_PASSWORD`,
-  `SESSION_SECRET`, `REDIS_URL`, `GEMINI_API_KEY`. None are set locally. There
-  is no `.env.example` (S1 adds one).
+  `SESSION_SECRET`, `REDIS_URL`, `GEMINI_API_KEY`. None are set locally.
+  `.env.example` lists them. Without `NODE_ENV=production` the server falls
+  back to `admin123` and a dev session secret with a warning; with it, both
+  secrets are required. The SSH scripts in `scripts/` read `NAS_SSH_PASSWORD`
+  or prompt.
 - No ports or databases are shared between worktrees. Pick a port above 3100.
 - Deploy: push to `main` → GitHub Actions builds and pushes the image. The NAS
   pulls it manually (`docker-compose.prod.yml`, see `DEPLOYMENT.md`).
@@ -132,23 +176,27 @@ Phase 4: 0/11.
 
 | Command | Expected | Last result | Date |
 |---|---|---|---|
-| `grep -rnE "password=['\"]" scripts/` | no output after S1 | 3 matches | 2026-10-06 |
-| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | not run | |
+| `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
+| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | 443 packages, compiles on 22.17.0 | 2026-10-06 |
+| `npx vitest run` | all pass | 1 file, 3 tests pass | 2026-10-06 |
+| `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | one chunk, 351.00 KB gzip | 2026-10-06 |
 | `npx tsc --noEmit` | 0 errors (meaningful only after S6 installs React types) | 0 errors, JSX untyped | 2026-10-06 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | not run | |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25` (with both secrets, `NODE_ENV=production`) | 2026-10-06 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
 
-- [ ] [HUMAN] Rotate the NAS SSH password for user `jkehoe` on `192.168.0.52`.
-      The old one is in git history and must be treated as public.
-- [ ] [HUMAN] After S1 merges, scrub history (`git filter-repo` on the three
+- [ ] [HUMAN] Rotate the SSH password for user `jkehoe` on `192.168.0.52` and
+      on `192.168.0.105` (S1 found the same password used for both). The old
+      one is in git history and must be treated as public.
+- [ ] [HUMAN] After S1 merges, scrub history (`git filter-repo` on the five
       scripts) and force-push, or accept that the rotated password makes
       history harmless. Decide and record here.
-- [ ] [HUMAN] Set `ADMIN_PASSWORD` and `SESSION_SECRET` on the NAS before
-      deploying S1 (S1 makes the server refuse to start in production without
-      them).
+- [ ] [HUMAN] Before pulling the S1 image on the NAS, put `ADMIN_PASSWORD` and
+      `SESSION_SECRET` in a `.env` file next to `docker-compose.prod.yml`
+      (see `.env.example`). Compose no longer hard-codes `admin123`, and the
+      server refuses to start in production without both.
 - [ ] [HUMAN] Create a Discord webhook URL for the fight-night channel (needed
       by S18).
 - [ ] [HUMAN] Merge each PR. Pull the new image on the NAS.
@@ -159,7 +207,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 
 ### Phase 1: fast and true
 
-- [ ] **S1 Secrets and auth hardening** (S). Done when: `grep -rnE
+- [x] **S1 Secrets and auth hardening** (S). PR __PR__. Done when: `grep -rnE
       "password=['\"]" scripts/` is empty; the three scripts read credentials
       from env or prompt; `server/auth.js` refuses to start with
       `NODE_ENV=production` unless `ADMIN_PASSWORD` and `SESSION_SECRET` are
@@ -301,6 +349,31 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - 2026-10-06: Keep the JSON-blob `games` table as the source of truth and add
   `game_players` beside it (S5), rather than normalising everything. The cold
   DB is about 2.8 GB; a full rewrite on the NAS is not worth the risk.
+- 2026-10-06 (S1): Fixed the password in all five tracked scripts, not just
+  the three the Done-when names. Leaving it in two files would pass the grep
+  and miss the point.
+- 2026-10-06 (S1): Both compose files now pass `ADMIN_PASSWORD` and
+  `SESSION_SECRET` through from the host environment. With `admin123` still
+  hard-coded there, the startup check could never fire in production.
+- 2026-10-06 (S1): "Pilot-file routes" means everything under
+  `/api/overload/*`, including `install`, `status`, `taunts` and `audio`. The
+  `/api/import/*` routes in the same router stay public because the public
+  taunt maker uses them; see "Flagged, not fixed".
+- 2026-10-06 (S1): Login rate limit uses `express-rate-limit` (10 failures per
+  IP and 50 across all clients per 15 minutes, successes not counted) rather
+  than a hand-rolled map.
+  `app.set('trust proxy', 1)` makes `req.ip` the client behind the DSM proxy
+  and lets `cookie.secure: 'auto'` mark the cookie `Secure` on HTTPS while
+  LAN access over plain HTTP keeps working.
+- 2026-10-06 (S1): `ADMIN_PASSWORD` is compared as a SHA-256 digest with
+  `timingSafeEqual`, so the bcrypt hash of `admin123` and the `bcryptjs`
+  dependency are gone.
+- 2026-10-06 (S1): Compose uses `${ADMIN_PASSWORD:?...}`, so a NAS without
+  `.env` fails at `docker-compose up` instead of starting a container that
+  exits and restarts in a loop.
+- 2026-10-06 (S1): The pilot-name check lives in each `overloadBridge.js`
+  function that builds a path, and returns that function's existing failure
+  shape (null, `{ error }` or `{ success: false }`), so routes did not change.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -317,6 +390,37 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - `cacheService.js` tries Redis on every boot and never sweeps expired keys.
   Fix in S4 if time allows, otherwise S6.
 - The README promises ELO; none exists. Satisfied by S13.
+- (S1) `/api/import/*` (yt-dlp search, extract, stream, archive.org proxy)
+  has no auth and no rate limit. The public taunt maker needs it, so locking
+  it is a product decision. A per-IP limit fits S4 or S6.
+- (S1) Anyone who reaches port 3000 directly, without the DSM proxy, can set
+  `X-Forwarded-For` and get a fresh per-IP bucket. S1 adds a cap of 50
+  failures across all clients per 15 minutes, which bounds brute force but
+  lets an attacker lock the admin out for 15 minutes. Publishing port 3000
+  only to the proxy host would let `trust proxy` name that host.
+- (S1) `POST /api/analyze-match` is admin-only per the Done-when list, but the
+  match page still shows the AI analysis button to everyone. Visitors get
+  "Error: Unauthorized - Admin access required". S25 removes the route.
+- (S1) The taunt tool's server-native mode (server running on the Windows PC
+  with Overload) now needs an admin login first. Without one,
+  `/api/overload/status` returns 401 and the page falls back to the browser
+  folder picker with no hint to log in.
+- (S1) `listPilots` lists every file stem, but every pilot operation rejects
+  names outside `^[A-Za-z0-9 _.-]{1,32}$`. A pilot named, say, `[OFC]Kehoe`
+  shows up and then cannot be opened, renamed or deleted through the site.
+  Overload's own rules for pilot names were not checked.
+- (S1) `login` does not call `req.session.regenerate()`, so the session ID
+  survives login (session fixation). Sessions use the in-memory store, which
+  leaks and resets on restart.
+- (S1) `express.json({ limit: '50mb' })` applies to every route, not only the
+  taunt install, and runs before the login rate limiter, so a client over the
+  limit can still make the server parse a 50 MB body.
+- (S1) `/api/overload/audio` guards paths with `path.normalize` and a regex
+  strip rather than a resolved-prefix check. It is admin-only now.
+- (S1) `/api/ppi` still runs `refreshPilotStats` inline for anyone. S4 owns
+  it.
+- (S1) Other scripts in `scripts/` take the SSH password as `sys.argv[1]`
+  (`docker_build_synology.py`), which puts it in shell history.
 
 ## Rollback
 
@@ -366,47 +470,69 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
 
 - 2026-10-06, planning session (Claude Fable 5.1): four audits, roadmap page
   published, this tracker written. No code changed.
+- 2026-10-06, S1 (Claude Opus 5.5): secrets out of five scripts, production
+  refuses to start without its two secrets, admin session on `/api/overload/*`,
+  analyze-match and fight-nights/check, pilot-name validation, login rate
+  limit, `Secure` cookie on HTTPS, `.env.example`, vitest. Status line checked
+  first: `10223be` was still `origin/main`, and the docs branch existed. The
+  tracker undercounted the leaked password (three scripts listed, five had
+  it). First server start in this work, on Node 22; `better-sqlite3` compiles
+  there. /code-review found 10 issues: fixed the spoofable rate limit (global
+  cap), compose starting without secrets (`:?`), password-length timing
+  (digest compare) and a misleading dev warning; the rest are flagged above.
+  /simplify: made `verifyPassword` sync, hashed the admin password once, moved
+  `renamePilot`'s name check ahead of `tasklist`. Skipped folding the eight
+  pilot-name guards into one throwing path helper (it would turn 400/404 into
+  500) and moving the production check out of `auth.js` (index.js body runs
+  after `db.js` has opened the databases). PR __PR__, not merged.
 
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S1: secrets and auth hardening.
+Continue the overloadfight.club roadmap. This session is S2: stat correctness.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
 
 Set up:
   git fetch origin
-  git checkout -B ofc/s01-secrets-auth overload-site-redesign-13ed9872
-  git rebase origin/main
+  If the S1 PR (branch ofc/s01-secrets-auth) is merged:
+    git checkout -B ofc/s02-stat-correctness origin/main
+  If it is still open:
+    git checkout -B ofc/s02-stat-correctness origin/ofc/s01-secrets-auth
+    and open the S2 PR against main anyway; say in its description that it sits on S1.
   nvm use 22
   npm ci
-If the branch overload-site-redesign-13ed9872 does not exist locally, stop and tell me; it holds docs/.
+If neither origin/main nor origin/ofc/s01-secrets-auth has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S1 entry and its Done-when list. That list is the scope.
-- docs/audit/performance.md, the "Security" bullet, for the file:line evidence.
-- server/auth.js, server/index.js lines 55-100, server/services/overloadBridge.js (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
+- docs/ROADMAP.md, the S2 entry and its Done-when list. That list is the scope.
+- docs/audit/data.md, "Correctness bugs" items 1, 3, 4, 6, 7 and 8, for the file:line evidence (refs are as of 10223be; re-find them with grep -n).
+- server/db.js around the cited lines, server/services/fightNightService.js, and the K/D tooltip in components/PilotsList.tsx (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
+- types.ts and the fixture files gamelist_sample.json and game_detail_sample.json at the repo root.
 
 Binding decisions, do not re-derive:
-- Test runner is vitest. Add it as a devDependency with one test for the pilot-name path validator.
-- Secrets come from the environment only. In production the server exits with a clear message when ADMIN_PASSWORD or SESSION_SECRET is unset. In development it may fall back, with a console warning.
-- The three scripts with a committed password read it from an environment variable or prompt with getpass. Do not delete the scripts in this session.
-- Do not touch the git history. Rotation and scrubbing are [HUMAN] tasks in the tracker.
+- Test runner is vitest (added in S1; `npx vitest run`). Tests live beside the code as *.test.js.
+- One shared module, server/lib/gameParse.js, owns teamOf, winnerOf, durationOf, netKills and pilotKey. Every aggregation in server/db.js and fightNightService.js calls it; no second copy of the rules.
+- Teams are BLUE and ORANGE. winnerOf handles teamCount > 2 and FFA. A tie is a tie, not a BLUE win.
+- durationOf uses date - settings.start when start/end are absent, before any timeLimit fallback.
+- pilotKey is case-insensitive and escapes LIKE wildcards.
+- Do not change the games table, the hot/cold split or the public API paths (see "Canonical contract"). Do not add the game_players table; that is S5.
+- No production database exists locally. Prove each fix with a test on fixture games, built from the sample JSON files.
 
 Rules for this session:
-- One PR, scope is the S1 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- One PR, scope is the S2 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S1 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S2 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S2.
+- Before ending: tick S2 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S3 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S3.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `grep -rnE "password=['\"]" scripts/` and `nvm use 22 && npm ci`, and record both results.
-Done when: every item in the S1 Done-when list is true, `npx vitest run` passes, `PORT=3100 DATA_DIR=/tmp/ofc-data NODE_ENV=production npm start` refuses to start without the two env vars and starts with them, and the PR is open with the tracker updated.
+First move: run `npx vitest run` and `grep -n "teamScore" server/db.js server/services/fightNightService.js`, and record both results.
+Done when: every item in the S2 Done-when list is true, `npx vitest run` passes with tests for an ORANGE win, a tie, an FFA win and a duration from settings.start, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global`, and the PR is open with the tracker updated.
 ```

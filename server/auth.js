@@ -9,11 +9,15 @@ if (missingSecrets.length > 0) {
         console.error(`Refusing to start: ${missingSecrets.join(' and ')} must be set when NODE_ENV=production. See .env.example.`);
         process.exit(1);
     }
-    console.warn(`[auth] ${missingSecrets.join(' and ')} not set; using insecure development defaults${process.env.ADMIN_PASSWORD ? '' : ' (admin password "admin123")'}.`);
+    console.warn(`[auth] ${missingSecrets.join(' and ')} not set; using insecure development defaults${missingSecrets.includes('ADMIN_PASSWORD') ? ' (admin password "admin123")' : ''}.`);
 }
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'overload-tracker-dev-secret';
+
+// Compare fixed-length digests so response time does not reveal the password length
+const sha256 = (value) => crypto.createHash('sha256').update(value).digest();
+const ADMIN_PASSWORD_DIGEST = sha256(ADMIN_PASSWORD);
 
 // Session configuration
 export const sessionMiddleware = session({
@@ -42,14 +46,12 @@ export const loginRateLimit = [
 ];
 
 // Verify admin password with a timing-safe comparison
-export async function verifyPassword(password) {
+export function verifyPassword(password) {
     if (!password || typeof password !== 'string') {
         return false;
     }
 
-    // Compare fixed-length digests so response time does not reveal the password length
-    const digest = (value) => crypto.createHash('sha256').update(value).digest();
-    return crypto.timingSafeEqual(digest(password), digest(ADMIN_PASSWORD));
+    return crypto.timingSafeEqual(sha256(password), ADMIN_PASSWORD_DIGEST);
 }
 
 // Auth middleware to protect admin routes
@@ -62,7 +64,7 @@ export function requireAuth(req, res, next) {
 }
 
 // Login handler
-export async function login(req, res) {
+export function login(req, res) {
     const { password } = req.body;
 
     console.log('Login attempt received');
@@ -71,7 +73,7 @@ export async function login(req, res) {
         return res.status(400).json({ error: 'Password required' });
     }
 
-    const isValid = await verifyPassword(password);
+    const isValid = verifyPassword(password);
     console.log('Password valid:', isValid);
 
     if (isValid) {

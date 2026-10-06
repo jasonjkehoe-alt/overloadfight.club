@@ -503,15 +503,15 @@ export function clonePilot(overloadDir, sourcePilot, targetPilot) {
 
 // Rename pilot across the 6-file family
 export function renamePilot(overloadDir, sourcePilot, targetPilot) {
-    if (isOverloadRunning()) {
-        return { success: false, error: 'Close Overload to change settings' };
-    }
     if (!targetPilot || !targetPilot.trim()) {
         return { success: false, error: 'Target pilot name is required' };
     }
     const cleanTarget = targetPilot.trim();
     if (!isValidPilotName(sourcePilot) || !isValidPilotName(cleanTarget)) {
         return { success: false, error: INVALID_PILOT_NAME };
+    }
+    if (isOverloadRunning()) {
+        return { success: false, error: 'Close Overload to change settings' };
     }
 
     const filesToRename = [];
