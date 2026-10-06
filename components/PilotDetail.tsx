@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GameData } from '../types';
-import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink, Zap, Clock, Flame } from 'lucide-react';
+import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink, Zap, Clock, Flame, Filter } from 'lucide-react';
 import PilotPerformanceCard from './PilotPerformanceCard';
 
 interface PilotStats {
@@ -8,6 +8,7 @@ interface PilotStats {
     kills: number;
     deaths: number;
     assists: number;
+    suicides?: number;
     last_seen: string;
     favorite_map: string;
     favorite_weapon: string;
@@ -24,12 +25,17 @@ interface PilotStats {
     total_damage_dealt?: number;
     total_damage_taken?: number;
     dpm?: number;
+    damage_taken_per_death?: number;
+    net_damage?: number;
+    net_dpm?: number;
     career_games?: number;
     career_kills?: number;
     career_deaths?: number;
     career_assists?: number;
+    career_suicides?: number;
     career_wins?: number;
     career_losses?: number;
+    career_ties?: number;
     career_win_rate?: number;
     career_kd?: number;
     career_kda?: number;
@@ -51,6 +57,21 @@ interface PilotStats {
         secondaryPct: number;
         totalDamage: number;
     };
+    damage_taken_weapons?: Array<{
+        name: string;
+        damage: number;
+        hits: number;
+        deaths: number;
+        isPrimary: boolean;
+        pctOfTotalDamage: number;
+    }>;
+    damage_taken_summary?: {
+        primaryDamage: number;
+        secondaryDamage: number;
+        primaryPct: number;
+        secondaryPct: number;
+        totalDamage: number;
+    };
 }
 
 interface MapStat {
@@ -65,9 +86,14 @@ interface MapStat {
 interface RivalStat {
     name: string;
     encounters: number;
-    their_kills: number;
-    their_deaths: number;
-    their_kd: number;
+    your_kills?: number;
+    their_kills?: number;
+    your_wins?: number;
+    their_wins?: number;
+    ties?: number;
+    h2h_kd?: number;
+    their_kd?: number;
+    their_deaths?: number;
 }
 
 interface PilotBreakdown {
@@ -87,14 +113,17 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
     const [breakdown, setBreakdown] = useState<PilotBreakdown>({ mapStats: [], rivals: [] });
     const [games, setGames] = useState<GameData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedMode, setSelectedMode] = useState<string>('ALL');
+    const [weaponView, setWeaponView] = useState<'offense' | 'defense'>('offense');
 
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
             try {
+                const modeQuery = selectedMode !== 'ALL' ? `?mode=${encodeURIComponent(selectedMode)}` : '';
                 const [statsRes, gamesRes, breakdownRes] = await Promise.all([
-                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/stats`),
-                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/games`),
+                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/stats${modeQuery}`),
+                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/games${modeQuery}`),
                     fetch(`/api/pilot/${encodeURIComponent(pilotName)}/breakdown`)
                 ]);
 
@@ -116,7 +145,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
             }
         };
         loadData();
-    }, [pilotName]);
+    }, [pilotName, selectedMode]);
 
     if (!pilotName) return null;
 
@@ -129,14 +158,42 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
 
     return (
         <div className="animate-fade-in w-full max-w-7xl mx-auto pb-12">
-            {onBack && (
-                <button
-                    onClick={onBack}
-                    className="mb-6 flex items-center text-gray-500 hover:text-[#ff6600] transition-colors font-mono text-sm"
-                >
-                    <span className="mr-1">&lt;</span> RETURN TO PILOT ROSTER
-                </button>
-            )}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                {onBack ? (
+                    <button
+                        onClick={onBack}
+                        className="flex items-center text-gray-500 hover:text-[#ff6600] transition-colors font-mono text-sm"
+                    >
+                        <span className="mr-1">&lt;</span> RETURN TO PILOT ROSTER
+                    </button>
+                ) : <div />}
+
+                {/* Match Mode Filter */}
+                <div className="flex flex-wrap items-center gap-1.5 bg-[#0a0a0a] border border-gray-800 rounded-lg p-1 text-xs font-mono">
+                    <span className="text-gray-500 font-bold px-2 flex items-center gap-1">
+                        <Filter size={11} className="text-[#ff6600]" /> MODE:
+                    </span>
+                    {[
+                        { id: 'ALL', label: 'All Modes' },
+                        { id: 'ANARCHY', label: 'Anarchy' },
+                        { id: 'TEAM ANARCHY', label: 'Team Anarchy' },
+                        { id: 'CTF', label: 'CTF' },
+                        { id: 'MONSTERBALL', label: 'Monsterball' }
+                    ].map(m => (
+                        <button
+                            key={m.id}
+                            onClick={() => setSelectedMode(m.id)}
+                            className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                                selectedMode === m.id
+                                    ? 'bg-[#ff6600] text-black shadow font-extrabold'
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-800/80'
+                            }`}
+                        >
+                            {m.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             <div className="flex flex-col lg:flex-row gap-8">
                 {/* Left Sidebar: Profile & Key Metrics */}
@@ -178,7 +235,10 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                     </div>
                                 </div>
                                 {stats.wins !== undefined && (
-                                    <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
+                                    <div
+                                        className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center cursor-help"
+                                        title="Wins ÷ (Wins + Losses + Ties). Ties count as non-wins. In free-for-all, only 1st place earns a win; all others take a loss (shared top = tie)."
+                                    >
                                         <div>
                                             <span className="text-gray-500 text-xs uppercase block">Record (W-L)</span>
                                             {stats.career_wins !== undefined && stats.career_games && stats.career_games > stats.games && (
@@ -193,7 +253,10 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                         </div>
                                     </div>
                                 )}
-                                <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
+                                <div
+                                    className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center cursor-help"
+                                    title="Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths. Assists receive a 0.5 weighting to reflect combat contribution without inflating scores."
+                                >
                                     <div>
                                         <span className="text-gray-500 text-xs uppercase block">Combat Ratio</span>
                                         {stats.career_kd !== undefined && stats.career_games && stats.career_games > stats.games && (
@@ -221,6 +284,23 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                         {stats.career_kills !== undefined && stats.career_games && stats.career_games > stats.games && (
                                             <div className="text-[9px] font-mono text-[#ff6600] uppercase font-bold">All-Time Career</div>
                                         )}
+                                    </div>
+                                </div>
+                                <div
+                                    className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center cursor-help"
+                                    title="The game subtracts 1 frag per suicide (game rule); tracked separately here."
+                                >
+                                    <div>
+                                        <span className="text-gray-500 text-xs uppercase block">Suicides</span>
+                                        {stats.career_suicides !== undefined && stats.career_games && stats.career_games > stats.games && (
+                                            <span className="text-[10px] text-gray-500 font-mono">Recent: {stats.suicides || 0}</span>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-lg font-bold font-mono text-amber-400">
+                                            {(stats.career_suicides ?? stats.suicides ?? 0).toLocaleString()}
+                                        </span>
+                                        <div className="text-[9px] font-mono text-gray-500 uppercase">Self-Kills</div>
                                     </div>
                                 </div>
                                 {stats.total_damage_dealt !== undefined && stats.total_damage_dealt > 0 && (
@@ -277,47 +357,107 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                             <PilotPerformanceCard pilotName={pilotName} />
 
                             {/* Arsenal Breakdown & Weapon Mastery */}
-                            {stats.weapons && stats.weapons.length > 0 && (
+                            {((stats.weapons && stats.weapons.length > 0) || (stats.damage_taken_weapons && stats.damage_taken_weapons.length > 0)) && (
                                 <div>
-                                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-gray-800 pb-2 flex items-center justify-between">
-                                        <span className="flex items-center gap-2">
-                                            <Crosshair size={16} className="text-[#ff6600]" />
-                                            Arsenal Breakdown & Weapon Mastery
-                                        </span>
-                                        <span className="text-[10px] text-gray-600 font-normal">DAMAGE TELEMETRY</span>
-                                    </h3>
-
-                                    {stats.weapon_summary && (
-                                        <div className="bg-[#0e0e0e] border border-gray-800 p-4 rounded-lg mb-4">
-                                            <div className="flex justify-between text-xs font-mono mb-2">
-                                                <span className="text-[#00ffff] font-bold">Primary Guns: {stats.weapon_summary.primaryPct}% ({stats.weapon_summary.primaryDamage >= 1000000 ? `${(stats.weapon_summary.primaryDamage / 1000000).toFixed(1)}M` : stats.weapon_summary.primaryDamage.toLocaleString()} DMG)</span>
-                                                <span className="text-[#ff6600] font-bold">Secondary Missiles: {stats.weapon_summary.secondaryPct}% ({stats.weapon_summary.secondaryDamage >= 1000000 ? `${(stats.weapon_summary.secondaryDamage / 1000000).toFixed(1)}M` : stats.weapon_summary.secondaryDamage.toLocaleString()} DMG)</span>
-                                            </div>
-                                            <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden flex">
-                                                <div className="bg-[#00ffff] h-full transition-all" style={{ width: `${stats.weapon_summary.primaryPct}%` }}></div>
-                                                <div className="bg-[#ff6600] h-full transition-all" style={{ width: `${stats.weapon_summary.secondaryPct}%` }}></div>
-                                            </div>
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-800 pb-2 mb-4 gap-2">
+                                        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                                            <Crosshair size={16} className={weaponView === 'offense' ? 'text-[#ff6600]' : 'text-blue-400'} />
+                                            <span>Arsenal Telemetry & Weapon Impact</span>
+                                        </h3>
+                                        {/* View Toggle */}
+                                        <div className="flex items-center gap-1 bg-[#0a0a0a] border border-gray-800 p-1 rounded text-xs font-mono">
+                                            <button
+                                                onClick={() => setWeaponView('offense')}
+                                                className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                                                    weaponView === 'offense'
+                                                        ? 'bg-[#ff6600] text-black shadow font-extrabold'
+                                                        : 'text-gray-400 hover:text-white'
+                                                }`}
+                                            >
+                                                Damage Dealt (Offense)
+                                            </button>
+                                            <button
+                                                onClick={() => setWeaponView('defense')}
+                                                className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                                                    weaponView === 'defense'
+                                                        ? 'bg-blue-600 text-white shadow font-extrabold'
+                                                        : 'text-gray-400 hover:text-white'
+                                                }`}
+                                            >
+                                                Damage Taken (Defense)
+                                            </button>
                                         </div>
-                                    )}
-
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                        {stats.weapons.slice(0, 8).map((w) => (
-                                            <div key={w.name} className="bg-[#0e0e0e] border border-gray-800 p-3 rounded-lg hover:border-[#ff6600]/50 transition-colors">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <span className={`text-xs font-bold ${w.isPrimary ? 'text-[#00ffff]' : 'text-[#ff6600]'}`}>{w.name}</span>
-                                                    <span className="text-[10px] font-mono text-gray-400 bg-black/60 px-1.5 py-0.5 rounded border border-gray-800">{w.pctOfTotalDamage}%</span>
-                                                </div>
-                                                <div className="text-lg font-bold font-mono text-white">
-                                                    {w.damage >= 1000000 ? `${(w.damage / 1000000).toFixed(2)}M` : w.damage.toLocaleString()}
-                                                    <span className="text-[10px] text-gray-500 ml-1 font-normal">DMG</span>
-                                                </div>
-                                                <div className="text-[11px] font-mono text-gray-400 flex justify-between mt-1 pt-1 border-t border-gray-900">
-                                                    <span>{w.kills.toLocaleString()} Kills</span>
-                                                    <span className="text-gray-600">{w.hits.toLocaleString()} Hits</span>
-                                                </div>
-                                            </div>
-                                        ))}
                                     </div>
+
+                                    {weaponView === 'offense' ? (
+                                        <>
+                                            {stats.weapon_summary && (
+                                                <div className="bg-[#0e0e0e] border border-gray-800 p-4 rounded-lg mb-4">
+                                                    <div className="flex justify-between text-xs font-mono mb-2">
+                                                        <span className="text-[#00ffff] font-bold">Primary Guns: {stats.weapon_summary.primaryPct}% ({stats.weapon_summary.primaryDamage >= 1000000 ? `${(stats.weapon_summary.primaryDamage / 1000000).toFixed(1)}M` : stats.weapon_summary.primaryDamage.toLocaleString()} DMG)</span>
+                                                        <span className="text-[#ff6600] font-bold">Secondary Missiles: {stats.weapon_summary.secondaryPct}% ({stats.weapon_summary.secondaryDamage >= 1000000 ? `${(stats.weapon_summary.secondaryDamage / 1000000).toFixed(1)}M` : stats.weapon_summary.secondaryDamage.toLocaleString()} DMG)</span>
+                                                    </div>
+                                                    <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden flex">
+                                                        <div className="bg-[#00ffff] h-full transition-all" style={{ width: `${stats.weapon_summary.primaryPct}%` }}></div>
+                                                        <div className="bg-[#ff6600] h-full transition-all" style={{ width: `${stats.weapon_summary.secondaryPct}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                                {stats.weapons && stats.weapons.slice(0, 8).map((w) => (
+                                                    <div key={w.name} className="bg-[#0e0e0e] border border-gray-800 p-3 rounded-lg hover:border-[#ff6600]/50 transition-colors">
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <span className={`text-xs font-bold ${w.isPrimary ? 'text-[#00ffff]' : 'text-[#ff6600]'}`}>{w.name}</span>
+                                                            <span className="text-[10px] font-mono text-gray-400 bg-black/60 px-1.5 py-0.5 rounded border border-gray-800">{w.pctOfTotalDamage}%</span>
+                                                        </div>
+                                                        <div className="text-lg font-bold font-mono text-white">
+                                                            {w.damage >= 1000000 ? `${(w.damage / 1000000).toFixed(2)}M` : w.damage.toLocaleString()}
+                                                            <span className="text-[10px] text-gray-500 ml-1 font-normal">DMG</span>
+                                                        </div>
+                                                        <div className="text-[11px] font-mono text-gray-400 flex justify-between mt-1 pt-1 border-t border-gray-900">
+                                                            <span>{w.kills.toLocaleString()} Kills</span>
+                                                            <span className="text-gray-600">{w.hits.toLocaleString()} Hits</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {stats.damage_taken_summary && (
+                                                <div className="bg-[#0e0e0e] border border-gray-800 p-4 rounded-lg mb-4">
+                                                    <div className="flex justify-between text-xs font-mono mb-2">
+                                                        <span className="text-cyan-400 font-bold">Primary Gun Hits: {stats.damage_taken_summary.primaryPct}% ({stats.damage_taken_summary.primaryDamage >= 1000000 ? `${(stats.damage_taken_summary.primaryDamage / 1000000).toFixed(1)}M` : stats.damage_taken_summary.primaryDamage.toLocaleString()} DMG)</span>
+                                                        <span className="text-amber-500 font-bold">Ordnance / Missiles: {stats.damage_taken_summary.secondaryPct}% ({stats.damage_taken_summary.secondaryDamage >= 1000000 ? `${(stats.damage_taken_summary.secondaryDamage / 1000000).toFixed(1)}M` : stats.damage_taken_summary.secondaryDamage.toLocaleString()} DMG)</span>
+                                                    </div>
+                                                    <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden flex">
+                                                        <div className="bg-cyan-500 h-full transition-all" style={{ width: `${stats.damage_taken_summary.primaryPct}%` }}></div>
+                                                        <div className="bg-amber-500 h-full transition-all" style={{ width: `${stats.damage_taken_summary.secondaryPct}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                                {stats.damage_taken_weapons && stats.damage_taken_weapons.slice(0, 8).map((w) => (
+                                                    <div key={w.name} className="bg-[#0e0e0e] border border-gray-800 p-3 rounded-lg hover:border-blue-500/50 transition-colors">
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <span className={`text-xs font-bold ${w.isPrimary ? 'text-cyan-400' : 'text-amber-500'}`}>{w.name}</span>
+                                                            <span className="text-[10px] font-mono text-gray-400 bg-black/60 px-1.5 py-0.5 rounded border border-gray-800">{w.pctOfTotalDamage}%</span>
+                                                        </div>
+                                                        <div className="text-lg font-bold font-mono text-white">
+                                                            {w.damage >= 1000000 ? `${(w.damage / 1000000).toFixed(2)}M` : w.damage.toLocaleString()}
+                                                            <span className="text-[10px] text-gray-500 ml-1 font-normal">DMG</span>
+                                                        </div>
+                                                        <div className="text-[11px] font-mono text-gray-400 flex justify-between mt-1 pt-1 border-t border-gray-900">
+                                                            <span className="text-red-400">{w.deaths.toLocaleString()} Deaths</span>
+                                                            <span className="text-gray-500">{w.hits.toLocaleString()} Hits Taken</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
 
@@ -327,10 +467,16 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                                     <StatCard icon={<Skull size={16} />} label="Efficiency" value={eff.toFixed(1)} sub="Kills/Match" />
                                     <StatCard icon={<Shield size={16} />} label="Survival" value={survival.toFixed(1)} sub="Deaths/Match" />
-                                    <StatCard icon={<Zap size={16} />} label="Damage Rate" value={stats.dpm ? `${stats.dpm}` : "N/A"} sub="Damage / Min" />
-                                    <StatCard icon={<Crosshair size={16} />} label="Lethality" value={stats.kpm ? `${stats.kpm}` : "N/A"} sub="Kills / Min" />
-                                    <StatCard icon={<MapIcon size={16} />} label="Fav Map" value={stats.favorite_map} truncate />
-                                    <StatCard icon={<Crosshair size={16} />} label="Fav Weapon" value={stats.favorite_weapon} truncate />
+                                    <StatCard icon={<Zap size={16} />} label="Damage Rate" value={stats.dpm ? `${stats.dpm}` : "N/A"} sub="Damage / Min" tooltip="Per-minute rates use total match duration, not your individual time in-game." />
+                                    <StatCard icon={<Crosshair size={16} />} label="Lethality" value={stats.kpm ? `${stats.kpm}` : "N/A"} sub="Kills / Min" tooltip="Per-minute rates use total match duration, not your individual time in-game." />
+                                    <StatCard icon={<Shield size={16} />} label="Dmg / Death" value={stats.damage_taken_per_death ? `${stats.damage_taken_per_death.toLocaleString()}` : "N/A"} sub="Punishment Absorbed" tooltip="Damage Taken ÷ Deaths. How much punishment the pilot absorbs before dying." />
+                                    <StatCard
+                                        icon={<Flame size={16} />}
+                                        label="Net DPM"
+                                        value={stats.net_dpm !== undefined ? (stats.net_dpm > 0 ? `+${stats.net_dpm}` : `${stats.net_dpm}`) : "N/A"}
+                                        sub="Net Damage / Min"
+                                        tooltip="(Damage Dealt − Damage Taken) ÷ Total Flight Minutes. True combat efficiency."
+                                    />
                                 </div>
                             </div>
 
@@ -363,11 +509,22 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                                         {rival.encounters} {rival.encounters === 1 ? 'Match' : 'Matches'}
                                                     </span>
                                                 </div>
-                                                <div className="text-xs font-mono text-gray-500 flex justify-between items-center mt-3 pt-2 border-t border-gray-900">
-                                                    <span>Their K/D:</span>
-                                                    <span className={`font-bold ${rival.their_kd >= 1.0 ? 'text-[#ff6600]' : 'text-gray-400'}`}>
-                                                        {rival.their_kd.toFixed(2)} ({rival.their_kills}K / {rival.their_deaths}D)
-                                                    </span>
+                                                <div className="space-y-1.5 mt-3 pt-2 border-t border-gray-900 text-xs font-mono">
+                                                    <div className="flex justify-between items-center text-gray-400">
+                                                        <span className="text-gray-500">Match Record:</span>
+                                                        <span className="font-bold text-white">
+                                                            {rival.your_wins ?? 0}W - {rival.their_wins ?? 0}L{rival.ties ? ` (${rival.ties}T)` : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-gray-500">Direct H2H:</span>
+                                                        <span className={`font-bold ${(rival.your_kills ?? 0) >= (rival.their_kills ?? 0) ? 'text-[#ff6600]' : 'text-gray-400'}`}>
+                                                            {rival.your_kills ?? 0} K / {rival.their_kills ?? 0} D
+                                                            <span className="text-[10px] text-gray-500 ml-1">
+                                                                ({(rival.h2h_kd ?? ((rival.your_kills ?? 0) / Math.max(1, rival.their_kills ?? 0))).toFixed(2)})
+                                                            </span>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -565,12 +722,15 @@ const PilotAvatar = ({ name }: { name: string }) => {
     );
 };
 
-const StatCard = ({ icon, label, value, sub, truncate }: any) => (
-    <div className="bg-[#111] border border-gray-800 p-4 rounded-lg hover:border-[#ff6600]/30 transition-colors">
+const StatCard = ({ icon, label, value, sub, truncate, tooltip }: any) => (
+    <div
+        className="bg-[#111] border border-gray-800 p-4 rounded-lg hover:border-[#ff6600]/30 transition-colors cursor-help"
+        title={tooltip || (truncate ? value : undefined)}
+    >
         <div className="flex items-center gap-2 text-gray-500 text-xs uppercase mb-2">
             {icon} {label}
         </div>
-        <div className={`text-xl font-bold text-white ${truncate ? 'truncate' : ''}`} title={truncate ? value : undefined}>{value || "N/A"}</div>
+        <div className={`text-xl font-bold text-white ${truncate ? 'truncate' : ''}`}>{value || "N/A"}</div>
         {sub && <div className="text-[10px] text-gray-600 mt-1">{sub}</div>}
     </div>
 );

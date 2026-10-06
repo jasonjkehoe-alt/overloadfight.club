@@ -435,7 +435,9 @@ const getPilotStats = hotDb.prepare(`
         COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
         COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
         COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
-        MAX(all_g.date) as lastSeen
+        0 as suicides,
+        MAX(all_g.date) as lastSeen,
+        MAX(all_g.date) as last_updated
     FROM (
         SELECT details, date FROM games
         UNION ALL
@@ -454,7 +456,9 @@ const getPilotStatsFiltered = hotDb.prepare(`
         COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
         COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
         COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
-        MAX(all_g.date) as lastSeen
+        0 as suicides,
+        MAX(all_g.date) as lastSeen,
+        MAX(all_g.date) as last_updated
     FROM (
         SELECT details, date FROM games
         UNION ALL
@@ -591,7 +595,7 @@ function normalizeWeaponName(raw) {
     return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-function getPilotTelemetry(name, startDate) {
+function getPilotTelemetry(name, startDate, matchMode) {
     try {
         const cached = hotDb.prepare('SELECT * FROM pilot_stats_cache WHERE name = ? COLLATE NOCASE').get(name);
 
@@ -604,25 +608,6 @@ function getPilotTelemetry(name, startDate) {
                 WHERE date >= @startDate AND details LIKE @pattern
                 ORDER BY date DESC
             `).all({ startDate, pattern });
-
-            if (!gameRows || gameRows.length === 0) {
-                // Fallback to all-time
-                const hotAll = hotDb.prepare(`
-                    SELECT details, date FROM games
-                    WHERE details LIKE @pattern
-                    ORDER BY date DESC
-                `).all({ pattern });
-                if (hotAll && hotAll.length >= 5) {
-                    gameRows = hotAll;
-                } else {
-                    const coldAll = hotDb.prepare(`
-                        SELECT details, date FROM cold.games
-                        WHERE details LIKE @pattern
-                        ORDER BY date DESC
-                    `).all({ pattern });
-                    gameRows = (hotAll || []).concat(coldAll);
-                }
-            }
         } else {
             const hotAll = hotDb.prepare(`
                 SELECT details, date FROM games
@@ -642,7 +627,7 @@ function getPilotTelemetry(name, startDate) {
         }
 
         if (!gameRows || gameRows.length === 0) {
-            return cached || null;
+            return startDate ? null : (cached || null);
         }
 
         let wins = 0;
@@ -654,9 +639,12 @@ function getPilotTelemetry(name, startDate) {
         let totalKills = 0;
         let totalDeaths = 0;
         let totalAssists = 0;
+        let suicides = 0;
+        let validGames = 0;
         let lastSeen = null;
         const mapCounts = {};
         const weaponAgg = {};
+        const weaponTakenAgg = {};
 
         for (const row of gameRows) {
             if (!row.details) continue;
@@ -671,19 +659,6 @@ function getPilotTelemetry(name, startDate) {
             const me = players.find(p => p && p.name && p.name.toLowerCase() === lowerName);
             if (!me) continue;
 
-            totalKills += Math.max(0, me.kills || 0);
-            totalDeaths += (me.deaths || 0);
-            totalAssists += (me.assists || 0);
-
-            if (row.date && (!lastSeen || row.date > lastSeen)) {
-                lastSeen = row.date;
-            }
-
-            const mapName = g.settings?.level;
-            if (mapName) {
-                mapCounts[mapName] = (mapCounts[mapName] || 0) + 1;
-            }
-
             let durationSec = 0;
             if (g.start && g.end) {
                 const diff = (new Date(g.end).getTime() - new Date(g.start).getTime()) / 1000;
@@ -694,7 +669,31 @@ function getPilotTelemetry(name, startDate) {
             if (!durationSec && g.duration) durationSec = g.duration;
             if (!durationSec && g.settings?.timeLimit) durationSec = g.settings.timeLimit;
             if (!durationSec) durationSec = 900;
+
+            // Ranked filter: exclude <2 players and <60s games
+            if (players.length < 2 || durationSec < 60) continue;
+
+            // Mode filter if requested
+            if (matchMode && matchMode.toUpperCase() !== 'ALL') {
+                const gMode = (g.settings?.matchMode || '').toUpperCase().replace(/[\s_]+/g, '');
+                const reqMode = matchMode.toUpperCase().replace(/[\s_]+/g, '');
+                if (gMode !== reqMode) continue;
+            }
+
+            validGames++;
+            totalKills += Math.max(0, me.kills || 0);
+            totalDeaths += (me.deaths || 0);
+            totalAssists += (me.assists || 0);
             totalPlaytimeSec += durationSec;
+
+            if (row.date && (!lastSeen || row.date > lastSeen)) {
+                lastSeen = row.date;
+            }
+
+            const mapName = g.settings?.level;
+            if (mapName) {
+                mapCounts[mapName] = (mapCounts[mapName] || 0) + 1;
+            }
 
             const mode = (g.settings?.matchMode || '').toUpperCase();
             if (mode.includes('TEAM') || mode === 'CTF') {
@@ -727,7 +726,7 @@ function getPilotTelemetry(name, startDate) {
                     const isAttacker = d.attacker && d.attacker.toLowerCase() === lowerName;
                     const isDefender = d.defender && d.defender.toLowerCase() === lowerName;
 
-                    if (isAttacker) {
+                    if (isAttacker && !isDefender) {
                         totalDamageDealt += d.damage;
                         const wName = normalizeWeaponName(d.weapon);
                         if (!weaponAgg[wName]) {
@@ -736,8 +735,14 @@ function getPilotTelemetry(name, startDate) {
                         weaponAgg[wName].damage += d.damage;
                         weaponAgg[wName].hits += 1;
                     }
-                    if (isDefender) {
+                    if (isDefender && !isAttacker) {
                         totalDamageTaken += d.damage;
+                        const wName = normalizeWeaponName(d.weapon);
+                        if (!weaponTakenAgg[wName]) {
+                            weaponTakenAgg[wName] = { name: wName, damage: 0, hits: 0, deaths: 0 };
+                        }
+                        weaponTakenAgg[wName].damage += d.damage;
+                        weaponTakenAgg[wName].hits += 1;
                     }
                 }
             }
@@ -746,25 +751,42 @@ function getPilotTelemetry(name, startDate) {
                 for (const k of g.kills) {
                     if (!k) continue;
                     const isAttacker = k.attacker && k.attacker.toLowerCase() === lowerName;
-                    if (isAttacker) {
+                    const isDefender = k.defender && k.defender.toLowerCase() === lowerName;
+                    if (isAttacker && isDefender) {
+                        suicides++;
+                    }
+                    if (isAttacker && !isDefender) {
                         const wName = normalizeWeaponName(k.weapon);
                         if (!weaponAgg[wName]) {
                             weaponAgg[wName] = { name: wName, damage: 0, hits: 0, kills: 0 };
                         }
                         weaponAgg[wName].kills += 1;
                     }
+                    if (isDefender && !isAttacker) {
+                        const wName = normalizeWeaponName(k.weapon);
+                        if (!weaponTakenAgg[wName]) {
+                            weaponTakenAgg[wName] = { name: wName, damage: 0, hits: 0, deaths: 0 };
+                        }
+                        weaponTakenAgg[wName].deaths += 1;
+                    }
                 }
             }
         }
 
-        const totalGames = gameRows.length;
+        const totalGames = validGames;
+        const flightMinutes = totalPlaytimeSec > 0 ? totalPlaytimeSec / 60 : 0;
         const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 1000) / 10 : 0;
         const pureKd = totalDeaths > 0 ? Math.round((totalKills / totalDeaths) * 100) / 100 : totalKills;
         const kda = totalDeaths > 0 ? Math.round(((totalKills + totalAssists * 0.5) / totalDeaths) * 100) / 100 : totalKills;
-        const kpm = totalPlaytimeSec > 0 ? Math.round((totalKills / (totalPlaytimeSec / 60)) * 100) / 100 : 0;
+        const kpm = flightMinutes > 0 ? Math.round((totalKills / flightMinutes) * 100) / 100 : 0;
         const aci = totalGames > 0 ? Math.round(((totalKills + totalAssists * 0.5 - totalDeaths) / totalGames) * 100) / 100 : 0;
-        const dpm = totalPlaytimeSec > 0 ? Math.round((totalDamageDealt / (totalPlaytimeSec / 60))) : 0;
+        const dpm = flightMinutes > 0 ? Math.round((totalDamageDealt / flightMinutes)) : 0;
         const flightHours = Math.round((totalPlaytimeSec / 3600) * 10) / 10;
+
+        // Defensive Damage Stats
+        const damageTakenPerDeath = totalDeaths > 0 ? Math.round((totalDamageTaken / totalDeaths) * 10) / 10 : Math.round(totalDamageTaken * 10) / 10;
+        const netDamage = Math.round(totalDamageDealt - totalDamageTaken);
+        const netDpm = flightMinutes > 0 ? Math.round((totalDamageDealt - totalDamageTaken) / flightMinutes) : 0;
 
         let favoriteMap = 'Unknown';
         let maxMapGames = 0;
@@ -795,6 +817,27 @@ function getPilotTelemetry(name, startDate) {
             w.pctOfTotalDamage = Math.round((w.damage / combinedDmg) * 1000) / 10;
         }
 
+        // Damage Taken Weapon Breakdown
+        const weaponTakenList = Object.values(weaponTakenAgg)
+            .filter(w => w.name !== 'Miscellaneous')
+            .map(w => ({
+                ...w,
+                damage: Math.round(w.damage),
+                isPrimary: PRIMARY_WEAPONS.has(w.name)
+            }))
+            .sort((a, b) => b.damage - a.damage);
+
+        let primaryDamageTaken = 0;
+        let secondaryDamageTaken = 0;
+        for (const w of weaponTakenList) {
+            if (w.isPrimary) primaryDamageTaken += w.damage;
+            else secondaryDamageTaken += w.damage;
+        }
+        const combinedDmgTaken = (primaryDamageTaken + secondaryDamageTaken) || 1;
+        for (const w of weaponTakenList) {
+            w.pctOfTotalDamage = Math.round((w.damage / combinedDmgTaken) * 1000) / 10;
+        }
+
         const favoriteWeapon = weaponList[0]?.name || 'Unknown';
 
         return {
@@ -803,6 +846,7 @@ function getPilotTelemetry(name, startDate) {
             kills: Math.max(0, totalKills),
             deaths: totalDeaths,
             assists: totalAssists,
+            suicides,
             last_seen: lastSeen || cached?.last_updated || 'Unknown',
             favorite_map: favoriteMap,
             favorite_weapon: favoriteWeapon,
@@ -819,6 +863,9 @@ function getPilotTelemetry(name, startDate) {
             total_damage_dealt: Math.round(totalDamageDealt),
             total_damage_taken: Math.round(totalDamageTaken),
             dpm,
+            damage_taken_per_death: damageTakenPerDeath,
+            net_damage: netDamage,
+            net_dpm: netDpm,
             threat_centrality: cached?.threat_centrality ?? 0,
             dominance_index: cached?.dominance_index ?? 50.0,
             // Career all-time numbers from registry cache
@@ -826,6 +873,7 @@ function getPilotTelemetry(name, startDate) {
             career_kills: cached ? Math.max(0, cached.kills) : Math.max(0, totalKills),
             career_deaths: cached ? cached.deaths : totalDeaths,
             career_assists: cached ? cached.assists : totalAssists,
+            career_suicides: cached ? (cached.suicides || 0) : suicides,
             career_wins: cached ? cached.wins : wins,
             career_losses: cached ? cached.losses : losses,
             career_ties: cached ? cached.ties : ties,
@@ -835,6 +883,7 @@ function getPilotTelemetry(name, startDate) {
             career_flight_hours: cached ? (cached.flight_hours || Math.round(((cached.time_played_seconds || 0) / 3600) * 10) / 10) : flightHours,
             recent_games: totalGames,
             timeframe_days: startDate ? 365 : null,
+            mode_filter: matchMode || null,
             weapons: weaponList,
             weapon_summary: {
                 primaryDamage: Math.round(primaryDamage),
@@ -842,6 +891,14 @@ function getPilotTelemetry(name, startDate) {
                 primaryPct: Math.round((primaryDamage / combinedDmg) * 1000) / 10,
                 secondaryPct: Math.round((secondaryDamage / combinedDmg) * 1000) / 10,
                 totalDamage: Math.round(totalDamageDealt)
+            },
+            damage_taken_weapons: weaponTakenList,
+            damage_taken_summary: {
+                primaryDamage: Math.round(primaryDamageTaken),
+                secondaryDamage: Math.round(secondaryDamageTaken),
+                primaryPct: Math.round((primaryDamageTaken / combinedDmgTaken) * 1000) / 10,
+                secondaryPct: Math.round((secondaryDamageTaken / combinedDmgTaken) * 1000) / 10,
+                totalDamage: Math.round(totalDamageTaken)
             }
         };
     } catch (err) {
@@ -851,21 +908,20 @@ function getPilotTelemetry(name, startDate) {
 }
 
 const getPilotDetailedStats = {
-    get: ({ name, startDate }) => getPilotTelemetry(name, startDate)
+    get: ({ name, startDate, mode }) => getPilotTelemetry(name, startDate, mode)
 };
 
 const getGamesByPilot = hotDb.prepare(`
     SELECT details 
     FROM (
-        SELECT details, date FROM games
+        SELECT details, date FROM games WHERE (@startDate IS NULL OR date >= @startDate) AND details LIKE ('%' || @name || '%')
         UNION ALL
-        SELECT details, date FROM cold.games
+        SELECT details, date FROM cold.games WHERE (@startDate IS NULL OR date >= @startDate) AND details LIKE ('%' || @name || '%')
     )
     WHERE EXISTS (
         SELECT 1 FROM json_each(details, '$.players') 
         WHERE json_extract(value, '$.name') = @name COLLATE NOCASE
     )
-    AND (@startDate IS NULL OR date >= @startDate)
     ORDER BY date DESC
     LIMIT @limit OFFSET @offset
 `);
@@ -873,15 +929,14 @@ const getGamesByPilot = hotDb.prepare(`
 const countGamesByPilot = hotDb.prepare(`
     SELECT COUNT(*) as count
     FROM (
-        SELECT details, date FROM games
+        SELECT details, date FROM games WHERE (@startDate IS NULL OR date >= @startDate) AND details LIKE ('%' || @name || '%')
         UNION ALL
-        SELECT details, date FROM cold.games
+        SELECT details, date FROM cold.games WHERE (@startDate IS NULL OR date >= @startDate) AND details LIKE ('%' || @name || '%')
     )
     WHERE EXISTS (
         SELECT 1 FROM json_each(details, '$.players') 
         WHERE json_extract(value, '$.name') = @name COLLATE NOCASE
     )
-    AND (@startDate IS NULL OR date >= @startDate)
 `);
 
 // Server Health Queries
@@ -930,7 +985,9 @@ const getPilotStatsAllTime = () => {
                 c.dpm,
                 c.kpm,
                 c.aci,
-                c.last_updated as lastSeen
+                COALESCE(c.suicides, 0) as suicides,
+                c.last_updated as lastSeen,
+                c.last_updated as last_updated
             FROM pilot_stats_cache c
             ORDER BY c.games DESC
         `);
@@ -947,7 +1004,9 @@ const getPilotStatsAllTime = () => {
             COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
             COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
             COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
-            MAX(date) as lastSeen
+            0 as suicides,
+            MAX(date) as lastSeen,
+            MAX(date) as last_updated
         FROM (
             SELECT details, date FROM games
             UNION ALL
@@ -1869,6 +1928,7 @@ VALUES(@id, @date, @ip, @details)
         kills INTEGER,
         deaths INTEGER,
         assists INTEGER,
+        suicides INTEGER DEFAULT 0,
         games INTEGER,
         time_played_seconds INTEGER,
         kd REAL,
@@ -1897,6 +1957,7 @@ VALUES(@id, @date, @ip, @details)
       'kd REAL',
       'kda REAL',
       'aci REAL',
+      'suicides INTEGER DEFAULT 0',
       'wins INTEGER DEFAULT 0',
       'losses INTEGER DEFAULT 0',
       'ties INTEGER DEFAULT 0',
@@ -1950,6 +2011,9 @@ VALUES(@id, @date, @ip, @details)
         if (!durationSec && g.settings?.timeLimit) durationSec = g.settings.timeLimit;
         if (!durationSec) durationSec = 900;
 
+        // Ranked filter: exclude <2 players and <60s games
+        if (players.length < 2 || durationSec < 60) continue;
+
         // Outcome
         const mode = (g.settings?.matchMode || '').toUpperCase();
         const isTeam = mode.includes('TEAM') || mode === 'CTF';
@@ -1984,6 +2048,7 @@ VALUES(@id, @date, @ip, @details)
               kills: 0,
               deaths: 0,
               assists: 0,
+              suicides: 0,
               wins: 0,
               losses: 0,
               ties: 0,
@@ -2021,6 +2086,26 @@ VALUES(@id, @date, @ip, @details)
           }
         }
 
+        // Suicides from g.kills
+        if (Array.isArray(g.kills)) {
+          for (let j = 0; j < g.kills.length; j++) {
+            const k = g.kills[j];
+            if (!k || !k.attacker || !k.defender) continue;
+            if (k.attacker.trim().toLowerCase() === k.defender.trim().toLowerCase()) {
+              const victim = k.defender.trim().toLowerCase();
+              for (const p of players) {
+                if (p?.name && p.name.trim().toLowerCase() === victim) {
+                  const targetName = p.name.trim();
+                  if (pilotMap[targetName]) {
+                    pilotMap[targetName].suicides = (pilotMap[targetName].suicides || 0) + 1;
+                  }
+                  break;
+                }
+              }
+            }
+          }
+        }
+
         // Threat & Dominance Graph
         if (players.length === 2) {
           const [p1, p2] = players;
@@ -2035,9 +2120,9 @@ VALUES(@id, @date, @ip, @details)
             killGraph[n1][n2] = (killGraph[n1][n2] || 0) + Math.max(0, p2.kills || 0);
 
             h2h[n1] = h2h[n1] || {};
-            h2h[n1][n2] = h2h[n1][n2] || { wins: 0, losses: 0 };
+            h2h[n1][n2] = h2h[n1][n2] || { wins: 0, losses: 0, ties: 0 };
             h2h[n2] = h2h[n2] || {};
-            h2h[n2][n1] = h2h[n2][n1] || { wins: 0, losses: 0 };
+            h2h[n2][n1] = h2h[n2][n1] || { wins: 0, losses: 0, ties: 0 };
 
             if ((p1.kills || 0) > (p2.kills || 0)) {
               h2h[n1][n2].wins++;
@@ -2045,6 +2130,9 @@ VALUES(@id, @date, @ip, @details)
             } else if ((p2.kills || 0) > (p1.kills || 0)) {
               h2h[n2][n1].wins++;
               h2h[n1][n2].losses++;
+            } else {
+              h2h[n1][n2].ties = (h2h[n1][n2].ties || 0) + 1;
+              h2h[n2][n1].ties = (h2h[n2][n1].ties || 0) + 1;
             }
           }
         } else if (players.length > 2) {
@@ -2072,9 +2160,10 @@ VALUES(@id, @date, @ip, @details)
               killGraph[vName][kName] = (killGraph[vName][kName] || 0) + killsWeight;
 
               h2h[kName] = h2h[kName] || {};
-              h2h[kName][vName] = h2h[kName][vName] || { wins: 0, losses: 0 };
+              h2h[kName][vName] = h2h[kName][vName] || { wins: 0, losses: 0, ties: 0 };
               if ((killer.kills || 0) > (victim.kills || 0)) h2h[kName][vName].wins++;
               else if ((victim.kills || 0) > (killer.kills || 0)) h2h[kName][vName].losses++;
+              else h2h[kName][vName].ties = (h2h[kName][vName].ties || 0) + 1;
             }
           }
         }
@@ -2092,20 +2181,26 @@ VALUES(@id, @date, @ip, @details)
         }
       }
 
-      // Dominance Index
+      // Dominance Index (opponents with >= 3 shared matches)
       const dominance = {};
       for (const p of pilots) {
-        const opponents = h2h[p] ? Object.keys(h2h[p]) : [];
-        if (opponents.length === 0) {
+        const allOpponents = h2h[p] ? Object.keys(h2h[p]) : [];
+        const qualifiedOpponents = allOpponents.filter(opp => {
+          const rec = h2h[p][opp];
+          const shared = (rec.wins || 0) + (rec.losses || 0) + (rec.ties || 0);
+          return shared >= 3;
+        });
+
+        if (qualifiedOpponents.length === 0) {
           dominance[p] = 50.0;
         } else {
           let wonMatchups = 0;
-          for (const opp of opponents) {
+          for (const opp of qualifiedOpponents) {
             const rec = h2h[p][opp];
             if (rec.wins > rec.losses) wonMatchups++;
             else if (rec.wins === rec.losses) wonMatchups += 0.5;
           }
-          dominance[p] = Math.round((wonMatchups / opponents.length) * 1000) / 10;
+          dominance[p] = Math.round((wonMatchups / qualifiedOpponents.length) * 1000) / 10;
         }
       }
 
@@ -2147,14 +2242,14 @@ VALUES(@id, @date, @ip, @details)
 
       const insertStmt = hotDb.prepare(`
         INSERT OR REPLACE INTO pilot_stats_cache (
-          name, kills, deaths, assists, games, time_played_seconds,
+          name, kills, deaths, assists, suicides, games, time_played_seconds,
           kd, kda, akdr, kpm, tce, aci,
           wins, losses, ties, win_rate,
           total_damage, dpm, flight_hours,
           finisher_rating, arsenal_entropy,
           threat_centrality, dominance_index, last_updated
         ) VALUES (
-          @name, @kills, @deaths, @assists, @games, @time_played_seconds,
+          @name, @kills, @deaths, @assists, @suicides, @games, @time_played_seconds,
           @kd, @kda, @akdr, @kpm, @tce, @aci,
           @wins, @losses, @ties, @win_rate,
           @total_damage, @dpm, @flight_hours,
@@ -2168,6 +2263,7 @@ VALUES(@id, @date, @ip, @details)
         const kills = Math.max(0, p.kills || 0);
         const deaths = p.deaths || 0;
         const assists = p.assists || 0;
+        const suicides = p.suicides || 0;
         const games = p.games || 1;
         const timeSec = p.playtimeSec || 0;
         const flightMinutes = timeSec > 0 ? timeSec / 60 : 0;
@@ -2197,6 +2293,7 @@ VALUES(@id, @date, @ip, @details)
           kills,
           deaths,
           assists,
+          suicides,
           games,
           time_played_seconds: Math.round(timeSec),
           kd,
@@ -2295,17 +2392,76 @@ VALUES(@id, @date, @ip, @details)
           m.assists += (me.assists || 0);
         }
 
+        const mode = (g.settings?.matchMode || '').toUpperCase();
+        const isTeam = mode.includes('TEAM') || mode === 'CTF';
+        let winningTeam = null;
+        if (isTeam) {
+          const blue = g.teamScore?.BLUE || 0;
+          const red = g.teamScore?.RED || 0;
+          if (blue > red) winningTeam = 'BLUE';
+          else if (red > blue) winningTeam = 'RED';
+          else winningTeam = 'TIE';
+        }
+
         for (let j = 0; j < players.length; j++) {
           const other = players[j];
           if (!other?.name || other.name.toLowerCase() === lowerName) continue;
           let r = rivalMap.get(other.name);
           if (!r) {
-            r = { name: other.name, encounters: 0, their_kills: 0, their_deaths: 0 };
+            r = {
+              name: other.name,
+              encounters: 0,
+              your_kills: 0,
+              their_kills: 0,
+              your_wins: 0,
+              their_wins: 0,
+              ties: 0,
+              their_deaths: 0
+            };
             rivalMap.set(other.name, r);
           }
           r.encounters++;
-          r.their_kills += (other.kills || 0);
           r.their_deaths += (other.deaths || 0);
+
+          if (isTeam) {
+            const myTeam = (me.team || '').toUpperCase();
+            const otherTeam = (other.team || '').toUpperCase();
+            if (myTeam && otherTeam && myTeam !== otherTeam) {
+              if (winningTeam === 'TIE') r.ties++;
+              else if (myTeam === winningTeam) r.your_wins++;
+              else if (otherTeam === winningTeam) r.their_wins++;
+            }
+          } else {
+            if ((me.kills || 0) > (other.kills || 0)) r.your_wins++;
+            else if ((other.kills || 0) > (me.kills || 0)) r.their_wins++;
+            else r.ties++;
+          }
+        }
+
+        // Direct kills exchanged between me and rivals
+        if (Array.isArray(g.kills)) {
+          for (const k of g.kills) {
+            if (!k || !k.attacker || !k.defender) continue;
+            const att = k.attacker.trim().toLowerCase();
+            const def = k.defender.trim().toLowerCase();
+            if (att === lowerName && def !== lowerName) {
+              for (const p of players) {
+                if (p?.name && p.name.trim().toLowerCase() === def) {
+                  const r = rivalMap.get(p.name);
+                  if (r) r.your_kills++;
+                  break;
+                }
+              }
+            } else if (def === lowerName && att !== lowerName) {
+              for (const p of players) {
+                if (p?.name && p.name.trim().toLowerCase() === att) {
+                  const r = rivalMap.get(p.name);
+                  if (r) r.their_kills++;
+                  break;
+                }
+              }
+            }
+          }
         }
       }
 
@@ -2319,10 +2475,11 @@ VALUES(@id, @date, @ip, @details)
 
       const rivals = Array.from(rivalMap.values())
         .sort((a, b) => b.encounters - a.encounters)
-        .slice(0, 6)
+        .slice(0, 9)
         .map(r => ({
           ...r,
-          their_kd: r.their_kills / Math.max(1, r.their_deaths)
+          h2h_kd: r.their_kills > 0 ? Math.round((r.your_kills / r.their_kills) * 100) / 100 : r.your_kills,
+          their_kd: r.their_kills > 0 ? Math.round((r.their_kills / Math.max(1, r.your_kills)) * 100) / 100 : 0
         }));
 
       return { mapStats, rivals };

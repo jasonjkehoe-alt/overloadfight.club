@@ -70,7 +70,7 @@ const PilotPerformanceCard = ({ pilotName }: { pilotName: string }) => {
     }, [pilotName]);
 
     if (loading) return <div className="animate-pulse h-32 bg-[#111] rounded border border-gray-800"></div>;
-    if (!stats || !stats.akdr) return null; // No data yet
+    if (!stats || stats.kpm === undefined) return null; // No data yet
 
     return (
         <div className="w-full bg-[#111]/50 backdrop-blur-sm border border-gray-800 rounded-lg p-6 mb-6">
@@ -82,43 +82,36 @@ const PilotPerformanceCard = ({ pilotName }: { pilotName: string }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
-                {/* 1. Adjusted K/D (aKDR) */}
-                <TechStat
-                    label="Adjusted K/D"
-                    value={stats.akdr.toFixed(2)}
-                    tooltip="Standard K/D adjusted to value Assists (0.33 weighting). A more holistic measure of combat contribution."
-                    color="text-[#00ffff]"
-                />
-
-                {/* 2. Combat Impact (ACI) */}
+                {/* 1. Combat Impact (ACI) */}
                 <TechStat
                     label="Combat Impact (ACI)"
                     value={stats.aci !== undefined ? (stats.aci > 0 ? `+${stats.aci.toFixed(2)}` : stats.aci.toFixed(2)) : stats.tce.toFixed(1)}
                     unit="/ match"
                     tooltip="Average Combat Impact (ACI): (Kills + 0.5*Assists - Deaths) / Sorties. Normalizes net combat contribution per match without favoring total games played."
-                    color="text-[#ff00ff]"
+                    color="text-[#00ffff]"
                 />
 
-                {/* 3. Real KPM */}
+                {/* 2. Real KPM */}
                 <TechStat
                     label="Lethality"
                     value={stats.kpm.toFixed(2)}
                     unit="KPM"
-                    tooltip="Kills Per Minute calculated from actual elapsed combat flight time."
+                    tooltip="Per-minute rates use total match duration, not your individual time in-game."
+                    color="text-white"
                 />
 
-                {/* 4. Dominance Index */}
+                {/* 3. Dominance Index */}
                 <TechStat
                     label="Dominance Index"
                     value={stats.dominance_index.toFixed(1)}
                     unit="%"
-                    tooltip="The percentage of unique enemy pilots you have a winning record against. Hunting new targets raises this score; farming the same rookie does not."
+                    tooltip="The percentage of unique enemy pilots you have a winning record against (min 3 shared matches). Ties count as 0.5."
                     color="text-[#ffea00]"
                 />
 
-                {/* 5. Threat Centrality */}
+                {/* 4. Threat Centrality */}
                 <TechStat
                     label="Threat Tier"
                     value={stats.threat_centrality.toFixed(0)}
@@ -127,12 +120,13 @@ const PilotPerformanceCard = ({ pilotName }: { pilotName: string }) => {
                     color="text-[#ff4500]"
                 />
 
-                {/* 6. Finisher Rating */}
+                {/* 5. Finisher Rating */}
                 <TechStat
                     label="Finisher Rate"
                     value={(stats.finisher_rating * 100).toFixed(0)}
                     unit="%"
                     tooltip="Ratio of Kills to Total Participations (Kills + Assists). High rating means you secure the kill; low means you soften targets for others."
+                    color="text-emerald-400"
                 />
 
             </div>

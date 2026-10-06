@@ -42,7 +42,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
             }
 
             const dpm = durationMinutes > 0 ? totalDamage / durationMinutes : 0;
-            const kda = (p.kills + p.assists) / Math.max(1, p.deaths);
+            const kda = (p.kills + p.assists * 0.5) / Math.max(1, p.deaths);
 
             return {
                 ...p,
@@ -180,7 +180,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                                         <th className="p-4 text-right">Deaths</th>
                                         <th className="p-4 text-right">Damage</th>
                                         <th className="p-4 text-right">DPM</th>
-                                        <th className="p-4 text-right">KDA Ratio</th>
+                                        <th className="p-4 text-right cursor-help" title="Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths">KDA Ratio</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-800">

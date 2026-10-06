@@ -746,6 +746,7 @@ router.post('/analyze-match', async (req, res) => {
 router.get('/pilot/:name/stats', async (req, res) => {
     try {
         const name = req.params.name;
+        const mode = req.query.mode || null;
         let startDate = req.query.startDate || null;
         if (startDate === 'all') startDate = null;
 
@@ -757,24 +758,25 @@ router.get('/pilot/:name/stats', async (req, res) => {
             startDate = oneYearAgo.toISOString();
         }
 
-        const cacheKey = `pilot_telemetry_${name.toLowerCase()}_${isDefault365 ? '365d' : (startDate ? startDate.slice(0, 10) : 'all')}`;
+        const cacheKey = `pilot_telemetry_${name.toLowerCase()}_${isDefault365 ? '365d' : (startDate ? startDate.slice(0, 10) : 'all')}_${mode ? mode.toLowerCase() : 'all'}`;
         const cached = await cacheService.get(cacheKey);
         if (cached) return res.json(cached);
 
-        let stats = db.getPilotDetailedStats.get({ name, startDate });
+        let stats = db.getPilotDetailedStats.get({ name, startDate, mode });
 
         // If pilot has no games in the 365d window, fallback to all-time record
         if ((!stats || !stats.games) && startDate) {
-            stats = db.getPilotDetailedStats.get({ name, startDate: null });
+            stats = db.getPilotDetailedStats.get({ name, startDate: null, mode });
         }
 
         if (stats) {
-            if (req.query.timeframe === 'all' || !startDate) {
+            if ((req.query.timeframe === 'all' || !startDate) && (!mode || mode.toLowerCase() === 'all')) {
                 if (stats.career_games) {
                     stats.games = stats.career_games;
                     stats.kills = stats.career_kills ?? stats.kills;
                     stats.deaths = stats.career_deaths ?? stats.deaths;
                     stats.assists = stats.career_assists ?? stats.assists;
+                    stats.suicides = stats.career_suicides ?? stats.suicides;
                     stats.wins = stats.career_wins ?? stats.wins;
                     stats.losses = stats.career_losses ?? stats.losses;
                     stats.ties = stats.career_ties ?? stats.ties;
@@ -859,6 +861,7 @@ router.get('/pilot/:name/games', async (req, res) => {
     try {
         const name = req.params.name;
         const page = parseInt(req.query.page) || 1;
+        const mode = req.query.mode || null;
         const limit = 25;
         const offset = (page - 1) * limit;
 
@@ -872,13 +875,25 @@ router.get('/pilot/:name/games', async (req, res) => {
             filterDate = oneYearAgo.toISOString();
         }
 
+        const isModeFiltered = Boolean(mode && mode.toLowerCase() !== 'all');
+        const fetchLimit = isModeFiltered ? 200 : limit;
+        const fetchOffset = isModeFiltered ? 0 : offset;
+
         let countResult = db.countGamesByPilot.get({ name, startDate: filterDate });
-        let games = db.getGamesByPilot.all({ name, startDate: filterDate, limit, offset }).map(row => JSON.parse(row.details));
+        let games = db.getGamesByPilot.all({ name, startDate: filterDate, limit: fetchLimit, offset: fetchOffset }).map(row => JSON.parse(row.details));
 
         // If 0 games in 365d window, fallback to all-time match history
         if ((!games || games.length === 0) && filterDate) {
             countResult = db.countGamesByPilot.get({ name, startDate: null });
-            games = db.getGamesByPilot.all({ name, startDate: null, limit, offset }).map(row => JSON.parse(row.details));
+            games = db.getGamesByPilot.all({ name, startDate: null, limit: fetchLimit, offset: fetchOffset }).map(row => JSON.parse(row.details));
+        }
+
+        if (isModeFiltered) {
+            const normMode = mode.toUpperCase().replace(/[\s_]+/g, '');
+            games = games.filter(g => (g.settings?.matchMode || '').toUpperCase().replace(/[\s_]+/g, '') === normMode);
+            const totalCount = games.length;
+            games = games.slice(offset, offset + limit);
+            countResult = { count: totalCount };
         }
 
         res.json({

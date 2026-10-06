@@ -15,6 +15,7 @@ interface PilotStats {
     kills: number;
     deaths: number;
     assists: number;
+    suicides: number;
     games: number;
     lastSeen: Date;
     kd: number;
@@ -86,6 +87,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                     const formatted = data.map((p: any) => ({
                         ...p,
                         lastSeen: new Date(p.lastSeen || p.last_updated),
+                        suicides: p.suicides || 0,
                         kd: p.kd !== undefined ? p.kd : (p.kills / Math.max(1, p.deaths)),
                         kda: p.kda !== undefined ? p.kda : ((p.kills + p.assists * 0.5) / Math.max(1, p.deaths)),
                         win_rate: p.win_rate !== undefined ? p.win_rate : (p.games > 0 && p.wins !== undefined ? ((p.wins / p.games) * 100) : 0),
@@ -162,6 +164,25 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
 
         return { topGun, mostActive, slayer };
     }, [pilotRoster, minGamesThreshold]);
+
+    // Leaderboard Freshness Indicator
+    const freshnessText = useMemo(() => {
+        if (!pilotRoster || pilotRoster.length === 0) return null;
+        let latestTime = 0;
+        for (const p of pilotRoster) {
+            const t = p.lastSeen instanceof Date ? p.lastSeen.getTime() : new Date(p.lastSeen).getTime();
+            if (t > latestTime) latestTime = t;
+        }
+        if (!latestTime) return null;
+        const diffMs = Date.now() - latestTime;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Updated just now';
+        if (diffMins < 60) return `Updated ${diffMins}m ago`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `Updated ${diffHours}h ago`;
+        const diffDays = Math.floor(diffHours / 24);
+        return `Updated ${diffDays}d ago`;
+    }, [pilotRoster]);
 
     return (
         <div className="animate-fade-in space-y-6">
@@ -315,11 +336,19 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                     <div className="bg-[#111] border border-gray-800 rounded overflow-hidden">
                         <div className="p-4 border-b border-gray-800 bg-[#161616] flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                             <div className="flex flex-wrap items-center gap-3">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-white font-bold text-sm uppercase tracking-wider">Pilot Roster</h3>
-                                    <span className="text-xs text-gray-400 font-mono bg-gray-800/80 px-2 py-0.5 rounded border border-gray-700">
-                                        {searchTerm.trim() ? `${sortedRoster.length} matches` : `${sortedRoster.length} pilots`}
-                                    </span>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-white font-bold text-sm uppercase tracking-wider">Pilot Roster</h3>
+                                        <span className="text-xs text-gray-400 font-mono bg-gray-800/80 px-2 py-0.5 rounded border border-gray-700">
+                                            {searchTerm.trim() ? `${sortedRoster.length} matches` : `${sortedRoster.length} pilots`}
+                                        </span>
+                                    </div>
+                                    {freshnessText && (
+                                        <span className="text-[11px] text-gray-500 font-mono flex items-center gap-1.5 sm:border-l sm:border-gray-800 sm:pl-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            {freshnessText}
+                                        </span>
+                                    )}
                                 </div>
 
                                 {/* Qualification Threshold Pills */}
@@ -418,19 +447,50 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                 <table className="w-full text-left text-sm font-mono">
                                     <thead className="bg-[#1a1a1a] text-gray-500 text-xs uppercase">
                                         <tr>
-                                            <th className="p-3 text-center w-12">#</th>
-                                            <th className="p-3 cursor-pointer hover:text-white" onClick={() => handleSort('name')}>Pilot {sortConfig.key === 'name' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('games')}>Matches {sortConfig.key === 'games' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('win_rate')}>Win Rate {sortConfig.key === 'win_rate' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
+                                            <th className="p-3 text-center w-10">#</th>
+                                            <th className="p-3 cursor-pointer hover:text-white" onClick={() => handleSort('name')}>
+                                                Pilot {sortConfig.key === 'name' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('games')}>
+                                                Matches {sortConfig.key === 'games' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kills')}>
+                                                Frags (K) {sortConfig.key === 'kills' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('deaths')}>
+                                                Deaths (D) {sortConfig.key === 'deaths' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kd')}>
-                                                <span className="inline-flex items-center gap-1 cursor-help group/kda" title="Combat Ratio: KDA is computed as (Kills + 0.5 × Assists) ÷ Deaths. Assists receive a 0.5 weighting to reflect combat contribution without inflating scores. K/D below shows unassisted Kills ÷ Deaths.">
-                                                    <span>Combat Ratio (KDA)</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/kda:text-[#ff6600] inline-block transition-colors" />
+                                                <span className="inline-flex items-center gap-1 cursor-help group/kd" title="Unassisted Kills ÷ Deaths">
+                                                    <span>K/D</span>
+                                                    <Info size={11} className="text-gray-500 group-hover/kd:text-[#ff6600] inline-block transition-colors" />
                                                     {sortConfig.key === 'kd' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
                                                 </span>
                                             </th>
-                                            <th className="p-3 text-right text-gray-600">Breakdown (K / A / D)</th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('lastSeen')}>Last Seen {sortConfig.key === 'lastSeen' && (sortConfig.direction === 'desc' ? '↓' : '↑')}</th>
+                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kda')}>
+                                                <span className="inline-flex items-center gap-1 cursor-help group/kda" title="Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths. Assists receive a 0.5 weighting to reflect combat contribution without inflating scores.">
+                                                    <span>Combat Ratio (KDA)</span>
+                                                    <Info size={11} className="text-gray-500 group-hover/kda:text-[#ff6600] inline-block transition-colors" />
+                                                    {sortConfig.key === 'kda' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                                </span>
+                                            </th>
+                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('win_rate')}>
+                                                <span className="inline-flex items-center gap-1 cursor-help group/win" title="Wins ÷ (Wins + Losses + Ties). Ties count as non-wins. In free-for-all, only 1st place earns a win; all others take a loss (shared top = tie).">
+                                                    <span>Win Rate</span>
+                                                    <Info size={11} className="text-gray-500 group-hover/win:text-[#ff6600] inline-block transition-colors" />
+                                                    {sortConfig.key === 'win_rate' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                                </span>
+                                            </th>
+                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('suicides')}>
+                                                <span className="inline-flex items-center gap-1 cursor-help group/suicide" title="The game subtracts 1 frag per suicide (game rule); tracked separately here.">
+                                                    <span>Suicides</span>
+                                                    <Info size={11} className="text-gray-500 group-hover/suicide:text-[#ff6600] inline-block transition-colors" />
+                                                    {sortConfig.key === 'suicides' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                                </span>
+                                            </th>
+                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('lastSeen')}>
+                                                Last Seen {sortConfig.key === 'lastSeen' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-800">
@@ -447,7 +507,19 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                                         {pilot.name}
                                                     </div>
                                                 </td>
-                                                <td className="p-3 text-right text-gray-400">{pilot.games}</td>
+                                                <td className="p-3 text-right text-gray-400">{pilot.games.toLocaleString()}</td>
+                                                <td className="p-3 text-right font-bold text-gray-200">
+                                                    {Math.max(0, pilot.kills).toLocaleString()}
+                                                </td>
+                                                <td className="p-3 text-right font-mono text-red-400">
+                                                    {pilot.deaths.toLocaleString()}
+                                                </td>
+                                                <td className="p-3 text-right font-mono text-gray-300">
+                                                    {Math.max(0, pilot.kd).toFixed(2)}
+                                                </td>
+                                                <td className="p-3 text-right">
+                                                    <span className="font-bold text-[#ff6600] text-sm">{Math.max(0, pilot.kda).toFixed(2)}</span>
+                                                </td>
                                                 <td className="p-3 text-right">
                                                     <div className="font-bold text-emerald-400 text-sm">
                                                         {pilot.win_rate !== undefined ? `${pilot.win_rate.toFixed(1)}%` : '—'}
@@ -459,13 +531,9 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                                     )}
                                                 </td>
                                                 <td className="p-3 text-right">
-                                                    <div className="font-bold text-[#ff6600] text-base">{Math.max(0, pilot.kda).toFixed(2)} <span className="text-xs text-gray-500 font-normal">KDA</span></div>
-                                                    <div className="text-xs text-gray-400 font-mono">{Math.max(0, pilot.kd).toFixed(2)} K/D</div>
-                                                </td>
-                                                <td className="p-3 text-right">
-                                                    <div className="text-xs text-gray-400">
-                                                        <span className="text-gray-300 font-bold">{Math.max(0, pilot.kills).toLocaleString()}</span> K <span className="text-gray-600">/</span> <span className="text-gray-300">{pilot.assists.toLocaleString()}</span> A <span className="text-gray-600">/</span> <span className="text-red-400">{pilot.deaths.toLocaleString()}</span> D
-                                                    </div>
+                                                    <span className={`font-mono text-xs ${pilot.suicides > 0 ? 'text-amber-400 font-bold' : 'text-gray-600'}`}>
+                                                        {pilot.suicides.toLocaleString()}
+                                                    </span>
                                                 </td>
                                                 <td className="p-3 text-right text-gray-500 text-xs">
                                                     <div className="flex items-center justify-end gap-1">

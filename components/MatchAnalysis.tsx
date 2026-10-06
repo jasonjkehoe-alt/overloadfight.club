@@ -59,10 +59,13 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
 
                 {/* Streak */}
                 {streak && (
-                    <div className="bg-[#1a1a1a] border border-gray-800 p-4 rounded">
-                        <h4 className="text-xs uppercase text-gray-500 font-bold tracking-wider mb-1">Unstoppable</h4>
+                    <div className="bg-[#1a1a1a] border border-gray-800 p-4 rounded cursor-help" title="Best kill streak within a single match; resets on death.">
+                        <h4 className="text-xs uppercase text-gray-500 font-bold tracking-wider mb-1 flex items-center justify-between">
+                            <span>Unstoppable</span>
+                            <span className="text-[10px] text-gray-600 font-normal">STREAK</span>
+                        </h4>
                         <div className="text-xl font-bold text-white">{streak.player}</div>
-                        <div className="text-xs text-gray-400">{streak.count} Kill Streak</div>
+                        <div className="text-xs text-[#ff6600] font-mono">{streak.count} Kill Streak</div>
                     </div>
                 )}
 
