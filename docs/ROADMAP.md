@@ -40,25 +40,33 @@ On resume:
 
 ## Status
 
-S1 is on branch `ofc/s01-secrets-auth`, based on `origin/main` at `10223be`
-plus the docs commit `12be4ea`, 2026-10-06. Not pushed and no PR yet: GitHub
-account `kehoej` has read-only access to the repo (push denied). Waiting on
-collaborator access.
-`main` has not moved since the audits. `overload-site-redesign-13ed9872` still
-holds the docs-only commit; S1's branch carries it too, so later sessions can
-base on S1's branch until it merges, then on `origin/main`.
+S1 is on branch `ofc/s01-secrets-auth`, based on `origin/main` at `5516729`,
+PR __PR__ open and not merged, 2026-10-06. The branch's first commit adds
+`docs/`, so later sessions base on S1's branch until it merges, then on
+`origin/main`.
 
-Counts: 1 of 28 sessions done (code complete, PR not opened). Phase 1: 1/6. Phase 2:
+On 2026-10-06 the repo owner purged the leaked password from history and
+force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
+now `2c4f174`, with identical code apart from the redacted password, so the
+audits' file:line references still hold. `5516729` came after the audits and
+touches only `scripts/` and `.gitignore`. Old clones still hold the
+pre-rewrite history: work from a fresh clone and never push a branch that
+descends from `10223be`. The local docs branch
+`overload-site-redesign-13ed9872` is on the old history; do not use it.
+
+Counts: 1 of 28 sessions done (PR open, not merged). Phase 1: 1/6. Phase 2:
 0/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-06, commit 10223be, plus S1 on `ofc/s01-secrets-auth`)
+## Validated (as of 2026-10-06, audits at 10223be = 2c4f174 after the rewrite, S1 on `ofc/s01-secrets-auth` at 5516729)
 
-- S1, scripts: `grep -rnE "password=['\"]" scripts/` prints nothing and
-  `git grep -n` for the old password prints nothing. Before S1 it was in five
-  tracked scripts, not three: the grep pattern missed `inspect_ds1515b.py` and
-  `update_reverse_proxy.py`, which pass it positionally and target
-  `192.168.0.105`. All five now read `NAS_SSH_PASSWORD` or prompt with
-  `getpass`, and all five pass `python3 -m py_compile`.
+- Scripts: the password was in five tracked scripts, not the three listed
+  here before; the grep pattern missed `inspect_ds1515b.py` and
+  `update_reverse_proxy.py`, which target `192.168.0.105`. The owner's commit
+  `5516729` on `main` fixed all of them plus `docker_build_synology.py`: each
+  reads `NAS_SSH_PASSWORD` and exits if it is unset (no `getpass` prompt).
+  S1 dropped its own script changes in favour of that commit. On `5516729`,
+  `grep -rnE "password=['\"]" scripts/` prints nothing, and `git log -p -S`
+  for the old password over `origin/main` finds nothing.
 - S1, startup: on Node 22.17.0, `NODE_ENV=production npm start` with both
   secrets unset prints `Refusing to start: ADMIN_PASSWORD and SESSION_SECRET
   must be set when NODE_ENV=production. See .env.example.` and exits 1 before
@@ -113,7 +121,9 @@ Counts: 1 of 28 sessions done (code complete, PR not opened). Phase 1: 1/6. Phas
   (per-IP login limit, `Secure` cookie). The existing HTTPS redirect already
   reads `X-Forwarded-Proto`, which suggests it is sent, but nobody checked
   on the NAS.
-- None of the five SSH scripts was run against the NAS after the change.
+- None of the SSH scripts was run against the NAS after `5516729`.
+- Whether GitHub still serves the pre-rewrite commits by SHA. Purged commits
+  can stay reachable by direct SHA until GitHub garbage-collects them.
 - The taunt and pilot-settings pages for a visitor who is not logged in were
   not opened in a browser. `/api/overload/status` now returns 401 for them;
   `OverloadFsContext` reads that as "no server access" and falls back to the
@@ -169,7 +179,7 @@ Counts: 1 of 28 sessions done (code complete, PR not opened). Phase 1: 1/6. Phas
   `.env.example` lists them. Without `NODE_ENV=production` the server falls
   back to `admin123` and a dev session secret with a warning; with it, both
   secrets are required. The SSH scripts in `scripts/` read `NAS_SSH_PASSWORD`
-  or prompt.
+  and exit if it is unset.
 - No ports or databases are shared between worktrees. Pick a port above 3100.
 - Deploy: push to `main` → GitHub Actions builds and pushes the image. The NAS
   pulls it manually (`docker-compose.prod.yml`, see `DEPLOYMENT.md`).
@@ -190,20 +200,23 @@ Counts: 1 of 28 sessions done (code complete, PR not opened). Phase 1: 1/6. Phas
 ## [HUMAN] tasks
 
 - [ ] [HUMAN] Rotate the SSH password for user `jkehoe` on `192.168.0.52` and
-      on `192.168.0.105` (S1 found the same password used for both). The old
-      one is in git history and must be treated as public.
-- [ ] [HUMAN] After S1 merges, scrub history (`git filter-repo` on the five
-      scripts) and force-push, or accept that the rotated password makes
-      history harmless. Decide and record here.
+      on `192.168.0.105` (the same password was used for both). It was public
+      in git history until the purge and must be treated as leaked.
+- [x] [HUMAN] Scrub history. Done by the owner on 2026-10-06: password
+      replaced with `REDACTED` in every commit, `main` force-pushed.
 - [ ] [HUMAN] Before pulling the S1 image on the NAS, put `ADMIN_PASSWORD` and
       `SESSION_SECRET` in a `.env` file next to `docker-compose.prod.yml`
       (see `.env.example`). Compose no longer hard-codes `admin123`, and the
-      server refuses to start in production without both.
+      server refuses to start in production without both. The owner said on
+      2026-10-06 he will create it before merging.
+- [ ] [HUMAN] Delete old local clones and re-clone, as the owner asked. Old
+      clones (including `~/Repositories/claude/overloadfight.club` and the
+      Superset worktrees that share its `.git`) still hold the pre-rewrite
+      history. Pulling into them or pushing a branch from the old history
+      would bring the purged commits back.
 - [ ] [HUMAN] Create a Discord webhook URL for the fight-night channel (needed
       by S18).
-- [ ] [HUMAN] Add GitHub user `kehoej` as a collaborator on
-      `jasonjkehoe-alt/overloadfight.club` so session branches can be pushed
-      and PRs opened. Blocks S1's PR.
+- [x] [HUMAN] Add GitHub user `kehoej` as a collaborator. Done 2026-10-06.
 - [ ] [HUMAN] Merge each PR. Pull the new image on the NAS.
 
 ## Session queue
@@ -212,7 +225,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 
 ### Phase 1: fast and true
 
-- [x] **S1 Secrets and auth hardening** (S). PR not yet opened. Done when: `grep -rnE
+- [x] **S1 Secrets and auth hardening** (S). PR __PR__. Script items done by
+      the owner's `5516729`. Done when: `grep -rnE
       "password=['\"]" scripts/` is empty; the three scripts read credentials
       from env or prompt; `server/auth.js` refuses to start with
       `NODE_ENV=production` unless `ADMIN_PASSWORD` and `SESSION_SECRET` are
@@ -354,9 +368,11 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - 2026-10-06: Keep the JSON-blob `games` table as the source of truth and add
   `game_players` beside it (S5), rather than normalising everything. The cold
   DB is about 2.8 GB; a full rewrite on the NAS is not worth the risk.
-- 2026-10-06 (S1): Fixed the password in all five tracked scripts, not just
-  the three the Done-when names. Leaving it in two files would pass the grep
-  and miss the point.
+- 2026-10-06 (S1): The script half of S1 is the owner's commit `5516729`, not
+  S1's. S1 first fixed the five scripts itself (env or `getpass`), then
+  rebased onto the rewritten `main` and dropped those changes. Env-only with
+  an exit when unset meets "read from env or prompt". `.gitignore` keeps the
+  owner's `.env.*` rule and adds `!.env.example`.
 - 2026-10-06 (S1): Both compose files now pass `ADMIN_PASSWORD` and
   `SESSION_SECRET` through from the host environment. With `admin123` still
   hard-coded there, the startup check could never fire in production.
@@ -424,8 +440,6 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   strip rather than a resolved-prefix check. It is admin-only now.
 - (S1) `/api/ppi` still runs `refreshPilotStats` inline for anyone. S4 owns
   it.
-- (S1) Other scripts in `scripts/` take the SSH password as `sys.argv[1]`
-  (`docker_build_synology.py`), which puts it in shell history.
 
 ## Rollback
 
@@ -435,8 +449,6 @@ table (the JSON blobs remain the source of truth, so no data is lost).
 
 ## Open questions
 
-- Whether to scrub git history after the password rotation. Decided by the
-  user in the [HUMAN] list above.
 - The time zone for fight-night day boundaries (US Central is the likely
   answer given the server names). Decided in S14; ask the user at the start of
   that session.
@@ -491,6 +503,15 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   500) and moving the production check out of `auth.js` (index.js body runs
   after `db.js` has opened the databases). Push denied (`kehoej` has read
   access only), so the branch is local and no PR exists yet.
+- 2026-10-06, S1 resumed (Claude Opus 5.5): push access granted. `git fetch`
+  showed `main` force-pushed: the owner purged the password from history
+  (`10223be` became `2c4f174`, code otherwise identical) and added
+  `5516729`, which fixes the scripts. Rebuilt `ofc/s01-secrets-auth` on
+  `5516729` by cherry-picking the S1 commits, took the owner's scripts and
+  `.gitignore`, and added `!.env.example`. Checked that no commit from the old
+  history is an ancestor and that none of the 46 objects pushed contains the
+  password. Re-ran vitest and the production start checks on the new base.
+  PR __PR__, not merged.
 
 ## Next session prompt
 
@@ -501,6 +522,8 @@ Continue the overloadfight.club roadmap. This session is S2: stat correctness.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
+
+The owner rewrote history on 2026-10-06 to purge a leaked password. Work only from a clone made after that date. Before any push, check that `git merge-base --is-ancestor 10223be HEAD` fails (10223be is the pre-rewrite base); if it succeeds, stop and tell me.
 
 Set up:
   git fetch origin
@@ -515,7 +538,7 @@ If neither origin/main nor origin/ofc/s01-secrets-auth has docs/ROADMAP.md, stop
 
 Read first:
 - docs/ROADMAP.md, the S2 entry and its Done-when list. That list is the scope.
-- docs/audit/data.md, "Correctness bugs" items 1, 3, 4, 6, 7 and 8, for the file:line evidence (refs are as of 10223be; re-find them with grep -n).
+- docs/audit/data.md, "Correctness bugs" items 1, 3, 4, 6, 7 and 8, for the file:line evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; re-find them with grep -n).
 - server/db.js around the cited lines, server/services/fightNightService.js, and the K/D tooltip in components/PilotsList.tsx (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
 - types.ts and the fixture files gamelist_sample.json and game_detail_sample.json at the repo root.
 
