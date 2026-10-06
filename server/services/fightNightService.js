@@ -71,6 +71,9 @@ export async function generateRecapForDate(targetDate, force = false) {
     const qualifies = matchCount >= FIGHT_NIGHT_THRESHOLDS.minMatches &&
         (uniquePilotCount >= FIGHT_NIGHT_THRESHOLDS.minPilots || totalFrags >= FIGHT_NIGHT_THRESHOLDS.minFrags);
 
+    // Standard verification log line
+    console.log(`fight-night check: ${matchCount} matches, ${uniquePilotCount} pilots — big night: ${qualifies ? 'yes' : 'no'}`);
+
     if (!qualifies && !force) {
         return null;
     }
@@ -418,11 +421,45 @@ export async function checkAndGenerateRecentFightNight() {
             const dt = new Date(now.getTime() - daysAgo * 86400000);
             const dateStr = dt.toISOString().substring(0, 10);
 
-            // Skip if recap already exists
-            const existing = db.getFightNightRecapByDate ? db.getFightNightRecapByDate(dateStr) : null;
-            if (existing) continue;
+            // Fetch games for target date
+            const rawGames = db.getGamesForDate ? db.getGamesForDate(dateStr) : [];
+            const matches = [];
+            const pilotSet = new Set();
+            let totalFrags = 0;
 
-            await generateRecapForDate(dateStr);
+            for (const r of rawGames) {
+                let d = r.details;
+                if (typeof d === 'string') {
+                    try { d = JSON.parse(d); } catch (e) { d = {}; }
+                }
+                matches.push({ id: r.id, date: r.date, ...d });
+
+                if (Array.isArray(d?.players)) {
+                    for (const p of d.players) {
+                        if (!p?.name) continue;
+                        pilotSet.add(p.name.trim());
+                        totalFrags += (Number(p.kills) || 0);
+                    }
+                }
+            }
+
+            const matchCount = matches.length;
+            const uniquePilotCount = pilotSet.size;
+
+            const qualifies = matchCount >= FIGHT_NIGHT_THRESHOLDS.minMatches &&
+                (uniquePilotCount >= FIGHT_NIGHT_THRESHOLDS.minPilots || totalFrags >= FIGHT_NIGHT_THRESHOLDS.minFrags);
+
+            // Required verification log line: "fight-night check: X matches, Y pilots — big night: yes/no"
+            console.log(`fight-night check: ${matchCount} matches, ${uniquePilotCount} pilots — big night: ${qualifies ? 'yes' : 'no'}`);
+
+            if (qualifies) {
+                const existing = db.getFightNightRecapByDate ? db.getFightNightRecapByDate(dateStr) : null;
+                if (!existing) {
+                    await generateRecapForDate(dateStr);
+                } else {
+                    console.log(`[FightNight] Recap already recorded for ${dateStr}.`);
+                }
+            }
         }
     } catch (err) {
         console.error('[FightNight] Error in big night detector:', err.message);

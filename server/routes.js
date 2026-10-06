@@ -957,4 +957,15 @@ router.get('/fight-nights/:date', async (req, res) => {
     }
 });
 
+// POST /api/fight-nights/check - Trigger big night detector check manually
+router.post('/fight-nights/check', async (req, res) => {
+    try {
+        await fightNightService.checkAndGenerateRecentFightNight();
+        res.json({ success: true, message: 'Fight night detector check executed' });
+    } catch (error) {
+        console.error('Error running fight night check:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 export default router;

@@ -63,6 +63,7 @@ if (Test-Path "src") { Copy-Item -Path "src\*" -Destination (Join-Path $TargetRo
 if (Test-Path "context") { Copy-Item -Path "context\*" -Destination (Join-Path $TargetRoot "context") -Recurse -Force }
 if (Test-Path "utils") { Copy-Item -Path "utils\*" -Destination (Join-Path $TargetRoot "utils") -Recurse -Force }
 if (Test-Path "services") { Copy-Item -Path "services\*" -Destination (Join-Path $TargetRoot "services") -Recurse -Force }
+if (Test-Path "scripts") { Copy-Item -Path "scripts\*" -Destination (Join-Path $TargetRoot "scripts") -Recurse -Force }
 Copy-Item -Path "public\*" -Destination (Join-Path $TargetRoot "public") -Recurse -Force
 if (Test-Path "App.tsx") { Copy-Item -Path "App.tsx" -Destination $TargetRoot -Force }
 if (Test-Path "index.tsx") { Copy-Item -Path "index.tsx" -Destination $TargetRoot -Force }

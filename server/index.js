@@ -130,6 +130,45 @@ app.get('/favicon.svg', (req, res) => {
     res.status(404).end();
 });
 
+// Never cache version manifest; fallback to public/version.json if dist is missing or has unknown
+app.get('/version.json', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Content-Type', 'application/json');
+
+    const distVersion = path.join(distPath, 'version.json');
+    const publicVersion = path.join(process.cwd(), 'public', 'version.json');
+
+    let versionData = null;
+    if (fs.existsSync(distVersion)) {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(distVersion, 'utf8'));
+            if (parsed && parsed.hash && parsed.hash !== 'unknown') {
+                versionData = parsed;
+            }
+        } catch (e) {}
+    }
+    if (!versionData && fs.existsSync(publicVersion)) {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(publicVersion, 'utf8'));
+            if (parsed && parsed.hash && parsed.hash !== 'unknown') {
+                versionData = parsed;
+            }
+        } catch (e) {}
+    }
+
+    if (versionData) {
+        return res.json(versionData);
+    }
+    if (fs.existsSync(distVersion)) {
+        return res.sendFile(distVersion);
+    } else if (fs.existsSync(publicVersion)) {
+        return res.sendFile(publicVersion);
+    }
+    return res.json({ hash: 'unknown', date: 'unknown', buildTime: new Date().toISOString() });
+});
+
 if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) {
     app.use(express.static(distPath, {
         maxAge: '1y',

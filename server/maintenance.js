@@ -1,7 +1,7 @@
 import db from './db.js';
 import fightNightService from './services/fightNightService.js';
 
-function runDailyMaintenance() {
+async function runDailyMaintenance() {
     console.log('[Maintenance] Starting daily maintenance...');
     try {
         const movedCount = db.moveGamesToColdStorage();
@@ -12,9 +12,7 @@ function runDailyMaintenance() {
         }
 
         // Run Fight Night Recap Big Night Detector
-        fightNightService.checkAndGenerateRecentFightNight().catch(err => {
-            console.error('[Maintenance] Fight night check error:', err);
-        });
+        await fightNightService.checkAndGenerateRecentFightNight();
     } catch (error) {
         console.error('[Maintenance] Error running maintenance:', error);
     }
@@ -31,12 +29,12 @@ function refreshPilotStats() {
 }
 
 function scheduleMaintenance() {
-    // Only run on startup if cache is missing/empty, preventing 5-minute event loop lock on boot
-    setTimeout(() => {
+    // 1. Initial startup checks (after 10s grace period)
+    setTimeout(async () => {
         try {
             if (db.hasPilotStatsCache && !db.hasPilotStatsCache()) {
                 console.log('[Maintenance] Cache empty on startup, initializing...');
-                runDailyMaintenance();
+                await runDailyMaintenance();
                 refreshPilotStats();
             } else {
                 console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');
@@ -46,15 +44,32 @@ function scheduleMaintenance() {
         }
 
         // Initialize Fight Nights (generates recaps if empty, checks recent days)
-        fightNightService.initializeFightNights().catch(err => {
+        try {
+            await fightNightService.initializeFightNights();
+        } catch (err) {
             console.error('[Maintenance] Initial fight night check error:', err);
-        });
+        }
     }, 10000);
 
-    // Schedule Cold Storage and Fight Night checks every 24 hours (86400000 ms)
-    setInterval(runDailyMaintenance, 86400000);
+    // 2. Schedule Nightly Maintenance: runs daily at 03:00 AM Central
+    const scheduleNextNightly = () => {
+        const now = new Date();
+        const nextNight = new Date(now);
+        nextNight.setHours(3, 0, 0, 0);
+        if (nextNight <= now) {
+            nextNight.setDate(nextNight.getDate() + 1);
+        }
+        const msUntilNext = nextNight.getTime() - now.getTime();
+        console.log(`[Maintenance] Nightly maintenance scheduled for ${nextNight.toISOString()} (in ${Math.round(msUntilNext / 60000)}m).`);
 
-    // Schedule Pilot Stats Cache Refresh every 6 hours (21600000 ms)
+        setTimeout(async () => {
+            await runDailyMaintenance();
+            scheduleNextNightly();
+        }, msUntilNext);
+    };
+    scheduleNextNightly();
+
+    // 3. Schedule Pilot Stats Cache Refresh every 6 hours (21600000 ms)
     setInterval(refreshPilotStats, 21600000);
 }
 
