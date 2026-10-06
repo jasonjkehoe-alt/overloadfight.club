@@ -45,6 +45,11 @@ PR #1 open and not merged, 2026-10-06. The branch's first commit adds
 `docs/`, so later sessions base on S1's branch until it merges, then on
 `origin/main`.
 
+S2 is on branch `ofc/s02-stat-correctness`, based on S1's branch at
+`ea4eace` because PR #1 was still open, PR #2 open and not merged, 2026-10-06. It holds
+S1's commits too, so its PR diff against `main` shows both until PR #1
+merges.
+
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
 now `2c4f174`, with identical code apart from the redacted password, so the
@@ -54,10 +59,38 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 1 of 28 sessions done (PR open, not merged). Phase 1: 1/6. Phase 2:
+Counts: 2 of 28 sessions done (PRs open, not merged). Phase 1: 2/6. Phase 2:
 0/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-06, audits at 10223be = 2c4f174 after the rewrite, S1 on `ofc/s01-secrets-auth` at 5516729)
+## Validated (as of 2026-10-06, audits at 10223be = 2c4f174 after the rewrite, S1 on `ofc/s01-secrets-auth` at 5516729, S2 on `ofc/s02-stat-correctness`)
+
+- S2, before the fix: `server/db.test.js` (built from the two sample files)
+  run against the unchanged `db.js` failed 10 of 14 tests. MAESTRO's
+  flipped ORANGE win and 10-10 tie came out as 0 wins, 0 ties. ZERGLING's
+  FFA game was timed at 900 s (`timeLimit`) instead of 911 s. "JFTP" and
+  "jftp" got two cache rows. `getPilotStats` reported 0 suicides. The
+  longest match was 72084 (by its 1200 s limit, though it ran 702 s).
+  `isPilotFirstSeenOnDate` called SOUP new although a 2019 game sits in
+  cold storage, and called `J_TP` new through the `_` wildcard. The
+  fight-night recap counted 16 pilots instead of 15.
+- S2, after: `npx vitest run` passes 3 files, 38 tests, on Node 22.17.0.
+  They include an ORANGE win, a tie (team 10-10 and the 2019 Monsterball
+  1-1), an FFA win, more than two teams, a duration from `date -
+  settings.start` (910.849 s for 72108), suicides from a kill log, merged
+  spellings, cold-storage first-seen, a literal `_`, and a 1v1 Monsterball
+  whose winner had fewer kills.
+- S2: `getMarathonMaps` on 25 fixture games put on one map returned
+  565.762 s, the mean of `durationOf`. The old SQL gives 0 for live-era
+  games, which carry no top-level `start`.
+- S2: `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets,
+  fresh data dir) still serves `/api/stats/global` (`total_games: 25` after
+  the startup sync). `/api/stats/pilots`, `?source=all`, `/api/stats/maps`,
+  `/api/pilot/:name/stats` and `/breakdown` return JSON, and the log shows
+  `[PPI] Successfully refreshed 23 pilots` with no new errors.
+- S2, cost of the new suicide count in `getPilotStats` (synthetic in-memory
+  DB, 20k games with 120-entry kill logs): old query 0.37 s, a per-player
+  subquery 16.1 s (rejected), the grouped pass that shipped 2.9 s. The JS
+  functions `net_kills` and `pilot_key` add about 2% on their own.
 
 - Scripts: the password was in five tracked scripts, not the three listed
   here before; the grep pattern missed `inspect_ds1515b.py` and
@@ -107,10 +140,16 @@ Counts: 1 of 28 sessions done (PR open, not merged). Phase 1: 1/6. Phase 2:
 
 ## NOT validated, do not claim these work
 
-- Every data-math claim in `docs/audit/data.md` (BLUE/ORANGE scoring, guessed
-  durations, no-op hydration, overwrite of hydrated games) was read from code.
-  No database exists in the worktree, so none was reproduced against real
-  rows. Reproduce with a fixture before and after fixing.
+- S2's fixes were proven on fixture games only. No production database
+  exists locally, so nobody has compared old and new pilot numbers on real
+  rows, or timed `refreshPilotStats` and the `getPilotStats` suicide pass
+  against the 2.8 GB cold DB on the NAS.
+- Whether any stored game has a team named other than BLUE or ORANGE, more
+  than two teams, or a team game without `teamScore`. `winnerOf` handles
+  all three; none appears in the samples.
+- The hydration and overwrite claims in `docs/audit/data.md` were read from
+  code, not reproduced. S3 owns them.
+- The PilotsList K/D tooltip text was not looked at in a browser.
 - The calendar iframe being blocked was inferred from headers plus a curl of
   the Google embed's resource policy, not observed in a browser.
 - Mobile overflow at 375 px and nav crowding between 768 and 1,150 px were
@@ -189,12 +228,12 @@ Counts: 1 of 28 sessions done (PR open, not merged). Phase 1: 1/6. Phase 2:
 | Command | Expected | Last result | Date |
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
-| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | 443 packages, compiles on 22.17.0 | 2026-10-06 |
-| `npx vitest run` | all pass | 1 file, 3 tests pass | 2026-10-06 |
+| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S2) | 2026-10-06 |
+| `npx vitest run` | all pass | 3 files, 38 tests pass (S2) | 2026-10-06 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | one chunk, 351.00 KB gzip | 2026-10-06 |
 | `npx tsc --noEmit` | 0 errors (meaningful only after S6 installs React types) | 0 errors, JSX untyped | 2026-10-06 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25` (with both secrets, `NODE_ENV=production`) | 2026-10-06 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets (S2) | 2026-10-06 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -237,7 +276,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       (`server/services/overloadBridge.js`); login has a rate limit; session
       cookie is `secure` behind HTTPS. A test runner (vitest) is added with one
       test for the path validator.
-- [ ] **S2 Stat correctness** (M). Done when: a shared `server/lib/gameParse.js`
+- [x] **S2 Stat correctness** (M). PR #2. Done when: a shared `server/lib/gameParse.js`
       exposes `teamOf`, `winnerOf` (BLUE/ORANGE aware, handles `teamCount`),
       `durationOf` (uses `date − settings.start` when `start`/`end` are
       absent), `netKills` (one clamping rule), `pilotKey` (case-insensitive,
@@ -395,6 +434,34 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - 2026-10-06 (S1): The pilot-name check lives in each `overloadBridge.js`
   function that builds a path, and returns that function's existing failure
   shape (null, `{ error }` or `{ success: false }`), so routes did not change.
+- 2026-10-06 (S2): `gameParse.js` exports two helpers beyond the five named
+  in the Done-when list. `outcomeOf` gives one player's win, loss or tie and
+  `pairOutcome` compares two players, so no caller re-derives a result from
+  `winnerOf`. `pilotLikePattern` is separate from `pilotKey`: the key is
+  lowercased for JS maps, while the LIKE pattern keeps the JSON-quoted name
+  because SQLite's LIKE folds ASCII case itself and the quotes stop `.`
+  from matching every row.
+- 2026-10-06 (S2): A game counts as a team game when `teamScore` has keys
+  or any player has a team. `settings.teamCount` is not used: the FFA
+  samples say `teamCount: 2`. This moves Monsterball and CTF results from
+  kill counts to the team score. A team game with no `teamScore` has no
+  result: it counts in games but not in wins, losses or ties.
+- 2026-10-06 (S2): FFA placement uses the raw in-game score (`kills`), so
+  -1 still ranks below 0. `netKills` (floored at 0 per game) is for totals.
+- 2026-10-06 (S2): `durationOf` returns 0 when nothing gives a length. The
+  ranked filter drops those games, as it drops games under 60 s, rather
+  than counting them at the old 900 s guess or at 0 s (which would inflate
+  KPM and DPM). In SQL, `duration_of` returns NULL so `AVG` skips them.
+- 2026-10-06 (S2): SQL reaches the same rules through `net_kills`,
+  `pilot_key` and `duration_of`, registered with `hotDb.function`. The
+  three copies of the per-pilot totals query are now one `pilotTotalsSql`.
+- 2026-10-06 (S2): `refreshPilotStats` deletes and rewrites
+  `pilot_stats_cache` in one transaction, so spellings merged under one
+  key leave a single row. The row keeps the most recent spelling.
+- 2026-10-06 (S2): `isPilotFirstSeenOnDate` trusts a cached first sighting
+  only when it is before the date asked about. Anything else is rechecked
+  against hot and cold storage, which repairs rows cached by the old
+  hot-only query without a migration.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -440,6 +507,33 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   strip rather than a resolved-prefix check. It is admin-only now.
 - (S1) `/api/ppi` still runs `refreshPilotStats` inline for anyone. S4 owns
   it.
+
+- (S2) The `getPilotStats` suicide pass walks every kill log (2.9 s per 20k
+  logged games against 0.37 s before, synthetic). No client page calls that
+  path; `source=all` uses it only until `pilot_stats_cache` exists. S5's
+  `game_players` table or worker is the place to fix it.
+- (S2) `isPilotFirstSeenOnDate` scans hot and cold storage for every pilot
+  who looks new, on every recap regeneration.
+- (S2) The LIKE prefilter in `getPilotTelemetry`, `getPilotBreakdown` and
+  `isPilotFirstSeenOnDate` misses names stored with surrounding spaces or
+  differing only in non-ASCII case, which `pilotKey` would group.
+  `getGamesByPilot` and `countGamesByPilot` still use an unescaped LIKE
+  with a NOCASE check. Cache lookups use `name = ? COLLATE NOCASE`.
+- (S2) Fight-night Biggest Upset still treats the top fragger as the match
+  winner, so in team games it can name a pilot whose team lost (audit item
+  10). The kill-streak watch counts a suicide as a streak kill.
+- (S2) Multi-player head-to-head in `refreshPilotStats` compares raw kills
+  between every pair, teammates included (audit item 15). Only the 1v1
+  case uses `pairOutcome`.
+- (S2) The ranked filter (2+ players, 60 s+) applies to the cache and
+  telemetry but not to `getPilotStats`, so game counts differ by endpoint.
+- (S2) K/D with zero deaths still equals kills (audit item 5); the tooltip
+  now says so.
+- (S2) `GameDetail.tsx` and `MatchAnalysis.tsx` still compute match length
+  from `start`/`end` or `timeLimit` on the client (`GameDetail` uses
+  `(timeLimit || 20) / 60`). S7 shows real duration on the match page.
+- (S2) Pilot pages still mix hot and cold games: telemetry and breakdown
+  read cold storage only when hot has fewer than 5 matches (audit item 8).
 
 ## Rollback
 
@@ -513,12 +607,34 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   password. Re-ran vitest and the production start checks on the new base.
   PR #1, not merged.
 
+- 2026-10-06, S2 (Claude Opus 5.5): `server/lib/gameParse.js` and every
+  aggregation in `db.js` and `fightNightService.js` moved onto it. Status
+  line checked first: PR #1 open, `origin/main` at `5516729` without
+  `docs/`, so S2 stacks on `origin/ofc/s01-secrets-auth` (`ea4eace`);
+  `10223be` is not an object in this clone. First move: `npx vitest run`
+  through npx before `npm ci` failed to load rolldown; after `npm ci`,
+  1 file, 3 tests pass. `grep teamScore` found `.RED` at `db.js` 712, 2047
+  and 2422 and `RED ?? ORANGE` in `fightNightService.js:212`, as the
+  audit said. The fixtures have no ORANGE win, so the tests flip 72102's
+  score. Wrote the DB test first and ran it on the old code (10 of 14
+  fail). The first suicide query was 44x slower than the old one on
+  synthetic data and was replaced by a grouped pass. /code-review found 10
+  issues: fixed unknown durations inflating KPM, `AVG` counting unknown
+  durations as 0, 1v1 head-to-head ignoring the team score, merged-pilot
+  spelling, and blank names counted as pilots; flagged the scan costs, the
+  LIKE prefilter gaps and Biggest Upset; one (win rate) was wrong because
+  no-result and tie both count as non-wins. /simplify added
+  `pairOutcome`, one outcome counter map, keys computed once per game, and
+  stopped memoizing the all-time fallback; skipped rewriting
+  `duration_of` to read a field list (it would copy `durationOf`'s rules
+  into SQL). PR #2 opened against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S2: stat correctness.
+Continue the overloadfight.club roadmap. This session is S3: data retention.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -527,41 +643,41 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  If the S1 PR (branch ofc/s01-secrets-auth) is merged:
-    git checkout -B ofc/s02-stat-correctness origin/main
+  If the S2 PR (branch ofc/s02-stat-correctness) is merged:
+    git checkout -B ofc/s03-data-retention origin/main
   If it is still open:
-    git checkout -B ofc/s02-stat-correctness origin/ofc/s01-secrets-auth
-    and open the S2 PR against main anyway; say in its description that it sits on S1.
+    git checkout -B ofc/s03-data-retention origin/ofc/s02-stat-correctness
+    and open the S3 PR against main anyway; say in its description that it sits on S2 (which sits on S1 while PR #1 is open).
   nvm use 22
   npm ci
-If neither origin/main nor origin/ofc/s01-secrets-auth has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s02-stat-correctness has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S2 entry and its Done-when list. That list is the scope.
-- docs/audit/data.md, "Correctness bugs" items 1, 3, 4, 6, 7 and 8, for the file:line evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; re-find them with grep -n).
-- server/db.js around the cited lines, server/services/fightNightService.js, and the K/D tooltip in components/PilotsList.tsx (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
+- docs/ROADMAP.md, the S3 entry and its Done-when list. That list is the scope. Also the S2 entries under "Decisions and deviations" and "Flagged, not fixed".
+- docs/audit/data.md, the "Storage" section (no-op hydrate filter, page-1 upsert wiping hydrated details), for the file:line evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; S2 moved db.js lines, so re-find them with grep -n).
+- server/db.js: getSummaryGames, saveGames, insertGame, getGamesForDate and getQualifyingFightNightDates; server/backfill.js and server/ingest.js; the game_metadata table (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
+- server/lib/gameParse.js and server/db.test.js (S2's fixture setup: sample games moved to a recent day so they land in hot storage).
 - types.ts and the fixture files gamelist_sample.json and game_detail_sample.json at the repo root.
 
 Binding decisions, do not re-derive:
-- Test runner is vitest (added in S1; `npx vitest run`). Tests live beside the code as *.test.js.
-- One shared module, server/lib/gameParse.js, owns teamOf, winnerOf, durationOf, netKills and pilotKey. Every aggregation in server/db.js and fightNightService.js calls it; no second copy of the rules.
-- Teams are BLUE and ORANGE. winnerOf handles teamCount > 2 and FFA. A tie is a tie, not a BLUE win.
-- durationOf uses date - settings.start when start/end are absent, before any timeLimit fallback.
-- pilotKey is case-insensitive and escapes LIKE wildcards.
+- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js. DB tests set DATA_DIR to a temp dir before importing server/db.js, as server/db.test.js does.
+- server/lib/gameParse.js owns the game rules (teamOf, winnerOf, outcomeOf, pairOutcome, durationOf, netKills, pilotKey, pilotLikePattern). Use it; do not add a second copy of a rule.
+- "Richer details" means a non-empty kills array. The page-1 upsert must keep stored details that have kills when the incoming row has none.
+- Fight-night day queries use `date >= ? AND date < ?` (UTC day bounds). The time zone question is S14's; do not change it here.
 - Do not change the games table, the hot/cold split or the public API paths (see "Canonical contract"). Do not add the game_players table; that is S5.
 - No production database exists locally. Prove each fix with a test on fixture games, built from the sample JSON files.
 
 Rules for this session:
-- One PR, scope is the S2 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- One PR, scope is the S3 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S2 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S3 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S3.
+- Before ending: tick S3 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S4 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S4.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` and `grep -n "teamScore" server/db.js server/services/fightNightService.js`, and record both results.
-Done when: every item in the S2 Done-when list is true, `npx vitest run` passes with tests for an ORANGE win, a tie, an FFA win and a duration from settings.start, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S2 left 3 files, 38 tests passing) and `grep -n "getSummaryGames\|excluded.details\|date LIKE\|insertGame" server/db.js`, and record both results.
+Done when: every item in the S3 Done-when list is true, `npx vitest run` passes with a test proving a hydrated fixture survives a summary upsert and a test that backfill marks a fixture game `fetched`, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global`, and the PR is open with the tracker updated.
 ```
