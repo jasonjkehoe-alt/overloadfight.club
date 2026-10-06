@@ -44,9 +44,7 @@ function secondsBetween(from, to) {
 // settings.timeLimit is the cap, not the length, so it comes last.
 export function durationOf(game) {
     if (!game) return 0;
-    const fromTimestamps =
-        secondsBetween(game.start, game.end) ||
-        secondsBetween(game.start || game.settings?.start, game.end || game.date);
+    const fromTimestamps = secondsBetween(game.start || game.settings?.start, game.end || game.date);
     if (fromTimestamps) return fromTimestamps;
     for (const field of [game.timeElapsed, game.elapsed, game.duration, game.settings?.timeLimit]) {
         const n = Number(field);
@@ -98,4 +96,16 @@ export function outcomeOf(game, player, result = winnerOf(game)) {
     const side = result.team ? teamOf(player) : pilotKey(player?.name);
     if (!result.winners.includes(side)) return 'loss';
     return result.winners.length > 1 ? 'tie' : 'win';
+}
+
+// 'win', 'loss' or 'tie' for player a against player b in one game, by their
+// sides' scores; null when they share a side or the game has no result.
+export function pairOutcome(game, a, b, result = winnerOf(game)) {
+    if (result.winners.length === 0) return null;
+    const sideOf = p => (result.team ? teamOf(p) : pilotKey(p?.name));
+    const scoreA = result.ranking.find(r => r.side === sideOf(a));
+    const scoreB = result.ranking.find(r => r.side === sideOf(b));
+    if (!scoreA || !scoreB || scoreA === scoreB) return null;
+    if (scoreA.score === scoreB.score) return 'tie';
+    return scoreA.score > scoreB.score ? 'win' : 'loss';
 }

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
-import { durationOf, netKills, outcomeOf, pilotKey, pilotLikePattern, teamOf, winnerOf } from './gameParse.js';
+import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, pilotLikePattern, teamOf, winnerOf } from './gameParse.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
@@ -71,6 +71,21 @@ describe('winnerOf and outcomeOf', () => {
         expect(outcomeOf(noScores, noScores.players[0])).toBeNull();
         const solo = { players: [{ name: 'A', kills: 3 }] };
         expect(outcomeOf(solo, solo.players[0])).toBeNull();
+    });
+});
+
+describe('pairOutcome', () => {
+    it('compares two pilots by their sides and skips teammates', () => {
+        const game = { ...byId(72102), teamScore: { BLUE: 35, ORANGE: 42 } };
+        expect(pairOutcome(game, player(game, 'STITCH'), player(game, 'PHOENIX'))).toBe('win');
+        expect(pairOutcome(game, player(game, 'PHOENIX'), player(game, 'MAESTRO'))).toBe('loss');
+        expect(pairOutcome(game, player(game, 'STITCH'), player(game, 'MAESTRO'))).toBeNull();
+    });
+
+    it('compares FFA pilots by score, including a level pair below the top', () => {
+        const game = byId(72093); // OKSTER 25, LORD JOHN WARFIN 24, WD-40 24
+        expect(pairOutcome(game, player(game, 'OKSTER'), player(game, 'WD-40'))).toBe('win');
+        expect(pairOutcome(game, player(game, 'WD-40'), player(game, 'LORD JOHN WARFIN'))).toBe('tie');
     });
 });
 

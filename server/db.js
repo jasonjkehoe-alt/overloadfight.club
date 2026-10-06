@@ -2,9 +2,12 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { durationOf, netKills, outcomeOf, pilotKey, pilotLikePattern, teamOf, winnerOf } from './lib/gameParse.js';
+import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, pilotLikePattern, winnerOf } from './lib/gameParse.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Counter field for each outcomeOf()/pairOutcome() result.
+const OUTCOME_FIELD = { win: 'wins', loss: 'losses', tie: 'ties' };
 
 // Use a dedicated data directory to avoid Docker volume mounting over source code
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
@@ -649,9 +652,7 @@ function getPilotTelemetry(name, startDate, matchMode) {
             return startDate ? null : (cached || null);
         }
 
-        let wins = 0;
-        let losses = 0;
-        let ties = 0;
+        const record = { wins: 0, losses: 0, ties: 0 };
         let totalDamageDealt = 0;
         let totalDamageTaken = 0;
         let totalPlaytimeSec = 0;
@@ -706,9 +707,7 @@ function getPilotTelemetry(name, startDate, matchMode) {
             }
 
             const outcome = outcomeOf(g, me);
-            if (outcome === 'win') wins++;
-            else if (outcome === 'loss') losses++;
-            else if (outcome === 'tie') ties++;
+            if (outcome) record[OUTCOME_FIELD[outcome]]++;
 
             if (Array.isArray(g.damage)) {
                 for (const d of g.damage) {
@@ -765,6 +764,7 @@ function getPilotTelemetry(name, startDate, matchMode) {
 
         const totalGames = validGames;
         const flightMinutes = totalPlaytimeSec > 0 ? totalPlaytimeSec / 60 : 0;
+        const { wins, losses, ties } = record;
         const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 1000) / 10 : 0;
         const pureKd = totalDeaths > 0 ? Math.round((totalKills / totalDeaths) * 100) / 100 : totalKills;
         const kda = totalDeaths > 0 ? Math.round(((totalKills + totalAssists * 0.5) / totalDeaths) * 100) / 100 : totalKills;
@@ -987,7 +987,8 @@ const getPilotStatsAllTime = () => {
       // fallback to dynamic
     }
 
-    getAllTimePilotStatsStmt = hotDb.prepare(pilotTotalsSql());
+    // Not memoized: once refreshPilotStats fills the cache, the next call uses it.
+    return getPilotStats;
   }
   return getAllTimePilotStatsStmt;
 };
@@ -1959,7 +1960,6 @@ VALUES(@id, @date, @ip, @details)
       const pilotMap = {};
       const killGraph = {};
       const h2h = {};
-      const pilots = new Set();
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -1985,7 +1985,6 @@ VALUES(@id, @date, @ip, @details)
           const p = players[j];
           const key = pilotKey(p?.name);
           if (!key) continue;
-          pilots.add(key);
 
           let pilot = pilotMap[key];
           if (!pilot) {
@@ -2016,9 +2015,7 @@ VALUES(@id, @date, @ip, @details)
           }
 
           const outcome = outcomeOf(g, p, result);
-          if (outcome === 'win') pilot.wins++;
-          else if (outcome === 'loss') pilot.losses++;
-          else if (outcome === 'tie') pilot.ties++;
+          if (outcome) pilot[OUTCOME_FIELD[outcome]]++;
         }
 
         // Suicides from g.kills
@@ -2050,31 +2047,26 @@ VALUES(@id, @date, @ip, @details)
             h2h[n2] = h2h[n2] || {};
             h2h[n2][n1] = h2h[n2][n1] || { wins: 0, losses: 0, ties: 0 };
 
-            const outcome = outcomeOf(g, p1, result);
-            if (outcome === 'win') {
-              h2h[n1][n2].wins++;
-              h2h[n2][n1].losses++;
-            } else if (outcome === 'loss') {
-              h2h[n2][n1].wins++;
-              h2h[n1][n2].losses++;
-            } else if (outcome === 'tie') {
-              h2h[n1][n2].ties = (h2h[n1][n2].ties || 0) + 1;
-              h2h[n2][n1].ties = (h2h[n2][n1].ties || 0) + 1;
+            const outcome = pairOutcome(g, p1, p2, result);
+            if (outcome) {
+              h2h[n1][n2][OUTCOME_FIELD[outcome]]++;
+              h2h[n2][n1][OUTCOME_FIELD[pairOutcome(g, p2, p1, result)]]++;
             }
           }
         } else if (players.length > 2) {
+          const keys = players.map(p => pilotKey(p?.name));
           const totalDeathsOthers = {};
-          for (const p of players) {
-            const n = pilotKey(p?.name);
-            if (!n) continue;
-            const otherDeaths = players.filter(o => pilotKey(o?.name) && pilotKey(o.name) !== n).reduce((sum, o) => sum + (o.deaths || 0), 0);
-            totalDeathsOthers[n] = otherDeaths;
-          }
-          for (const killer of players) {
-            const kName = pilotKey(killer?.name);
+          keys.forEach(n => {
+            if (!n) return;
+            totalDeathsOthers[n] = players.reduce((sum, o, i) => (keys[i] && keys[i] !== n ? sum + (o.deaths || 0) : sum), 0);
+          });
+          for (let a = 0; a < players.length; a++) {
+            const killer = players[a];
+            const kName = keys[a];
             if (!kName) continue;
-            for (const victim of players) {
-              const vName = pilotKey(victim?.name);
+            for (let b = 0; b < players.length; b++) {
+              const victim = players[b];
+              const vName = keys[b];
               if (!vName) continue;
               if (kName === vName) continue;
 
@@ -2110,7 +2102,8 @@ VALUES(@id, @date, @ip, @details)
 
       // Dominance Index (opponents with >= 3 shared matches)
       const dominance = {};
-      for (const p of pilots) {
+      const pilotList = Object.keys(pilotMap);
+      for (const p of pilotList) {
         const allOpponents = h2h[p] ? Object.keys(h2h[p]) : [];
         const qualifiedOpponents = allOpponents.filter(opp => {
           const rec = h2h[p][opp];
@@ -2132,7 +2125,6 @@ VALUES(@id, @date, @ip, @details)
       }
 
       // Threat Centrality (Power Iteration PageRank: Slaying High-Threat Targets Transfers Prestige)
-      const pilotList = Array.from(pilots);
       const N = pilotList.length || 1;
       let scores = {};
       pilotList.forEach(p => scores[p] = 1 / N);
@@ -2344,21 +2336,10 @@ VALUES(@id, @date, @ip, @details)
           r.encounters++;
           r.their_deaths += (other.deaths || 0);
 
-          if (result.team) {
-            const myTeam = teamOf(me);
-            const otherTeam = teamOf(other);
-            if (myTeam && otherTeam && myTeam !== otherTeam) {
-              const mine = outcomeOf(g, me, result);
-              const theirs = outcomeOf(g, other, result);
-              if (mine === 'win') r.your_wins++;
-              else if (theirs === 'win') r.their_wins++;
-              else if (mine === 'tie' && theirs === 'tie') r.ties++;
-            }
-          } else {
-            if ((me.kills || 0) > (other.kills || 0)) r.your_wins++;
-            else if ((other.kills || 0) > (me.kills || 0)) r.their_wins++;
-            else r.ties++;
-          }
+          const outcome = pairOutcome(g, me, other, result);
+          if (outcome === 'win') r.your_wins++;
+          else if (outcome === 'loss') r.their_wins++;
+          else if (outcome === 'tie') r.ties++;
         }
 
         // Direct kills exchanged between me and rivals

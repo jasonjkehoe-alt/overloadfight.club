@@ -7,6 +7,11 @@ export const FIGHT_NIGHT_THRESHOLDS = {
     minFrags: 1600     //      OR ≥ 1600 total frags)
 };
 
+// Display name for a winnerOf() ranking row: "Blue Team" or the pilot's name.
+function sideLabel(result, row) {
+    return result.team ? `${row.name.charAt(0)}${row.name.slice(1).toLowerCase()} Team` : row.name;
+}
+
 /**
  * Format date string into human fight-night poster header
  * e.g. "2026-10-04" -> "Sunday, October 4, 2026"
@@ -105,7 +110,7 @@ export async function generateRecapForDate(targetDate, force = false) {
 
             const sortedP = players.slice().sort((a, b) => (Number(b.kills) || 0) - (Number(a.kills) || 0));
             const topPilot = sortedP[0]?.name || 'Unknown';
-            const topKills = sortedP[0]?.kills || 0;
+            const topKills = netKills(sortedP[0]);
             const arena = m.settings?.level || 'Unknown Arena';
             const mode = m.settings?.matchMode || 'ANARCHY';
 
@@ -198,10 +203,9 @@ export async function generateRecapForDate(targetDate, force = false) {
 
         const arena = m.settings?.level || 'Unknown Arena';
         // A tie lists the tied sides in score-table order; margin 0 makes the copy a draw.
-        const label = r => (result.team ? `${r.name.charAt(0)}${r.name.slice(1).toLowerCase()} Team` : r.name);
         const margin = first.score - second.score;
-        const winnerName = label(first);
-        const runnerUpName = label(second);
+        const winnerName = sideLabel(result, first);
+        const runnerUpName = sideLabel(result, second);
         const scoreStr = result.team ? `${first.score} - ${second.score}` : `${first.score} K vs ${second.score} K`;
         let matchFrags = 0;
         for (const p of m.players || []) matchFrags += netKills(p);
@@ -310,23 +314,21 @@ export async function generateRecapForDate(targetDate, force = false) {
         const kills = Array.isArray(m.kills) ? m.kills : [];
 
         if (kills.length > 0) {
-            const current = {};
-            const streaks = {};
-            const names = {};
+            const runs = new Map(); // pilotKey -> { name, current, best }
             for (const k of kills) {
                 const att = pilotKey(k.attacker);
                 const def = pilotKey(k.defender);
                 if (att) {
-                    names[att] ??= k.attacker.trim();
-                    current[att] = (current[att] || 0) + 1;
-                    streaks[att] = Math.max(streaks[att] || 0, current[att]);
+                    const run = runs.get(att) || { name: k.attacker.trim(), current: 0, best: 0 };
+                    run.current++;
+                    run.best = Math.max(run.best, run.current);
+                    runs.set(att, run);
                 }
-                if (def) {
-                    current[def] = 0;
+                if (def && runs.has(def)) {
+                    runs.get(def).current = 0;
                 }
             }
-            for (const [key, val] of Object.entries(streaks)) {
-                const pilot = names[key];
+            for (const { name: pilot, best: val } of runs.values()) {
                 if (val > maxStreakVal) {
                     maxStreakVal = val;
                     longestStreak = {
