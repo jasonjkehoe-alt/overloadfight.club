@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { durationOf, netKills, outcomeOf, pilotKey, pilotLikePattern, teamOf, winnerOf } from './lib/gameParse.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +24,18 @@ const coldDbPath = path.join(dataDir, 'cold_storage.db');
 
 const hotDb = new Database(dbPath);
 const coldDb = new Database(coldDbPath);
+
+// SQL access to the gameParse rules, so queries and JS loops count the same way.
+hotDb.function('net_kills', { deterministic: true }, kills => netKills({ kills }));
+hotDb.function('pilot_key', { deterministic: true }, name => pilotKey(name));
+// NULL when the length is unknown, so AVG() skips the game.
+hotDb.function('duration_of', { deterministic: true }, details => {
+  try {
+    return durationOf(JSON.parse(details)) || null;
+  } catch {
+    return null;
+  }
+});
 
 // Attach Cold DB to Hot DB connection for cross-database queries
 try {
@@ -438,48 +451,44 @@ const getGlobalActivityStatsFiltered = hotDb.prepare(`
     ORDER BY day ASC, hour ASC
 `);
 
-const getPilotStats = hotDb.prepare(`
-    SELECT
-        TRIM(json_extract(value, '$.name')) as name,
-        COUNT(*) as games,
-        COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
-        COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
-        COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
-        0 as suicides,
-        MAX(all_g.date) as lastSeen,
-        MAX(all_g.date) as last_updated
-    FROM (
-        SELECT details, date FROM games
+// Per-pilot totals over hot and cold games, optionally from a start date.
+// Suicides come from the kill logs in one grouped pass; games without a kill
+// log contribute 0.
+const pilotTotalsSql = (where = '') => `
+    WITH all_g AS (
+        SELECT details, date FROM games ${where}
         UNION ALL
-        SELECT details, date FROM cold.games
-    ) all_g, json_each(all_g.details, '$.players')
-    WHERE json_extract(value, '$.name') IS NOT NULL 
-      AND TRIM(json_extract(value, '$.name')) != ''
-    GROUP BY TRIM(json_extract(value, '$.name')) COLLATE NOCASE
-    ORDER BY games DESC
-`);
+        SELECT details, date FROM cold.games ${where}
+    ),
+    suicides AS (
+        SELECT pilot_key(json_extract(k.value, '$.defender')) AS pk, COUNT(*) AS n
+        FROM all_g, json_each(all_g.details, '$.kills') k
+        WHERE pilot_key(json_extract(k.value, '$.attacker')) = pilot_key(json_extract(k.value, '$.defender'))
+        GROUP BY pk
+    ),
+    totals AS (
+        SELECT
+            pilot_key(json_extract(value, '$.name')) AS pk,
+            TRIM(json_extract(value, '$.name')) as name,
+            COUNT(*) as games,
+            COALESCE(SUM(net_kills(json_extract(value, '$.kills'))), 0) as kills,
+            COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
+            COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
+            MAX(all_g.date) as lastSeen,
+            MAX(all_g.date) as last_updated
+        FROM all_g, json_each(all_g.details, '$.players')
+        WHERE json_extract(value, '$.name') IS NOT NULL
+          AND TRIM(json_extract(value, '$.name')) != ''
+        GROUP BY pk
+    )
+    SELECT t.name, t.games, t.kills, t.deaths, t.assists, COALESCE(s.n, 0) as suicides, t.lastSeen, t.last_updated
+    FROM totals t LEFT JOIN suicides s ON s.pk = t.pk
+    ORDER BY t.games DESC
+`;
 
-const getPilotStatsFiltered = hotDb.prepare(`
-    SELECT
-        TRIM(json_extract(value, '$.name')) as name,
-        COUNT(*) as games,
-        COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
-        COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
-        COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
-        0 as suicides,
-        MAX(all_g.date) as lastSeen,
-        MAX(all_g.date) as last_updated
-    FROM (
-        SELECT details, date FROM games
-        UNION ALL
-        SELECT details, date FROM cold.games
-    ) all_g, json_each(all_g.details, '$.players')
-    WHERE all_g.date >= ?
-      AND json_extract(value, '$.name') IS NOT NULL 
-      AND TRIM(json_extract(value, '$.name')) != ''
-    GROUP BY TRIM(json_extract(value, '$.name')) COLLATE NOCASE
-    ORDER BY games DESC
-`);
+const getPilotStats = hotDb.prepare(pilotTotalsSql());
+
+const getPilotStatsFiltered = hotDb.prepare(pilotTotalsSql('WHERE date >= @startDate'));
 
 const getDatabaseStats = hotDb.prepare(`
     SELECT
@@ -532,7 +541,7 @@ const getActivePilotCount = hotDb.prepare(`
 
 const getDeadliestMaps = hotDb.prepare(`
     SELECT json_extract(details, '$.settings.level') as map, 
-           SUM((SELECT SUM(MAX(0, json_extract(value, '$.kills'))) FROM json_each(json_extract(details, '$.players')))) as total_kills 
+           SUM((SELECT SUM(net_kills(json_extract(value, '$.kills'))) FROM json_each(json_extract(details, '$.players')))) as total_kills 
     FROM games
     WHERE date > date('now', '-365 days')
     GROUP BY map 
@@ -542,7 +551,7 @@ const getDeadliestMaps = hotDb.prepare(`
 
 const getMarathonMaps = hotDb.prepare(`
     SELECT json_extract(details, '$.settings.level') as map, 
-           AVG(COALESCE(json_extract(details, '$.timeElapsed'), json_extract(details, '$.duration'), json_extract(details, '$.game.matchLength'), (strftime('%s', date) - strftime('%s', json_extract(details, '$.start'))), 0)) as avg_duration 
+           AVG(duration_of(details)) as avg_duration 
     FROM games
     WHERE date > date('now', '-365 days')
     GROUP BY map 
@@ -609,19 +618,19 @@ function getPilotTelemetry(name, startDate, matchMode) {
     try {
         const cached = hotDb.prepare('SELECT * FROM pilot_stats_cache WHERE name = ? COLLATE NOCASE').get(name);
 
-        const pattern = `%"${name}"%`;
-        const lowerName = name.toLowerCase();
+        const pattern = pilotLikePattern(name);
+        const key = pilotKey(name);
         let gameRows;
         if (startDate) {
             gameRows = hotDb.prepare(`
                 SELECT details, date FROM games
-                WHERE date >= @startDate AND details LIKE @pattern
+                WHERE date >= @startDate AND details LIKE @pattern ESCAPE '\\'
                 ORDER BY date DESC
             `).all({ startDate, pattern });
         } else {
             const hotAll = hotDb.prepare(`
                 SELECT details, date FROM games
-                WHERE details LIKE @pattern
+                WHERE details LIKE @pattern ESCAPE '\\'
                 ORDER BY date DESC
             `).all({ pattern });
             if (hotAll && hotAll.length >= 5) {
@@ -629,7 +638,7 @@ function getPilotTelemetry(name, startDate, matchMode) {
             } else {
                 const coldAll = hotDb.prepare(`
                     SELECT details, date FROM cold.games
-                    WHERE details LIKE @pattern
+                    WHERE details LIKE @pattern ESCAPE '\\'
                     ORDER BY date DESC
                 `).all({ pattern });
                 gameRows = (hotAll || []).concat(coldAll);
@@ -666,21 +675,12 @@ function getPilotTelemetry(name, startDate, matchMode) {
             }
 
             const players = g.players || [];
-            const me = players.find(p => p && p.name && p.name.toLowerCase() === lowerName);
+            const me = players.find(p => pilotKey(p?.name) === key);
             if (!me) continue;
 
-            let durationSec = 0;
-            if (g.start && g.end) {
-                const diff = (new Date(g.end).getTime() - new Date(g.start).getTime()) / 1000;
-                if (diff > 0 && diff < 86400) durationSec = diff;
-            }
-            if (!durationSec && g.timeElapsed) durationSec = g.timeElapsed;
-            if (!durationSec && g.elapsed) durationSec = g.elapsed;
-            if (!durationSec && g.duration) durationSec = g.duration;
-            if (!durationSec && g.settings?.timeLimit) durationSec = g.settings.timeLimit;
-            if (!durationSec) durationSec = 900;
+            const durationSec = durationOf(g);
 
-            // Ranked filter: exclude <2 players and <60s games
+            // Ranked filter: exclude <2 players and games under 60s or of unknown length
             if (players.length < 2 || durationSec < 60) continue;
 
             // Mode filter if requested
@@ -691,7 +691,7 @@ function getPilotTelemetry(name, startDate, matchMode) {
             }
 
             validGames++;
-            totalKills += Math.max(0, me.kills || 0);
+            totalKills += netKills(me);
             totalDeaths += (me.deaths || 0);
             totalAssists += (me.assists || 0);
             totalPlaytimeSec += durationSec;
@@ -705,36 +705,16 @@ function getPilotTelemetry(name, startDate, matchMode) {
                 mapCounts[mapName] = (mapCounts[mapName] || 0) + 1;
             }
 
-            const mode = (g.settings?.matchMode || '').toUpperCase();
-            if (mode.includes('TEAM') || mode === 'CTF') {
-                const myTeam = (me.team || '').toUpperCase();
-                const blue = g.teamScore?.BLUE || 0;
-                const red = g.teamScore?.RED || 0;
-                if (blue === red) {
-                    ties++;
-                } else {
-                    const winningTeam = blue > red ? 'BLUE' : 'RED';
-                    if (myTeam === winningTeam) wins++;
-                    else losses++;
-                }
-            } else {
-                if (players.length > 0) {
-                    const maxKills = Math.max(...players.map(p => p.kills || 0));
-                    if ((me.kills || 0) === maxKills) {
-                        const topCount = players.filter(p => (p.kills || 0) === maxKills).length;
-                        if (topCount > 1) ties++;
-                        else wins++;
-                    } else {
-                        losses++;
-                    }
-                }
-            }
+            const outcome = outcomeOf(g, me);
+            if (outcome === 'win') wins++;
+            else if (outcome === 'loss') losses++;
+            else if (outcome === 'tie') ties++;
 
             if (Array.isArray(g.damage)) {
                 for (const d of g.damage) {
                     if (!d || !d.damage) continue;
-                    const isAttacker = d.attacker && d.attacker.toLowerCase() === lowerName;
-                    const isDefender = d.defender && d.defender.toLowerCase() === lowerName;
+                    const isAttacker = pilotKey(d.attacker) === key;
+                    const isDefender = pilotKey(d.defender) === key;
 
                     if (isAttacker && !isDefender) {
                         totalDamageDealt += d.damage;
@@ -760,8 +740,8 @@ function getPilotTelemetry(name, startDate, matchMode) {
             if (Array.isArray(g.kills)) {
                 for (const k of g.kills) {
                     if (!k) continue;
-                    const isAttacker = k.attacker && k.attacker.toLowerCase() === lowerName;
-                    const isDefender = k.defender && k.defender.toLowerCase() === lowerName;
+                    const isAttacker = pilotKey(k.attacker) === key;
+                    const isDefender = pilotKey(k.defender) === key;
                     if (isAttacker && isDefender) {
                         suicides++;
                     }
@@ -1007,26 +987,7 @@ const getPilotStatsAllTime = () => {
       // fallback to dynamic
     }
 
-    getAllTimePilotStatsStmt = hotDb.prepare(`
-        SELECT
-            TRIM(json_extract(value, '$.name')) as name,
-            COUNT(*) as games,
-            COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
-            COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
-            COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
-            0 as suicides,
-            MAX(date) as lastSeen,
-            MAX(date) as last_updated
-        FROM (
-            SELECT details, date FROM games
-            UNION ALL
-            SELECT details, date FROM cold.games
-        ), json_each(details, '$.players')
-        WHERE json_extract(value, '$.name') IS NOT NULL 
-          AND TRIM(json_extract(value, '$.name')) != ''
-        GROUP BY TRIM(json_extract(value, '$.name')) COLLATE NOCASE
-        ORDER BY games DESC
-    `);
+    getAllTimePilotStatsStmt = hotDb.prepare(pilotTotalsSql());
   }
   return getAllTimePilotStatsStmt;
 };
@@ -1082,7 +1043,7 @@ FROM(
 const getGlobalKillsAllTime = () => {
   if (!getAllTimeGlobalKillsStmt) {
     getAllTimeGlobalKillsStmt = hotDb.prepare(`
-            SELECT SUM(MAX(0, json_extract(value, '$.kills'))) as total_kills
+            SELECT SUM(net_kills(json_extract(value, '$.kills'))) as total_kills
 FROM(
   SELECT details FROM games
                 UNION ALL
@@ -1153,18 +1114,10 @@ const buildColdStorageStatsCache = () => {
         const mapRaw = (g.settings?.level || g.Level || g.game?.mapName || 'UNKNOWN').trim();
         if (mapRaw && mapRaw !== 'UNKNOWN') mapsMap[mapRaw] = (mapsMap[mapRaw] || 0) + 1;
 
-        let dur = 0;
-        if (g.timeElapsed) dur = g.timeElapsed;
-        else if (g.duration) dur = g.duration;
-        else if (g.elapsed) dur = g.elapsed;
-        else if (g.start && g.end) {
-          const s = new Date(g.start).getTime();
-          const e = new Date(g.end).getTime();
-          if (!isNaN(s) && !isNaN(e) && e > s) dur = Math.round((e - s) / 1000);
-        } else if (g.settings?.timeLimit) dur = g.settings.timeLimit;
+        const dur = Math.round(durationOf(g));
 
-        if (dur > 0 && dur < 86400) totalMatchPlaytimeSec += dur;
-        if (dur > longestMatch.duration && dur < 86400) {
+        totalMatchPlaytimeSec += dur;
+        if (dur > longestMatch.duration) {
           longestMatch = { id: row.id, duration: dur, map: mapRaw, date: row.date, players: (g.players || []).length, mode: modeRaw };
         }
 
@@ -1176,7 +1129,7 @@ const buildColdStorageStatsCache = () => {
         let matchFrags = 0;
         for (let i = 0; i < players.length; i++) {
           const p = players[i];
-          const k = p?.kills || 0;
+          const k = netKills(p);
           matchFrags += k;
           if (k > maxSinglePilotFrags.kills && p?.name) {
             maxSinglePilotFrags = { id: row.id, pilot: p.name.trim(), kills: k, map: mapRaw, date: row.date, mode: modeRaw };
@@ -1506,7 +1459,7 @@ const buildMapStatsCache = () => {
       let matchKills = 0;
       for (const p of players) {
         const pName = p.name ? p.name.trim() : null;
-        const kills = Number(p.kills) || 0;
+        const kills = netKills(p);
         const deaths = Number(p.deaths) || 0;
 
         matchKills += kills;
@@ -1514,7 +1467,7 @@ const buildMapStatsCache = () => {
         entry.total_deaths += deaths;
 
         if (pName) {
-          const pKey = pName.toLowerCase();
+          const pKey = pilotKey(pName);
           let pEntry = entry.pilots.get(pKey);
           if (!pEntry) {
             pEntry = { name: pName, sorties: 0, kills: 0, deaths: 0 };
@@ -1705,7 +1658,7 @@ export default {
   getMonthlyGameCounts,
   getPilotStats: {
     all: (startDate) => {
-      if (startDate) return getPilotStatsFiltered.all(startDate);
+      if (startDate) return getPilotStatsFiltered.all({ startDate });
       return getPilotStats.all();
     }
   },
@@ -2021,51 +1974,23 @@ VALUES(@id, @date, @ip, @details)
         const players = g.players || [];
         if (!Array.isArray(players) || players.length === 0) continue;
 
-        // Match Duration
-        let durationSec = 0;
-        if (g.start && g.end) {
-          const diff = (new Date(g.end).getTime() - new Date(g.start).getTime()) / 1000;
-          if (diff > 0 && diff < 86400) durationSec = diff;
-        }
-        if (!durationSec && g.timeElapsed) durationSec = g.timeElapsed;
-        if (!durationSec && g.elapsed) durationSec = g.elapsed;
-        if (!durationSec && g.duration) durationSec = g.duration;
-        if (!durationSec && g.settings?.timeLimit) durationSec = g.settings.timeLimit;
-        if (!durationSec) durationSec = 900;
+        const durationSec = durationOf(g);
 
-        // Ranked filter: exclude <2 players and <60s games
+        // Ranked filter: exclude <2 players and games under 60s or of unknown length
         if (players.length < 2 || durationSec < 60) continue;
 
-        // Outcome
-        const mode = (g.settings?.matchMode || '').toUpperCase();
-        const isTeam = mode.includes('TEAM') || mode === 'CTF';
-        let winningTeam = null;
-        let maxKills = -1;
-
-        if (isTeam) {
-          const blue = g.teamScore?.BLUE || 0;
-          const red = g.teamScore?.RED || 0;
-          if (blue > red) winningTeam = 'BLUE';
-          else if (red > blue) winningTeam = 'RED';
-          else winningTeam = 'TIE';
-        } else {
-          for (let j = 0; j < players.length; j++) {
-            const k = players[j]?.kills || 0;
-            if (k > maxKills) maxKills = k;
-          }
-        }
+        const result = winnerOf(g);
 
         for (let j = 0; j < players.length; j++) {
           const p = players[j];
-          if (!p || !p.name) continue;
-          const name = p.name.trim();
-          if (!name) continue;
-          pilots.add(name);
+          const key = pilotKey(p?.name);
+          if (!key) continue;
+          pilots.add(key);
 
-          let pilot = pilotMap[name];
+          let pilot = pilotMap[key];
           if (!pilot) {
-            pilot = pilotMap[name] = {
-              name,
+            pilot = pilotMap[key] = {
+              name: p.name.trim(),
               games: 0,
               kills: 0,
               deaths: 0,
@@ -2081,49 +2006,28 @@ VALUES(@id, @date, @ip, @details)
           }
 
           pilot.games++;
-          pilot.kills += Math.max(0, p.kills || 0);
+          pilot.kills += netKills(p);
           pilot.deaths += (p.deaths || 0);
           pilot.assists += (p.assists || 0);
           pilot.playtimeSec += durationSec;
           if (row.date && (!pilot.lastSeen || row.date > pilot.lastSeen)) {
             pilot.lastSeen = row.date;
+            pilot.name = p.name.trim();
           }
 
-          if (isTeam) {
-            const myTeam = (p.team || '').toUpperCase();
-            if (winningTeam === 'TIE') pilot.ties++;
-            else if (myTeam === winningTeam) pilot.wins++;
-            else pilot.losses++;
-          } else {
-            if ((p.kills || 0) === maxKills) {
-              let tieCount = 0;
-              for (let k = 0; k < players.length; k++) {
-                if ((players[k]?.kills || 0) === maxKills) tieCount++;
-              }
-              if (tieCount > 1) pilot.ties++;
-              else pilot.wins++;
-            } else {
-              pilot.losses++;
-            }
-          }
+          const outcome = outcomeOf(g, p, result);
+          if (outcome === 'win') pilot.wins++;
+          else if (outcome === 'loss') pilot.losses++;
+          else if (outcome === 'tie') pilot.ties++;
         }
 
         // Suicides from g.kills
         if (Array.isArray(g.kills)) {
           for (let j = 0; j < g.kills.length; j++) {
             const k = g.kills[j];
-            if (!k || !k.attacker || !k.defender) continue;
-            if (k.attacker.trim().toLowerCase() === k.defender.trim().toLowerCase()) {
-              const victim = k.defender.trim().toLowerCase();
-              for (const p of players) {
-                if (p?.name && p.name.trim().toLowerCase() === victim) {
-                  const targetName = p.name.trim();
-                  if (pilotMap[targetName]) {
-                    pilotMap[targetName].suicides = (pilotMap[targetName].suicides || 0) + 1;
-                  }
-                  break;
-                }
-              }
+            const victim = pilotKey(k?.defender);
+            if (victim && pilotKey(k.attacker) === victim && pilotMap[victim]) {
+              pilotMap[victim].suicides++;
             }
           }
         }
@@ -2131,28 +2035,29 @@ VALUES(@id, @date, @ip, @details)
         // Threat & Dominance Graph
         if (players.length === 2) {
           const [p1, p2] = players;
-          if (p1?.name && p2?.name) {
-            const n1 = p1.name.trim();
-            const n2 = p2.name.trim();
+          const n1 = pilotKey(p1?.name);
+          const n2 = pilotKey(p2?.name);
+          if (n1 && n2) {
             // Victim transfers prestige to Killer (p2 was killed by p1; p1 was killed by p2)
             killGraph[n2] = killGraph[n2] || {};
-            killGraph[n2][n1] = (killGraph[n2][n1] || 0) + Math.max(0, p1.kills || 0);
+            killGraph[n2][n1] = (killGraph[n2][n1] || 0) + netKills(p1);
 
             killGraph[n1] = killGraph[n1] || {};
-            killGraph[n1][n2] = (killGraph[n1][n2] || 0) + Math.max(0, p2.kills || 0);
+            killGraph[n1][n2] = (killGraph[n1][n2] || 0) + netKills(p2);
 
             h2h[n1] = h2h[n1] || {};
             h2h[n1][n2] = h2h[n1][n2] || { wins: 0, losses: 0, ties: 0 };
             h2h[n2] = h2h[n2] || {};
             h2h[n2][n1] = h2h[n2][n1] || { wins: 0, losses: 0, ties: 0 };
 
-            if ((p1.kills || 0) > (p2.kills || 0)) {
+            const outcome = outcomeOf(g, p1, result);
+            if (outcome === 'win') {
               h2h[n1][n2].wins++;
               h2h[n2][n1].losses++;
-            } else if ((p2.kills || 0) > (p1.kills || 0)) {
+            } else if (outcome === 'loss') {
               h2h[n2][n1].wins++;
               h2h[n1][n2].losses++;
-            } else {
+            } else if (outcome === 'tie') {
               h2h[n1][n2].ties = (h2h[n1][n2].ties || 0) + 1;
               h2h[n2][n1].ties = (h2h[n2][n1].ties || 0) + 1;
             }
@@ -2160,22 +2065,22 @@ VALUES(@id, @date, @ip, @details)
         } else if (players.length > 2) {
           const totalDeathsOthers = {};
           for (const p of players) {
-            if (!p?.name) continue;
-            const n = p.name.trim();
-            const otherDeaths = players.filter(o => o?.name && o.name.trim() !== n).reduce((sum, o) => sum + (o.deaths || 0), 0);
+            const n = pilotKey(p?.name);
+            if (!n) continue;
+            const otherDeaths = players.filter(o => pilotKey(o?.name) && pilotKey(o.name) !== n).reduce((sum, o) => sum + (o.deaths || 0), 0);
             totalDeathsOthers[n] = otherDeaths;
           }
           for (const killer of players) {
-            if (!killer?.name) continue;
-            const kName = killer.name.trim();
+            const kName = pilotKey(killer?.name);
+            if (!kName) continue;
             for (const victim of players) {
-              if (!victim?.name) continue;
-              const vName = victim.name.trim();
+              const vName = pilotKey(victim?.name);
+              if (!vName) continue;
               if (kName === vName) continue;
 
               const killsWeight = totalDeathsOthers[kName] > 0
-                ? (killer.kills || 0) * ((victim.deaths || 0) / totalDeathsOthers[kName])
-                : (killer.kills || 0) / (players.length - 1);
+                ? netKills(killer) * ((victim.deaths || 0) / totalDeathsOthers[kName])
+                : netKills(killer) / (players.length - 1);
 
               // Victim transfers prestige to Killer
               killGraph[vName] = killGraph[vName] || {};
@@ -2195,7 +2100,7 @@ VALUES(@id, @date, @ip, @details)
           for (let j = 0; j < g.damage.length; j++) {
             const d = g.damage[j];
             if (!d || !d.damage || !d.attacker) continue;
-            const aName = d.attacker.trim();
+            const aName = pilotKey(d.attacker);
             if (pilotMap[aName]) {
               pilotMap[aName].totalDamage += d.damage;
             }
@@ -2280,9 +2185,9 @@ VALUES(@id, @date, @ip, @details)
         )
       `);
 
-      const insertRows = pilotList.map(name => {
-        const p = pilotMap[name];
-        const kills = Math.max(0, p.kills || 0);
+      const insertRows = pilotList.map(key => {
+        const p = pilotMap[key];
+        const kills = p.kills;
         const deaths = p.deaths || 0;
         const assists = p.assists || 0;
         const suicides = p.suicides || 0;
@@ -2307,11 +2212,11 @@ VALUES(@id, @date, @ip, @details)
         const flightHours = Math.round((timeSec / 3600) * 10) / 10;
 
         const finisherRating = (kills + assists) > 0 ? Math.round((kills / (kills + assists)) * 100) / 100 : 0;
-        const centrality = Math.round((scores[name] / maxScore) * 1000) / 10;
-        const dom = dominance[name] !== undefined ? dominance[name] : 50.0;
+        const centrality = Math.round((scores[key] / maxScore) * 1000) / 10;
+        const dom = dominance[key] !== undefined ? dominance[key] : 50.0;
 
         return {
-          name,
+          name: p.name,
           kills,
           deaths,
           assists,
@@ -2339,7 +2244,9 @@ VALUES(@id, @date, @ip, @details)
         };
       });
 
+      // Rebuild from scratch so rows for spellings merged under one pilotKey go away.
       hotDb.transaction((rows) => {
+        hotDb.prepare('DELETE FROM pilot_stats_cache').run();
         for (const row of rows) insertStmt.run(row);
       })(insertRows);
 
@@ -2372,17 +2279,17 @@ VALUES(@id, @date, @ip, @details)
 
   getPilotBreakdown: (name) => {
     try {
-      const pattern = `%"${name}"%`;
-      const lowerName = name.toLowerCase();
+      const pattern = pilotLikePattern(name);
+      const key = pilotKey(name);
       // Query hot games (instant)
       let allRows = hotDb.prepare(`
-        SELECT details FROM games WHERE details LIKE @pattern
+        SELECT details FROM games WHERE details LIKE @pattern ESCAPE '\\'
       `).all({ pattern });
 
       // Fallback to cold games only if hot games have very few matches (e.g. historical pilot)
       if (!allRows || allRows.length < 5) {
         const coldRows = hotDb.prepare(`
-          SELECT details FROM cold.games WHERE details LIKE @pattern
+          SELECT details FROM cold.games WHERE details LIKE @pattern ESCAPE '\\'
         `).all({ pattern });
         allRows = (allRows || []).concat(coldRows);
       }
@@ -2398,7 +2305,7 @@ VALUES(@id, @date, @ip, @details)
           continue;
         }
         const players = g.players || [];
-        const me = players.find(p => p?.name && p.name.toLowerCase() === lowerName);
+        const me = players.find(p => pilotKey(p?.name) === key);
         if (!me) continue;
 
         const map = g.settings?.level;
@@ -2409,26 +2316,18 @@ VALUES(@id, @date, @ip, @details)
             mapMap.set(map, m);
           }
           m.games++;
-          m.kills += (me.kills || 0);
+          m.kills += netKills(me);
           m.deaths += (me.deaths || 0);
           m.assists += (me.assists || 0);
         }
 
-        const mode = (g.settings?.matchMode || '').toUpperCase();
-        const isTeam = mode.includes('TEAM') || mode === 'CTF';
-        let winningTeam = null;
-        if (isTeam) {
-          const blue = g.teamScore?.BLUE || 0;
-          const red = g.teamScore?.RED || 0;
-          if (blue > red) winningTeam = 'BLUE';
-          else if (red > blue) winningTeam = 'RED';
-          else winningTeam = 'TIE';
-        }
+        const result = winnerOf(g);
 
         for (let j = 0; j < players.length; j++) {
           const other = players[j];
-          if (!other?.name || other.name.toLowerCase() === lowerName) continue;
-          let r = rivalMap.get(other.name);
+          const otherKey = pilotKey(other?.name);
+          if (!otherKey || otherKey === key) continue;
+          let r = rivalMap.get(otherKey);
           if (!r) {
             r = {
               name: other.name,
@@ -2440,18 +2339,20 @@ VALUES(@id, @date, @ip, @details)
               ties: 0,
               their_deaths: 0
             };
-            rivalMap.set(other.name, r);
+            rivalMap.set(otherKey, r);
           }
           r.encounters++;
           r.their_deaths += (other.deaths || 0);
 
-          if (isTeam) {
-            const myTeam = (me.team || '').toUpperCase();
-            const otherTeam = (other.team || '').toUpperCase();
+          if (result.team) {
+            const myTeam = teamOf(me);
+            const otherTeam = teamOf(other);
             if (myTeam && otherTeam && myTeam !== otherTeam) {
-              if (winningTeam === 'TIE') r.ties++;
-              else if (myTeam === winningTeam) r.your_wins++;
-              else if (otherTeam === winningTeam) r.their_wins++;
+              const mine = outcomeOf(g, me, result);
+              const theirs = outcomeOf(g, other, result);
+              if (mine === 'win') r.your_wins++;
+              else if (theirs === 'win') r.their_wins++;
+              else if (mine === 'tie' && theirs === 'tie') r.ties++;
             }
           } else {
             if ((me.kills || 0) > (other.kills || 0)) r.your_wins++;
@@ -2464,24 +2365,14 @@ VALUES(@id, @date, @ip, @details)
         if (Array.isArray(g.kills)) {
           for (const k of g.kills) {
             if (!k || !k.attacker || !k.defender) continue;
-            const att = k.attacker.trim().toLowerCase();
-            const def = k.defender.trim().toLowerCase();
-            if (att === lowerName && def !== lowerName) {
-              for (const p of players) {
-                if (p?.name && p.name.trim().toLowerCase() === def) {
-                  const r = rivalMap.get(p.name);
-                  if (r) r.your_kills++;
-                  break;
-                }
-              }
-            } else if (def === lowerName && att !== lowerName) {
-              for (const p of players) {
-                if (p?.name && p.name.trim().toLowerCase() === att) {
-                  const r = rivalMap.get(p.name);
-                  if (r) r.their_kills++;
-                  break;
-                }
-              }
+            const att = pilotKey(k.attacker);
+            const def = pilotKey(k.defender);
+            if (att === key && def !== key) {
+              const r = rivalMap.get(def);
+              if (r) r.your_kills++;
+            } else if (def === key && att !== key) {
+              const r = rivalMap.get(att);
+              if (r) r.their_kills++;
             }
           }
         }
@@ -2858,13 +2749,23 @@ VALUES(@id, @date, @ip, @details)
       const checkRow = hotDb.prepare(`
         SELECT first_seen FROM pilot_first_seen WHERE name = ? COLLATE NOCASE
       `).get(pilotName);
-      if (checkRow && checkRow.first_seen) {
-        return checkRow.first_seen.startsWith(dateStr);
+      // A sighting before dateStr settles it. Anything else may be a value
+      // cached before this check read cold storage, so look again.
+      if (checkRow?.first_seen && checkRow.first_seen < dateStr) {
+        return false;
       }
 
       const minRow = hotDb.prepare(`
-        SELECT MIN(date) as first_seen FROM games WHERE details LIKE ?
-      `).get(`%"${pilotName}"%`);
+        SELECT MIN(date) as first_seen FROM (
+          SELECT date, details FROM games WHERE details LIKE @pattern ESCAPE '\\'
+          UNION ALL
+          SELECT date, details FROM cold.games WHERE details LIKE @pattern ESCAPE '\\'
+        )
+        WHERE EXISTS (
+          SELECT 1 FROM json_each(details, '$.players')
+          WHERE pilot_key(json_extract(value, '$.name')) = @key
+        )
+      `).get({ pattern: pilotLikePattern(pilotName), key: pilotKey(pilotName) });
 
       if (minRow && minRow.first_seen) {
         hotDb.prepare(`
@@ -2906,8 +2807,9 @@ VALUES(@id, @date, @ip, @details)
           const d = JSON.parse(m.details);
           if (Array.isArray(d.players)) {
             for (const p of d.players) {
-              if (p?.name) pilots.add(p.name.toLowerCase());
-              frags += (Number(p?.kills) || 0);
+              const key = pilotKey(p?.name);
+              if (key) pilots.add(key);
+              frags += netKills(p);
             }
           }
         } catch {}

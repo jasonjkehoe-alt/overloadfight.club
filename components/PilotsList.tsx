@@ -461,7 +461,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                                 Deaths (D) {sortConfig.key === 'deaths' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
                                             </th>
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kd')}>
-                                                <span className="inline-flex items-center gap-1 cursor-help group/kd" title="Unassisted Kills ÷ Deaths">
+                                                <span className="inline-flex items-center gap-1 cursor-help group/kd" title="Frags ÷ Deaths. Frags are the in-game kill count, which already loses 1 per suicide; a match that ends below zero counts as 0. With no deaths, K/D equals frags.">
                                                     <span>K/D</span>
                                                     <Info size={11} className="text-gray-500 group-hover/kd:text-[#ff6600] inline-block transition-colors" />
                                                     {sortConfig.key === 'kd' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
