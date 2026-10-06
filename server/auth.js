@@ -1,42 +1,54 @@
-import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import session from 'express-session';
+import rateLimit from 'express-rate-limit';
 
-// Default admin password hash for "admin123"
-const DEFAULT_PASSWORD_HASH = '$2a$10$RpCsab3ZG70ek99XK1VpLu.qDji/XfQ0dr4So2v/dJ3NtJdh6EwyC';
+// Secrets come from the environment only. Production refuses to start without them.
+const missingSecrets = ['ADMIN_PASSWORD', 'SESSION_SECRET'].filter(name => !process.env[name]);
+if (missingSecrets.length > 0) {
+    if (process.env.NODE_ENV === 'production') {
+        console.error(`Refusing to start: ${missingSecrets.join(' and ')} must be set when NODE_ENV=production. See .env.example.`);
+        process.exit(1);
+    }
+    console.warn(`[auth] ${missingSecrets.join(' and ')} not set; using insecure development defaults (admin password "admin123").`);
+}
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'overload-tracker-dev-secret';
 
 // Session configuration
 export const sessionMiddleware = session({
-    secret: process.env.SESSION_SECRET || 'overload-tracker-secret-change-me',
+    secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // Set to true if using HTTPS
+        secure: 'auto', // Secure when the request arrived over HTTPS (needs 'trust proxy' behind the reverse proxy)
         httpOnly: true,
         maxAge: 1000 * 60 * 60 * 24 // 24 hours
     }
 });
 
-// Verify admin password
+// Failed login attempts allowed per IP per window
+export const loginRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    skipSuccessfulRequests: true,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Too many login attempts. Try again in 15 minutes.' }
+});
+
+// Verify admin password with a timing-safe comparison
 export async function verifyPassword(password) {
     if (!password || typeof password !== 'string') {
         return false;
     }
 
-    const adminPassword = process.env.ADMIN_PASSWORD;
-
-    // If env var is set, use timing-safe comparison
-    if (adminPassword) {
-        const passwordBuf = Buffer.from(password);
-        const adminBuf = Buffer.from(adminPassword);
-        if (passwordBuf.length !== adminBuf.length) {
-            return false;
-        }
-        return crypto.timingSafeEqual(passwordBuf, adminBuf);
+    const passwordBuf = Buffer.from(password);
+    const adminBuf = Buffer.from(ADMIN_PASSWORD);
+    if (passwordBuf.length !== adminBuf.length) {
+        return false;
     }
-
-    // Default to bcrypt comparison against DEFAULT_PASSWORD_HASH ("admin123")
-    return bcrypt.compare(password, DEFAULT_PASSWORD_HASH);
+    return crypto.timingSafeEqual(passwordBuf, adminBuf);
 }
 
 // Auth middleware to protect admin routes

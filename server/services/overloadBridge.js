@@ -29,6 +29,15 @@ export function getOverloadPath() {
     return defaultWin;
 }
 
+// Pilot names become file names in the Overload folder; this rules out path separators
+const PILOT_NAME_PATTERN = /^[A-Za-z0-9 _.-]{1,32}$/;
+
+export function isValidPilotName(name) {
+    return typeof name === 'string' && PILOT_NAME_PATTERN.test(name);
+}
+
+const INVALID_PILOT_NAME = 'Invalid pilot name';
+
 // Compute MD5 of a file buffer
 export function getBufferMd5(buf) {
     return crypto.createHash('md5').update(buf).digest('hex').toLowerCase();
@@ -146,6 +155,7 @@ export function listPilots(overloadDir) {
 
 // Read pilot config
 export function getPilotData(overloadDir, pilotName) {
+    if (!isValidPilotName(pilotName)) return null;
     const configPath = path.join(overloadDir, `${pilotName}.extendedconfig`);
     if (!fs.existsSync(configPath)) return null;
 
@@ -181,6 +191,9 @@ export function getPilotData(overloadDir, pilotName) {
 
 // Apply Pilot Taunts with MANDATORY automatic backup
 export function applyPilotTaunts(overloadDir, pilotName, newTauntHashes) {
+    if (!isValidPilotName(pilotName)) {
+        return { success: false, backupPath: '', promotedCount: 0, isGameRunning: false, error: INVALID_PILOT_NAME };
+    }
     const configPath = path.join(overloadDir, `${pilotName}.extendedconfig`);
     if (!fs.existsSync(configPath)) {
         return { 
@@ -285,6 +298,9 @@ export const PILOT_FAMILY_EXTS = [
 
 // Read pilot settings (.xprefs, .xprefsmod, .xconfig)
 export function getPilotSettings(overloadDir, pilotName) {
+    if (!isValidPilotName(pilotName)) {
+        return { error: INVALID_PILOT_NAME };
+    }
     if (!fs.existsSync(overloadDir)) {
         return { error: 'Overload directory not found' };
     }
@@ -332,6 +348,9 @@ export function getPilotSettings(overloadDir, pilotName) {
 
 // Save pilot settings with process guard and auto-backup
 export function savePilotSettings(overloadDir, pilotName, { xprefsRaw, xprefsmodRaw, xconfigRaw, extendedconfigRaw }) {
+    if (!isValidPilotName(pilotName)) {
+        return { success: false, error: INVALID_PILOT_NAME };
+    }
     if (isOverloadRunning()) {
         return { success: false, error: 'Close Overload to change settings' };
     }
@@ -373,6 +392,9 @@ export function savePilotSettings(overloadDir, pilotName, { xprefsRaw, xprefsmod
 
 // Set pilot SP XP (PS_XP2)
 export function setPilotXP(overloadDir, pilotName, xp) {
+    if (!isValidPilotName(pilotName)) {
+        return { success: false, error: INVALID_PILOT_NAME };
+    }
     if (isOverloadRunning()) {
         return { success: false, error: 'Close Overload to change settings' };
     }
@@ -457,6 +479,9 @@ export function clonePilot(overloadDir, sourcePilot, targetPilot) {
         return { success: false, error: 'Target pilot name is required' };
     }
     const cleanTarget = targetPilot.trim();
+    if (!isValidPilotName(sourcePilot) || !isValidPilotName(cleanTarget)) {
+        return { success: false, error: INVALID_PILOT_NAME };
+    }
 
     let clonedCount = 0;
     for (const ext of PILOT_FAMILY_EXTS) {
@@ -485,6 +510,9 @@ export function renamePilot(overloadDir, sourcePilot, targetPilot) {
         return { success: false, error: 'Target pilot name is required' };
     }
     const cleanTarget = targetPilot.trim();
+    if (!isValidPilotName(sourcePilot) || !isValidPilotName(cleanTarget)) {
+        return { success: false, error: INVALID_PILOT_NAME };
+    }
 
     const filesToRename = [];
     for (const ext of PILOT_FAMILY_EXTS) {
@@ -518,6 +546,9 @@ export function renamePilot(overloadDir, sourcePilot, targetPilot) {
 
 // Delete pilot across the 6-file family
 export function deletePilot(overloadDir, pilotName) {
+    if (!isValidPilotName(pilotName)) {
+        return { success: false, error: INVALID_PILOT_NAME };
+    }
     if (isOverloadRunning()) {
         return { success: false, error: 'Close Overload to change settings' };
     }

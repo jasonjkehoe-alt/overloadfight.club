@@ -4,9 +4,10 @@ import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+// auth.js first: it exits before anything else loads when production secrets are missing
+import { sessionMiddleware } from './auth.js';
 import routes from './routes.js';
 import adminRoutes from './admin-routes.js';
-import { sessionMiddleware } from './auth.js';
 import ingest from './ingest.js';
 import backfillManager from './backfill.js';
 import maintenance from './maintenance.js';
@@ -24,6 +25,9 @@ const PORT = process.env.PORT || 3000;
 
 // Security: Disable x-powered-by header
 app.disable('x-powered-by');
+
+// One reverse proxy hop (DSM) in front: req.ip and req.secure come from X-Forwarded-*
+app.set('trust proxy', 1);
 
 // Reverse Proxy HTTPS Redirection
 app.use((req, res, next) => {
