@@ -9,7 +9,7 @@ if (missingSecrets.length > 0) {
         console.error(`Refusing to start: ${missingSecrets.join(' and ')} must be set when NODE_ENV=production. See .env.example.`);
         process.exit(1);
     }
-    console.warn(`[auth] ${missingSecrets.join(' and ')} not set; using insecure development defaults (admin password "admin123").`);
+    console.warn(`[auth] ${missingSecrets.join(' and ')} not set; using insecure development defaults${process.env.ADMIN_PASSWORD ? '' : ' (admin password "admin123")'}.`);
 }
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
@@ -27,15 +27,19 @@ export const sessionMiddleware = session({
     }
 });
 
-// Failed login attempts allowed per IP per window
-export const loginRateLimit = rateLimit({
+// Failed login attempts per window: 10 per IP, and 50 across all clients because
+// anyone reaching port 3000 directly can set X-Forwarded-For and pick their own IP
+const loginLimitOptions = {
     windowMs: 15 * 60 * 1000,
-    limit: 10,
     skipSuccessfulRequests: true,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Too many login attempts. Try again in 15 minutes.' }
-});
+};
+export const loginRateLimit = [
+    rateLimit({ ...loginLimitOptions, limit: 10 }),
+    rateLimit({ ...loginLimitOptions, limit: 50, keyGenerator: () => 'all-clients' })
+];
 
 // Verify admin password with a timing-safe comparison
 export async function verifyPassword(password) {
@@ -43,12 +47,9 @@ export async function verifyPassword(password) {
         return false;
     }
 
-    const passwordBuf = Buffer.from(password);
-    const adminBuf = Buffer.from(ADMIN_PASSWORD);
-    if (passwordBuf.length !== adminBuf.length) {
-        return false;
-    }
-    return crypto.timingSafeEqual(passwordBuf, adminBuf);
+    // Compare fixed-length digests so response time does not reveal the password length
+    const digest = (value) => crypto.createHash('sha256').update(value).digest();
+    return crypto.timingSafeEqual(digest(password), digest(ADMIN_PASSWORD));
 }
 
 // Auth middleware to protect admin routes

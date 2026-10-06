@@ -13,8 +13,8 @@ services:
     environment:
       - NODE_ENV=production
       - TZ=America/Chicago
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env next to this file}
+      - SESSION_SECRET=${SESSION_SECRET:?set SESSION_SECRET in .env next to this file}
     healthcheck:
       test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000" ]
       interval: 30s
