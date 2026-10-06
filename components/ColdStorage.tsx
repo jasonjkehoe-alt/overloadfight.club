@@ -208,9 +208,9 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                         <DeepStatCard
-                            title="Total Sorties"
+                            title="Total Matches"
                             value={deepStats?.total_games ? deepStats.total_games.toLocaleString() : '75,820'}
-                            subtitle="Matched combat sorties"
+                            subtitle="Matched combat matches"
                             icon={<Database size={28} />}
                             color="text-blue-400"
                         />
@@ -259,14 +259,14 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                         <DeepStatCard
                             title="Dominant Mode"
                             value={deepStats?.most_popular_mode?.mode || 'ANARCHY'}
-                            subtitle={deepStats?.most_popular_mode?.count ? `${deepStats.most_popular_mode.count.toLocaleString()} sorties (81.3%)` : 'FFA dogfights'}
+                            subtitle={deepStats?.most_popular_mode?.count ? `${deepStats.most_popular_mode.count.toLocaleString()} matches (81.3%)` : 'FFA dogfights'}
                             icon={<Crosshair size={28} />}
                             color="text-pink-400"
                         />
                         <DeepStatCard
                             title="Graveyard Shift"
                             value={deepStats?.graveyard_shift_count ? deepStats.graveyard_shift_count.toLocaleString() : '-'}
-                            subtitle="Sorties fought 2AM–5AM"
+                            subtitle="Matches fought 2AM–5AM"
                             icon={<Moon size={28} />}
                             color="text-indigo-400"
                         />
@@ -283,7 +283,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                 {/* --- 2. HALL OF RECORDS (CLICKABLE RECORD-BREAKER MATCHES) --- */}
                 <div className="space-y-3">
                     <h2 className="text-xs font-bold font-mono uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                        <Trophy size={14} className="text-yellow-500" /> Hall of Records & Extreme Sorties
+                        <Trophy size={14} className="text-yellow-500" /> Hall of Records & Extreme Matches
                     </h2>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -363,7 +363,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                             </div>
                             <div className="relative z-10">
                                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 bg-blue-950/60 border border-blue-800/40 px-2 py-0.5 rounded">
-                                    Longest Sortie
+                                    Longest Match
                                 </span>
                                 <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
                                     Endurance Marathon
@@ -433,7 +433,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                             </p>
                         </div>
                         <div className="text-xs font-mono text-gray-400 bg-gray-900 px-3 py-1 rounded border border-gray-800 self-start sm:self-auto">
-                            Peak Golden Era: <span className="text-[#ff6600] font-bold">2020 (20,711 Sorties)</span>
+                            Peak Golden Era: <span className="text-[#ff6600] font-bold">2020 (20,711 Matches)</span>
                         </div>
                     </div>
 
@@ -510,7 +510,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                             <div className="flex items-center gap-1 bg-[#0a0a0a] border border-gray-800 rounded p-1 text-[11px] font-mono">
                                 {[
                                     { key: 'kills', label: 'FRAGS' },
-                                    { key: 'games', label: 'SORTIES' },
+                                    { key: 'games', label: 'MATCHES' },
                                     { key: 'kd', label: 'K/D' },
                                     { key: 'damage', label: 'DAMAGE' },
                                     { key: 'win_rate', label: 'WIN %' }
@@ -536,7 +536,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                     <tr>
                                         <th className="p-3 w-10 text-center">#</th>
                                         <th className="p-3">Pilot</th>
-                                        <th className="p-3 text-right">Sorties</th>
+                                        <th className="p-3 text-right">Matches</th>
                                         <th className="p-3 text-right">
                                             {hallCategory === 'kills' && 'Total Frags'}
                                             {hallCategory === 'games' && 'Matches Played'}
@@ -608,7 +608,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                     <tr>
                                         <th className="p-3 w-10 text-center">#</th>
                                         <th className="p-3">Arena Level</th>
-                                        <th className="p-3 text-right">Sorties</th>
+                                        <th className="p-3 text-right">Matches</th>
                                         <th className="p-3 text-right">Share</th>
                                     </tr>
                                 </thead>
@@ -650,7 +650,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                         <div>
                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                 <Database className="text-blue-400" />
-                                Archival Sortie Browser
+                                Archival Match Browser
                             </h2>
                             <p className="text-xs text-gray-500 font-mono mt-0.5">
                                 Search individual matches across all 70,500+ archived historical flight records.
@@ -708,7 +708,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                             </div>
                         ) : games.length === 0 ? (
                             <div className="text-center py-16 text-gray-500 font-mono space-y-2 bg-[#111] rounded-lg border border-gray-800/60">
-                                <p className="text-gray-300 font-bold">No archived sorties found matching criteria.</p>
+                                <p className="text-gray-300 font-bold">No archived matches found matching criteria.</p>
                                 <p className="text-xs text-gray-600">Try adjusting your search terms or clearing the epoch filter.</p>
                                 <button
                                     onClick={() => { setSearchInput(''); setSearch(''); setSelectedYear('ALL'); }}
@@ -720,8 +720,8 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                         ) : (
                             <>
                                 <div className="mb-2 text-xs font-mono text-gray-500 uppercase tracking-wider flex justify-between items-center">
-                                    <span>Archived Sorties ({gamesTotalCount.toLocaleString()} Total)</span>
-                                    <span>Page {page} &bull; Showing {games.length} sorties</span>
+                                    <span>Archived Matches ({gamesTotalCount.toLocaleString()} Total)</span>
+                                    <span>Page {page} &bull; Showing {games.length} matches</span>
                                 </div>
 
                                 {games.map((game) => (

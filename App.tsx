@@ -11,6 +11,8 @@ import AdminPanel from './components/AdminPanel';
 import ColdStorage from './components/ColdStorage';
 import Resources from './components/Resources';
 import AudioTauntMaker from './components/AudioTauntMaker';
+import PilotManager from './components/PilotManager';
+import { OverloadFsProvider } from './context/OverloadFsContext';
 import { fetchActiveGames, fetchArchivedGames, fetchGameDetail, getGlobalStats, fetchConfig } from './services/apiService';
 import { BrowserApiResponse, GameData, AdminSettings } from './types';
 
@@ -25,14 +27,16 @@ const getUrlForView = (view: string, param?: string | number): string => {
     case 'history': return '/history';
     case 'maps': return param ? `/maps/${encodeURIComponent(String(param))}` : '/maps';
     case 'olmod': return '/olmod';
-    case 'tools': return '/taunts';
+    case 'tools':
+    case 'taunts': return '/taunts';
+    case 'pilot-manager': return '/pilot';
     case 'resources': return '/resources';
-    case 'cold-storage': return '/cold-storage';
+    case 'cold-storage': return '/archive';
     case 'admin': return '/admin';
     case 'pilots': return '/pilots';
-    case 'pilot': return param ? `/pilot/${encodeURIComponent(String(param))}` : '/pilots';
+    case 'pilot': return param ? `/pilot/${encodeURIComponent(String(param))}` : '/pilot';
     case 'game-detail': return param ? `/game/${param}` : '/history';
-    case 'live-game-detail': return param ? `/live/${param}` : '/dashboard';
+    case 'live-game-detail': return param ? `/live/${param}` : '/';
     default: return '/';
   }
 };
@@ -47,12 +51,15 @@ const parseUrlPath = (): RouteState => {
   if (first === 'history') return { view: 'history' };
   if (first === 'maps') return { view: 'maps', param: second ? decodeURIComponent(second) : '' };
   if (first === 'olmod') return { view: 'olmod' };
-  if (first === 'tools' || first === 'taunts') return { view: 'tools' };
+  if (first === 'tools' || first === 'taunts') return { view: 'taunts' };
   if (first === 'resources') return { view: 'resources' };
-  if (first === 'cold-storage') return { view: 'cold-storage' };
+  if (first === 'cold-storage' || first === 'archive') return { view: 'cold-storage' };
   if (first === 'admin') return { view: 'admin' };
   if (first === 'pilots') return { view: 'pilots' };
-  if (first === 'pilot' && second) return { view: 'pilot', param: decodeURIComponent(second) };
+  if (first === 'pilot') {
+    if (second) return { view: 'pilot', param: decodeURIComponent(second) };
+    return { view: 'pilot-manager' };
+  }
   if (first === 'game' && second) {
     const gameId = parseInt(second, 10);
     return isNaN(gameId) ? { view: 'history' } : { view: 'game-detail', param: gameId };
@@ -213,7 +220,7 @@ const App: React.FC = () => {
       setMapSearchTerm('');
     }
 
-    if (view === 'dashboard' || view === 'history' || view === 'pilots' || view === 'maps' || view === 'weapons' || view === 'olmod' || view === 'admin' || view === 'tools' || view === 'resources' || view === 'cold-storage') {
+    if (view === 'dashboard' || view === 'history' || view === 'pilots' || view === 'maps' || view === 'weapons' || view === 'olmod' || view === 'admin' || view === 'tools' || view === 'taunts' || view === 'pilot-manager' || view === 'resources' || view === 'cold-storage') {
       setSelectedGameId(null);
       setSelectedGameData(null);
       setGameDetailError(false);
@@ -265,7 +272,8 @@ const App: React.FC = () => {
   }, [applyView]);
 
   return (
-    <Layout currentView={currentView} onNavigate={handleNavigate} showColdStorage={showColdStorage}>
+    <OverloadFsProvider>
+      <Layout currentView={currentView} onNavigate={handleNavigate} showColdStorage={showColdStorage}>
       {currentView === 'dashboard' && (
         <div className="space-y-8 animate-fade-in">
           <div className="bg-gradient-to-r from-[#1a1a1a] to-black p-8 rounded border border-gray-800 mb-8 flex justify-between items-end">
@@ -420,10 +428,15 @@ const App: React.FC = () => {
         <AdminPanel />
       )}
 
-      {currentView === 'tools' && (
-        <AudioTauntMaker />
+      {currentView === 'pilot-manager' && (
+        <PilotManager onNavigate={handleNavigate} />
+      )}
+
+      {(currentView === 'tools' || currentView === 'taunts') && (
+        <AudioTauntMaker onNavigate={handleNavigate} />
       )}
     </Layout>
+  </OverloadFsProvider>
   );
 };
 

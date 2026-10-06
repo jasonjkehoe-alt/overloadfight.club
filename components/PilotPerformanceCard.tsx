@@ -89,7 +89,7 @@ const PilotPerformanceCard = ({ pilotName }: { pilotName: string }) => {
                     label="Combat Impact (ACI)"
                     value={stats.aci !== undefined ? (stats.aci > 0 ? `+${stats.aci.toFixed(2)}` : stats.aci.toFixed(2)) : stats.tce.toFixed(1)}
                     unit="/ match"
-                    tooltip="Average Combat Impact (ACI): (Kills + 0.5*Assists - Deaths) / Sorties. Normalizes net combat contribution per match without favoring total games played."
+                    tooltip="Average Combat Impact (ACI): (Kills + 0.5*Assists - Deaths) / Matches. Normalizes net combat contribution per match without favoring total games played."
                     color="text-[#00ffff]"
                 />
 

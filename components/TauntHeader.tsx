@@ -3,8 +3,8 @@ import { Volume2, ExternalLink, Gamepad2, BookOpen, Sliders, FolderOpen, Check, 
 import { useOverloadFs } from '../context/OverloadFsContext';
 
 interface TauntHeaderProps {
-    activeTab: 'editor' | 'vault' | 'settings' | 'loadout' | 'manual';
-    onSelectTab: (tab: 'editor' | 'vault' | 'settings' | 'loadout' | 'manual') => void;
+    activeTab: 'editor' | 'vault' | 'loadout' | 'manual';
+    onSelectTab: (tab: 'editor' | 'vault' | 'loadout' | 'manual') => void;
 }
 
 export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab }) => {
@@ -68,18 +68,6 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                     >
                         <FolderOpen className="w-3.5 h-3.5" />
                         <span>Library</span>
-                    </button>
-
-                    <button
-                        onClick={() => onSelectTab('settings')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                            activeTab === 'settings'
-                                ? 'bg-[#ff6600] text-black font-bold shadow-lg shadow-[#ff6600]/20'
-                                : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        <Sliders className="w-3.5 h-3.5" />
-                        <span>Pilot Settings</span>
                     </button>
 
                     <button
@@ -151,16 +139,6 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                         {copiedPath ? <Check className="w-3 h-3 text-emerald-400" /> : <FolderOpen className="w-3 h-3 text-[#ff6600]" />}
                         <span>{copiedPath ? 'Path Copied' : 'Game Path'}</span>
                     </button>
-
-                    <a 
-                        href="https://github.com/overload-development-community/olmod/wiki/Audio-taunts" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-800 hover:border-[#ff6600]/50 hover:bg-[#ff6600]/10 text-gray-300 hover:text-white text-xs transition-all"
-                    >
-                        <span>OLMod</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
                 </div>
             </div>
         </header>

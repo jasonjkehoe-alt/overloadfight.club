@@ -176,7 +176,7 @@ export async function syncFromUpstream() {
                     remote_url: remoteUrl,
                     remote_image_url: remoteImageUrl,
                     file_size: item.size || 0,
-                    is_custom: false
+                    is_custom: true
                 });
 
                 upsertedCount++;

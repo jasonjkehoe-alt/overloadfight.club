@@ -222,7 +222,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                             <div className="w-full grid grid-cols-1 gap-2">
                                 <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
                                     <div>
-                                        <span className="text-gray-500 text-xs uppercase block">Sorties</span>
+                                        <span className="text-gray-500 text-xs uppercase block">Matches</span>
                                         {stats.career_games && stats.career_games > stats.games && (
                                             <span className="text-[10px] text-gray-500 font-mono">Recent: {stats.games}</span>
                                         )}
@@ -348,7 +348,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                         <span>RECENT FORM: <strong>{stats.games} MATCHES ANALYZED</strong> (Past 365 Days)</span>
                                     </div>
                                     <span className="text-gray-400">
-                                        CAREER RECORD: <strong className="text-white">{stats.career_games.toLocaleString()} SORTIES</strong>
+                                        CAREER RECORD: <strong className="text-white">{stats.career_games.toLocaleString()} MATCHES</strong>
                                     </span>
                                 </div>
                             )}
@@ -547,7 +547,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                             <thead className="bg-[#111] text-gray-500 text-xs uppercase">
                                                 <tr>
                                                     <th className="p-3">Sector / Map</th>
-                                                    <th className="p-3 text-center">Sorties</th>
+                                                    <th className="p-3 text-center">Matches</th>
                                                     <th className="p-3 text-center">Kills</th>
                                                     <th className="p-3 text-center">Deaths</th>
                                                     <th className="p-3 text-right">K/D Ratio</th>
@@ -579,7 +579,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                             {/* Match History Table */}
                             <div>
                                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-gray-800 pb-2 flex items-center justify-between">
-                                    <span>Combat Sorties</span>
+                                    <span>Combat Matches</span>
                                     <span className="text-[10px] text-gray-600 font-normal">MISSION ARCHIVE</span>
                                 </h3>
                                 <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg overflow-hidden">

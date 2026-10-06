@@ -72,46 +72,56 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
                 <span className="text-white font-bold group-hover:text-[#ff6600] transition-colors">{activePilotCount}</span>
                 <span className="text-gray-500 group-hover:text-gray-300 transition-colors">ACTIVE PILOTS</span>
               </div>
-              <nav className="flex space-x-8">
+              <nav className="flex space-x-5 xl:space-x-7">
                 <button
                   onClick={() => handleNavClick('dashboard')}
-                  className={`${currentView === 'dashboard' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-3 py-2 rounded-md text-sm font-medium transition-colors`}
+                  className={`${currentView === 'dashboard' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
-                  Dashboard
+                  Live
+                </button>
+                <button
+                  onClick={() => handleNavClick('pilots')}
+                  className={`${currentView === 'pilots' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
+                >
+                  Leaderboards
                 </button>
                 <button
                   onClick={() => handleNavClick('maps')}
-                  className={`${currentView === 'maps' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-3 py-2 rounded-md text-sm font-medium transition-colors`}
+                  className={`${currentView === 'maps' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   Maps
                 </button>
                 <button
+                  onClick={() => handleNavClick('taunts')}
+                  className={`${currentView === 'taunts' || currentView === 'tools' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
+                >
+                  Taunts
+                </button>
+                <button
+                  onClick={() => handleNavClick('pilot-manager')}
+                  className={`${currentView === 'pilot-manager' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
+                >
+                  Pilot
+                </button>
+                <button
                   onClick={() => handleNavClick('olmod')}
-                  className={`${currentView === 'olmod' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-3 py-2 rounded-md text-sm font-medium transition-colors`}
+                  className={`${currentView === 'olmod' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   OLMod
                 </button>
                 <button
-                  onClick={() => handleNavClick('tools')}
-                  className={`${currentView === 'tools' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-3 py-2 rounded-md text-sm font-medium transition-colors`}
-                >
-                  AudioTauntMaker
-                </button>
-                <button
                   onClick={() => handleNavClick('resources')}
-                  className={`${currentView === 'resources' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2`}
+                  className={`${currentView === 'resources' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5`}
                 >
-                  <LinkIcon className="w-4 h-4" />
+                  <LinkIcon className="w-3.5 h-3.5" />
                   Resources
                 </button>
-                {showColdStorage && (
-                  <button
-                    onClick={() => handleNavClick('cold-storage')}
-                    className={`${currentView === 'cold-storage' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-3 py-2 rounded-md text-sm font-medium transition-colors`}
-                  >
-                    Cold Storage
-                  </button>
-                )}
+                <button
+                  onClick={() => handleNavClick('cold-storage')}
+                  className={`${currentView === 'cold-storage' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
+                >
+                  Archive
+                </button>
               </nav>
             </div>
 
@@ -135,7 +145,13 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
                 onClick={() => handleNavClick('dashboard')}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'dashboard' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
-                Dashboard
+                Live
+              </button>
+              <button
+                onClick={() => handleNavClick('pilots')}
+                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'pilots' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+              >
+                Leaderboards
               </button>
               <button
                 onClick={() => handleNavClick('maps')}
@@ -144,16 +160,22 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
                 Maps
               </button>
               <button
+                onClick={() => handleNavClick('taunts')}
+                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'taunts' || currentView === 'tools' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+              >
+                Taunts
+              </button>
+              <button
+                onClick={() => handleNavClick('pilot-manager')}
+                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'pilot-manager' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+              >
+                Pilot
+              </button>
+              <button
                 onClick={() => handleNavClick('olmod')}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'olmod' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 OLMod
-              </button>
-              <button
-                onClick={() => handleNavClick('tools')}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'tools' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                AudioTauntMaker
               </button>
               <button
                 onClick={() => handleNavClick('resources')}
@@ -161,19 +183,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
               >
                 Resources
               </button>
-              {showColdStorage && (
-                <button
-                  onClick={() => handleNavClick('cold-storage')}
-                  className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'cold-storage' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-                >
-                  Cold Storage
-                </button>
-              )}
               <button
-                onClick={() => handleNavClick('pilots')}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'pilots' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                onClick={() => handleNavClick('cold-storage')}
+                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'cold-storage' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
-                Pilots Online ({playerCount})
+                Archive
               </button>
             </div>
           </div>

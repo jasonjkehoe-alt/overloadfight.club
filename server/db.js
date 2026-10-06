@@ -1408,6 +1408,18 @@ const seedStockMaps = () => {
       }
     })();
     console.log(`[Maps] Seeded ${STOCK_MAPS.length} official Revival Productions stock maps into maps table.`);
+
+    // Guarantee custom vs stock separation
+    hotDb.exec(`
+      UPDATE maps 
+      SET is_custom = 1 
+      WHERE LOWER(author) NOT LIKE '%revival%' 
+        AND name NOT IN ('Vault', 'Terminal', 'Wraith', 'Blizzard', 'Backfire', 'Syrinx', 'Centrifuge', 'Hive', 'Roundabout', 'Foundry', 'Labyrinth', 'Chimp');
+      UPDATE maps 
+      SET is_custom = 0 
+      WHERE LOWER(author) LIKE '%revival%' 
+         OR name IN ('Vault', 'Terminal', 'Wraith', 'Blizzard', 'Backfire', 'Syrinx', 'Centrifuge', 'Hive', 'Roundabout', 'Foundry', 'Labyrinth', 'Chimp');
+    `);
   } catch (err) {
     console.error('Failed to seed stock maps:', err);
   }
@@ -2760,6 +2772,7 @@ VALUES(@id, @date, @ip, @details)
         remote_url = COALESCE(excluded.remote_url, maps.remote_url),
         remote_image_url = COALESCE(excluded.remote_image_url, maps.remote_image_url),
         file_size = CASE WHEN excluded.file_size > 0 THEN excluded.file_size ELSE maps.file_size END,
+        is_custom = excluded.is_custom,
         updated_at = CURRENT_TIMESTAMP
     `);
     return stmt.run({

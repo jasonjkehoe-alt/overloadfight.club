@@ -4,12 +4,14 @@ import { AudioEditor } from './AudioEditor';
 import { OverloadVault, GameTauntItem } from './OverloadVault';
 import { LoadoutManager, PendingSlotAssignment } from './LoadoutManager';
 import { AudioManual } from './AudioManual';
-import { PilotSettingsPanel } from './PilotSettingsPanel';
 import { ErrorBoundary } from './ErrorBoundary';
-import { OverloadFsProvider } from '../context/OverloadFsContext';
 
-export const AudioTauntMaker: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'editor' | 'vault' | 'settings' | 'loadout' | 'manual'>('vault');
+interface AudioTauntMakerProps {
+    onNavigate?: (view: string, param?: any) => void;
+}
+
+export const AudioTauntMaker: React.FC<AudioTauntMakerProps> = ({ onNavigate }) => {
+    const [activeTab, setActiveTab] = useState<'editor' | 'vault' | 'loadout' | 'manual'>('vault');
     const [editorFile, setEditorFile] = useState<File | null>(null);
     const [pendingSlotAssignment, setPendingSlotAssignment] = useState<PendingSlotAssignment | null>(null);
 
@@ -31,45 +33,40 @@ export const AudioTauntMaker: React.FC = () => {
 
     return (
         <ErrorBoundary>
-            <OverloadFsProvider>
-                <div className="w-full text-gray-200 flex flex-col selection:bg-[#ff6600] selection:text-black animate-fade-in pb-12">
-                    <TauntHeader activeTab={activeTab} onSelectTab={setActiveTab} />
+            <div className="w-full text-gray-200 flex flex-col selection:bg-[#ff6600] selection:text-black animate-fade-in pb-12">
+                <TauntHeader activeTab={activeTab} onSelectTab={setActiveTab} />
 
-                    <div className="w-full">
-                        <div className={activeTab === 'editor' ? 'block' : 'hidden'}>
-                            <AudioEditor 
-                                initialFile={editorFile} 
-                            />
-                        </div>
-                        <div className={activeTab === 'vault' ? 'block' : 'hidden'}>
-                            <OverloadVault 
-                                onLoadIntoEditor={handleLoadIntoEditor}
-                                onEquipToSlot={handleEquipFromVault}
-                                onNavigateSettings={() => setActiveTab('settings')}
-                            />
-                        </div>
-                        <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
-                            <PilotSettingsPanel />
-                        </div>
-                        <div className={activeTab === 'loadout' ? 'block' : 'hidden'}>
-                            <LoadoutManager 
-                                pendingAssignment={pendingSlotAssignment}
-                                onLoadTauntIntoEditor={handleLoadIntoEditor}
-                            />
-                        </div>
-                        {activeTab === 'manual' && <AudioManual />}
+                <div className="w-full">
+                    <div className={activeTab === 'editor' ? 'block' : 'hidden'}>
+                        <AudioEditor 
+                            initialFile={editorFile} 
+                        />
                     </div>
-
-                    <div className="mt-12 border-t border-gray-800/80 pt-6 text-center text-xs font-mono text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <p>
-                            Overload Audio Taunt Maker 2.0 &bull; Live Game Bridge &bull; Automated Backup Engine
-                        </p>
-                        <p className="text-[11px] text-gray-600">
-                            Tailored for Revival Productions Overload 6-DOF &amp; OLMod
-                        </p>
+                    <div className={activeTab === 'vault' ? 'block' : 'hidden'}>
+                        <OverloadVault 
+                            onLoadIntoEditor={handleLoadIntoEditor}
+                            onEquipToSlot={handleEquipFromVault}
+                            onNavigateSettings={onNavigate ? () => onNavigate('pilot-manager') : undefined}
+                        />
                     </div>
+                    <div className={activeTab === 'loadout' ? 'block' : 'hidden'}>
+                        <LoadoutManager 
+                            pendingAssignment={pendingSlotAssignment}
+                            onLoadTauntIntoEditor={handleLoadIntoEditor}
+                        />
+                    </div>
+                    {activeTab === 'manual' && <AudioManual />}
                 </div>
-            </OverloadFsProvider>
+
+                <div className="mt-12 border-t border-gray-800/80 pt-6 text-center text-xs font-mono text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <p>
+                        Overload Audio Taunt Maker 2.0 &bull; Live Game Bridge &bull; Automated Backup Engine
+                    </p>
+                    <p className="text-[11px] text-gray-600">
+                        Tailored for Revival Productions Overload 6-DOF &amp; OLMod
+                    </p>
+                </div>
+            </div>
         </ErrorBoundary>
     );
 };

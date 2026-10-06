@@ -215,7 +215,7 @@ const ServerStats: React.FC<ServerStatsProps & { onSelectLiveGame?: (server: Bro
                         ))}
                     </div>
                 </div>
-                <div className="text-[10px] text-gray-600 font-mono mt-2">Ranked by sorties</div>
+                <div className="text-[10px] text-gray-600 font-mono mt-2">Ranked by matches</div>
             </div>
 
             {/* Mode Distribution - Horizontal Labeled Bars */}
