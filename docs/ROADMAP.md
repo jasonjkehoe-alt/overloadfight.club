@@ -41,7 +41,7 @@ On resume:
 ## Status
 
 S1 is on branch `ofc/s01-secrets-auth`, based on `origin/main` at `5516729`,
-PR __PR__ open and not merged, 2026-10-06. The branch's first commit adds
+PR #1 open and not merged, 2026-10-06. The branch's first commit adds
 `docs/`, so later sessions base on S1's branch until it merges, then on
 `origin/main`.
 
@@ -225,7 +225,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 
 ### Phase 1: fast and true
 
-- [x] **S1 Secrets and auth hardening** (S). PR __PR__. Script items done by
+- [x] **S1 Secrets and auth hardening** (S). PR #1. Script items done by
       the owner's `5516729`. Done when: `grep -rnE
       "password=['\"]" scripts/` is empty; the three scripts read credentials
       from env or prompt; `server/auth.js` refuses to start with
@@ -511,7 +511,7 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   `.gitignore`, and added `!.env.example`. Checked that no commit from the old
   history is an ancestor and that none of the 46 objects pushed contains the
   password. Re-ran vitest and the production start checks on the new base.
-  PR __PR__, not merged.
+  PR #1, not merged.
 
 ## Next session prompt
 
