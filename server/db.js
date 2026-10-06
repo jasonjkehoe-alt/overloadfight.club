@@ -150,6 +150,18 @@ hotDb.exec(`
   CREATE INDEX IF NOT EXISTS idx_map_stats_last_played ON map_stats_cache(last_played DESC);
 `);
 
+// Auto-sanitize pilot stats cache on startup (ensures non-negative kills and ratios)
+try {
+  hotDb.exec(`
+    UPDATE pilot_stats_cache 
+    SET kills = MAX(0, kills),
+        kd = CASE WHEN deaths > 0 THEN ROUND((MAX(0, kills)*1.0)/deaths, 2) ELSE MAX(0, kills) END,
+        kda = CASE WHEN deaths > 0 THEN ROUND(((MAX(0, kills) + assists * 0.5)*1.0)/deaths, 2) ELSE MAX(0, kills) END
+    WHERE kills < 0 OR kd < 0 OR kda < 0;
+  `);
+} catch (e) {
+  // Table might not exist yet before first refresh
+}
 
 // Prepare statements for performance (HOT DB)
 const insertGameHot = hotDb.prepare(`
@@ -420,7 +432,7 @@ const getPilotStats = hotDb.prepare(`
     SELECT
         TRIM(json_extract(value, '$.name')) as name,
         COUNT(*) as games,
-        COALESCE(SUM(json_extract(value, '$.kills')), 0) as kills,
+        COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
         COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
         COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
         MAX(all_g.date) as lastSeen
@@ -439,7 +451,7 @@ const getPilotStatsFiltered = hotDb.prepare(`
     SELECT
         TRIM(json_extract(value, '$.name')) as name,
         COUNT(*) as games,
-        COALESCE(SUM(json_extract(value, '$.kills')), 0) as kills,
+        COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
         COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
         COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
         MAX(all_g.date) as lastSeen
@@ -506,12 +518,8 @@ const getActivePilotCount = hotDb.prepare(`
 
 const getDeadliestMaps = hotDb.prepare(`
     SELECT json_extract(details, '$.settings.level') as map, 
-           SUM((SELECT SUM(json_extract(value, '$.kills')) FROM json_each(json_extract(details, '$.players')))) as total_kills 
-    FROM (
-        SELECT details, date FROM games
-        UNION ALL
-        SELECT details, date FROM cold.games
-    )
+           SUM((SELECT SUM(MAX(0, json_extract(value, '$.kills'))) FROM json_each(json_extract(details, '$.players')))) as total_kills 
+    FROM games
     WHERE date > date('now', '-365 days')
     GROUP BY map 
     ORDER BY total_kills DESC 
@@ -521,11 +529,7 @@ const getDeadliestMaps = hotDb.prepare(`
 const getMarathonMaps = hotDb.prepare(`
     SELECT json_extract(details, '$.settings.level') as map, 
            AVG(COALESCE(json_extract(details, '$.timeElapsed'), json_extract(details, '$.duration'), json_extract(details, '$.game.matchLength'), (strftime('%s', date) - strftime('%s', json_extract(details, '$.start'))), 0)) as avg_duration 
-    FROM (
-        SELECT details, date FROM games
-        UNION ALL
-        SELECT details, date FROM cold.games
-    )
+    FROM games
     WHERE date > date('now', '-365 days')
     GROUP BY map 
     HAVING COUNT(*) > 5 
@@ -667,7 +671,7 @@ function getPilotTelemetry(name, startDate) {
             const me = players.find(p => p && p.name && p.name.toLowerCase() === lowerName);
             if (!me) continue;
 
-            totalKills += (me.kills || 0);
+            totalKills += Math.max(0, me.kills || 0);
             totalDeaths += (me.deaths || 0);
             totalAssists += (me.assists || 0);
 
@@ -796,7 +800,7 @@ function getPilotTelemetry(name, startDate) {
         return {
             name,
             games: totalGames,
-            kills: totalKills,
+            kills: Math.max(0, totalKills),
             deaths: totalDeaths,
             assists: totalAssists,
             last_seen: lastSeen || cached?.last_updated || 'Unknown',
@@ -817,6 +821,20 @@ function getPilotTelemetry(name, startDate) {
             dpm,
             threat_centrality: cached?.threat_centrality ?? 0,
             dominance_index: cached?.dominance_index ?? 50.0,
+            // Career all-time numbers from registry cache
+            career_games: cached ? cached.games : totalGames,
+            career_kills: cached ? Math.max(0, cached.kills) : Math.max(0, totalKills),
+            career_deaths: cached ? cached.deaths : totalDeaths,
+            career_assists: cached ? cached.assists : totalAssists,
+            career_wins: cached ? cached.wins : wins,
+            career_losses: cached ? cached.losses : losses,
+            career_ties: cached ? cached.ties : ties,
+            career_win_rate: cached ? cached.win_rate : winRate,
+            career_kd: cached ? Math.max(0, cached.kd) : pureKd,
+            career_kda: cached ? Math.max(0, cached.kda) : kda,
+            career_flight_hours: cached ? (cached.flight_hours || Math.round(((cached.time_played_seconds || 0) / 3600) * 10) / 10) : flightHours,
+            recent_games: totalGames,
+            timeframe_days: startDate ? 365 : null,
             weapons: weaponList,
             weapon_summary: {
                 primaryDamage: Math.round(primaryDamage),
@@ -899,11 +917,11 @@ const getPilotStatsAllTime = () => {
             SELECT
                 c.name,
                 c.games,
-                c.kills,
+                MAX(0, c.kills) as kills,
                 c.deaths,
                 c.assists,
-                c.kd,
-                c.kda,
+                MAX(0, c.kd) as kd,
+                MAX(0, c.kda) as kda,
                 c.wins,
                 c.losses,
                 c.ties,
@@ -926,7 +944,7 @@ const getPilotStatsAllTime = () => {
         SELECT
             TRIM(json_extract(value, '$.name')) as name,
             COUNT(*) as games,
-            COALESCE(SUM(json_extract(value, '$.kills')), 0) as kills,
+            COALESCE(SUM(MAX(0, json_extract(value, '$.kills'))), 0) as kills,
             COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
             COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
             MAX(date) as lastSeen
@@ -995,7 +1013,7 @@ FROM(
 const getGlobalKillsAllTime = () => {
   if (!getAllTimeGlobalKillsStmt) {
     getAllTimeGlobalKillsStmt = hotDb.prepare(`
-            SELECT SUM(json_extract(value, '$.kills')) as total_kills
+            SELECT SUM(MAX(0, json_extract(value, '$.kills'))) as total_kills
 FROM(
   SELECT details FROM games
                 UNION ALL
@@ -1976,7 +1994,7 @@ VALUES(@id, @date, @ip, @details)
           }
 
           pilot.games++;
-          pilot.kills += (p.kills || 0);
+          pilot.kills += Math.max(0, p.kills || 0);
           pilot.deaths += (p.deaths || 0);
           pilot.assists += (p.assists || 0);
           pilot.playtimeSec += durationSec;
@@ -2011,10 +2029,10 @@ VALUES(@id, @date, @ip, @details)
             const n2 = p2.name.trim();
             // Victim transfers prestige to Killer (p2 was killed by p1; p1 was killed by p2)
             killGraph[n2] = killGraph[n2] || {};
-            killGraph[n2][n1] = (killGraph[n2][n1] || 0) + (p1.kills || 0);
+            killGraph[n2][n1] = (killGraph[n2][n1] || 0) + Math.max(0, p1.kills || 0);
 
             killGraph[n1] = killGraph[n1] || {};
-            killGraph[n1][n2] = (killGraph[n1][n2] || 0) + (p2.kills || 0);
+            killGraph[n1][n2] = (killGraph[n1][n2] || 0) + Math.max(0, p2.kills || 0);
 
             h2h[n1] = h2h[n1] || {};
             h2h[n1][n2] = h2h[n1][n2] || { wins: 0, losses: 0 };
@@ -2147,7 +2165,7 @@ VALUES(@id, @date, @ip, @details)
 
       const insertRows = pilotList.map(name => {
         const p = pilotMap[name];
-        const kills = p.kills || 0;
+        const kills = Math.max(0, p.kills || 0);
         const deaths = p.deaths || 0;
         const assists = p.assists || 0;
         const games = p.games || 1;

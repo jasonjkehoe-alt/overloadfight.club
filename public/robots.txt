@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /pilots
+Allow: /maps
+Allow: /stats
+Allow: /history
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/

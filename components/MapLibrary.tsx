@@ -152,7 +152,13 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                     <div className="flex gap-4 items-center">
                         <div className="bg-[#111] border border-gray-800 px-4 py-3 rounded-lg text-center font-mono">
                             <div className="text-[10px] uppercase font-bold text-gray-500">Catalogued Arenas</div>
-                            <div className="text-xl md:text-2xl font-bold text-white">{maps.length || '...'}</div>
+                            <div className="text-xl md:text-2xl font-bold text-white">
+                                {loading && maps.length === 0 ? (
+                                    <span className="text-sm font-normal text-gray-500 animate-pulse">Scanning...</span>
+                                ) : (
+                                    maps.length
+                                )}
+                            </div>
                         </div>
                         <div className="bg-[#111] border border-gray-800 px-4 py-3 rounded-lg text-center font-mono">
                             <div className="text-[10px] uppercase font-bold text-gray-500">Base Game</div>
@@ -332,9 +338,16 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
 
             {/* Results Count Summary */}
             <div className="flex justify-between items-center text-xs font-mono text-gray-500 px-1">
-                <span>
-                    DISPLAYING <span className="text-white font-bold">{filteredMaps.length}</span> OF <span className="text-gray-400">{maps.length}</span> ARENAS
-                </span>
+                {loading && maps.length === 0 ? (
+                    <span className="flex items-center gap-2 text-[#ff6600]">
+                        <span className="w-2.5 h-2.5 border-2 border-[#ff6600] border-t-transparent rounded-full animate-spin"></span>
+                        LOADING ARENA REGISTRY ARCHIVES...
+                    </span>
+                ) : (
+                    <span>
+                        DISPLAYING <span className="text-white font-bold">{filteredMaps.length}</span> OF <span className="text-gray-400">{maps.length}</span> ARENAS
+                    </span>
+                )}
                 {filterOrigin !== 'all' && (
                     <span className="text-[#ff6600] font-bold uppercase tracking-wider">
                         FILTERED: {filterOrigin === 'stock' ? 'OFFICIAL BASE GAME' : 'COMMUNITY CUSTOM'}
@@ -343,10 +356,13 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
             </div>
 
             {/* Arena Cards Grid */}
-            {loading ? (
+            {loading && maps.length === 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className="bg-[#121214] border border-gray-800/80 rounded-xl h-72 animate-pulse"></div>
+                        <div key={i} className="bg-[#121214] border border-gray-800/80 rounded-xl h-72 animate-pulse flex flex-col justify-end p-5">
+                            <div className="h-4 bg-gray-800/70 rounded w-2/3 mb-2"></div>
+                            <div className="h-3 bg-gray-800/40 rounded w-1/3"></div>
+                        </div>
                     ))}
                 </div>
             ) : filteredMaps.length === 0 ? (

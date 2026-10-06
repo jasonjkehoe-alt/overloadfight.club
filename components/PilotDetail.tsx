@@ -24,6 +24,18 @@ interface PilotStats {
     total_damage_dealt?: number;
     total_damage_taken?: number;
     dpm?: number;
+    career_games?: number;
+    career_kills?: number;
+    career_deaths?: number;
+    career_assists?: number;
+    career_wins?: number;
+    career_losses?: number;
+    career_win_rate?: number;
+    career_kd?: number;
+    career_kda?: number;
+    career_flight_hours?: number;
+    recent_games?: number;
+    scope?: 'recent' | 'all';
     weapons?: Array<{
         name: string;
         damage: number;
@@ -152,28 +164,64 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                         {stats && (
                             <div className="w-full grid grid-cols-1 gap-2">
                                 <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
-                                    <span className="text-gray-500 text-xs uppercase">Sorties</span>
-                                    <span className="text-xl font-bold text-white">{stats.games}</span>
+                                    <div>
+                                        <span className="text-gray-500 text-xs uppercase block">Sorties</span>
+                                        {stats.career_games && stats.career_games > stats.games && (
+                                            <span className="text-[10px] text-gray-500 font-mono">Recent: {stats.games}</span>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-xl font-bold text-white">{(stats.career_games || stats.games).toLocaleString()}</span>
+                                        {stats.career_games && stats.career_games > stats.games && (
+                                            <div className="text-[9px] font-mono text-[#ff6600] uppercase font-bold">All-Time Career</div>
+                                        )}
+                                    </div>
                                 </div>
                                 {stats.wins !== undefined && (
                                     <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
-                                        <span className="text-gray-500 text-xs uppercase">Record (W-L)</span>
+                                        <div>
+                                            <span className="text-gray-500 text-xs uppercase block">Record (W-L)</span>
+                                            {stats.career_wins !== undefined && stats.career_games && stats.career_games > stats.games && (
+                                                <span className="text-[10px] text-gray-500 font-mono">Recent: {stats.wins}W-{stats.losses}L</span>
+                                            )}
+                                        </div>
                                         <div className="text-right">
-                                            <span className="text-lg font-bold text-white">{stats.wins}W - {stats.losses}L</span>
-                                            <div className="text-[11px] font-mono text-emerald-400 font-bold">{stats.win_rate}% Win Rate</div>
+                                            <span className="text-lg font-bold text-white">
+                                                {stats.career_wins ?? stats.wins}W - {stats.career_losses ?? stats.losses}L
+                                            </span>
+                                            <div className="text-[11px] font-mono text-emerald-400 font-bold">{stats.career_win_rate ?? stats.win_rate}% Win Rate</div>
                                         </div>
                                     </div>
                                 )}
                                 <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
-                                    <span className="text-gray-500 text-xs uppercase">Combat Ratio</span>
+                                    <div>
+                                        <span className="text-gray-500 text-xs uppercase block">Combat Ratio</span>
+                                        {stats.career_kd !== undefined && stats.career_games && stats.career_games > stats.games && (
+                                            <span className="text-[10px] text-gray-500 font-mono">Recent: {pureKd.toFixed(2)}</span>
+                                        )}
+                                    </div>
                                     <div className="text-right">
-                                        <span className="text-lg font-bold text-[#ff6600]">{pureKd.toFixed(2)} <span className="text-xs text-gray-500 font-normal">K/D</span></span>
-                                        <div className="text-[10px] font-mono text-gray-400">{kda.toFixed(2)} KDA</div>
+                                        <span className="text-lg font-bold text-[#ff6600]">
+                                            {(stats.career_kd ?? pureKd).toFixed(2)} <span className="text-xs text-gray-500 font-normal">K/D</span>
+                                        </span>
+                                        <div className="text-[10px] font-mono text-gray-400">{(stats.career_kda ?? kda).toFixed(2)} KDA</div>
                                     </div>
                                 </div>
                                 <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
-                                    <span className="text-gray-500 text-xs uppercase">Total Kills</span>
-                                    <span className="text-xl font-bold text-white">{stats.kills.toLocaleString()}</span>
+                                    <div>
+                                        <span className="text-gray-500 text-xs uppercase block">Total Kills</span>
+                                        {stats.career_kills !== undefined && stats.career_games && stats.career_games > stats.games && (
+                                            <span className="text-[10px] text-gray-500 font-mono">Recent: {Math.max(0, stats.kills).toLocaleString()}</span>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-xl font-bold text-white">
+                                            {Math.max(0, stats.career_kills ?? stats.kills).toLocaleString()}
+                                        </span>
+                                        {stats.career_kills !== undefined && stats.career_games && stats.career_games > stats.games && (
+                                            <div className="text-[9px] font-mono text-[#ff6600] uppercase font-bold">All-Time Career</div>
+                                        )}
+                                    </div>
                                 </div>
                                 {stats.total_damage_dealt !== undefined && stats.total_damage_dealt > 0 && (
                                     <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
@@ -191,7 +239,9 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                 {stats.flight_hours !== undefined && stats.flight_hours > 0 && (
                                     <div className="bg-[#111] p-3 rounded border border-gray-800 flex justify-between items-center">
                                         <span className="text-gray-500 text-xs uppercase">Flight Hours</span>
-                                        <span className="text-lg font-bold font-mono text-gray-300">{stats.flight_hours} hrs</span>
+                                        <span className="text-lg font-bold font-mono text-gray-300">
+                                            {stats.career_flight_hours ?? stats.flight_hours} hrs
+                                        </span>
                                     </div>
                                 )}
                             </div>
@@ -210,6 +260,18 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                         </div>
                     ) : stats ? (
                         <div className="space-y-6">
+                            {/* Scope Banner if analyzed recent telemetry differs from career total */}
+                            {stats.career_games && stats.career_games > stats.games && (
+                                <div className="bg-[#0e0e10] border border-gray-800/90 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs font-mono">
+                                    <div className="flex items-center gap-2 text-[#ff6600]">
+                                        <span className="w-2 h-2 rounded-full bg-[#ff6600] animate-pulse"></span>
+                                        <span>RECENT FORM: <strong>{stats.games} MATCHES ANALYZED</strong> (Past 365 Days)</span>
+                                    </div>
+                                    <span className="text-gray-400">
+                                        CAREER RECORD: <strong className="text-white">{stats.career_games.toLocaleString()} SORTIES</strong>
+                                    </span>
+                                </div>
+                            )}
 
                             {/* PPI Framework Dashboard */}
                             <PilotPerformanceCard pilotName={pilotName} />

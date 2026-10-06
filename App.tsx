@@ -85,6 +85,7 @@ const App: React.FC = () => {
   const [activeGames, setActiveGames] = useState<BrowserApiResponse[] | null>(null);
   const [archivedGames, setArchivedGames] = useState<GameData[] | null>(null);
   const [selectedGameData, setSelectedGameData] = useState<GameData | null>(null);
+  const [gameDetailError, setGameDetailError] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
@@ -156,13 +157,32 @@ const App: React.FC = () => {
   // Load Detail View
   useEffect(() => {
     if (selectedGameId) {
+      let isCurrent = true;
       const loadGame = async () => {
         setLoading(true);
-        const data = await fetchGameDetail(selectedGameId);
-        setSelectedGameData(data);
-        setLoading(false);
+        setGameDetailError(false);
+        try {
+          const data = await fetchGameDetail(selectedGameId);
+          if (isCurrent) {
+            if (data) {
+              setSelectedGameData(data);
+              setGameDetailError(false);
+            } else {
+              setSelectedGameData(null);
+              setGameDetailError(true);
+            }
+          }
+        } catch {
+          if (isCurrent) {
+            setSelectedGameData(null);
+            setGameDetailError(true);
+          }
+        } finally {
+          if (isCurrent) setLoading(false);
+        }
       };
       loadGame();
+      return () => { isCurrent = false; };
     }
   }, [selectedGameId]);
 
@@ -196,6 +216,7 @@ const App: React.FC = () => {
     if (view === 'dashboard' || view === 'history' || view === 'pilots' || view === 'maps' || view === 'weapons' || view === 'olmod' || view === 'admin' || view === 'tools' || view === 'resources' || view === 'cold-storage') {
       setSelectedGameId(null);
       setSelectedGameData(null);
+      setGameDetailError(false);
       setActiveServer(null);
       setActiveServerIp(null);
       setSelectedPilot(null);
@@ -315,9 +336,41 @@ const App: React.FC = () => {
         selectedGameData ? (
           <GameDetail
             game={selectedGameData}
-            onBack={() => handleNavigate('dashboard')}
+            onBack={() => handleNavigate('history')}
             onNavigate={handleNavigate}
           />
+        ) : gameDetailError ? (
+          <div className="bg-[#101012] border border-red-900/60 rounded-xl p-8 max-w-xl mx-auto my-16 text-center font-mono shadow-2xl">
+            <div className="w-14 h-14 rounded-full bg-red-950/80 border border-red-700/80 text-red-400 flex items-center justify-center mx-auto mb-4 text-2xl shadow">
+              ⚠️
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2 tracking-wide uppercase">COMBAT TELEMETRY UNAVAILABLE</h3>
+            <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+              Could not retrieve match details for log #{selectedGameId}. The upstream telemetry provider (tracker.otl.gg) may be offline or experiencing connection timeouts.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => handleNavigate('history')}
+                className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded font-bold text-xs uppercase tracking-wider transition-colors"
+              >
+                Return to History
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedGameId) {
+                    setGameDetailError(false);
+                    fetchGameDetail(selectedGameId).then(d => {
+                      if (d) setSelectedGameData(d);
+                      else setGameDetailError(true);
+                    });
+                  }
+                }}
+                className="px-5 py-2.5 bg-[#ff6600] hover:bg-[#ff8533] text-black font-bold rounded text-xs uppercase tracking-wider transition-colors"
+              >
+                Retry Telemetry
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-24">
             <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin mb-4"></div>

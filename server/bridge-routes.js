@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import dns from 'dns';
 import { execSync } from 'child_process';
 import {
     getOverloadPath,
@@ -30,20 +31,105 @@ import {
 const router = express.Router();
 const overloadDir = getOverloadPath();
 
+// SSRF Protection: Restrict proxy to trusted audio hosts & prevent private/loopback/CGNAT IP access
+const ALLOWED_AUDIO_HOST_PATTERNS = [
+    /(^|\.)archive\.org$/,
+    /(^|\.)freesound\.org$/,
+    /(^|\.)myinstants\.com$/,
+    /(^|\.)soundbible\.com$/,
+    /(^|\.)wikimedia\.org$/,
+    /(^|\.)raw\.githubusercontent\.com$/,
+    /(^|\.)cdn\.discordapp\.com$/,
+    /(^|\.)discordapp\.com$/,
+    /(^|\.)discord\.com$/,
+    /(^|\.)googlevideo\.com$/,
+    /(^|\.)youtube\.com$/,
+    /^youtu\.be$/,
+    /(^|\.)overloadfight\.club$/
+];
+
+function isPrivateIp(ip) {
+    if (!ip) return true;
+    if (ip.startsWith('::ffff:')) {
+        ip = ip.substring(7);
+    }
+    const parts = ip.split('.').map(Number);
+    if (parts.length === 4 && parts.every(p => !isNaN(p) && p >= 0 && p <= 255)) {
+        // 0.0.0.0/8
+        if (parts[0] === 0) return true;
+        // 127.0.0.0/8 (loopback)
+        if (parts[0] === 127) return true;
+        // 10.0.0.0/8 (private)
+        if (parts[0] === 10) return true;
+        // 172.16.0.0/12 (private: 172.16.0.0 - 172.31.255.255)
+        if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+        // 192.168.0.0/16 (private)
+        if (parts[0] === 192 && parts[1] === 168) return true;
+        // 169.254.0.0/16 (link-local)
+        if (parts[0] === 169 && parts[1] === 254) return true;
+        // 100.64.0.0/10 (CGNAT / Tailscale: 100.64.0.0 - 100.127.255.255)
+        if (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) return true;
+        return false;
+    }
+    const lower = ip.toLowerCase();
+    if (lower === '::1' || lower === '::' || lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) {
+        return true;
+    }
+    return false;
+}
+
+async function validateSafeAudioUrl(targetUrl) {
+    let parsed;
+    try {
+        parsed = new URL(targetUrl);
+    } catch {
+        return { valid: false, error: 'Invalid URL format' };
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return { valid: false, error: 'Only HTTP and HTTPS protocols are permitted' };
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    // 1. Host allowlist
+    const isAllowedHost = ALLOWED_AUDIO_HOST_PATTERNS.some(pattern => pattern.test(hostname));
+    if (!isAllowedHost) {
+        return { valid: false, error: `Host "${hostname}" is not on the permitted audio importer allowlist` };
+    }
+
+    // 2. Resolve DNS and block private / loopback / link-local / CGNAT addresses
+    try {
+        const addresses = await dns.promises.lookup(hostname, { all: true });
+        if (!addresses || addresses.length === 0) {
+            return { valid: false, error: 'Could not resolve host' };
+        }
+        for (const addr of addresses) {
+            if (isPrivateIp(addr.address)) {
+                return { valid: false, error: 'Target resolves to a private or restricted network address' };
+            }
+        }
+    } catch (e) {
+        return { valid: false, error: `DNS resolution failed: ${e.message}` };
+    }
+
+    return { valid: true };
+}
+
 // 1. GET /api/overload/status
 router.get('/overload/status', (req, res) => {
     try {
         const installed = fs.existsSync(overloadDir);
-        const pilots = listPilots(overloadDir);
+        const pilots = installed ? listPilots(overloadDir) : [];
         const audioTauntsDir = path.join(overloadDir, 'AudioTaunts');
-        const tauntCount = fs.existsSync(audioTauntsDir)
+        const tauntCount = installed && fs.existsSync(audioTauntsDir)
             ? fs.readdirSync(audioTauntsDir).filter(f => f.endsWith('.ogg')).length
             : 0;
-        const isGameRunning = isOverloadRunning();
+        const isGameRunning = installed ? isOverloadRunning() : false;
 
         res.json({
             installed,
-            gamePath: overloadDir,
+            gamePath: installed ? overloadDir : null,
             pilots,
             activePilot: pilots.includes('Soup') ? 'Soup' : pilots[0] || null,
             tauntCount,
@@ -289,7 +375,7 @@ router.post('/overload/taunts/prune-empty', (req, res) => {
     }
 });
 
-// 7a. GET /api/import/proxy?url=... (CORS-friendly streaming audio proxy)
+// 7a. GET /api/import/proxy?url=... (CORS-friendly streaming audio proxy with strict SSRF protection)
 router.get('/import/proxy', async (req, res) => {
     try {
         const targetUrl = req.query.url;
@@ -297,11 +383,21 @@ router.get('/import/proxy', async (req, res) => {
             return res.status(400).send('Missing url parameter');
         }
 
+        const validation = await validateSafeAudioUrl(targetUrl);
+        if (!validation.valid) {
+            return res.status(403).send(`Forbidden: ${validation.error}`);
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+
         const remoteRes = await fetch(targetUrl, {
+            signal: controller.signal,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
+        clearTimeout(timeout);
 
         if (!remoteRes.ok) {
             return res.status(remoteRes.status).send(`Failed to fetch target URL: ${remoteRes.statusText}`);
@@ -309,6 +405,10 @@ router.get('/import/proxy', async (req, res) => {
 
         const contentType = remoteRes.headers.get('content-type') || 'audio/mpeg';
         const contentLength = remoteRes.headers.get('content-length');
+
+        if (contentLength && parseInt(contentLength, 10) > 60 * 1024 * 1024) {
+            return res.status(413).send('Target audio file exceeds maximum allowed size (60MB)');
+        }
 
         res.setHeader('Content-Type', contentType);
         if (contentLength) res.setHeader('Content-Length', contentLength);
@@ -319,6 +419,9 @@ router.get('/import/proxy', async (req, res) => {
         const arrayBuf = await remoteRes.arrayBuffer();
         res.send(Buffer.from(arrayBuf));
     } catch (err) {
+        if (err.name === 'AbortError') {
+            return res.status(504).send('Proxy timeout fetching target URL');
+        }
         res.status(500).send(`Proxy error: ${err.message}`);
     }
 });

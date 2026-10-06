@@ -234,9 +234,14 @@ router.get('/game/:id', async (req, res) => {
             console.log(`Game ${id} not in DB. Fetching from API...`);
         }
 
-        // 2. If missing or summary, fetch from API
-        const response = await axios.get(`https://tracker.otl.gg/api/game/${id}`);
-        const freshGame = response.data;
+        // 2. If missing or summary, fetch from API with a 4s timeout
+        let freshGame = null;
+        try {
+            const response = await axios.get(`https://tracker.otl.gg/api/game/${id}`, { timeout: 4000 });
+            freshGame = response.data;
+        } catch (fetchErr) {
+            console.warn(`[API] Upstream tracker.otl.gg request for game ${id} failed: ${fetchErr.message}`);
+        }
 
         if (freshGame) {
             if (row) {
@@ -248,13 +253,16 @@ router.get('/game/:id', async (req, res) => {
             }
             // Cache the fresh game
             await cacheService.set(cacheKey, freshGame, 3600);
-            res.json(freshGame);
+            return res.json(freshGame);
         } else {
             if (game) {
-                console.warn(`Failed to fetch full details for ${id}, returning cached summary.`);
-                res.json(game);
+                console.warn(`Upstream unavailable for game ${id}, returning local DB record.`);
+                return res.json({ ...game, _partial: true });
             } else {
-                res.status(404).json({ error: "Game not found" });
+                return res.status(503).json({
+                    error: "Tracker telemetry currently unavailable. The upstream service (tracker.otl.gg) could not be reached.",
+                    gameId: id
+                });
             }
         }
     } catch (e) {
@@ -262,9 +270,14 @@ router.get('/game/:id', async (req, res) => {
         // Fallback to DB summary if API fails
         const row = db.getGameById.get(id);
         if (row) {
-            return res.json(JSON.parse(row.details));
+            try {
+                return res.json(JSON.parse(row.details));
+            } catch {}
         }
-        res.status(500).json({ error: "Internal Server Error" });
+        res.status(503).json({
+            error: "Tracker telemetry currently unavailable.",
+            gameId: id
+        });
     }
 });
 
@@ -756,6 +769,22 @@ router.get('/pilot/:name/stats', async (req, res) => {
         }
 
         if (stats) {
+            if (req.query.timeframe === 'all' || !startDate) {
+                if (stats.career_games) {
+                    stats.games = stats.career_games;
+                    stats.kills = stats.career_kills ?? stats.kills;
+                    stats.deaths = stats.career_deaths ?? stats.deaths;
+                    stats.assists = stats.career_assists ?? stats.assists;
+                    stats.wins = stats.career_wins ?? stats.wins;
+                    stats.losses = stats.career_losses ?? stats.losses;
+                    stats.ties = stats.career_ties ?? stats.ties;
+                    stats.win_rate = stats.career_win_rate ?? stats.win_rate;
+                    stats.pure_kd = stats.career_kd ?? stats.pure_kd;
+                    stats.kda = stats.career_kda ?? stats.kda;
+                    stats.flight_hours = stats.career_flight_hours ?? stats.flight_hours;
+                }
+            }
+            stats.scope = isDefault365 ? 'recent' : 'all';
             await cacheService.set(cacheKey, stats, 300);
         }
 

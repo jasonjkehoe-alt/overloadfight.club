@@ -16,10 +16,16 @@ import db from './db.js';
 import bridgeRoutes from './bridge-routes.js';
 import { warmupEngine } from './services/audioImportService.js';
 
+import cacheService from './services/cacheService.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security: Disable x-powered-by header
+app.disable('x-powered-by');
+
+// Reverse Proxy HTTPS Redirection
 app.use((req, res, next) => {
   if (req.headers['x-forwarded-proto'] === 'http') {
     return res.redirect(301, 'https://' + req.headers.host + req.originalUrl);
@@ -29,14 +35,44 @@ app.use((req, res, next) => {
 
 // Middleware
 app.use(compression());
-app.use(cors());
+
+// CORS: Restrict to application domains and local networks
+const allowedOrigins = [
+  'https://overloadfight.club',
+  'http://overloadfight.club',
+  'http://192.168.0.52:3000',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173'
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.endsWith('.overloadfight.club')) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true
+}));
+
 app.use(express.json({ limit: '50mb' }));
 
-// Security Headers for SharedArrayBuffer (FFmpeg)
+// Security Headers: CSP, Frame Options, Sniffing, HSTS & Cross-Origin Isolation for FFmpeg WASM
 app.use((req, res, next) => {
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-    next();
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  if (req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' data: blob: https://tracker.otl.gg https://archive.org https://www.omdb.net; worker-src 'self' blob:; frame-ancestors 'self';"
+  );
+  next();
 });
 
 app.use(sessionMiddleware); // Session support for admin auth
@@ -58,6 +94,41 @@ app.use('/api/admin', adminRoutes);
 // In production (or if dist exists), serve compiled static files with optimal caching
 const isProduction = process.env.NODE_ENV === 'production';
 const distPath = path.join(__dirname, '../dist');
+
+// Favicon & Robots handlers (guarantees proper MIME type, never returns SPA HTML)
+app.get('/robots.txt', (req, res) => {
+    const robotsPath = fs.existsSync(path.join(distPath, 'robots.txt'))
+        ? path.join(distPath, 'robots.txt')
+        : path.join(__dirname, '../public/robots.txt');
+    if (fs.existsSync(robotsPath)) {
+        res.setHeader('Content-Type', 'text/plain');
+        return res.sendFile(robotsPath);
+    }
+    res.setHeader('Content-Type', 'text/plain');
+    res.send("User-agent: *\nAllow: /\nAllow: /pilots\nAllow: /maps\nAllow: /stats\nAllow: /history\nDisallow: /api/\nDisallow: /admin\n");
+});
+
+app.get('/favicon.ico', (req, res) => {
+    const favPath = fs.existsSync(path.join(distPath, 'favicon.ico'))
+        ? path.join(distPath, 'favicon.ico')
+        : path.join(__dirname, '../public/favicon.ico');
+    if (fs.existsSync(favPath)) {
+        res.setHeader('Content-Type', 'image/x-icon');
+        return res.sendFile(favPath);
+    }
+    res.status(204).end();
+});
+
+app.get('/favicon.svg', (req, res) => {
+    const favSvgPath = fs.existsSync(path.join(distPath, 'favicon.svg'))
+        ? path.join(distPath, 'favicon.svg')
+        : path.join(__dirname, '../public/favicon.svg');
+    if (fs.existsSync(favSvgPath)) {
+        res.setHeader('Content-Type', 'image/svg+xml');
+        return res.sendFile(favSvgPath);
+    }
+    res.status(404).end();
+});
 
 if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) {
     app.use(express.static(distPath, {
@@ -367,6 +438,34 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
     });
 }
 
+// Warm up critical stats cache on startup (maps, leaderboards)
+async function warmupStatsCache() {
+    try {
+        console.log('[Warmup] Pre-warming stats cache (maps, pilots)...');
+        const topPlayed = db.getTopPlayedMapsFromCache(10);
+        const recentTop = db.getRecentTopMapsFromCache(10);
+        const deadliest = db.getDeadliestMapsFromCache(10);
+        const mostActive = db.getMostActiveMaps.all().map(row => ({
+            ...row,
+            avg_players: row.avg_players || 0
+        }));
+        const marathon = db.getMarathonMaps.all();
+        const mapDataHot = { topPlayed, recentTop, mostActive, deadliest, marathon };
+        await cacheService.set('map_stats_hot', mapDataHot, 600);
+
+        const mapDataAll = { topPlayed: db.getTopPlayedMapsFromCache(20) };
+        await cacheService.set('map_stats_all', mapDataAll, 600);
+
+        const pilotStatsAll = db.getAllTimePilotStats.all();
+        if (pilotStatsAll && pilotStatsAll.length > 0) {
+            await cacheService.set('pilot_stats_all_all', pilotStatsAll, 600);
+        }
+        console.log('[Warmup] Stats cache pre-warmed successfully.');
+    } catch (err) {
+        console.error('[Warmup] Failed to pre-warm stats cache:', err.message);
+    }
+}
+
 // Start Server
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
@@ -388,6 +487,9 @@ app.listen(PORT, () => {
 
     // Schedule Daily Maintenance (Cold Storage)
     maintenance.scheduleMaintenance();
+
+    // Pre-warm Stats Cache (maps & leaderboard)
+    warmupStatsCache().catch(() => {});
 
     // Pre-warm Audio Import Engine (yt-dlp & python)
     warmupEngine().catch(() => {});

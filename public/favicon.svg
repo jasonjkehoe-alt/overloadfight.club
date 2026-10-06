@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#08080a"/>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#ff6600" stroke-width="1.5" stroke-opacity="0.4"/>
+  <!-- Overload 6DOF Tactical Reticle / Chevron -->
+  <path d="M32 10 L48 30 L40 30 L32 20 L24 30 L16 30 Z" fill="#ff6600"/>
+  <path d="M32 26 L46 44 L38 44 L32 36 L26 44 L18 44 Z" fill="#ff8533" opacity="0.85"/>
+  <polygon points="32,46 36,52 32,58 28,52" fill="#ffaa66"/>
+  <!-- Crosshair tick marks -->
+  <line x1="8" y1="32" x2="12" y2="32" stroke="#ff6600" stroke-width="2" stroke-linecap="round"/>
+  <line x1="52" y1="32" x2="56" y2="32" stroke="#ff6600" stroke-width="2" stroke-linecap="round"/>
+</svg>

@@ -304,7 +304,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                         </h3>
                                         <div className="text-2xl font-bold text-white mb-1">{highlights.slayer.name}</div>
                                         <div className="text-sm text-gray-400 font-mono">
-                                            <span className="text-red-400 font-bold">{highlights.slayer.kills}</span> Total Confirmed Kills
+                                            <span className="text-red-400 font-bold">{Math.max(0, highlights.slayer.kills).toLocaleString()}</span> Total Confirmed Kills
                                         </div>
                                     </div>
                                 </div>
@@ -459,12 +459,12 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                                     )}
                                                 </td>
                                                 <td className="p-3 text-right">
-                                                    <div className="font-bold text-[#ff6600] text-base">{pilot.kda.toFixed(2)} <span className="text-xs text-gray-500 font-normal">KDA</span></div>
-                                                    <div className="text-xs text-gray-400 font-mono">{pilot.kd.toFixed(2)} K/D</div>
+                                                    <div className="font-bold text-[#ff6600] text-base">{Math.max(0, pilot.kda).toFixed(2)} <span className="text-xs text-gray-500 font-normal">KDA</span></div>
+                                                    <div className="text-xs text-gray-400 font-mono">{Math.max(0, pilot.kd).toFixed(2)} K/D</div>
                                                 </td>
                                                 <td className="p-3 text-right">
                                                     <div className="text-xs text-gray-400">
-                                                        <span className="text-gray-300 font-bold">{pilot.kills.toLocaleString()}</span> K <span className="text-gray-600">/</span> <span className="text-gray-300">{pilot.assists.toLocaleString()}</span> A <span className="text-gray-600">/</span> <span className="text-red-400">{pilot.deaths.toLocaleString()}</span> D
+                                                        <span className="text-gray-300 font-bold">{Math.max(0, pilot.kills).toLocaleString()}</span> K <span className="text-gray-600">/</span> <span className="text-gray-300">{pilot.assists.toLocaleString()}</span> A <span className="text-gray-600">/</span> <span className="text-red-400">{pilot.deaths.toLocaleString()}</span> D
                                                     </div>
                                                 </td>
                                                 <td className="p-3 text-right text-gray-500 text-xs">
