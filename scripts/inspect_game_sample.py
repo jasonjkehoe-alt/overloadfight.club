@@ -1,9 +1,16 @@
+import os
+import sys
 import paramiko
 import json
 
+nas_password = os.environ.get('NAS_SSH_PASSWORD')
+if not nas_password:
+    print("Error: NAS_SSH_PASSWORD is not set", file=sys.stderr)
+    sys.exit(1)
+
 c = paramiko.SSHClient()
 c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-c.connect('192.168.0.52', username='jkehoe', password='REDACTED')
+c.connect('192.168.0.52', username='jkehoe', password=nas_password)
 
 script = """
 const db = require('./server/db.js').default || require('./server/db.js');
@@ -17,7 +24,7 @@ console.log('HAS_EVENTS:', !!details.events, 'HAS_KILLS:', !!details.kills, 'HAS
 """
 
 stdin, stdout, stderr = c.exec_command(f"sudo -S /usr/local/bin/docker exec overloadfight-club node -e \"{script}\"")
-stdin.write('REDACTED\n')
+stdin.write(f'{nas_password}\n')
 stdin.flush()
 print(stdout.read().decode('utf-8'))
 c.close()

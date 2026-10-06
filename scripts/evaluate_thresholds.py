@@ -1,10 +1,17 @@
+import os
+import sys
 import paramiko
 import json
 import base64
 
+nas_password = os.environ.get('NAS_SSH_PASSWORD')
+if not nas_password:
+    print("Error: NAS_SSH_PASSWORD is not set", file=sys.stderr)
+    sys.exit(1)
+
 c = paramiko.SSHClient()
 c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-c.connect('192.168.0.52', username='jkehoe', password='REDACTED')
+c.connect('192.168.0.52', username='jkehoe', password=nas_password)
 
 script = """
 const Database = require('better-sqlite3');
@@ -66,7 +73,7 @@ console.log(JSON.stringify(results, null, 2));
 b64 = base64.b64encode(script.encode('utf-8')).decode('ascii')
 cmd = f"sudo -S /usr/local/bin/docker exec overloadfight-club node -e \"eval(Buffer.from('{b64}', 'base64').toString('utf8'))\""
 stdin, stdout, stderr = c.exec_command(cmd)
-stdin.write('REDACTED\n')
+stdin.write(f'{nas_password}\n')
 stdin.flush()
 print(stdout.read().decode('utf-8'))
 c.close()

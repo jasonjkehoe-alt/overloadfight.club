@@ -1,10 +1,15 @@
-import paramiko
+import os
 import sys
+import paramiko
 import time
+
+password = os.environ.get('NAS_SSH_PASSWORD')
+if not password:
+    print("Error: NAS_SSH_PASSWORD is not set", file=sys.stderr)
+    sys.exit(1)
 
 hostname = "192.168.0.52"
 username = "jkehoe"
-password = sys.argv[1] if len(sys.argv) > 1 else ""
 
 print(f"Connecting to {username}@{hostname}...", flush=True)
 client = paramiko.SSHClient()

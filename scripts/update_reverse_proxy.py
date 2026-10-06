@@ -1,14 +1,21 @@
+import os
+import sys
 import paramiko
 import json
 import base64
 
+nas_password = os.environ.get('NAS_SSH_PASSWORD')
+if not nas_password:
+    print("Error: NAS_SSH_PASSWORD is not set", file=sys.stderr)
+    sys.exit(1)
+
 c = paramiko.SSHClient()
 c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-c.connect('192.168.0.105', 22, 'jkehoe', 'REDACTED')
+c.connect('192.168.0.105', 22, 'jkehoe', nas_password)
 
 def run_sudo(cmd):
     stdin, out, err = c.exec_command('sudo -S ' + cmd)
-    stdin.write('REDACTED\n')
+    stdin.write(f'{nas_password}\n')
     stdin.flush()
     res = out.read().decode('utf-8')
     err_res = err.read().decode('utf-8')
