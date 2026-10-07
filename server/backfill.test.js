@@ -98,6 +98,36 @@ describe('saveColdGamesBatch upsert', () => {
     });
 });
 
+describe('updateGameDetails', () => {
+    it('keeps a stored kill log when updated with an empty kill log', () => {
+        const game = { ...hydrated(72108), id: 90050 };
+        db.saveGames([game]);
+        db.updateGameDetails({ ...game, kills: [] });
+        expect(storedKills(90050)).toHaveLength(1);
+    });
+
+    it('overwrites a stored kill log when updated with a non-empty kill log', () => {
+        const game = { ...hydrated(72108), id: 90051 };
+        db.saveGames([game]);
+        const updated = {
+            ...game,
+            kills: [
+                ...game.kills,
+                { ...game.kills[0], time: 99 }
+            ]
+        };
+        db.updateGameDetails(updated);
+        expect(storedKills(90051)).toHaveLength(2);
+    });
+
+    it('preserves kill log for cold storage games as well', () => {
+        const coldGame = { ...detailSample, id: 90052 };
+        db.saveGames([coldGame]);
+        db.updateGameDetails({ ...coldGame, kills: [] });
+        expect(storedKills(90052)).toHaveLength(1);
+    });
+});
+
 describe('getSummaryGames', () => {
     it('selects games without a kill log that ran over a minute, in id order', () => {
         db.saveGames([hydrated(72106)]);

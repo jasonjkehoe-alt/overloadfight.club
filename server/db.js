@@ -16,6 +16,21 @@ function utcDayBounds(dateStr) {
   return [dateStr, new Date(start + 86400000).toISOString().slice(0, 10)];
 }
 
+// [start, end) of a UTC month ('YYYY-MM') for `date >= ? AND date < ?`,
+// which can use idx_games_date. null when monthStr is not 'YYYY-MM'.
+function utcMonthBounds(monthStr) {
+  if (!/^\d{4}-\d{2}$/.test(monthStr)) return null;
+  const [yearStr, monthStrNum] = monthStr.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStrNum, 10);
+  if (month < 1 || month > 12) return null;
+  const start = `${monthStr}-01`;
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+  return [start, end];
+}
+
 // Counter field for each outcomeOf()/pairOutcome() result.
 const OUTCOME_FIELD = { win: 'wins', loss: 'losses', tie: 'ties' };
 
@@ -296,6 +311,10 @@ const getColdGamesStmt = coldDb.prepare(`
 `);
 
 const countColdGamesStmt = coldDb.prepare('SELECT COUNT(*) as count FROM games');
+const countColdGamesInMonthStmt = coldDb.prepare(`
+    SELECT COUNT(*) as count FROM games
+    WHERE date >= ? AND date < ?
+`);
 
 const searchColdGamesStmt = coldDb.prepare(`
     SELECT details FROM games
@@ -1630,6 +1649,12 @@ const db = {
     }
     return countColdGamesStmt.get();
   },
+  countColdGamesInMonth: (monthStr) => {
+    const bounds = utcMonthBounds(monthStr);
+    if (!bounds) return 0;
+    const row = countColdGamesInMonthStmt.get(bounds[0], bounds[1]);
+    return row ? row.count : 0;
+  },
   buildColdStorageStatsCache,
   getColdStorageStats: () => {
     try {
@@ -1838,7 +1863,14 @@ VALUES(?, ?, ?, ?, ?)
 
     const update = targetDb.prepare(`
       UPDATE games 
-      SET details = @details, date = @date, ip = @ip
+      SET details = CASE
+        WHEN COALESCE(json_array_length(@details, '$.kills'), 0) = 0
+          AND COALESCE(json_array_length(games.details, '$.kills'), 0) > 0
+        THEN games.details
+        ELSE @details
+      END,
+      date = @date,
+      ip = @ip
       WHERE id = @id
   `);
 
