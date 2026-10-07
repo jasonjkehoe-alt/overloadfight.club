@@ -55,6 +55,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+    db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 

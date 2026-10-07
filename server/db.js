@@ -1812,19 +1812,10 @@ VALUES(?, ?, ?, ?, ?)
   },
 
   saveColdGamesBatch: (gamesList) => {
-    const insertCold = coldDb.prepare(`
-      INSERT INTO games (id, date, ip, details)
-      VALUES (@id, @date, @ip, @details)
-      ON CONFLICT(id) DO UPDATE SET
-        details = excluded.details,
-        date = excluded.date,
-        ip = excluded.ip
-    `);
-
     const transaction = coldDb.transaction((list) => {
       let changes = 0;
       for (const game of list) {
-        insertCold.run({
+        upsertGameCold.run({
           id: game.id,
           date: game.date || game.start || new Date().toISOString(),
           ip: game.ip || game.server?.ip || null,
@@ -2863,6 +2854,11 @@ VALUES(@id, @date, @ip, @details)
       console.error("Failed to save fight night recap", e);
       return null;
     }
+  },
+
+  close: () => {
+    try { hotDb.close(); } catch {}
+    try { coldDb.close(); } catch {}
   },
 
   getPilotTelemetry,
