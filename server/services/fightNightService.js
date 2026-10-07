@@ -1,10 +1,16 @@
 import db from '../db.js';
+import { netKills, pilotKey, winnerOf } from '../lib/gameParse.js';
 
 export const FIGHT_NIGHT_THRESHOLDS = {
     minMatches: 16,    // ≥ 16 matches in the 24h window
     minPilots: 14,     // AND (≥ 14 unique pilots
     minFrags: 1600     //      OR ≥ 1600 total frags)
 };
+
+// Display name for a winnerOf() ranking row: "Blue Team" or the pilot's name.
+function sideLabel(result, row) {
+    return result.team ? `${row.name.charAt(0)}${row.name.slice(1).toLowerCase()} Team` : row.name;
+}
 
 /**
  * Format date string into human fight-night poster header
@@ -37,8 +43,7 @@ export async function generateRecapForDate(targetDate, force = false) {
     if (!rows || rows.length === 0) return null;
 
     const matches = [];
-    const pilotMatches = new Map();
-    const pilotFrags = new Map();
+    const pilots = new Map(); // pilotKey -> { name, matches, frags }
     let totalFrags = 0;
 
     for (const r of rows) {
@@ -53,18 +58,20 @@ export async function generateRecapForDate(targetDate, force = false) {
 
         if (Array.isArray(m.players)) {
             for (const p of m.players) {
-                if (!p?.name) continue;
-                const pName = p.name.trim();
-                const kills = Number(p.kills) || 0;
+                const key = pilotKey(p?.name);
+                if (!key) continue;
+                const kills = netKills(p);
                 totalFrags += kills;
 
-                pilotMatches.set(pName, (pilotMatches.get(pName) || 0) + 1);
-                pilotFrags.set(pName, (pilotFrags.get(pName) || 0) + kills);
+                const pilot = pilots.get(key) || { name: p.name.trim(), matches: 0, frags: 0 };
+                pilot.matches++;
+                pilot.frags += kills;
+                pilots.set(key, pilot);
             }
         }
     }
 
-    const uniquePilotCount = pilotMatches.size;
+    const uniquePilotCount = pilots.size;
     const matchCount = matches.length;
 
     // Check thresholds unless forced
@@ -80,12 +87,9 @@ export async function generateRecapForDate(targetDate, force = false) {
 
     // Top Fragger & Most Active Pilot
     let topFragger = { name: 'Unknown', kills: 0 };
-    for (const [name, kills] of pilotFrags.entries()) {
-        if (kills > topFragger.kills) topFragger = { name, kills };
-    }
-
     let mostActivePilot = { name: 'Unknown', matches: 0 };
-    for (const [name, count] of pilotMatches.entries()) {
+    for (const { name, matches: count, frags } of pilots.values()) {
+        if (frags > topFragger.kills) topFragger = { name, kills: frags };
         if (count > mostActivePilot.matches) mostActivePilot = { name, matches: count };
     }
 
@@ -98,7 +102,7 @@ export async function generateRecapForDate(targetDate, force = false) {
         const players = Array.isArray(m.players) ? m.players : [];
         const pCount = players.length;
         let boutFrags = 0;
-        for (const p of players) boutFrags += (Number(p.kills) || 0);
+        for (const p of players) boutFrags += netKills(p);
 
         if (pCount > maxPilots || (pCount === maxPilots && boutFrags > maxBoutFrags)) {
             maxPilots = pCount;
@@ -106,7 +110,7 @@ export async function generateRecapForDate(targetDate, force = false) {
 
             const sortedP = players.slice().sort((a, b) => (Number(b.kills) || 0) - (Number(a.kills) || 0));
             const topPilot = sortedP[0]?.name || 'Unknown';
-            const topKills = sortedP[0]?.kills || 0;
+            const topKills = netKills(sortedP[0]);
             const arena = m.settings?.level || 'Unknown Arena';
             const mode = m.settings?.matchMode || 'ANARCHY';
 
@@ -128,12 +132,12 @@ export async function generateRecapForDate(targetDate, force = false) {
     const pilotStatsMap = new Map();
     const statsRows = db.getAllCachedPilotStats ? db.getAllCachedPilotStats() : [];
     for (const s of statsRows) {
-        pilotStatsMap.set(s.name.toLowerCase(), s);
+        pilotStatsMap.set(pilotKey(s.name), s);
     }
 
     // Top 50 by threat_centrality (or KD fallback)
     const sortedTop50 = statsRows.slice().sort((a, b) => (b.threat_centrality || 0) - (a.threat_centrality || 0)).slice(0, 50);
-    const top50Set = new Set(sortedTop50.map(s => s.name.toLowerCase()));
+    const top50Set = new Set(sortedTop50.map(s => pilotKey(s.name)));
 
     let biggestUpset = null;
     let maxUpsetScore = -1;
@@ -144,14 +148,14 @@ export async function generateRecapForDate(targetDate, force = false) {
 
         const winner = players[0];
         const winnerName = winner.name;
-        const winnerStats = pilotStatsMap.get(winnerName.toLowerCase()) || { kd: 1.0, threat_centrality: 0 };
+        const winnerStats = pilotStatsMap.get(pilotKey(winnerName)) || { kd: 1.0, threat_centrality: 0 };
         const arena = m.settings?.level || 'Unknown Arena';
 
         for (let i = 1; i < players.length; i++) {
             const opp = players[i];
             const oppName = opp.name;
-            const oppStats = pilotStatsMap.get(oppName.toLowerCase()) || { kd: 1.0, threat_centrality: 0 };
-            const isTop50 = top50Set.has(oppName.toLowerCase());
+            const oppStats = pilotStatsMap.get(pilotKey(oppName)) || { kd: 1.0, threat_centrality: 0 };
+            const isTop50 = top50Set.has(pilotKey(oppName));
 
             const kdGap = (oppStats.kd || 1.0) - (winnerStats.kd || 1.0);
             const threatGap = (oppStats.threat_centrality || 0) - (winnerStats.threat_centrality || 0);
@@ -193,41 +197,18 @@ export async function generateRecapForDate(targetDate, force = false) {
     let closestFinishFrags = -1;
 
     for (const m of matches) {
-        const players = (m.players || []).slice().sort((a, b) => (Number(b.kills) || 0) - (Number(a.kills) || 0));
-        if (players.length < 2) continue;
+        const result = winnerOf(m);
+        const [first, second] = result.ranking;
+        if (!first || !second) continue;
 
-        const mode = (m.settings?.matchMode || '').toUpperCase();
-        const isTeam = mode.includes('TEAM') || mode === 'CTF';
         const arena = m.settings?.level || 'Unknown Arena';
-
-        let margin = 0;
-        let winnerName = '';
-        let runnerUpName = '';
-        let scoreStr = '';
+        // A tie lists the tied sides in score-table order; margin 0 makes the copy a draw.
+        const margin = first.score - second.score;
+        const winnerName = sideLabel(result, first);
+        const runnerUpName = sideLabel(result, second);
+        const scoreStr = result.team ? `${first.score} - ${second.score}` : `${first.score} K vs ${second.score} K`;
         let matchFrags = 0;
-        for (const p of players) matchFrags += (Number(p.kills) || 0);
-
-        if (isTeam && m.teamScore) {
-            const blue = Number(m.teamScore.BLUE) || 0;
-            const red = Number(m.teamScore.RED ?? m.teamScore.ORANGE) || 0;
-            margin = Math.abs(blue - red);
-            if (blue >= red) {
-                winnerName = 'Blue Team';
-                runnerUpName = 'Orange Team';
-                scoreStr = `${blue} - ${red}`;
-            } else {
-                winnerName = 'Orange Team';
-                runnerUpName = 'Blue Team';
-                scoreStr = `${red} - ${blue}`;
-            }
-        } else {
-            const k1 = Number(players[0].kills) || 0;
-            const k2 = Number(players[1].kills) || 0;
-            margin = k1 - k2;
-            winnerName = players[0].name;
-            runnerUpName = players[1].name;
-            scoreStr = `${k1} K vs ${k2} K`;
-        }
+        for (const p of m.players || []) matchFrags += netKills(p);
 
         // Blowout check
         if (margin > maxDifferential) {
@@ -271,10 +252,13 @@ export async function generateRecapForDate(targetDate, force = false) {
         const aObj = arenaMap.get(arena);
         aObj.count++;
         for (const p of m.players || []) {
-            const k = Number(p.kills) || 0;
+            const k = netKills(p);
             aObj.frags += k;
-            if (p.name) {
-                aObj.pilotKills.set(p.name, (aObj.pilotKills.get(p.name) || 0) + k);
+            const key = pilotKey(p.name);
+            if (key) {
+                const entry = aObj.pilotKills.get(key) || { name: p.name.trim(), kills: 0 };
+                entry.kills += k;
+                aObj.pilotKills.set(key, entry);
             }
         }
     }
@@ -289,10 +273,10 @@ export async function generateRecapForDate(targetDate, force = false) {
         const [aName, aData] = sortedArenas[0];
         let aTopPilot = 'Unknown';
         let aTopKills = 0;
-        for (const [p, k] of aData.pilotKills.entries()) {
-            if (k > aTopKills) {
-                aTopPilot = p;
-                aTopKills = k;
+        for (const { name, kills } of aData.pilotKills.values()) {
+            if (kills > aTopKills) {
+                aTopPilot = name;
+                aTopKills = kills;
             }
         }
         hottestArena = {
@@ -306,10 +290,10 @@ export async function generateRecapForDate(targetDate, force = false) {
 
     // 6. New Blood: pilots whose first-ever tracked match occurred on targetDate
     const newBloodPilots = [];
-    for (const pName of pilotMatches.keys()) {
-        const isNew = db.isPilotFirstSeenOnDate ? db.isPilotFirstSeenOnDate(pName, targetDate) : false;
+    for (const { name } of pilots.values()) {
+        const isNew = db.isPilotFirstSeenOnDate ? db.isPilotFirstSeenOnDate(name, targetDate) : false;
         if (isNew) {
-            newBloodPilots.push(pName);
+            newBloodPilots.push(name);
         }
     }
 
@@ -330,20 +314,21 @@ export async function generateRecapForDate(targetDate, force = false) {
         const kills = Array.isArray(m.kills) ? m.kills : [];
 
         if (kills.length > 0) {
-            const current = {};
-            const streaks = {};
+            const runs = new Map(); // pilotKey -> { name, current, best }
             for (const k of kills) {
-                const att = k.attacker?.trim();
-                const def = k.defender?.trim();
+                const att = pilotKey(k.attacker);
+                const def = pilotKey(k.defender);
                 if (att) {
-                    current[att] = (current[att] || 0) + 1;
-                    streaks[att] = Math.max(streaks[att] || 0, current[att]);
+                    const run = runs.get(att) || { name: k.attacker.trim(), current: 0, best: 0 };
+                    run.current++;
+                    run.best = Math.max(run.best, run.current);
+                    runs.set(att, run);
                 }
-                if (def) {
-                    current[def] = 0;
+                if (def && runs.has(def)) {
+                    runs.get(def).current = 0;
                 }
             }
-            for (const [pilot, val] of Object.entries(streaks)) {
+            for (const { name: pilot, best: val } of runs.values()) {
                 if (val > maxStreakVal) {
                     maxStreakVal = val;
                     longestStreak = {
@@ -358,7 +343,7 @@ export async function generateRecapForDate(targetDate, force = false) {
         } else {
             // Fallback estimation from match scoreboard
             for (const p of m.players || []) {
-                const pk = Number(p.kills) || 0;
+                const pk = netKills(p);
                 const pd = Number(p.deaths) || 0;
                 const estStreak = Math.min(pk, Math.max(2, Math.ceil(pk / Math.max(1, pd + 1)) * 2));
                 if (estStreak > maxStreakVal) {
@@ -436,9 +421,10 @@ export async function checkAndGenerateRecentFightNight() {
 
                 if (Array.isArray(d?.players)) {
                     for (const p of d.players) {
-                        if (!p?.name) continue;
-                        pilotSet.add(p.name.trim());
-                        totalFrags += (Number(p.kills) || 0);
+                        const key = pilotKey(p?.name);
+                        if (!key) continue;
+                        pilotSet.add(key);
+                        totalFrags += netKills(p);
                     }
                 }
             }
