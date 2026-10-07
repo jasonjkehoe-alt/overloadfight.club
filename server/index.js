@@ -574,7 +574,6 @@ async function shutdown(signal) {
     console.log(`[Shutdown] ${signal} received, closing databases...`);
     await new Promise(resolve => {
         server.close(resolve);
-        server.closeIdleConnections();
         setTimeout(resolve, 5000).unref();
     });
     await db.close();

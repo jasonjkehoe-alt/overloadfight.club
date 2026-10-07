@@ -61,7 +61,6 @@ if (!fs.existsSync(mapImagesDir)) fs.mkdirSync(mapImagesDir, { recursive: true }
 const dbPath = path.join(dataDir, 'tracker.db');
 const coldDbPath = path.join(dataDir, 'cold_storage.db');
 
-
 const hotDb = new Database(dbPath);
 const coldDb = new Database(coldDbPath);
 
@@ -1556,6 +1555,9 @@ async function refreshCaches() {
   }
 }
 
+const healthHot = hotDb.prepare('SELECT 1 FROM games LIMIT 1');
+const healthCold = coldDb.prepare('SELECT 1 FROM games LIMIT 1');
+
 const db = {
   // Copy and replace tracker.db through SQLite's backup API. Under WAL a raw file copy
   // can miss commits still in tracker.db-wal, or be replayed against that stale WAL.
@@ -2480,8 +2482,8 @@ VALUES(?, ?, ?, ?, ?)
 
   // For the healthcheck: throws unless both files answer a query.
   checkHealth: () => {
-    hotDb.prepare('SELECT 1 FROM games LIMIT 1').get();
-    coldDb.prepare('SELECT 1 FROM games LIMIT 1').get();
+    healthHot.get();
+    healthCold.get();
   },
 
   // Stop a running stats worker, so no thread keeps the files open, then close both.

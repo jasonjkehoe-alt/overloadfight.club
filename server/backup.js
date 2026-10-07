@@ -3,7 +3,7 @@ import path from 'path';
 import db, { backupsDir } from './db.js';
 
 // Days of backups kept in backupsDir.
-export const KEEP_DAYS = 7;
+const KEEP_DAYS = 7;
 const DAY_DIR = /^\d{4}-\d{2}-\d{2}$/;
 const PARTIAL = '.partial';
 

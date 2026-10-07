@@ -2,6 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
 import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X } from 'lucide-react';
 
+// The browser API also sends a player list, which types.ts does not declare.
+type BrowserGame = NonNullable<BrowserApiResponse['game']> & { players?: (string | { name?: string })[] };
+
 interface PilotsListProps {
     activeGames?: BrowserApiResponse[] | null;
     archivedGames?: GameData[] | null;
@@ -53,11 +56,10 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                         isCreator: true
                     });
                 }
-                // The browser API sends a player list that types.ts does not declare.
-                const players = (server.game as { players?: unknown[] }).players;
+                const players = (server.game as BrowserGame).players;
                 if (Array.isArray(players)) {
                     players.forEach(p => {
-                        const pName = typeof p === 'string' ? p : (p as any)?.name;
+                        const pName = typeof p === 'string' ? p : p?.name;
                         if (pName && !pilotsMap.has(pName)) {
                             pilotsMap.set(pName, {
                                 name: pName,
