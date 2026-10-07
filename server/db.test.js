@@ -3,9 +3,7 @@ import os from 'os';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { day, detailSample, onDay, sample } from './testFixtures.js';
-
-const byId = id => structuredClone(sample.find(g => g.id === id));
+import { byId, day, onDay, sample, veteranSoup } from './testFixtures.js';
 
 // Fixture games built from the samples:
 // 90001: game 72102 with the score flipped, an ORANGE win (STITCH, MAESTRO).
@@ -14,7 +12,7 @@ const byId = id => structuredClone(sample.find(g => g.id === id));
 // 90004: game 72106 with a kill log in which XB1 kills himself once.
 // 90010-90012: game 72099 cut to a 1v1 Monsterball that BLUE wins 2-1 on goals
 //   while scoring fewer kills.
-// 2: the 2019 Monsterball detail sample with its pilot renamed "Soup" (cold storage).
+// 2: veteranSoup from testFixtures.js (cold storage).
 const orangeWin = { ...byId(72102), id: 90001, teamScore: { BLUE: 35, ORANGE: 42 } };
 const teamTie = { ...byId(72096), id: 90002, teamScore: { BLUE: 10, ORANGE: 10 } };
 const lowerCaseJftp = byId(72107);
@@ -38,7 +36,6 @@ const monsterball = [90010, 90011, 90012].map(id => ({
         { name: 'FRAGGER', team: 'ORANGE', kills: 5, deaths: 1, assists: 0 }
     ]
 }));
-const veteranSoup = { ...detailSample, id: 2, players: detailSample.players.map(p => ({ ...p, name: 'Soup' })) };
 
 const hotGames = [...sample.map(g => structuredClone(g)), orangeWin, teamTie, lowerCaseJftp, withSuicide, ...monsterball].map(onDay);
 

@@ -2,10 +2,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { detailSample, onDay, sample } from './testFixtures.js';
-
-const byId = id => structuredClone(sample.find(g => g.id === id));
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { byId, onDay, sample, veteranSoup } from './testFixtures.js';
 const namedPlayers = games => games.reduce((n, g) => n + g.players.filter(p => p.name.trim()).length, 0);
 
 // A tracker.db and cold_storage.db as they were before S5: games tables only.
@@ -14,14 +12,6 @@ const namedPlayers = games => games.reduce((n, g) => n + g.players.filter(p => p
 const hotGames = sample.map(onDay);
 const oldHot = { ...byId(72085), id: 80001, date: '2024-01-01T00:00:00.000Z' };
 const oldDup = { ...byId(72084), id: 80002, date: '2024-01-02T00:00:00.000Z' };
-// 2 is the 2019 detail sample with RONCLI, who killed himself once, renamed "Soup".
-const asSoup = name => (name === 'RONCLI' ? 'Soup' : name);
-const veteranSoup = {
-    ...detailSample,
-    id: 2,
-    players: detailSample.players.map(p => ({ ...p, name: asSoup(p.name) })),
-    kills: detailSample.kills.map(k => ({ ...k, attacker: asSoup(k.attacker), defender: asSoup(k.defender) }))
-};
 const coldGames = [veteranSoup, oldDup];
 
 function writeLegacyDb(file, games) {
@@ -35,7 +25,6 @@ function writeLegacyDb(file, games) {
 let dataDir;
 let db;
 let pilotStatements;
-let hotConn;
 let hotFile;
 let coldFile;
 
@@ -63,11 +52,7 @@ beforeAll(async () => {
     writeLegacyDb(hotFile, [...hotGames, oldHot, oldDup]);
     writeLegacyDb(coldFile, coldGames);
     process.env.DATA_DIR = dataDir;
-    const pragma = vi.spyOn(Database.prototype, 'pragma');
     ({ default: db, pilotStatements } = await import('./db.js'));
-    // The hot connection is the first one db.js opens.
-    hotConn = pragma.mock.contexts[0];
-    pragma.mockRestore();
 });
 
 afterAll(() => {
@@ -160,7 +145,7 @@ describe('other writers', () => {
 });
 
 describe('query plans', () => {
-    const plan = (stmt, params) => hotConn.prepare(`EXPLAIN QUERY PLAN ${stmt.source}`).all(params).map(r => r.detail).join('\n');
+    const plan = (stmt, params) => stmt.database.prepare(`EXPLAIN QUERY PLAN ${stmt.source}`).all(params).map(r => r.detail).join('\n');
 
     it('finds a pilot\'s games through the (name, date) index in both files', () => {
         const byName = /SEARCH (main\.|cold\.)?game_players USING (COVERING )?INDEX idx_game_players_name_date \(name=\?/;

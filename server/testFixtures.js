@@ -7,6 +7,17 @@ const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
 export const sample = readFixture('gamelist_sample.json').games;
 export const detailSample = readFixture('game_detail_sample.json');
+export const byId = id => structuredClone(sample.find(g => g.id === id));
+
+// The 2019 Monsterball detail sample (cold storage age) with RONCLI, who killed
+// himself once, renamed "Soup" in the players and the kill log.
+const asSoup = name => (name === 'RONCLI' ? 'Soup' : name);
+export const veteranSoup = {
+    ...detailSample,
+    id: 2,
+    players: detailSample.players.map(p => ({ ...p, name: asSoup(p.name) })),
+    kills: detailSample.kills.map(k => ({ ...k, attacker: asSoup(k.attacker), defender: asSoup(k.defender) }))
+};
 
 // The sample games were all played on 2025-11-24 (UTC). Move them to a recent
 // day so saveGames files them in hot storage whatever today's date is.

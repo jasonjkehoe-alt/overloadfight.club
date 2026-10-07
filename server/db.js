@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { Worker } from 'worker_threads';
-import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, winnerOf } from './lib/gameParse.js';
+import { OUTCOME_FIELD, durationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, winnerOf } from './lib/gameParse.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -16,9 +16,6 @@ function utcDayBounds(dateStr) {
   if (Number.isNaN(start)) return null;
   return [dateStr, new Date(start + 86400000).toISOString().slice(0, 10)];
 }
-
-// Counter field for each outcomeOf()/pairOutcome() result.
-const OUTCOME_FIELD = { win: 'wins', loss: 'losses', tie: 'ties' };
 
 // Use a dedicated data directory to avoid Docker volume mounting over source code
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
@@ -144,6 +141,7 @@ hotDb.exec(`
 // (hot and cold), so pilot pages and the leaderboard search an index instead of
 // every JSON blob. games.details stays the source of truth: every writer below
 // rebuilds a game's rows from it, in the transaction that writes the game.
+const GAME_PLAYERS_COLUMNS = 'game_id, date, name, team, kills, deaths, assists, suicides, damage, mode, map';
 const GAME_PLAYERS_SCHEMA = `
   CREATE TABLE IF NOT EXISTS game_players (
     game_id INTEGER NOT NULL,
@@ -158,7 +156,7 @@ const GAME_PLAYERS_SCHEMA = `
     mode TEXT,
     map TEXT
   );
-  CREATE INDEX IF NOT EXISTS idx_game_players_name_date ON game_players(name, date);
+  CREATE INDEX IF NOT EXISTS idx_game_players_name_date ON game_players(name, date, game_id);
   CREATE INDEX IF NOT EXISTS idx_game_players_date ON game_players(date);
   CREATE INDEX IF NOT EXISTS idx_game_players_game ON game_players(game_id);
 `;
@@ -177,13 +175,16 @@ function gamePlayersWriter(conn) {
   ensureGamePlayersTable(conn);
   const remove = conn.prepare('DELETE FROM game_players WHERE game_id = ?');
   const insert = conn.prepare(`
-    INSERT INTO game_players (game_id, date, name, team, kills, deaths, assists, suicides, damage, mode, map)
+    INSERT INTO game_players (${GAME_PLAYERS_COLUMNS})
     VALUES (@game_id, @date, @name, @team, @kills, @deaths, @assists, @suicides, @damage, @mode, @map)
   `);
-  // Replace one game's rows. Call inside the transaction that writes the game.
+  // Replace one game's rows and return how many it has. Call inside the
+  // transaction that writes the game.
   return (gameId, date, game) => {
     remove.run(gameId);
-    for (const row of playerRows(game)) insert.run({ game_id: gameId, date, ...row });
+    const rows = playerRows(game);
+    for (const row of rows) insert.run({ game_id: gameId, date, ...row });
+    return rows.length;
   };
 }
 const writeHotPlayers = gamePlayersWriter(hotDb);
@@ -197,7 +198,18 @@ const writeColdPlayers = gamePlayersWriter(coldDb);
 // A game with no named players has no rows, so the repair re-reads it each start.
 function syncGamePlayers(conn, writePlayers, label) {
   const started = performance.now();
+  const backfill = conn.pragma('user_version', { simple: true }) < GAME_PLAYERS_VERSION;
+  const orphaned = backfill
+    ? conn.prepare('DELETE FROM game_players').run().changes
+    : conn.prepare('DELETE FROM game_players WHERE game_id NOT IN (SELECT id FROM games)').run().changes;
+  const page = conn.prepare(`
+    SELECT id, date, details FROM games
+    WHERE id > ? ${backfill ? '' : 'AND id NOT IN (SELECT game_id FROM game_players)'}
+    ORDER BY id LIMIT 1000
+  `);
+  // Returns how many of the games got rows.
   const writeRows = conn.transaction(rows => {
+    let written = 0;
     for (const row of rows) {
       let game;
       try {
@@ -205,38 +217,28 @@ function syncGamePlayers(conn, writePlayers, label) {
       } catch {
         continue;
       }
-      writePlayers(row.id, row.date, game);
+      if (writePlayers(row.id, row.date, game) > 0) written++;
     }
+    return written;
   });
 
-  if (conn.pragma('user_version', { simple: true }) < GAME_PLAYERS_VERSION) {
-    const page = conn.prepare('SELECT id, date, details FROM games WHERE id > ? ORDER BY id LIMIT 1000');
-    conn.exec('DELETE FROM game_players');
-    let games = 0;
-    let afterId = Number.MIN_SAFE_INTEGER;
-    for (let rows = page.all(afterId); rows.length > 0; rows = page.all(afterId)) {
-      writeRows(rows);
-      games += rows.length;
-      afterId = rows[rows.length - 1].id;
-    }
-    conn.pragma(`user_version = ${GAME_PLAYERS_VERSION}`);
-    console.log(`[game_players] Backfilled ${label} storage: ${games} games in ${((performance.now() - started) / 1000).toFixed(1)}s.`);
-    return;
+  let games = 0;
+  let afterId = Number.MIN_SAFE_INTEGER;
+  for (let rows = page.all(afterId); rows.length > 0; rows = page.all(afterId)) {
+    games += writeRows(rows);
+    afterId = rows[rows.length - 1].id;
   }
 
-  const orphaned = conn.prepare('DELETE FROM game_players WHERE game_id NOT IN (SELECT id FROM games)').run().changes;
-  const missing = conn.prepare('SELECT id FROM games WHERE id NOT IN (SELECT game_id FROM game_players)').pluck().all();
-  const getRow = conn.prepare('SELECT id, date, details FROM games WHERE id = ?');
-  for (let i = 0; i < missing.length; i += 1000) writeRows(missing.slice(i, i + 1000).map(id => getRow.get(id)));
-  const repaired = missing.length - conn.prepare('SELECT COUNT(*) FROM games WHERE id NOT IN (SELECT game_id FROM game_players)').pluck().get();
-  if (orphaned || repaired) {
-    console.log(`[game_players] Repaired ${label} storage: removed ${orphaned} orphaned rows, added rows for ${repaired} games.`);
+  const seconds = ((performance.now() - started) / 1000).toFixed(1);
+  if (backfill) {
+    conn.pragma(`user_version = ${GAME_PLAYERS_VERSION}`);
+    console.log(`[game_players] Backfilled ${label} storage: ${games} games with players in ${seconds}s.`);
+  } else if (orphaned || games) {
+    console.log(`[game_players] Repaired ${label} storage: removed ${orphaned} orphaned rows, added rows for ${games} games in ${seconds}s.`);
   }
 }
 
 function migrateGamePlayers() {
-  ensureGamePlayersTable(coldDb);
-  ensureGamePlayersTable(hotDb);
   syncGamePlayers(coldDb, writeColdPlayers, 'cold');
   syncGamePlayers(hotDb, writeHotPlayers, 'hot');
 }
@@ -728,11 +730,11 @@ function normalizeWeaponName(raw) {
 }
 
 // A pilot's games in one file: the ids from game_players through
-// idx_game_players_name_date, then the details by primary key. Bind the trimmed
-// name; the NOCASE column ignores ASCII case.
+// idx_game_players_name_date, then the details by primary key. game_players
+// stores names trimmed, and the NOCASE column ignores ASCII case.
 const pilotGamesSql = (schema, since = '') => `
     SELECT details, date FROM ${schema}.games
-    WHERE id IN (SELECT game_id FROM ${schema}.game_players WHERE name = @name ${since})
+    WHERE id IN (SELECT game_id FROM ${schema}.game_players WHERE name = TRIM(@name) ${since})
     ORDER BY date DESC
 `;
 const pilotGamesHot = hotDb.prepare(pilotGamesSql('main'));
@@ -751,8 +753,8 @@ function getPilotTelemetry(name, startDate, matchMode) {
 
         const key = pilotKey(name);
         const gameRows = startDate
-            ? pilotGamesHotSince.all({ name: name.trim(), startDate })
-            : pilotGamesHotFirst(name.trim());
+            ? pilotGamesHotSince.all({ name, startDate })
+            : pilotGamesHotFirst(name);
 
         if (!gameRows || gameRows.length === 0) {
             return startDate ? null : (cached || null);
@@ -1012,13 +1014,13 @@ const getPilotDetailedStats = {
 // `cold` says which file a game id belongs to.
 const pilotGameIdsSql = `
     SELECT DISTINCT game_id, date, 0 AS cold FROM game_players
-    WHERE name = @name AND (@startDate IS NULL OR date >= @startDate)
+    WHERE name = TRIM(@name) AND (@startDate IS NULL OR date >= @startDate)
     UNION ALL
     SELECT DISTINCT game_id, date, 1 AS cold FROM cold.game_players
-    WHERE name = @name AND (@startDate IS NULL OR date >= @startDate)
+    WHERE name = TRIM(@name) AND (@startDate IS NULL OR date >= @startDate)
 `;
 
-const getGamesByPilotStmt = hotDb.prepare(`
+const getGamesByPilot = hotDb.prepare(`
     SELECT CASE WHEN p.cold THEN c.details ELSE h.details END AS details
     FROM (${pilotGameIdsSql} ORDER BY date DESC LIMIT @limit OFFSET @offset) p
     LEFT JOIN games h ON NOT p.cold AND h.id = p.game_id
@@ -1026,11 +1028,7 @@ const getGamesByPilotStmt = hotDb.prepare(`
     ORDER BY p.date DESC
 `);
 
-const countGamesByPilotStmt = hotDb.prepare(`SELECT COUNT(*) as count FROM (${pilotGameIdsSql})`);
-
-// Bind the trimmed name, as game_players stores it.
-const getGamesByPilot = { all: params => getGamesByPilotStmt.all({ ...params, name: params.name.trim() }) };
-const countGamesByPilot = { get: params => countGamesByPilotStmt.get({ ...params, name: params.name.trim() }) };
+const countGamesByPilot = hotDb.prepare(`SELECT COUNT(*) as count FROM (${pilotGameIdsSql})`);
 
 // Server Health Queries
 
@@ -1369,9 +1367,9 @@ const upsertGameCold = coldDb.prepare(upsertGameSql);
 // A pilot's first game in either file, read from idx_game_players_name_date.
 const getPilotFirstSeen = hotDb.prepare(`
   SELECT MIN(first_seen) as first_seen FROM (
-    SELECT MIN(date) as first_seen FROM game_players WHERE name = @name
+    SELECT MIN(date) as first_seen FROM game_players WHERE name = TRIM(@name)
     UNION ALL
-    SELECT MIN(date) as first_seen FROM cold.game_players WHERE name = @name
+    SELECT MIN(date) as first_seen FROM cold.game_players WHERE name = TRIM(@name)
   )
 `);
 
@@ -1531,6 +1529,7 @@ const db = {
       uploaded.close();
     }
     // A backup from before S5 has no game_players; build it for the restored games.
+    ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
   },
   migrateGamePlayers,
@@ -1766,13 +1765,9 @@ VALUES(?, ?, ?, ?, ?)
       let changes = 0;
       for (const game of list) {
         const date = game.date || game.start || new Date().toISOString();
-        insertCold.run({
-          id: game.id,
-          date,
-          ip: game.ip || game.server?.ip || null,
-          details: typeof game.details === 'string' ? game.details : JSON.stringify(game)
-        });
-        writeColdPlayers(game.id, date, typeof game.details === 'string' ? JSON.parse(game.details) : game);
+        const details = typeof game.details === 'string' ? game.details : JSON.stringify(game);
+        insertCold.run({ id: game.id, date, ip: game.ip || game.server?.ip || null, details });
+        writeColdPlayers(game.id, date, JSON.parse(details));
         changes++;
       }
       return changes;
@@ -1839,13 +1834,12 @@ VALUES(?, ?, ?, ?, ?)
   // never a game in neither file.
   moveGamesToColdStorage: () => {
     const ONE_YEAR_AGO = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
-    const columns = 'game_id, date, name, team, kills, deaths, assists, suicides, damage, mode, map';
 
     hotDb.transaction(() => {
       // A game cold storage already has keeps its cold copy and rows.
       hotDb.prepare(`
-        INSERT INTO cold.game_players (${columns})
-        SELECT ${columns} FROM main.game_players
+        INSERT INTO cold.game_players (${GAME_PLAYERS_COLUMNS})
+        SELECT ${GAME_PLAYERS_COLUMNS} FROM main.game_players
         WHERE game_id IN (SELECT id FROM main.games WHERE date < ? AND id NOT IN (SELECT id FROM cold.games))
       `).run(ONE_YEAR_AGO);
       hotDb.prepare(`
@@ -1887,7 +1881,7 @@ VALUES(?, ?, ?, ?, ?)
     try {
       const key = pilotKey(name);
       // Cold games only if hot games have very few matches (e.g. historical pilot)
-      const allRows = pilotGamesHotFirst(name.trim());
+      const allRows = pilotGamesHotFirst(name);
 
       const mapMap = new Map();
       const rivalMap = new Map();
@@ -2332,7 +2326,7 @@ VALUES(?, ?, ?, ?, ?)
         return false;
       }
 
-      const minRow = getPilotFirstSeen.get({ name: pilotName.trim() });
+      const minRow = getPilotFirstSeen.get({ name: pilotName });
 
       if (minRow && minRow.first_seen) {
         hotDb.prepare(`
@@ -2448,8 +2442,8 @@ export const pilotStatements = {
   pilotGamesHot,
   pilotGamesHotSince,
   pilotGamesCold,
-  gamesByPilot: getGamesByPilotStmt,
-  countGamesByPilot: countGamesByPilotStmt,
+  gamesByPilot: getGamesByPilot,
+  countGamesByPilot,
   firstSeen: getPilotFirstSeen,
   leaderboard: getPilotStats,
   leaderboardSince: getPilotStatsFiltered

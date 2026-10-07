@@ -4,6 +4,9 @@
 
 const MAX_DURATION_SEC = 86400;
 
+// Counter field for each outcomeOf()/pairOutcome() result.
+export const OUTCOME_FIELD = { win: 'wins', loss: 'losses', tie: 'ties' };
+
 // Case-insensitive identity for a pilot name. Use it for map keys and
 // comparisons, never for display.
 export function pilotKey(name) {

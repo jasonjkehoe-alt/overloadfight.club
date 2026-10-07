@@ -3,10 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, winnerOf } from './gameParse.js';
-
-// Counter field for each outcomeOf()/pairOutcome() result.
-const OUTCOME_FIELD = { win: 'wins', loss: 'losses', tie: 'ties' };
+import { OUTCOME_FIELD, durationOf, netKills, outcomeOf, pairOutcome, pilotKey, winnerOf } from './gameParse.js';
 
 // pilot_stats_cache rows, one per pilotKey().
 export function pilotPass() {
