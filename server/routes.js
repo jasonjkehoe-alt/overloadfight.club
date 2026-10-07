@@ -31,24 +31,24 @@ router.get('/games', async (req, res) => {
         // Only sync if:
         // a) It's Page 1 (to get latest games), OR
         // b) We don't have enough games locally for this page (and it's not a search)
-        if (!search) {
-            const needsSync = page === 1 || games.length < limit;
+        if (!search && (page === 1 || games.length < limit)) {
+            // For Page 1, we rely on the ingest module's TTL (30s) to prevent spam
+            const sync = ingest.syncPage(page);
 
-            if (needsSync) {
+            // Cached rows go out now; the sync lands them for the next request.
+            // Only a page with nothing stored yet waits for the tracker.
+            if (games.length > 0) {
+                sync.catch(syncError => console.warn(`[Route] Background sync of page ${page} failed: ${syncError.message}`));
+            } else {
                 try {
-                    // For Page 1, we rely on the ingest module's TTL (30s) to prevent spam
-                    await ingest.syncPage(page);
+                    await sync;
+                    const freshGames = db.getGames(limit, offset, search, startDate).map(row => JSON.parse(row.details));
+                    const freshCount = db.countGames(search, startDate);
 
-                    // If we synced, re-fetch from DB to get the updates
-                    if (page === 1 || games.length < limit) {
-                        const freshGames = db.getGames(limit, offset, search, startDate).map(row => JSON.parse(row.details));
-                        const freshCount = db.countGames(search, startDate);
-
-                        return res.json({
-                            count: freshCount.count,
-                            games: freshGames
-                        });
-                    }
+                    return res.json({
+                        count: freshCount.count,
+                        games: freshGames
+                    });
                 } catch (syncError) {
                     console.warn(`[Route] Failed to sync page ${page}, serving cached data. Error: ${syncError.message}`);
                 }
@@ -826,12 +826,9 @@ router.get('/pilot/:name/weapons', async (req, res) => {
 router.get('/pilot/:name/ppi', async (req, res) => {
     try {
         const name = req.params.name;
-        let stats = db.getPilotPPI(name);
-
-        if (!stats) {
-            db.refreshPilotStats();
-            stats = db.getPilotPPI(name);
-        }
+        // A miss stays a miss until the scheduled refresh (maintenance.js) rebuilds
+        // the cache; rebuilding it here let any visitor block the server.
+        const stats = db.getPilotPPI(name);
         res.json(stats || {});
     } catch (e) {
         console.error("PPI API Error:", e);

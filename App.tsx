@@ -1,20 +1,23 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import Layout from './components/Layout';
-import GameList from './components/GameList';
-import GameDetail from './components/GameDetail';
-import LiveGameDetail from './components/LiveGameDetail';
-import PilotDetail from './components/PilotDetail';
-import PilotsList from './components/PilotsList';
-import MapLibrary from './components/MapLibrary';
-import OlmodInfo from './components/OlmodInfo';
-import AdminPanel from './components/AdminPanel';
-import ColdStorage from './components/ColdStorage';
-import Resources from './components/Resources';
-import AudioTauntMaker from './components/AudioTauntMaker';
-import PilotManager from './components/PilotManager';
-import FightNightSection from './components/FightNightSection';
+import { useServerBrowser } from './hooks/useServerBrowser';
+
+// Every view loads on demand, so the first page fetches only its own code.
+const GameList = lazy(() => import('./components/GameList'));
+const GameDetail = lazy(() => import('./components/GameDetail'));
+const LiveGameDetail = lazy(() => import('./components/LiveGameDetail'));
+const PilotDetail = lazy(() => import('./components/PilotDetail'));
+const PilotsList = lazy(() => import('./components/PilotsList'));
+const MapLibrary = lazy(() => import('./components/MapLibrary'));
+const OlmodInfo = lazy(() => import('./components/OlmodInfo'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const ColdStorage = lazy(() => import('./components/ColdStorage'));
+const Resources = lazy(() => import('./components/Resources'));
+const AudioTauntMaker = lazy(() => import('./components/AudioTauntMaker'));
+const PilotManager = lazy(() => import('./components/PilotManager'));
+const FightNightSection = lazy(() => import('./components/FightNightSection'));
 import { OverloadFsProvider } from './context/OverloadFsContext';
-import { fetchActiveGames, fetchArchivedGames, fetchGameDetail, getGlobalStats, fetchConfig } from './services/apiService';
+import { fetchArchivedGames, fetchGameDetail, getGlobalStats, fetchConfig } from './services/apiService';
 import { BrowserApiResponse, GameData, AdminSettings } from './types';
 
 interface RouteState {
@@ -95,13 +98,12 @@ const App: React.FC = () => {
   );
 
   // Change types to allow null (error state)
-  const [activeGames, setActiveGames] = useState<BrowserApiResponse[] | null>(null);
+  const { games: activeGames, updatedAt: lastRefreshed } = useServerBrowser();
   const [archivedGames, setArchivedGames] = useState<GameData[] | null>(null);
   const [selectedGameData, setSelectedGameData] = useState<GameData | null>(null);
   const [gameDetailError, setGameDetailError] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   // Public Config State
   const [showColdStorage, setShowColdStorage] = useState(false);
@@ -130,19 +132,15 @@ const App: React.FC = () => {
   const refreshData = async () => {
     setLoading(true);
     try {
-      // Always fetch Hot DB data (Last 365 Days)
-      const [active, archive, publicStats] = await Promise.all([
-        fetchActiveGames(),
+      // Always fetch Hot DB data (Last 365 Days); live servers come from useServerBrowser
+      const [archive, publicStats] = await Promise.all([
         fetchArchivedGames(1, ''),
         getGlobalStats()
       ]);
-      setActiveGames(active);
       setArchivedGames(archive ? archive.games : null);
       setStats(publicStats);
-      setLastRefreshed(new Date());
     } catch (e) {
       console.error("Failed to load data", e);
-      setActiveGames(null);
       setArchivedGames(null);
     }
     setLoading(false);
@@ -154,18 +152,6 @@ const App: React.FC = () => {
       refreshData();
     }
   }, [currentView]);
-
-  // Poll for active games
-  useEffect(() => {
-    const intervalId = setInterval(async () => {
-      const active = await fetchActiveGames();
-      if (active !== null) {
-        setActiveGames(active);
-        setLastRefreshed(new Date());
-      }
-    }, 10000);
-    return () => clearInterval(intervalId);
-  }, []);
 
   // Load Detail View
   useEffect(() => {
@@ -283,6 +269,11 @@ const App: React.FC = () => {
   return (
     <OverloadFsProvider>
       <Layout currentView={currentView} onNavigate={handleNavigate} showColdStorage={showColdStorage}>
+      <Suspense fallback={
+        <div className="flex justify-center py-24">
+          <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      }>
       {currentView === 'dashboard' && (
         <div className="space-y-8 animate-fade-in">
           <div className="bg-gradient-to-r from-[#1a1a1a] to-black p-8 rounded border border-gray-800 mb-8 flex justify-between items-end">
@@ -298,7 +289,7 @@ const App: React.FC = () => {
               </p>
             </div>
             <div className="text-xs font-mono text-gray-600 text-right hidden md:block">
-              LAST UPDATE: <span className="text-gray-400">{lastRefreshed.toLocaleTimeString()}</span>
+              LAST UPDATE: <span className="text-gray-400">{lastRefreshed ? lastRefreshed.toLocaleTimeString() : '...'}</span>
               <br />
               TOTAL GAMES TRACKED (365 Days): <span className="text-gray-400">{stats?.total_games || '...'}</span>
             </div>
@@ -474,6 +465,7 @@ const App: React.FC = () => {
       {(currentView === 'tools' || currentView === 'taunts') && (
         <AudioTauntMaker onNavigate={handleNavigate} />
       )}
+      </Suspense>
     </Layout>
   </OverloadFsProvider>
   );

@@ -173,10 +173,28 @@ app.get('/version.json', (req, res) => {
     return res.json({ hash: 'unknown', date: 'unknown', buildTime: new Date().toISOString() });
 });
 
+// Files without a content hash in their name (ffmpeg, icons, images) can change
+// under the same URL, so browsers revalidate them after an hour.
+const SHORT_CACHE = 'public, max-age=3600';
+
 if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) {
+    // The build writes .br and .gz copies of the 32 MB ffmpeg wasm (vite.config.ts).
+    // Send one of those rather than letting compression() gzip it on every request.
+    const ffmpegWasm = path.join(distPath, 'ffmpeg', 'ffmpeg-core.wasm');
+    const wasmEncodings = { br: '.br', gzip: '.gz' };
+    app.get('/ffmpeg/ffmpeg-core.wasm', (req, res, next) => {
+        // br first: acceptsEncodings('br', 'gzip') would follow the client's order, and Chrome lists gzip first
+        const encoding = Object.keys(wasmEncodings).find(e => req.acceptsEncodings(e));
+        const file = encoding && ffmpegWasm + wasmEncodings[encoding];
+        if (!file || !fs.existsSync(file)) return next();
+        res.setHeader('Content-Type', 'application/wasm');
+        res.setHeader('Content-Encoding', encoding);
+        res.setHeader('Vary', 'Accept-Encoding');
+        res.setHeader('Cache-Control', SHORT_CACHE);
+        res.sendFile(file);
+    });
+
     app.use(express.static(distPath, {
-        maxAge: '1y',
-        immutable: true,
         setHeaders: (res, filePath) => {
             // Never cache index.html or version manifest so users get new builds instantly
             if (filePath.endsWith('.html') || filePath.endsWith('version.json')) {
@@ -186,6 +204,8 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
             } else if (filePath.includes(path.sep + 'assets' + path.sep) || filePath.includes('/assets/')) {
                 // Content-hashed Vite assets: 1 year immutable cache
                 res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            } else {
+                res.setHeader('Cache-Control', SHORT_CACHE);
             }
         }
     }));

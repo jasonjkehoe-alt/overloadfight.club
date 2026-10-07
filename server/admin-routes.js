@@ -25,6 +25,7 @@ router.use(requireAuth);
 router.get('/backup', (req, res) => {
     const dbPath = path.join(process.env.DATA_DIR || path.join(process.cwd(), 'data'), 'tracker.db');
     if (fs.existsSync(dbPath)) {
+        db.checkpointHot();
         res.download(dbPath, `tracker_backup_${new Date().toISOString().split('T')[0]}.db`);
     } else {
         res.status(404).json({ error: 'Database file not found' });
