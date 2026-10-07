@@ -131,7 +131,7 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
 
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={colors.surface.raised} vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
             <XAxis
               dataKey="hour"
               stroke="#444"
@@ -143,7 +143,7 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
               dy={5}
             />
             <Tooltip
-              cursor={{ fill: colors.surface.raised }}
+              cursor={{ fill: '#222' }}
               contentStyle={{ backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px', fontSize: '12px' }}
               labelFormatter={(label) => `${formatTimeLabel(label)} - ${formatTimeLabel(label + 1)}`}
               formatter={(value) => [value, 'Games Played']}
@@ -158,7 +158,7 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
                     ? '#333' // Darker for aggregate view
                     : index === currentHour && showNowLine
                       ? colors.brand.DEFAULT
-                      : colors.surface.raised
+                      : '#262626'
                   }
                   stroke={index === currentHour && showNowLine ? colors.brand.hover : 'none'}
                   strokeWidth={index === currentHour && showNowLine ? 1 : 0}

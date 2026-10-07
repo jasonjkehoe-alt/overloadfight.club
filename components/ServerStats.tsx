@@ -131,7 +131,8 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
                                     <circle cx={x} cy={y} r={isActive ? 2 : 1.5} fill={color} stroke="#000" strokeWidth="0.5" className="transition-all" />
                                     <foreignObject x={Math.min(x - 20, 60)} y={y - 15} width="40" height="20" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none overflow-visible z-50">
                                         <div className="flex flex-col items-center">
-                                            <div className="bg-black/90 border border-gray-600 text-2xs text-white px-1.5 py-0.5 rounded-control whitespace-nowrap shadow-xl mb-0.5">
+                                            {/* inside a 100x100 viewBox: 5px here is drawn at the map's scale */}
+                                            <div className="bg-black/90 border border-gray-600 text-[5px] text-white px-1.5 py-0.5 rounded-control whitespace-nowrap shadow-xl mb-0.5">
                                                 {s.server.name}
                                             </div>
                                             <div className="w-0 h-0 border-l-[2px] border-l-transparent border-r-[2px] border-r-transparent border-t-[3px] border-t-gray-600"></div>
@@ -174,7 +175,7 @@ const ServerStats: React.FC<ServerStatsProps> = ({ activeGames, archivedGames, g
             {/* Total Pop */}
             <Link
                 to={urlFor('pilots')}
-                className="bg-surface-card border border-line p-4 rounded-control flex flex-col justify-center items-center relative overflow-hidden group cursor-pointer hover:border-brand transition-colors"
+                className="bg-surface-card border border-line p-4 rounded-card flex flex-col justify-center items-center relative overflow-hidden group cursor-pointer hover:border-brand transition-colors"
             >
                 <div className="absolute inset-0 bg-gradient-to-t from-brand/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest z-10">Pilots Online</h3>

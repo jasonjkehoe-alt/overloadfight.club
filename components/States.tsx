@@ -43,14 +43,14 @@ interface ErrorStateProps {
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ title = 'Could not load this', message, onRetry, retryLabel = 'Retry', action, compact }) => (
-    <div role="alert" className={`bg-surface-card border border-red-900/60 rounded-card text-center font-mono ${compact ? 'p-5' : 'p-8 max-w-xl mx-auto my-16'}`}>
-        <div className="w-12 h-12 rounded-full bg-red-950/60 border border-red-700/60 text-red-400 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-6 h-6" />
+    <div role="alert" className={`bg-surface-card border border-red-900/60 rounded-card text-center font-mono ${compact ? 'p-4' : 'p-8 max-w-xl mx-auto my-16'}`}>
+        <div className={`${compact ? 'w-8 h-8 mb-2' : 'w-12 h-12 mb-4'} rounded-full bg-red-950/60 border border-red-700/60 text-red-400 flex items-center justify-center mx-auto`}>
+            <AlertTriangle className={compact ? 'w-4 h-4' : 'w-6 h-6'} />
         </div>
-        <h3 className="text-lg font-bold text-white mb-2 tracking-wide uppercase">{title}</h3>
-        {message && <div className="text-sm text-gray-400 leading-relaxed">{message}</div>}
+        <h3 className={`${compact ? 'text-sm mb-1' : 'text-lg mb-2'} font-bold text-white tracking-wide uppercase`}>{title}</h3>
+        {message && <div className={`${compact ? 'text-xs' : 'text-sm'} text-gray-400 leading-relaxed`}>{message}</div>}
         {(onRetry || action) && (
-            <div className="flex gap-4 justify-center mt-6">
+            <div className={`flex gap-4 justify-center ${compact ? 'mt-4' : 'mt-6'}`}>
                 {action}
                 {onRetry && (
                     <button

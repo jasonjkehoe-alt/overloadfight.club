@@ -368,7 +368,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
             {/* Results Count Summary */}
             <div className="flex justify-between items-center text-xs font-mono text-gray-500 px-1">
                 {loading && maps.length === 0 ? (
-                    <span className="text-[#ff6600]">LOADING ARENA REGISTRY ARCHIVES...</span>
+                    <span className="text-brand">LOADING ARENA REGISTRY ARCHIVES...</span>
                 ) : (
                     <span>
                         DISPLAYING <span className="text-white font-bold">{filteredMaps.length}</span> OF <span className="text-gray-400">{maps.length}</span> ARENAS

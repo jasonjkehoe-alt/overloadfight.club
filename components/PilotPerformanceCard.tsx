@@ -24,7 +24,7 @@ const Tooltip = ({ text, children }: { text: string, children: React.ReactNode }
     return (
         <div className="group relative flex items-center">
             {children}
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-2 bg-black border border-brand text-xs text-gray-300 rounded-control shadow-[0_0_10px_#ff660040] z-50 font-mono">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-2 bg-black border border-brand text-xs text-gray-300 rounded-control shadow-[0_0_10px] shadow-brand/25 z-50 font-mono">
                 {text}
                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-brand w-0 h-0"></div>
             </div>

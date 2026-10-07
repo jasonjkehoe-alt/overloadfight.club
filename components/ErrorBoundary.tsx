@@ -8,7 +8,9 @@ interface Props {
 }
 
 interface State {
-    error: Error | null;
+    // a flag beside the error, so a thrown null or undefined still shows the fallback
+    hasError: boolean;
+    error: unknown;
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
@@ -18,30 +20,31 @@ export class ErrorBoundary extends React.Component<Props, State> {
     constructor(props: Props) {
         super(props);
         this.props = props;
-        this.state = { error: null };
+        this.state = { hasError: false, error: null };
     }
 
-    public static getDerivedStateFromError(error: Error): State {
-        return { error };
+    public static getDerivedStateFromError(error: unknown): State {
+        return { hasError: true, error };
     }
 
-    public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    public componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
         console.error('Uncaught error caught by ErrorBoundary:', error, errorInfo);
     }
 
-    public componentDidUpdate(prevProps: Props) {
-        if (this.state.error && prevProps.resetKey !== this.props.resetKey) this.setState({ error: null });
+    public componentDidUpdate(prevProps: Props, prevState: State) {
+        // only an error from the page before: one thrown by the new page itself stays
+        if (prevState.hasError && prevProps.resetKey !== this.props.resetKey) this.setState({ hasError: false, error: null });
     }
 
     public render() {
-        if (this.state.error) {
+        if (this.state.hasError) {
             return (
                 <ErrorState
                     title="Application recovery"
                     message={<>
                         <p>An unexpected interface exception occurred. You can safely reload the workstation.</p>
                         <pre className="mt-4 p-3 bg-black/80 rounded-control border border-line text-xs text-red-300 text-left overflow-x-auto">
-                            {this.state.error.message}
+                            {this.state.error instanceof Error ? this.state.error.message : String(this.state.error)}
                         </pre>
                     </>}
                     onRetry={() => window.location.reload()}

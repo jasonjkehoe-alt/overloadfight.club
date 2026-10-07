@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
 import ActivityGraph from './ActivityGraph';
 import GlobalActivityChart from './GlobalActivityChart';
@@ -62,6 +62,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     const [historyPage, setHistoryPage] = useState(1);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [historyError, setHistoryError] = useState(false);
+    // page 1 and a search can be in flight together; only the newest may write the list
+    const historyRequest = useRef(0);
 
     // Archive Search State: the box's text, and the search last run (in the URL)
     const [query, setQuery] = useQueryParam('q');
@@ -74,16 +76,18 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     // ... (useEffect hooks unchanged)
 
     const loadFirstPage = () => {
+        const request = ++historyRequest.current;
         setIsLoadingHistory(true);
         setHistoryError(false);
         fetchArchivedGames(1, '', startDate).then(response => {
+            setIsLoadingHistory(false);
+            if (request !== historyRequest.current) return;
             if (response && response.games) {
                 setHistoryGames(response.games);
                 if (response.count) setTotalGamesTracked(response.count);
             } else {
                 setHistoryError(true);
             }
-            setIsLoadingHistory(false);
         });
     };
 
@@ -101,6 +105,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     // ... (other handlers unchanged)
 
     const runSearch = async (term: string) => {
+        const request = ++historyRequest.current;
         setIsSearching(true);
         setHistoryError(false);
 
@@ -110,6 +115,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
         try {
             // Fix: Include startDate
             const response = await fetchArchivedGames(1, term, startDate);
+            if (request !== historyRequest.current) return;
             if (response && response.games) {
                 setHistoryGames(response.games);
                 if (response.count !== undefined) {
