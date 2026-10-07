@@ -26,7 +26,7 @@ const JoinIp: React.FC<{ ip: string }> = ({ ip }) => {
             <span>Join at <span className="text-white select-all">{ip}</span></span>
             <button
                 onClick={copy}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-gray-700 hover:border-[#ff6600] text-xs text-gray-400 hover:text-[#ff6600] transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-control border border-gray-700 hover:border-brand text-xs text-gray-400 hover:text-brand transition-colors"
                 title={`Copy ${ip}`}
             >
                 {status === 'copied' ? (

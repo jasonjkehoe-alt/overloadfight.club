@@ -3,7 +3,7 @@ import React from 'react';
 
 const OlmodInfo: React.FC = () => {
     return (
-        <div className="animate-fade-in space-y-8 max-w-4xl mx-auto">
+        <div className="space-y-8 max-w-4xl mx-auto">
 
             {/* Hero Section */}
             <div className="bg-gradient-to-r from-[#1a1a1a] to-black p-8 rounded border border-gray-800">

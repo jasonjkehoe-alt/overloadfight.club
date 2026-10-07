@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { colors } from '../designTokens.js';
 
 interface ActivityGraphProps {
   globalActivity?: { day: string; hour: string; count: number }[];
@@ -79,14 +80,14 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
 
         {/* Day Tabs */}
-        <div className="flex bg-[#0a0a0a] rounded border border-gray-800 p-1 overflow-x-auto max-w-full no-scrollbar">
+        <div className="flex bg-surface-page rounded-control border border-line p-1 overflow-x-auto max-w-full">
           {DAYS.map((day, i) => (
             <button
               key={day}
               onClick={() => setActiveTab(i)}
-              className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-colors whitespace-nowrap ${activeTab === i
-                  ? 'bg-[#ff6600] text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-[#222]'
+              className={`px-3 py-1 rounded-control text-2xs font-bold uppercase transition-colors whitespace-nowrap ${activeTab === i
+                  ? 'bg-brand text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-300 hover:bg-surface-raised'
                 }`}
             >
               {day}
@@ -95,9 +96,9 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
           <div className="w-[1px] bg-gray-800 mx-1"></div>
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-colors whitespace-nowrap ${activeTab === 'all'
+            className={`px-3 py-1 rounded-control text-2xs font-bold uppercase transition-colors whitespace-nowrap ${activeTab === 'all'
                 ? 'bg-gray-700 text-white'
-                : 'text-gray-500 hover:text-gray-300 hover:bg-[#222]'
+                : 'text-gray-500 hover:text-gray-300 hover:bg-surface-raised'
               }`}
           >
             All Days
@@ -108,7 +109,7 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
           <span className="hidden sm:inline">LOCAL: <span className="text-gray-300">{formatCurrentTime(now)}</span></span>
           <button
             onClick={() => setIs24Hour(!is24Hour)}
-            className="text-[#ff6600] hover:text-white border border-[#ff6600] hover:bg-[#ff6600] px-1.5 py-0.5 rounded transition-all text-[10px] font-bold"
+            className="text-brand hover:text-white border border-brand hover:bg-brand px-1.5 py-0.5 rounded-control transition-all text-2xs font-bold"
           >
             {is24Hour ? '12H' : '24H'}
           </button>
@@ -130,7 +131,7 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
 
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.surface.raised} vertical={false} />
             <XAxis
               dataKey="hour"
               stroke="#444"
@@ -142,8 +143,8 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
               dy={5}
             />
             <Tooltip
-              cursor={{ fill: '#222' }}
-              contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '4px', fontSize: '12px' }}
+              cursor={{ fill: colors.surface.raised }}
+              contentStyle={{ backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px', fontSize: '12px' }}
               labelFormatter={(label) => `${formatTimeLabel(label)} - ${formatTimeLabel(label + 1)}`}
               formatter={(value) => [value, 'Games Played']}
               itemStyle={{ color: '#fff' }}
@@ -156,10 +157,10 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
                   fill={activeTab === 'all'
                     ? '#333' // Darker for aggregate view
                     : index === currentHour && showNowLine
-                      ? '#ff6600'
-                      : '#262626'
+                      ? colors.brand.DEFAULT
+                      : colors.surface.raised
                   }
-                  stroke={index === currentHour && showNowLine ? '#ff8833' : 'none'}
+                  stroke={index === currentHour && showNowLine ? colors.brand.hover : 'none'}
                   strokeWidth={index === currentHour && showNowLine ? 1 : 0}
                 />
               ))}

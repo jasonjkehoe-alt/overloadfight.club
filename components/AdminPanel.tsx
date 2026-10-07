@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Loading, ErrorState } from './States';
 import {
     LayoutDashboard,
     Database,
@@ -338,30 +339,23 @@ const AdminPanel: React.FC = () => {
         );
     }
 
-    if (loading) return <div className="p-8 text-white">Loading stats...</div>;
+    if (loading) return <Loading label="Loading stats..." />;
 
     if (!stats) {
         return (
-            <div className="p-8 text-white">
-                <div className="bg-red-900/50 border border-red-500 p-4 rounded mb-4">
-                    <h3 className="font-bold text-red-200">Error Loading Stats</h3>
-                    <p className="text-red-300">{error || "Unknown error occurred"}</p>
-                </div>
-                <div className="flex gap-4">
-                    <button
-                        onClick={() => { setLoading(true); fetchStats(); }}
-                        className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 font-bold"
-                    >
-                        Retry
-                    </button>
+            <ErrorState
+                title="Error loading stats"
+                message={error || "Unknown error occurred"}
+                onRetry={() => { setLoading(true); fetchStats(); }}
+                action={
                     <button
                         onClick={() => setIsAuthenticated(false)}
-                        className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600 font-bold"
+                        className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600 font-bold text-white text-xs uppercase"
                     >
                         Logout
                     </button>
-                </div>
-            </div>
+                }
+            />
         );
     }
 
@@ -798,7 +792,7 @@ const AdminPanel: React.FC = () => {
 
                 {/* Add Custom Map Form */}
                 <div className="bg-gray-900/60 p-6 rounded-lg border border-gray-700">
-                    <h4 className="text-md font-bold text-gray-200 mb-4 flex items-center gap-2">
+                    <h4 className="font-bold text-gray-200 mb-4 flex items-center gap-2">
                         <PlusCircle size={18} className="text-green-400" /> Manually Add Custom Map
                     </h4>
 

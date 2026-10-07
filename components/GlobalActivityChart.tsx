@@ -10,10 +10,13 @@ import {
     Brush
 } from 'recharts';
 import { Activity } from 'lucide-react';
+import { colors } from '../designTokens.js';
+import { Loading, EmptyState, ErrorState } from './States';
 
 const GlobalActivityChart: React.FC = () => {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -22,9 +25,12 @@ const GlobalActivityChart: React.FC = () => {
                 if (res.ok) {
                     const json = await res.json();
                     setData(json);
+                } else {
+                    setFailed(true);
                 }
             } catch (e) {
                 console.error("Failed to load activity timeline", e);
+                setFailed(true);
             } finally {
                 setLoading(false);
             }
@@ -33,8 +39,9 @@ const GlobalActivityChart: React.FC = () => {
         fetchData();
     }, []);
 
-    if (loading) return null; // Or skeleton
-    if (data.length === 0) return null;
+    if (loading) return <Loading compact />;
+    if (failed) return <ErrorState compact title="Timeline unavailable" message="Could not load the activity timeline." />;
+    if (data.length === 0) return <EmptyState compact title="No activity recorded yet." />;
 
     return (
         <div className="w-full h-full flex flex-col">
@@ -43,8 +50,8 @@ const GlobalActivityChart: React.FC = () => {
                     <AreaChart data={data}>
                         <defs>
                             <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#ff6600" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#ff6600" stopOpacity={0} />
+                                <stop offset="5%" stopColor={colors.brand.DEFAULT} stopOpacity={0.8} />
+                                <stop offset="95%" stopColor={colors.brand.DEFAULT} stopOpacity={0} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
@@ -58,15 +65,15 @@ const GlobalActivityChart: React.FC = () => {
                         />
                         <YAxis stroke="#666" fontSize={10} width={30} />
                         <Tooltip
-                            contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
-                            itemStyle={{ color: '#ff6600' }}
+                            contentStyle={{ backgroundColor: '#000', border: `1px solid ${colors.line}` }}
+                            itemStyle={{ color: colors.brand.DEFAULT }}
                             labelStyle={{ color: '#ccc' }}
                             labelFormatter={(label) => new Date(label).toLocaleDateString()}
                         />
                         <Area
                             type="monotone"
                             dataKey="count"
-                            stroke="#ff6600"
+                            stroke={colors.brand.DEFAULT}
                             fillOpacity={1}
                             fill="url(#colorCount)"
                             name="Games Played"
@@ -75,7 +82,7 @@ const GlobalActivityChart: React.FC = () => {
                             dataKey="day"
                             height={20}
                             stroke="#444"
-                            fill="#111"
+                            fill={colors.surface.card}
                             tickFormatter={() => ''}
                         />
                     </AreaChart>

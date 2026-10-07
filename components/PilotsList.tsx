@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
-import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X } from 'lucide-react';
+import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X, Users } from 'lucide-react';
+import { Loading, EmptyState, ErrorState } from './States';
 import Link from './Link';
 import { useQueryParam, useQueryText, rowLink } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
@@ -82,40 +83,45 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
 
     const [pilotRoster, setPilotRoster] = useState<PilotStats[]>([]);
     const [loadingRoster, setLoadingRoster] = useState(false);
+    const [rosterError, setRosterError] = useState(false);
 
     // Fetch aggregated stats from server
+    const loadRoster = () => {
+        setLoadingRoster(true);
+        setRosterError(false);
+        let url = '/api/stats/pilots?source=all';
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const formatted = data.map((p: any) => ({
+                    ...p,
+                    lastSeen: new Date(p.lastSeen || p.last_updated),
+                    suicides: p.suicides || 0,
+                    kd: p.kd !== undefined ? p.kd : (p.kills / Math.max(1, p.deaths)),
+                    kda: p.kda !== undefined ? p.kda : ((p.kills + p.assists * 0.5) / Math.max(1, p.deaths)),
+                    win_rate: p.win_rate !== undefined ? p.win_rate : (p.games > 0 && p.wins !== undefined ? ((p.wins / p.games) * 100) : 0),
+                    wins: p.wins,
+                    losses: p.losses,
+                    ties: p.ties,
+                    total_damage: p.total_damage,
+                    dpm: p.dpm,
+                    aci: p.aci,
+                    kpm: p.kpm
+                }));
+                setPilotRoster(formatted);
+                setLoadingRoster(false);
+            })
+            .catch(err => {
+                console.error("Failed to load pilot stats", err);
+                setRosterError(true);
+                setLoadingRoster(false);
+            });
+    };
+
     React.useEffect(() => {
         // Always fetch roster if not loaded, as we need it for autocomplete in comparison too
-        if (pilotRoster.length === 0) {
-            setLoadingRoster(true);
-            let url = '/api/stats/pilots?source=all';
-
-            fetch(url)
-                .then(res => res.json())
-                .then(data => {
-                    const formatted = data.map((p: any) => ({
-                        ...p,
-                        lastSeen: new Date(p.lastSeen || p.last_updated),
-                        suicides: p.suicides || 0,
-                        kd: p.kd !== undefined ? p.kd : (p.kills / Math.max(1, p.deaths)),
-                        kda: p.kda !== undefined ? p.kda : ((p.kills + p.assists * 0.5) / Math.max(1, p.deaths)),
-                        win_rate: p.win_rate !== undefined ? p.win_rate : (p.games > 0 && p.wins !== undefined ? ((p.wins / p.games) * 100) : 0),
-                        wins: p.wins,
-                        losses: p.losses,
-                        ties: p.ties,
-                        total_damage: p.total_damage,
-                        dpm: p.dpm,
-                        aci: p.aci,
-                        kpm: p.kpm
-                    }));
-                    setPilotRoster(formatted);
-                    setLoadingRoster(false);
-                })
-                .catch(err => {
-                    console.error("Failed to load pilot stats", err);
-                    setLoadingRoster(false);
-                });
-        }
+        if (pilotRoster.length === 0) loadRoster();
     }, []);
 
 
@@ -194,15 +200,15 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
     }, [pilotRoster]);
 
     return (
-        <div className="animate-fade-in space-y-6">
+        <div className="space-y-6">
 
-            <div className="flex justify-between items-center border-b border-gray-800 mb-6">
+            <div className="flex justify-between items-center border-b border-line mb-6">
                 <div className="flex">
                     <button
                         onClick={() => setActiveTab('online')}
                         className={`px-6 py-3 font-mono text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${
                             activeTab === 'online'
-                                ? 'border-[#ff6600] text-[#ff6600] bg-[#ff6600]/5'
+                                ? 'border-brand text-brand bg-brand/5'
                                 : 'border-transparent text-gray-500 hover:text-gray-300'
                         }`}
                     >
@@ -216,7 +222,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                         onClick={() => setActiveTab('roster')}
                         className={`px-6 py-3 font-mono text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${
                             activeTab === 'roster'
-                                ? 'border-[#ff6600] text-[#ff6600] bg-[#ff6600]/5'
+                                ? 'border-brand text-brand bg-brand/5'
                                 : 'border-transparent text-gray-500 hover:text-gray-300'
                         }`}
                     >
@@ -231,9 +237,9 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
             {activeTab === 'online' && (
                 <div className="space-y-4">
                     {onlinePilots.length > 0 ? (
-                        <div className="bg-[#111] border border-gray-800 rounded overflow-hidden">
+                        <div className="bg-surface-card border border-line rounded-card overflow-hidden">
                             <table className="w-full text-left text-sm font-mono">
-                                <thead className="bg-[#161616] text-gray-500 text-xs uppercase">
+                                <thead className="bg-surface-raised text-gray-500 text-xs uppercase">
                                     <tr>
                                         <th className="p-4">Pilot Name</th>
                                         <th className="p-4">Playing On</th>
@@ -241,33 +247,33 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                         <th className="p-4 text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-800">
+                                <tbody className="divide-y divide-line">
                                     {onlinePilots.map((pilot, idx) => (
-                                        <tr key={`${pilot.name}-${idx}`} className="hover:bg-[#1a1a1a] group transition-colors">
+                                        <tr key={`${pilot.name}-${idx}`} className="hover:bg-surface-raised group transition-colors">
                                             <td className="p-4">
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                                                     <Link
                                                         to={urlFor('pilot', pilot.name)}
-                                                        className="font-bold text-white text-lg hover:text-[#ff6600] hover:underline transition-colors text-left"
+                                                        className="font-bold text-white text-lg hover:text-brand hover:underline transition-colors text-left"
                                                     >
                                                         {pilot.name}
                                                     </Link>
-                                                    {pilot.isCreator && <span className="text-[10px] bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded border border-gray-700">HOST</span>}
+                                                    {pilot.isCreator && <span className="text-2xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded-control border border-gray-700">HOST</span>}
                                                 </div>
                                             </td>
                                             <td className="p-4 text-gray-300">
                                                 {pilot.server.server.name}
                                             </td>
                                             <td className="p-4 text-gray-400 text-xs">
-                                                <span className="text-[#ff6600] font-bold">{pilot.server.game?.mode}</span>
+                                                <span className="text-brand font-bold">{pilot.server.game?.mode}</span>
                                                 <span className="mx-2">|</span>
                                                 {pilot.server.game?.mapName}
                                             </td>
                                             <td className="p-4 text-right">
                                                 <Link
                                                     to={urlFor('live-game-detail', pilot.server.server.ip)}
-                                                    className="bg-[#ff6600]/10 hover:bg-[#ff6600] text-[#ff6600] hover:text-white border border-[#ff6600]/50 px-3 py-1.5 rounded text-xs font-bold uppercase transition-all"
+                                                    className="bg-brand/10 hover:bg-brand text-brand hover:text-white border border-brand/50 px-3 py-1.5 rounded-control text-xs font-bold uppercase transition-all"
                                                 >
                                                     View Match
                                                 </Link>
@@ -278,9 +284,12 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                             </table>
                         </div>
                     ) : (
-                        <div className="text-center py-12 bg-[#111] border border-gray-800 rounded">
-                            <p className="text-gray-500 italic">No identified pilots in active matches.</p>
-                            <p className="text-xs text-gray-700 mt-2">Connect to a server to see the full player manifest.</p>
+                        <div className="bg-surface-card border border-line rounded-card">
+                            <EmptyState
+                                icon={Users}
+                                title="No identified pilots in active matches."
+                                message="Connect to a server to see the full player manifest."
+                            />
                         </div>
                     )}
                 </div>
@@ -292,23 +301,23 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                     {highlights && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {highlights.topGun && (
-                                <div className="bg-gradient-to-br from-[#111] to-[#1a1a1a] border border-gray-800 p-6 rounded-lg relative overflow-hidden group">
+                                <div className="bg-gradient-to-br from-surface-card to-surface-raised border border-line p-6 rounded-card relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                                         <Trophy size={64} />
                                     </div>
                                     <div className="relative z-10">
-                                        <h3 className="text-[#ff6600] text-xs font-bold uppercase mb-2 flex items-center gap-2 group cursor-help" title={`Pilot with highest KDA Ratio (Min ${Math.max(minGamesThreshold > 1 ? minGamesThreshold : 25, 25)} games) • Formula: (Kills + 0.5 × Assists) ÷ Deaths`}>
-                                            <Trophy size={14} /> Top Gun (Highest KDA) <Info size={10} className="text-gray-600 group-hover:text-[#ff6600]" />
+                                        <h3 className="text-brand text-xs font-bold uppercase mb-2 flex items-center gap-2 group cursor-help" title={`Pilot with highest KDA Ratio (Min ${Math.max(minGamesThreshold > 1 ? minGamesThreshold : 25, 25)} games) • Formula: (Kills + 0.5 × Assists) ÷ Deaths`}>
+                                            <Trophy size={14} /> Top Gun (Highest KDA) <Info size={10} className="text-gray-600 group-hover:text-brand" />
                                         </h3>
                                         <div className="text-2xl font-bold text-white mb-1">{highlights.topGun.name}</div>
                                         <div className="text-sm text-gray-400 font-mono">
-                                            <span className="text-[#ff6600] font-bold">{highlights.topGun.kda.toFixed(2)}</span> KDA / {highlights.topGun.games} Games
+                                            <span className="text-brand font-bold">{highlights.topGun.kda.toFixed(2)}</span> KDA / {highlights.topGun.games} Games
                                         </div>
                                     </div>
                                 </div>
                             )}
                             {highlights.mostActive && (
-                                <div className="bg-gradient-to-br from-[#111] to-[#1a1a1a] border border-gray-800 p-6 rounded-lg relative overflow-hidden group">
+                                <div className="bg-gradient-to-br from-surface-card to-surface-raised border border-line p-6 rounded-card relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                                         <TrendingUp size={64} />
                                     </div>
@@ -324,7 +333,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                 </div>
                             )}
                             {highlights.slayer && (
-                                <div className="bg-gradient-to-br from-[#111] to-[#1a1a1a] border border-gray-800 p-6 rounded-lg relative overflow-hidden group">
+                                <div className="bg-gradient-to-br from-surface-card to-surface-raised border border-line p-6 rounded-card relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                                         <Skull size={64} />
                                     </div>
@@ -342,18 +351,18 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                         </div>
                     )}
 
-                    <div className="bg-[#111] border border-gray-800 rounded overflow-hidden">
-                        <div className="p-4 border-b border-gray-800 bg-[#161616] flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                    <div className="bg-surface-card border border-line rounded-card overflow-hidden">
+                        <div className="p-4 border-b border-line bg-surface-raised flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                                     <div className="flex items-center gap-2">
                                         <h3 className="text-white font-bold text-sm uppercase tracking-wider">Pilot Roster</h3>
-                                        <span className="text-xs text-gray-400 font-mono bg-gray-800/80 px-2 py-0.5 rounded border border-gray-700">
+                                        <span className="text-xs text-gray-400 font-mono bg-gray-800/80 px-2 py-0.5 rounded-control border border-gray-700">
                                             {searchTerm.trim() ? `${sortedRoster.length} matches` : `${sortedRoster.length} pilots`}
                                         </span>
                                     </div>
                                     {freshnessText && (
-                                        <span className="text-[11px] text-gray-500 font-mono flex items-center gap-1.5 sm:border-l sm:border-gray-800 sm:pl-2">
+                                        <span className="text-2xs text-gray-500 font-mono flex items-center gap-1.5 sm:border-l sm:border-line sm:pl-2">
                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                             {freshnessText}
                                         </span>
@@ -361,9 +370,9 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                 </div>
 
                                 {/* Qualification Threshold Pills */}
-                                <div className="flex items-center gap-1 bg-[#0a0a0a] border border-gray-700 rounded p-1 text-xs">
-                                    <span className="text-[10px] uppercase font-bold text-gray-400 px-2 flex items-center gap-1">
-                                        <Trophy size={11} className="text-[#ff6600]" /> Min Matches:
+                                <div className="flex items-center gap-1 bg-surface-page border border-gray-700 rounded-control p-1 text-xs">
+                                    <span className="text-2xs uppercase font-bold text-gray-400 px-2 flex items-center gap-1">
+                                        <Trophy size={11} className="text-brand" /> Min Matches:
                                     </span>
                                     {[
                                         { label: '50+ (QUALIFIED)', value: 50 },
@@ -374,9 +383,9 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                         <button
                                             key={tier.value}
                                             onClick={() => setMinGamesThreshold(tier.value)}
-                                            className={`px-2.5 py-1 text-xs font-bold rounded transition-all ${
+                                            className={`px-2.5 py-1 text-xs font-bold rounded-control transition-all ${
                                                 minGamesThreshold === tier.value
-                                                    ? 'bg-[#ff6600] text-black shadow font-extrabold'
+                                                    ? 'bg-brand text-black shadow font-extrabold'
                                                     : 'text-gray-400 hover:text-white hover:bg-gray-800'
                                             }`}
                                         >
@@ -386,16 +395,16 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                 </div>
 
                                 {/* Timeframe Toggle */}
-                                <div className="flex items-center gap-1 bg-[#0a0a0a] border border-gray-700 rounded p-1 text-xs">
+                                <div className="flex items-center gap-1 bg-surface-page border border-gray-700 rounded-control p-1 text-xs">
                                     <button
                                         onClick={() => setActiveOnly(false)}
-                                        className={`px-3 py-1 text-xs font-bold rounded transition-colors ${!activeOnly ? 'bg-blue-900/60 text-blue-200 border border-blue-500/40' : 'text-gray-400 hover:text-white'}`}
+                                        className={`px-3 py-1 text-xs font-bold rounded-control transition-colors ${!activeOnly ? 'bg-blue-900/60 text-blue-200 border border-blue-500/40' : 'text-gray-400 hover:text-white'}`}
                                     >
                                         ALL TIME
                                     </button>
                                     <button
                                         onClick={() => setActiveOnly(true)}
-                                        className={`px-3 py-1 text-xs font-bold rounded transition-colors ${activeOnly ? 'bg-blue-900/60 text-blue-200 border border-blue-500/40' : 'text-gray-400 hover:text-white'}`}
+                                        className={`px-3 py-1 text-xs font-bold rounded-control transition-colors ${activeOnly ? 'bg-blue-900/60 text-blue-200 border border-blue-500/40' : 'text-gray-400 hover:text-white'}`}
                                     >
                                         ACTIVE (90d)
                                     </button>
@@ -408,7 +417,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                     <input
                                         type="text"
                                         placeholder={`Search all ${pilotRoster.length > 0 ? pilotRoster.length.toLocaleString() : '4,510'} pilots...`}
-                                        className="bg-[#0a0a0a] border border-gray-700 text-white text-xs px-3 py-2 pl-9 pr-7 rounded w-full focus:border-[#ff6600] outline-none font-mono"
+                                        className="bg-surface-page border border-gray-700 text-white text-xs px-3 py-2 pl-9 pr-7 rounded-control w-full focus:border-brand outline-none font-mono"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
@@ -427,7 +436,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
 
                         {/* Search Override Notice */}
                         {searchTerm.trim() && (
-                            <div className="px-4 py-1.5 bg-blue-950/30 border-b border-blue-900/30 text-[11px] text-blue-300 font-mono flex items-center justify-between">
+                            <div className="px-4 py-1.5 bg-blue-950/30 border-b border-blue-900/30 text-2xs text-blue-300 font-mono flex items-center justify-between">
                                 <span className="flex items-center gap-1.5">
                                     <Info size={12} className="text-blue-400" />
                                     <span>Sample size threshold bypassed &mdash; searching across all {pilotRoster.length.toLocaleString()} pilots.</span>
@@ -439,22 +448,29 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                         )}
 
                         {loadingRoster ? (
-                            <div className="p-12 text-center text-gray-500 font-mono animate-pulse">Loading pilot data...</div>
-                        ) : sortedRoster.length === 0 ? (
-                            <div className="p-12 text-center text-gray-500 font-mono space-y-2">
-                                <p className="text-sm font-bold text-gray-400">No pilots match current filters</p>
-                                <p className="text-xs text-gray-600">Try selecting a lower matches threshold or switching to All Time.</p>
-                                <button
-                                    onClick={() => { setMinGamesThreshold(1); setActiveOnly(false); setSearchTerm(''); }}
-                                    className="text-xs text-[#ff6600] underline hover:text-orange-400 mt-2 inline-block font-bold"
-                                >
-                                    Reset Filters
-                                </button>
+                            <Loading compact label="Loading pilot data..." />
+                        ) : rosterError ? (
+                            <div className="p-4">
+                                <ErrorState compact title="Roster unavailable" message="Could not load pilot stats." onRetry={loadRoster} />
                             </div>
+                        ) : sortedRoster.length === 0 ? (
+                            <EmptyState
+                                icon={Search}
+                                title="No pilots match current filters"
+                                message="Try selecting a lower matches threshold or switching to All Time."
+                                action={
+                                    <button
+                                        onClick={() => { setMinGamesThreshold(1); setActiveOnly(false); setSearchTerm(''); }}
+                                        className="text-xs text-brand underline hover:text-brand-hover font-bold"
+                                    >
+                                        Reset Filters
+                                    </button>
+                                }
+                            />
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm font-mono">
-                                    <thead className="bg-[#1a1a1a] text-gray-500 text-xs uppercase">
+                                    <thead className="bg-surface-raised text-gray-500 text-xs uppercase">
                                         <tr>
                                             <th className="p-3 text-center w-10">#</th>
                                             <th className="p-3 cursor-pointer hover:text-white" onClick={() => handleSort('name')}>
@@ -472,28 +488,28 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kd')}>
                                                 <span className="inline-flex items-center gap-1 cursor-help group/kd" title="Frags ÷ Deaths. Frags are the in-game kill count, which already loses 1 per suicide; a match that ends below zero counts as 0. With no deaths, K/D equals frags.">
                                                     <span>K/D</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/kd:text-[#ff6600] inline-block transition-colors" />
+                                                    <Info size={11} className="text-gray-500 group-hover/kd:text-brand inline-block transition-colors" />
                                                     {sortConfig.key === 'kd' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
                                                 </span>
                                             </th>
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kda')}>
                                                 <span className="inline-flex items-center gap-1 cursor-help group/kda" title="Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths. Assists receive a 0.5 weighting to reflect combat contribution without inflating scores.">
                                                     <span>Combat Ratio (KDA)</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/kda:text-[#ff6600] inline-block transition-colors" />
+                                                    <Info size={11} className="text-gray-500 group-hover/kda:text-brand inline-block transition-colors" />
                                                     {sortConfig.key === 'kda' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
                                                 </span>
                                             </th>
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('win_rate')}>
                                                 <span className="inline-flex items-center gap-1 cursor-help group/win" title="Wins ÷ (Wins + Losses + Ties). Ties count as non-wins. In free-for-all, only 1st place earns a win; all others take a loss (shared top = tie).">
                                                     <span>Win Rate</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/win:text-[#ff6600] inline-block transition-colors" />
+                                                    <Info size={11} className="text-gray-500 group-hover/win:text-brand inline-block transition-colors" />
                                                     {sortConfig.key === 'win_rate' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
                                                 </span>
                                             </th>
                                             <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('suicides')}>
                                                 <span className="inline-flex items-center gap-1 cursor-help group/suicide" title="The game subtracts 1 frag per suicide (game rule); tracked separately here.">
                                                     <span>Suicides</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/suicide:text-[#ff6600] inline-block transition-colors" />
+                                                    <Info size={11} className="text-gray-500 group-hover/suicide:text-brand inline-block transition-colors" />
                                                     {sortConfig.key === 'suicides' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
                                                 </span>
                                             </th>
@@ -502,11 +518,11 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-800">
+                                    <tbody className="divide-y divide-line">
                                         {sortedRoster.map((pilot, index) => (
                                             <tr
                                                 key={pilot.name}
-                                                className="hover:bg-[#1a1a1a] cursor-pointer group transition-colors"
+                                                className="hover:bg-surface-raised cursor-pointer group transition-colors"
                                                 {...rowLink(urlFor('pilot', pilot.name))}
                                             >
                                                 <td className="p-3 text-center text-gray-600 font-bold">{index + 1}</td>
@@ -527,14 +543,14 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                                     {Math.max(0, pilot.kd).toFixed(2)}
                                                 </td>
                                                 <td className="p-3 text-right">
-                                                    <span className="font-bold text-[#ff6600] text-sm">{Math.max(0, pilot.kda).toFixed(2)}</span>
+                                                    <span className="font-bold text-brand text-sm">{Math.max(0, pilot.kda).toFixed(2)}</span>
                                                 </td>
                                                 <td className="p-3 text-right">
                                                     <div className="font-bold text-emerald-400 text-sm">
                                                         {pilot.win_rate !== undefined ? `${pilot.win_rate.toFixed(1)}%` : '—'}
                                                     </div>
                                                     {pilot.wins !== undefined && (
-                                                        <div className="text-[10px] text-gray-500 font-mono">
+                                                        <div className="text-2xs text-gray-500 font-mono">
                                                             {pilot.wins}W - {pilot.losses}L
                                                         </div>
                                                     )}

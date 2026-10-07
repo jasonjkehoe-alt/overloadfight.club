@@ -1,6 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { GameData } from '../types';
+import { EmptyState } from './States';
 import { 
     calculateNemesis, calculateWeaponStats, calculateStreaks, 
     calculatePlayStyles, calculateKillHeatmap, calculateFirstBlood,
@@ -8,6 +9,7 @@ import {
 } from '../utils/statCalculators';
 import { durationOf } from '../server/lib/gameParse.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { colors } from '../designTokens.js';
 
 interface MatchAnalysisProps {
     game: GameData;
@@ -28,12 +30,12 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
     const notableStyles = styles.filter(s => s.style !== 'Balanced');
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6">
             {/* Highlights Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* First Blood */}
                 {firstBlood && (
-                    <div className="bg-[#1a1a1a] border border-gray-800 p-4 rounded relative overflow-hidden">
+                    <div className="bg-surface-raised border border-line p-4 rounded-card relative overflow-hidden">
                         <div className="absolute top-0 right-0 text-6xl text-red-900/20 font-bold select-none">!</div>
                         <h4 className="text-xs uppercase text-gray-500 font-bold tracking-wider mb-1">First Blood</h4>
                         <div className="text-xl font-bold text-white">{firstBlood.attacker}</div>
@@ -43,10 +45,10 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
 
                 {/* Nemesis */}
                 {nemesis && (
-                    <div className="bg-[#1a1a1a] border border-gray-800 p-4 rounded">
+                    <div className="bg-surface-raised border border-line p-4 rounded-card">
                         <h4 className="text-xs uppercase text-gray-500 font-bold tracking-wider mb-1">Rivalry</h4>
                         <div className="text-white font-bold text-sm truncate">
-                            {nemesis.p1} <span className="text-[#ff6600]">vs</span> {nemesis.p2}
+                            {nemesis.p1} <span className="text-brand">vs</span> {nemesis.p2}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">
                             Traded <span className="text-white font-mono text-sm">{nemesis.count}</span> kills
@@ -56,19 +58,19 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
 
                 {/* Streak */}
                 {streak && (
-                    <div className="bg-[#1a1a1a] border border-gray-800 p-4 rounded cursor-help" title="Best kill streak within a single match; resets on death.">
+                    <div className="bg-surface-raised border border-line p-4 rounded-card cursor-help" title="Best kill streak within a single match; resets on death.">
                         <h4 className="text-xs uppercase text-gray-500 font-bold tracking-wider mb-1 flex items-center justify-between">
                             <span>Unstoppable</span>
-                            <span className="text-[10px] text-gray-600 font-normal">STREAK</span>
+                            <span className="text-2xs text-gray-600 font-normal">STREAK</span>
                         </h4>
                         <div className="text-xl font-bold text-white">{streak.player}</div>
-                        <div className="text-xs text-[#ff6600] font-mono">{streak.count} Kill Streak</div>
+                        <div className="text-xs text-brand font-mono">{streak.count} Kill Streak</div>
                     </div>
                 )}
 
                 {/* Glass Cannon */}
                 {styles.find(s => s.style === 'Glass Cannon') && (
-                    <div className="bg-[#1a1a1a] border border-gray-800 p-4 rounded border-l-4 border-l-red-500">
+                    <div className="bg-surface-raised border border-line p-4 rounded-card border-l-4 border-l-red-500">
                         <h4 className="text-xs uppercase text-gray-500 font-bold tracking-wider mb-1">Glass Cannon</h4>
                         <div className="text-xl font-bold text-white">{styles.find(s => s.style === 'Glass Cannon')?.name}</div>
                         <div className="text-xs text-gray-400">High Dmg / High Deaths</div>
@@ -78,7 +80,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Weapon Efficiency */}
-                <div className="bg-[#111] border border-gray-800 p-4 rounded h-80">
+                <div className="bg-surface-card border border-line p-4 rounded-card h-80">
                     <h3 className="text-white font-bold mb-4 text-sm uppercase">Weapon Efficiency (Kills vs Damage)</h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 0 }}>
@@ -87,11 +89,11 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                             <ZAxis type="category" dataKey="name" name="Weapon" />
                             <Tooltip 
                                 cursor={{ strokeDasharray: '3 3' }} 
-                                contentStyle={{backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '4px'}} 
+                                contentStyle={{backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px'}} 
                                 itemStyle={{color: '#fff'}}
                                 labelStyle={{color: '#ccc'}}
                             />
-                            <Scatter name="Weapons" data={weaponStats} fill="#ff6600">
+                            <Scatter name="Weapons" data={weaponStats} fill={colors.brand.DEFAULT}>
                                 {weaponStats.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}
@@ -101,7 +103,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                 </div>
 
                 {/* Damage Distribution */}
-                <div className="bg-[#111] border border-gray-800 p-4 rounded h-80">
+                <div className="bg-surface-card border border-line p-4 rounded-card h-80">
                     <h3 className="text-white font-bold mb-4 text-sm uppercase">Damage Meta</h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -119,7 +121,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                                 ))}
                             </Pie>
                             <Tooltip 
-                                contentStyle={{backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '4px'}} 
+                                contentStyle={{backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px'}} 
                                 itemStyle={{color: '#fff'}}
                             />
                         </PieChart>
@@ -129,14 +131,14 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Kill Heatmap */}
-                <div className="lg:col-span-2 bg-[#111] border border-gray-800 p-4 rounded h-64">
+                <div className="lg:col-span-2 bg-surface-card border border-line p-4 rounded-card h-64">
                     <h3 className="text-white font-bold mb-4 text-sm uppercase">Match Intensity (Kills/Min)</h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={heatmap}>
                             <XAxis dataKey="minute" stroke="#666" fontSize={10} tickFormatter={val => `${val}'`} />
                             <Tooltip 
-                                contentStyle={{backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '4px'}} 
-                                cursor={{fill: '#222'}} 
+                                contentStyle={{backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px'}} 
+                                cursor={{fill: colors.surface.raised}} 
                                 itemStyle={{color: '#fff'}}
                                 labelStyle={{color: '#ccc'}}
                             />
@@ -146,18 +148,16 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                 </div>
 
                 {/* Team Synergy or Playstyles List */}
-                <div className="bg-[#111] border border-gray-800 p-4 rounded h-64 overflow-y-auto custom-scrollbar">
+                <div className="bg-surface-card border border-line p-4 rounded-card h-64 overflow-y-auto">
                     <h3 className="text-white font-bold mb-4 text-sm uppercase">Player Badges</h3>
                     <div className="space-y-2">
                         {notableStyles.length === 0 ? (
-                            <div className="text-gray-600 text-xs italic text-center py-8">
-                                No distinct playstyles detected.<br/>(Everyone played balanced)
-                            </div>
+                            <EmptyState compact title="No distinct playstyles detected." message="Everyone played balanced." />
                         ) : (
                             notableStyles.map(s => (
-                                <div key={s.name} className="flex justify-between items-center bg-[#1a1a1a] p-2 rounded border border-gray-800">
+                                <div key={s.name} className="flex justify-between items-center bg-surface-raised p-2 rounded-control border border-line">
                                     <span className="text-sm font-bold text-gray-300">{s.name}</span>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded font-mono uppercase border ${
+                                    <span className={`text-2xs px-2 py-0.5 rounded-control font-mono uppercase border ${
                                         s.style === 'Glass Cannon' ? 'text-red-400 border-red-900/30 bg-red-900/10' :
                                         s.style === 'Pacifist' ? 'text-green-400 border-green-900/30 bg-green-900/10' :
                                         s.style === 'Punching Bag' ? 'text-gray-400 border-gray-700 bg-gray-800' :
@@ -170,7 +170,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                         )}
                         
                         {Object.keys(synergy).length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-gray-800">
+                            <div className="mt-4 pt-4 border-t border-line">
                                 <h4 className="text-xs text-gray-500 uppercase mb-2">Teamwork (Assists)</h4>
                                 {Object.entries(synergy).map(([team, count]) => (
                                     <div key={team} className="flex justify-between text-xs font-mono mb-1">

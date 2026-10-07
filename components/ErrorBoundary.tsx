@@ -1,12 +1,13 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { ErrorInfo, ReactNode } from 'react';
+import { ErrorState } from './States';
 
 interface Props {
     children: ReactNode;
+    // a new value clears the error, so the next page renders again (App passes the path)
+    resetKey?: string;
 }
 
 interface State {
-    hasError: boolean;
     error: Error | null;
 }
 
@@ -17,48 +18,35 @@ export class ErrorBoundary extends React.Component<Props, State> {
     constructor(props: Props) {
         super(props);
         this.props = props;
-        this.state = {
-            hasError: false,
-            error: null
-        };
+        this.state = { error: null };
     }
 
     public static getDerivedStateFromError(error: Error): State {
-        return { hasError: true, error };
+        return { error };
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error('Uncaught error caught by ErrorBoundary:', error, errorInfo);
     }
 
+    public componentDidUpdate(prevProps: Props) {
+        if (this.state.error && prevProps.resetKey !== this.props.resetKey) this.setState({ error: null });
+    }
+
     public render() {
-        if (this.state.hasError) {
+        if (this.state.error) {
             return (
-                <div className="min-h-screen bg-black text-gray-200 flex flex-col items-center justify-center p-6 font-mono">
-                    <div className="max-w-lg w-full bg-[#141414] border border-red-500/40 rounded-2xl p-6 shadow-2xl space-y-4 text-center">
-                        <div className="w-12 h-12 rounded-full bg-red-950/60 border border-red-500/50 flex items-center justify-center mx-auto text-red-400">
-                            <AlertTriangle className="w-6 h-6" />
-                        </div>
-                        <h2 className="text-xl font-bold text-white tracking-wide">
-                            APPLICATION RECOVERY
-                        </h2>
-                        <p className="text-xs text-gray-400 leading-relaxed">
-                            An unexpected interface exception occurred. You can safely reload the workstation.
-                        </p>
-                        {this.state.error && (
-                            <pre className="p-3 bg-black/80 rounded-xl border border-white/5 text-[11px] text-red-300 text-left overflow-x-auto">
-                                {this.state.error.message}
-                            </pre>
-                        )}
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="px-5 py-2.5 rounded-xl bg-[#ff6600] hover:bg-[#ff8533] text-black font-bold text-xs inline-flex items-center gap-2 transition-all shadow-lg shadow-[#ff6600]/20"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                            <span>Reload Workstation</span>
-                        </button>
-                    </div>
-                </div>
+                <ErrorState
+                    title="Application recovery"
+                    message={<>
+                        <p>An unexpected interface exception occurred. You can safely reload the workstation.</p>
+                        <pre className="mt-4 p-3 bg-black/80 rounded-control border border-line text-xs text-red-300 text-left overflow-x-auto">
+                            {this.state.error.message}
+                        </pre>
+                    </>}
+                    onRetry={() => window.location.reload()}
+                    retryLabel="Reload Workstation"
+                />
             );
         }
 

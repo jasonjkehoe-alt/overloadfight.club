@@ -26,7 +26,7 @@ export const PilotManager: React.FC = () => {
 
     return (
         <ErrorBoundary>
-            <div className="w-full text-gray-200 flex flex-col selection:bg-[#ff6600] selection:text-black animate-fade-in pb-16 space-y-6">
+            <div className="w-full text-gray-200 flex flex-col selection:bg-[#ff6600] selection:text-black pb-16 space-y-6">
                 {/* Dedicated Top-Level Pilot Bar */}
                 <div className="border-b border-gray-800 bg-[#0d0d0f]/90 backdrop-blur-md sticky top-16 z-30 font-mono rounded-t-xl">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

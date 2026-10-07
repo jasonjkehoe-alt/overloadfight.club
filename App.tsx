@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Layout from './components/Layout';
 import FightNightTeaser from './components/FightNightTeaser';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Loading, ErrorState } from './components/States';
 import { useServerBrowser } from './hooks/useServerBrowser';
 import { usePathname, goBack } from './hooks/useLocation';
 import { parseRoute, urlFor, pageTitle } from './server/lib/siteRoutes.js';
@@ -124,21 +125,18 @@ const App: React.FC = () => {
   return (
     <OverloadFsProvider>
       <Layout currentView={currentView} showColdStorage={showColdStorage}>
-      {/* a failed chunk load (see index.tsx) lands here instead of blanking the page */}
-      <ErrorBoundary>
-      <Suspense fallback={
-        <div className="flex justify-center py-24">
-          <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      }>
+      {/* a view that throws, or a failed chunk load (see index.tsx), lands here and keeps
+          the nav; the next page clears it */}
+      <ErrorBoundary resetKey={pathname}>
+      <Suspense fallback={<Loading />}>
       {currentView === 'dashboard' && (
-        <div className="space-y-8 animate-fade-in">
-          <div className="bg-gradient-to-r from-[#1a1a1a] to-black p-8 rounded border border-gray-800 mb-8 flex justify-between items-end">
+        <div className="space-y-8">
+          <div className="bg-gradient-to-r from-surface-raised to-black p-8 rounded-card border border-line mb-8 flex justify-between items-end">
             <div>
               <h1 className="text-4xl font-bold text-white mb-1 brand-font">
-                overloadfight<span className="text-[#ff6600]">.club</span>
+                overloadfight<span className="text-brand">.club</span>
               </h1>
-              <p className="text-[#ff6600] font-mono text-xs font-semibold uppercase tracking-wider mb-2">
+              <p className="text-brand font-mono text-xs font-semibold uppercase tracking-wider mb-2">
                 First rule of Overload Fight Club: tell everyone.
               </p>
               <p className="text-gray-400 max-w-2xl text-xs font-mono">
@@ -154,11 +152,7 @@ const App: React.FC = () => {
 
           {/* Live first: wait for the first poll rather than flash "Connection Failed" */}
           {!browserSettled || (loading && archivedGames === null) ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin mb-4"></div>
-              <div className="text-[#ff6600] font-mono animate-pulse text-sm">ESTABLISHING UPLINK...</div>
-              <div className="text-gray-600 text-xs mt-2">Synchronizing latest telemetry...</div>
-            </div>
+            <Loading label="Establishing uplink..." />
           ) : (
             <GameList
               activeGames={activeGames}
@@ -173,10 +167,10 @@ const App: React.FC = () => {
       )}
 
       {currentView === 'fight-night' && (
-        <div className="space-y-8 animate-fade-in">
-          <div className="bg-gradient-to-r from-[#1a1a1a] to-black p-8 rounded border border-gray-800 mb-8">
+        <div className="space-y-8">
+          <div className="bg-gradient-to-r from-surface-raised to-black p-8 rounded-card border border-line mb-8">
             <h1 className="text-4xl font-bold text-white mb-1 brand-font">Fight Night Recaps</h1>
-            <p className="text-[#ff6600] font-mono text-xs font-semibold uppercase tracking-wider mb-2">
+            <p className="text-brand font-mono text-xs font-semibold uppercase tracking-wider mb-2">
               First rule of Overload Fight Club: tell everyone.
             </p>
             <p className="text-gray-400 max-w-2xl text-xs font-mono">
@@ -188,8 +182,8 @@ const App: React.FC = () => {
       )}
 
       {currentView === 'history' && (
-        <div className="space-y-8 animate-fade-in">
-          <div className="bg-gradient-to-r from-[#1a1a1a] to-black p-8 rounded border border-gray-800 mb-8">
+        <div className="space-y-8">
+          <div className="bg-gradient-to-r from-surface-raised to-black p-8 rounded-card border border-line mb-8">
             <h1 className="text-4xl font-bold text-white mb-2 brand-font">Historical Archive</h1>
             <p className="text-gray-400 max-w-2xl text-sm font-mono">
               Full access to the complete game history database.
@@ -219,37 +213,25 @@ const App: React.FC = () => {
             onBack={() => goBack(urlFor('history'))}
           />
         ) : gameDetailError ? (
-          <div className="bg-[#101012] border border-red-900/60 rounded-xl p-8 max-w-xl mx-auto my-16 text-center font-mono shadow-2xl">
-            <div className="w-14 h-14 rounded-full bg-red-950/80 border border-red-700/80 text-red-400 flex items-center justify-center mx-auto mb-4 text-2xl shadow">
-              ⚠️
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2 tracking-wide uppercase">COMBAT TELEMETRY UNAVAILABLE</h3>
-            <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-              Could not retrieve match details for log #{selectedGameId}. The upstream telemetry provider (tracker.otl.gg) may be offline or experiencing connection timeouts.
-            </p>
-            <div className="flex gap-4 justify-center">
+          <ErrorState
+            title="Combat telemetry unavailable"
+            message={`Could not retrieve match details for log #${selectedGameId}. The upstream telemetry provider (tracker.otl.gg) may be offline or experiencing connection timeouts.`}
+            action={
               <button
                 onClick={() => goBack(urlFor('history'))}
-                className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded font-bold text-xs uppercase tracking-wider transition-colors"
+                className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-control font-bold text-xs uppercase tracking-wider transition-colors"
               >
                 Back
               </button>
-              <button
-                onClick={() => {
-                  setLoadedGame(null);
-                  setGameRetries(n => n + 1);
-                }}
-                className="px-5 py-2.5 bg-[#ff6600] hover:bg-[#ff8533] text-black font-bold rounded text-xs uppercase tracking-wider transition-colors"
-              >
-                Retry Telemetry
-              </button>
-            </div>
-          </div>
+            }
+            onRetry={() => {
+              setLoadedGame(null);
+              setGameRetries(n => n + 1);
+            }}
+            retryLabel="Retry Telemetry"
+          />
         ) : (
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin mb-4"></div>
-            <div className="text-[#ff6600] font-mono text-sm">RETRIEVING COMBAT LOG #{selectedGameId}...</div>
-          </div>
+          <Loading label={`Retrieving combat log #${selectedGameId}...`} />
         )
       )}
 

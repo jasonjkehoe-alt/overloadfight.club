@@ -30,7 +30,7 @@ const ServerActivitySparkline: React.FC<ServerActivitySparklineProps> = ({ serve
             {data.map((count, i) => (
                 <div
                     key={i}
-                    className={`w-full rounded-[1px] ${count > 0 ? 'bg-[#ff6600]' : 'bg-gray-700'}`}
+                    className={`w-full rounded-[1px] ${count > 0 ? 'bg-brand' : 'bg-gray-700'}`}
                     style={{
                         height: `${Math.max((count / max) * 100, 15)}%`,
                         opacity: count > 0 ? 1 : 0.3

@@ -1,3 +1,5 @@
+import { colors, fontSize, borderRadius } from './designTokens.js';
+
 /** @type {import('tailwindcss').Config} */
 export default {
     content: [
@@ -7,7 +9,7 @@ export default {
         "./utils/**/*.{js,ts,jsx,tsx}"
     ],
     theme: {
-        extend: {},
+        extend: { colors, fontSize, borderRadius },
     },
     plugins: [],
 }

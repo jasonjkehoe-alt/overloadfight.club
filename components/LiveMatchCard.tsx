@@ -4,6 +4,7 @@ import { apiService } from '../services/apiService';
 import { getMapImage } from '../services/mapService';
 import MatchTimer from './MatchTimer';
 import Link from './Link';
+import { Loading, EmptyState } from './States';
 import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface LiveMatchCardProps {
@@ -82,9 +83,9 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
     const timeString = getTimeString();
 
     return (
-        <div className="bg-black border border-gray-800 rounded overflow-hidden flex flex-col shadow-lg min-h-[200px]">
+        <div className="bg-black border border-line rounded-card overflow-hidden flex flex-col shadow-lg min-h-[200px]">
             {/* Map Header */}
-            <div className="relative h-16 bg-[#1a1a1a] flex items-center justify-center overflow-hidden border-b border-gray-800">
+            <div className="relative h-16 bg-surface-raised flex items-center justify-center overflow-hidden border-b border-line">
                 {mapImage && (
                     <div
                         className="absolute inset-0 bg-cover bg-center opacity-40"
@@ -98,11 +99,11 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
             </div>
 
             {/* IP / Connection Info */}
-            <div className="bg-[#111] border-b border-gray-800 p-2 flex justify-between items-center">
+            <div className="bg-surface-card border-b border-line p-2 flex justify-between items-center">
                 <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
                     <span>Join at <span className="text-white">{serverIp}</span></span>
                 </div>
-                <button onClick={copyIp} className="text-gray-500 hover:text-[#ff6600] transition-colors" title="Copy IP">
+                <button onClick={copyIp} className="text-gray-500 hover:text-brand transition-colors" title="Copy IP">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                     </svg>
@@ -110,9 +111,9 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
             </div>
 
             {/* Player List */}
-            <div className="flex-grow bg-black p-2 overflow-y-auto max-h-[200px] custom-scrollbar">
+            <div className="flex-grow bg-black p-2 overflow-y-auto max-h-[200px]">
                 <table className="w-full text-left text-sm font-mono">
-                    <thead className="text-[10px] text-gray-600 uppercase border-b border-gray-900">
+                    <thead className="text-2xs text-gray-600 uppercase border-b border-line">
                         <tr>
                             <th className="pb-1">Pilot</th>
                             <th className="pb-1 text-center">K</th>
@@ -120,7 +121,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
                             <th className="pb-1 text-right">Score</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-900">
+                    <tbody className="divide-y divide-line">
                         {playerList.length > 0 ? (
                             playerList.map((p) => (
                                 <tr key={p.name}>
@@ -129,7 +130,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
                                         }`}>
                                         <Link
                                             to={urlFor('pilot', p.name)}
-                                            className="hover:underline hover:text-[#ff6600] text-left transition-colors truncate max-w-full block"
+                                            className="hover:underline hover:text-brand text-left transition-colors truncate max-w-full block"
                                             title={`View ${p.name}'s pilot dossier`}
                                         >
                                             {p.name}
@@ -142,12 +143,12 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={4} className="text-center text-gray-600 text-xs py-4 italic">
-                                    {gameData?.players && gameData.players.length > 0
-                                        ? "Loading stats..."
-                                        : server.game?.currentPlayers && server.game.currentPlayers > 0
-                                            ? `Scanning ${server.game.currentPlayers} active pilots...`
-                                            : "Waiting for players..."}
+                                <td colSpan={4}>
+                                    {!gameData && server.game?.currentPlayers ? (
+                                        <Loading compact label={`Scanning ${server.game.currentPlayers} active pilots...`} />
+                                    ) : (
+                                        <EmptyState compact title="Waiting for players..." />
+                                    )}
                                 </td>
                             </tr>
                         )}
@@ -156,7 +157,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
             </div>
 
             {/* Footer Info */}
-            <div className="bg-[#0a0a0a] border-t border-gray-800 p-2 text-[10px] font-mono text-gray-500 flex flex-col gap-1">
+            <div className="bg-surface-page border-t border-line p-2 text-2xs font-mono text-gray-500 flex flex-col gap-1">
                 <div className="flex justify-between items-center">
                     <span>{playerList.length}/{gameData?.settings?.maxPlayers || server.game?.maxPlayers || '?'} Players</span>
 
@@ -167,7 +168,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
                     )}
                 </div>
                 <div className="flex justify-between uppercase">
-                    <span className="text-[#ff6600]">{gameData?.settings?.matchMode || server.game?.mode}</span>
+                    <span className="text-brand">{gameData?.settings?.matchMode || server.game?.mode}</span>
                     <span className="truncate max-w-[120px] text-gray-400" title={gameData?.settings?.level || server.game?.mapName}>
                         {gameData?.settings?.level || server.game?.mapName}
                     </span>
@@ -176,7 +177,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
 
             <Link
                 to={urlFor('live-game-detail', serverIp)}
-                className="block text-center w-full bg-[#1a1a1a] hover:bg-[#ff6600] text-gray-400 hover:text-white text-xs py-2 uppercase font-bold transition-colors border-t border-gray-800"
+                className="block text-center w-full bg-surface-raised hover:bg-brand text-gray-400 hover:text-white text-xs py-2 uppercase font-bold transition-colors border-t border-line"
             >
                 Full Screen View
             </Link>

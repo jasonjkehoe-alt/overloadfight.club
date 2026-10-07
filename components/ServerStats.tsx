@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
 import Link from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
+import { colors } from '../designTokens.js';
 
 interface ServerStatsProps {
     activeGames?: BrowserApiResponse[] | null;
@@ -70,7 +71,7 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
     };
 
     const WorldMapPath = () => (
-        <g className="text-[#333] fill-current">
+        <g className="text-neutral-700 fill-current">
             <path d="M 5,20 L 10,15 L 20,10 L 35,10 L 40,25 L 30,40 L 20,45 L 10,35 L 5,20 Z" opacity="0" />
             <path d="M9.5,28.5 C9.5,28.5 12.5,22.5 17.5,18.5 C22.5,14.5 30.5,14.5 35.5,16.5 C35.5,16.5 40.5,22.5 35.5,28.5 C30.5,34.5 25.5,40.5 20.5,42.5 C15.5,44.5 12.5,40.5 9.5,28.5 Z" />
             <path d="M22.5,45.5 C22.5,45.5 28.5,45.5 32.5,48.5 C36.5,51.5 35.5,65.5 32.5,72.5 C29.5,79.5 25.5,75.5 24.5,65.5 C23.5,55.5 22.5,45.5 22.5,45.5 Z" />
@@ -84,23 +85,23 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
     );
 
     return (
-        <div className="bg-[#111] border border-gray-800 p-4 rounded flex flex-col justify-between relative overflow-hidden h-full min-h-[220px]">
+        <div className="bg-surface-card border border-line p-4 rounded-card flex flex-col justify-between relative overflow-hidden h-full min-h-[220px]">
             <div className="flex justify-between items-start z-10">
                 <div>
                     <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest">Active Nodes</h3>
-                    <div className="text-[11px] font-mono text-[#ff6600] mt-0.5">
+                    <div className="text-2xs font-mono text-brand mt-0.5">
                         {activeGames?.length || 0} Relays Standing By
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setUserExpandedMap(!userExpandedMap)}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-colors"
+                        className="text-2xs font-mono px-2 py-0.5 rounded-control bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-line transition-colors"
                         title={shouldShowFullMap ? "Collapse map" : "Expand map"}
                     >
                         {shouldShowFullMap ? "Hide Map" : "Show Map"}
                     </button>
-                    <div className="hidden sm:flex gap-1.5 text-[9px] font-mono text-gray-500">
+                    <div className="hidden sm:flex gap-1.5 text-2xs font-mono text-gray-500">
                         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>{activeServersCount}</span>
                         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>{lobbyServersCount}</span>
                     </div>
@@ -108,8 +109,8 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
             </div>
 
             {shouldShowFullMap ? (
-                <div className="flex-1 relative w-full h-full mt-3 bg-[#0a0a0a] rounded border border-gray-900 min-h-[140px]">
-                    <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#151515 1px, transparent 1px), linear-gradient(90deg, #151515 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                <div className="flex-1 relative w-full h-full mt-3 bg-surface-page rounded-card border border-line min-h-[140px]">
+                    <div className="absolute inset-0" style={{ backgroundImage: `linear-gradient(${colors.surface.card} 1px, transparent 1px), linear-gradient(90deg, ${colors.surface.card} 1px, transparent 1px)`, backgroundSize: '20px 20px' }}></div>
                     <svg viewBox="0 0 100 100" className="w-full h-full absolute top-0 left-0">
                         <WorldMapPath />
                         {activeGames?.map(s => {
@@ -127,10 +128,10 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
                                             <animate attributeName="opacity" from="0.8" to="0" dur="2s" repeatCount="indefinite" />
                                         </circle>
                                     )}
-                                    <circle cx={x} cy={y} r={isActive ? 2 : 1.5} fill={color} stroke="#000" strokeWidth="0.5" className="transition-all group-hover:r-3" />
+                                    <circle cx={x} cy={y} r={isActive ? 2 : 1.5} fill={color} stroke="#000" strokeWidth="0.5" className="transition-all" />
                                     <foreignObject x={Math.min(x - 20, 60)} y={y - 15} width="40" height="20" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none overflow-visible z-50">
                                         <div className="flex flex-col items-center">
-                                            <div className="bg-black/90 border border-gray-600 text-[5px] text-white px-1.5 py-0.5 rounded whitespace-nowrap shadow-xl mb-0.5">
+                                            <div className="bg-black/90 border border-gray-600 text-2xs text-white px-1.5 py-0.5 rounded-control whitespace-nowrap shadow-xl mb-0.5">
                                                 {s.server.name}
                                             </div>
                                             <div className="w-0 h-0 border-l-[2px] border-l-transparent border-r-[2px] border-r-transparent border-t-[3px] border-t-gray-600"></div>
@@ -144,7 +145,7 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col justify-center space-y-2.5 my-2">
-                    <div className="text-[10px] text-gray-600 font-mono">
+                    <div className="text-2xs text-gray-600 font-mono">
                         {totalActivePlayers > 0 ? `${totalActivePlayers} pilot(s) active in dogfights` : 'No dogfights currently in progress'}
                     </div>
                 </div>
@@ -166,26 +167,26 @@ const ServerStats: React.FC<ServerStatsProps> = ({ activeGames, archivedGames, g
 
     if (!stats) return null;
 
-    const COLORS = ['#ff6600', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+    const COLORS = [colors.brand.DEFAULT, '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Total Pop */}
             <Link
                 to={urlFor('pilots')}
-                className="bg-[#111] border border-gray-800 p-4 rounded flex flex-col justify-center items-center relative overflow-hidden group cursor-pointer hover:border-[#ff6600] transition-colors"
+                className="bg-surface-card border border-line p-4 rounded-control flex flex-col justify-center items-center relative overflow-hidden group cursor-pointer hover:border-brand transition-colors"
             >
-                <div className="absolute inset-0 bg-gradient-to-t from-[#ff6600]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-brand/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest z-10">Pilots Online</h3>
-                <div className="text-5xl font-bold text-white z-10 mt-2 group-hover:text-[#ff6600] transition-colors">{stats.totalPlayers}</div>
-                <div className="text-xs text-[#ff6600] z-10 mt-1 font-mono">Active across {activeGames?.length || 0} servers</div>
+                <div className="text-5xl font-bold text-white z-10 mt-2 group-hover:text-brand transition-colors">{stats.totalPlayers}</div>
+                <div className="text-xs text-brand z-10 mt-1 font-mono">Active across {activeGames?.length || 0} servers</div>
             </Link>
 
             {/* World Map - Adaptive */}
             <ServerMapCard activeGames={activeGames} />
 
             {/* Map Pop */}
-            <div className="bg-[#111] border border-gray-800 p-4 rounded flex flex-col justify-between">
+            <div className="bg-surface-card border border-line p-4 rounded-card flex flex-col justify-between">
                 <div>
                     <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-3">Top Maps</h3>
                     <div className="space-y-2">
@@ -196,17 +197,17 @@ const ServerStats: React.FC<ServerStatsProps> = ({ activeGames, archivedGames, g
                                 className="flex items-center gap-2 text-xs cursor-pointer group"
                             >
                                 <div className="w-4 text-gray-600 font-mono">{i + 1}</div>
-                                <div className="flex-1 text-gray-300 truncate group-hover:text-[#ff6600] transition-colors">{map.name}</div>
-                                <div className="text-[#ff6600] font-mono">{map.value}</div>
+                                <div className="flex-1 text-gray-300 truncate group-hover:text-brand transition-colors">{map.name}</div>
+                                <div className="text-brand font-mono">{map.value}</div>
                             </Link>
                         ))}
                     </div>
                 </div>
-                <div className="text-[10px] text-gray-600 font-mono mt-2">Ranked by matches</div>
+                <div className="text-2xs text-gray-600 font-mono mt-2">Ranked by matches</div>
             </div>
 
             {/* Mode Distribution - Horizontal Labeled Bars */}
-            <div className="bg-[#111] border border-gray-800 p-4 rounded flex flex-col justify-between">
+            <div className="bg-surface-card border border-line p-4 rounded-card flex flex-col justify-between">
                 <div>
                     <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-3">Mode Distribution</h3>
                     <div className="space-y-2.5">
@@ -219,7 +220,7 @@ const ServerStats: React.FC<ServerStatsProps> = ({ activeGames, archivedGames, g
                                     <div key={entry.name} className="space-y-1">
                                         <div className="flex justify-between items-center text-xs font-mono">
                                             <span className="text-gray-300 font-bold truncate max-w-[140px]">{entry.name}</span>
-                                            <span className="text-gray-400 font-mono text-[11px]">{entry.value} ({pct}%)</span>
+                                            <span className="text-gray-400 font-mono text-2xs">{entry.value} ({pct}%)</span>
                                         </div>
                                         <div className="w-full h-1.5 bg-gray-900 rounded-full overflow-hidden">
                                             <div
@@ -233,7 +234,7 @@ const ServerStats: React.FC<ServerStatsProps> = ({ activeGames, archivedGames, g
                         })()}
                     </div>
                 </div>
-                <div className="text-[10px] text-gray-600 font-mono mt-2">Historical match modes (Last 365 Days)</div>
+                <div className="text-2xs text-gray-600 font-mono mt-2">Historical match modes (Last 365 Days)</div>
             </div>
         </div>
     );

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Clock, Users, Trophy, Activity, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Trophy, Activity } from 'lucide-react';
 import { GameData, GameEvent, GameSettings } from '../types';
 import { apiService } from '../services/apiService';
 import JoinIp from './JoinIp';
+import { Loading, EmptyState, ErrorState } from './States';
 import Link from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
 
@@ -65,23 +66,19 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
     }, [ip]);
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
-            </div>
-        );
+        return <Loading label="Connecting to server..." />;
     }
 
     // Special Offline View
     if (error === "OFFLINE") {
         return (
-            <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={onBack}
-                            className="p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-400 hover:text-white"
+                            className="p-2 hover:bg-white/5 rounded-control transition-colors text-gray-400 hover:text-white"
                         >
                             <ArrowLeft className="w-5 h-5" />
                         </button>
@@ -90,7 +87,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                                 <h1 className="text-2xl font-bold text-white tracking-tight">
                                     {serverData?.server?.name || ip}
                                 </h1>
-                                <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-500/20 text-red-500 border border-red-500/30">
+                                <span className="px-2 py-0.5 rounded-control text-xs font-medium bg-red-500/20 text-red-500 border border-red-500/30">
                                     OFFLINE
                                 </span>
                             </div>
@@ -102,7 +99,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                 </div>
 
                 <div className="grid gap-6">
-                    <div className="bg-gray-800/50 rounded-xl border border-white/5 p-6 backdrop-blur-sm">
+                    <div className="bg-surface-card rounded-card border border-line p-6 backdrop-blur-sm">
                         <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
                             <Activity className="w-4 h-4 text-gray-400" />
                             Server Health History
@@ -121,21 +118,22 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
 
     if (error || !game) {
         return (
-            <div className="p-8 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-900/20 mb-4">
-                    <AlertCircle className="w-8 h-8 text-red-500" />
-                </div>
-                <h2 className="text-xl font-bold text-white mb-2">Unable to Load Game</h2>
-                <p className="text-gray-400 mb-4">{error || "Game not found"}</p>
-                {ip && <div className="flex justify-center mb-6"><JoinIp ip={ip} /></div>}
-                <button
-                    onClick={onBack}
-                    className="inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                </button>
-            </div>
+            <ErrorState
+                title="Unable to load game"
+                message={<>
+                    <p>{error || "Game not found"}</p>
+                    {ip && <div className="flex justify-center mt-4"><JoinIp ip={ip} /></div>}
+                </>}
+                action={
+                    <button
+                        onClick={onBack}
+                        className="inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-control transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back
+                    </button>
+                }
+            />
         );
     }
 
@@ -146,13 +144,13 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
     const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onBack}
-                        className="p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-400 hover:text-white"
+                        className="p-2 hover:bg-white/5 rounded-control transition-colors text-gray-400 hover:text-white"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
@@ -161,7 +159,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                             <h1 className="text-2xl font-bold text-white tracking-tight">
                                 {game.server?.name || game.ip}
                             </h1>
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 animate-pulse">
+                            <span className="px-2 py-0.5 rounded-control text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 animate-pulse">
                                 LIVE
                             </span>
                         </div>
@@ -177,11 +175,11 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     </div>
                 </div>
 
-                <div className="flex items-center gap-6 bg-gray-800/50 px-6 py-3 rounded-xl border border-white/5 backdrop-blur-sm">
+                <div className="flex items-center gap-6 bg-surface-card px-6 py-3 rounded-card border border-line backdrop-blur-sm">
                     <div className="text-center">
                         <div className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-0.5">Time Remaining</div>
                         <div className="text-xl font-mono font-bold text-white tabular-nums flex items-center justify-center gap-2">
-                            <Clock className="w-4 h-4 text-primary-400" />
+                            <Clock className="w-4 h-4 text-brand" />
                             {timeString}
                         </div>
                     </div>
@@ -200,8 +198,8 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
             <div className="grid gap-6 lg:grid-cols-3">
                 {/* Main Scoreboard */}
                 <div className="lg:col-span-2 space-y-4">
-                    <div className="bg-gray-800/50 rounded-xl border border-white/5 overflow-hidden backdrop-blur-sm">
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/5">
+                    <div className="bg-surface-card rounded-card border border-line overflow-hidden backdrop-blur-sm">
+                        <div className="px-6 py-4 border-b border-line flex items-center justify-between bg-surface-raised">
                             <h3 className="font-semibold text-white flex items-center gap-2">
                                 <Trophy className="w-4 h-4 text-yellow-500" />
                                 Live Standings
@@ -211,7 +209,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                             </span>
                         </div>
 
-                        <div className="divide-y divide-white/5">
+                        <div className="divide-y divide-line">
                             {game.players?.sort((a, b) => (b.kills || 0) - (a.kills || 0)).map((player, index) => (
                                 <div
                                     key={player.name}
@@ -219,7 +217,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={`
-                      w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm
+                      w-8 h-8 rounded-card flex items-center justify-center font-bold text-sm
                       ${index === 0 ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
                                                 index === 1 ? 'bg-gray-400/20 text-gray-400 border border-gray-400/30' :
                                                     index === 2 ? 'bg-orange-700/20 text-orange-500 border border-orange-700/30' :
@@ -230,7 +228,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                                         <div>
                                             <Link
                                                 to={urlFor('pilot', player.name)}
-                                                className="font-medium text-white hover:text-[#ff6600] hover:underline transition-colors text-left"
+                                                className="font-medium text-white hover:text-brand hover:underline transition-colors text-left"
                                                 title={`View ${player.name}'s pilot dossier`}
                                             >
                                                 {player.name}
@@ -264,9 +262,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                             ))}
 
                             {(!game.players || game.players.length === 0) && (
-                                <div className="px-6 py-12 text-center text-gray-500">
-                                    No players currently connected
-                                </div>
+                                <EmptyState icon={Users} title="No players currently connected" />
                             )}
                         </div>
                     </div>
@@ -274,36 +270,36 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
 
                 {/* Game Info / Settings */}
                 <div className="space-y-4">
-                    <div className="bg-gray-800/50 rounded-xl border border-white/5 p-6 backdrop-blur-sm">
+                    <div className="bg-surface-card rounded-card border border-line p-6 backdrop-blur-sm">
                         <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-primary-400" />
+                            <Activity className="w-4 h-4 text-brand" />
                             Match Settings
                         </h3>
                         <div className="space-y-3 text-sm">
-                            <div className="flex justify-between py-2 border-b border-white/5">
+                            <div className="flex justify-between py-2 border-b border-line">
                                 <span className="text-gray-400">Score Limit</span>
                                 <span className="text-white font-mono">{game.settings?.scoreLimit || "None"}</span>
                             </div>
-                            <div className="flex justify-between py-2 border-b border-white/5">
+                            <div className="flex justify-between py-2 border-b border-line">
                                 <span className="text-gray-400">Time Limit</span>
                                 <span className="text-white font-mono">{game.settings?.timeLimit ? `${game.settings.timeLimit / 60} min` : "None"}</span>
                             </div>
-                            <div className="flex justify-between py-2 border-b border-white/5">
+                            <div className="flex justify-between py-2 border-b border-line">
                                 <span className="text-gray-400">Friendly Fire</span>
                                 <span className={game.settings?.friendlyFire ? "text-red-400" : "text-green-400"}>
                                     {game.settings?.friendlyFire ? "ON" : "OFF"}
                                 </span>
                             </div>
-                            <div className="flex justify-between py-2 border-b border-white/5">
+                            <div className="flex justify-between py-2 border-b border-line">
                                 <span className="text-gray-400">Respawn Time</span>
                                 <span className="text-white font-mono">{game.settings?.respawnTimeSeconds}s</span>
                             </div>
-                            <div className="flex justify-between py-2 border-b border-white/5">
+                            <div className="flex justify-between py-2 border-b border-line">
                                 <span className="text-gray-400">Creator</span>
                                 {game.settings?.creator && game.settings.creator !== "Server" ? (
                                     <Link
                                         to={urlFor('pilot', game.settings.creator)}
-                                        className="text-white hover:text-[#ff6600] hover:underline transition-colors font-mono"
+                                        className="text-white hover:text-brand hover:underline transition-colors font-mono"
                                     >
                                         {game.settings.creator}
                                     </Link>
@@ -318,8 +314,8 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
 
             {/* Match Log */}
             {game.events && game.events.length > 0 && (
-                <div className="bg-gray-800/50 rounded-xl border border-white/5 overflow-hidden backdrop-blur-sm">
-                    <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/5">
+                <div className="bg-surface-card rounded-card border border-line overflow-hidden backdrop-blur-sm">
+                    <div className="px-6 py-4 border-b border-line flex items-center justify-between bg-surface-raised">
                         <h3 className="font-semibold text-white flex items-center gap-2">
                             <Activity className="w-4 h-4 text-gray-400" />
                             Match Log
@@ -327,12 +323,12 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     </div>
                     <div className="max-h-[300px] overflow-y-auto p-4 space-y-2 font-mono text-xs">
                         {[...game.events].reverse().map((event, i) => (
-                            <div key={i} className="flex items-center gap-2 text-gray-400 border-b border-white/5 pb-1 last:border-0">
+                            <div key={i} className="flex items-center gap-2 text-gray-400 border-b border-line pb-1 last:border-0">
                                 <span className="text-gray-600">[{new Date(event.time * 1000).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' })}]</span>
                                 <span className="text-gray-300">
                                     {event.type === 'kill' ? (
                                         <>
-                                            <span className="text-white font-bold">{event.source}</span> killed <span className="text-white font-bold">{event.target}</span> with <span className="text-[#ff6600]">{event.weapon}</span>
+                                            <span className="text-white font-bold">{event.source}</span> killed <span className="text-white font-bold">{event.target}</span> with <span className="text-brand">{event.weapon}</span>
                                         </>
                                     ) : event.type === 'suicide' ? (
                                         <>

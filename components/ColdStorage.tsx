@@ -9,6 +9,7 @@ import { getMapImage } from '../services/mapService';
 import Link from './Link';
 import { useQueryParam, setQueryParams, rowLink } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
+import { Loading, EmptyState, ErrorState } from './States';
 
 // A record card; with a match it is a link to that match.
 const RecordCard: React.FC<{ matchId?: number; className: string; children: React.ReactNode }> = ({ matchId, className, children }) =>
@@ -101,6 +102,7 @@ const ColdStorage: React.FC = () => {
     const [games, setGames] = useState<any[]>([]);
     const [gamesTotalCount, setGamesTotalCount] = useState(0);
     const [loadingGames, setLoadingGames] = useState(true);
+    const [gamesError, setGamesError] = useState(false);
     // The submitted search, the year pill and the page live in the URL: ?q=, ?year=, ?page=
     const [search] = useQueryParam('q');
     const [searchInput, setSearchInput] = useState(search);
@@ -145,6 +147,7 @@ const ColdStorage: React.FC = () => {
 
     const loadGames = async () => {
         setLoadingGames(true);
+        setGamesError(false);
         try {
             let effectiveSearch = search.trim();
             if (selectedYear !== 'ALL') {
@@ -152,6 +155,7 @@ const ColdStorage: React.FC = () => {
             }
 
             const gamesData = await fetchColdGames(page, effectiveSearch);
+            setGamesError(!gamesData);
             setGames(gamesData?.games || []);
             setGamesTotalCount(gamesData?.count || 0);
         } catch (error) {
@@ -326,14 +330,13 @@ const ColdStorage: React.FC = () => {
                     </div>
 
                     {statsError && !deepStats && (
-                        <div className="mt-3 p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-xs font-mono text-red-300 flex items-center justify-between">
-                            <span>Unable to load historical archive telemetry. Some statistics may be unavailable.</span>
-                            <button 
-                                onClick={() => window.location.reload()}
-                                className="underline hover:text-white font-bold ml-4"
-                            >
-                                Retry
-                            </button>
+                        <div className="mt-3">
+                            <ErrorState
+                                compact
+                                title="Archive telemetry unavailable"
+                                message="Unable to load historical archive telemetry. Some statistics may be unavailable."
+                                onRetry={() => window.location.reload()}
+                            />
                         </div>
                     )}
                 </div>
@@ -646,7 +649,7 @@ const ColdStorage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="overflow-y-auto flex-1 custom-scrollbar">
+                        <div className="overflow-y-auto flex-1">
                             <table className="w-full text-left text-xs font-mono">
                                 <thead className="bg-[#1a1a1a] text-gray-500 uppercase sticky top-0 z-10 text-[10px]">
                                     <tr>
@@ -668,8 +671,8 @@ const ColdStorage: React.FC = () => {
                                         <TableSkeletonRows cols={5} />
                                     ) : hallOfFamePilots.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="p-8 text-center text-gray-500 font-mono text-xs">
-                                                No pilots found with 50+ matches.
+                                            <td colSpan={5}>
+                                                <EmptyState compact title="No pilots found with 50+ matches." />
                                             </td>
                                         </tr>
                                     ) : (
@@ -732,7 +735,7 @@ const ColdStorage: React.FC = () => {
                             </span>
                         </div>
 
-                        <div className="overflow-y-auto flex-1 custom-scrollbar">
+                        <div className="overflow-y-auto flex-1">
                             <table className="w-full text-left text-xs font-mono">
                                 <thead className="bg-[#1a1a1a] text-gray-500 uppercase sticky top-0 z-10 text-[10px]">
                                     <tr>
@@ -747,8 +750,8 @@ const ColdStorage: React.FC = () => {
                                         <TableSkeletonRows cols={4} />
                                     ) : topMaps.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="p-8 text-center text-gray-500 font-mono text-xs">
-                                                No arena records found.
+                                            <td colSpan={4}>
+                                                <EmptyState compact title="No arena records found." />
                                             </td>
                                         </tr>
                                     ) : (
@@ -956,20 +959,24 @@ const ColdStorage: React.FC = () => {
                     {/* Match List */}
                     <div className="space-y-2">
                         {loadingGames ? (
-                            <div className="text-center py-16 text-gray-500 font-mono animate-pulse space-y-2">
-                                <Database size={32} className="mx-auto text-blue-500 animate-bounce" />
-                                <p>Scanning Archive Records...</p>
-                            </div>
+                            <Loading label="Scanning Archive Records..." />
+                        ) : gamesError ? (
+                            <ErrorState title="Archive unavailable" message="Could not load archived matches." onRetry={loadGames} />
                         ) : games.length === 0 ? (
-                            <div className="text-center py-16 text-gray-500 font-mono space-y-2 bg-[#111] rounded-lg border border-gray-800/60">
-                                <p className="text-gray-300 font-bold">No archived matches found matching criteria.</p>
-                                <p className="text-xs text-gray-600">Try adjusting your search terms or clearing the year filter.</p>
-                                <button
-                                    onClick={() => { setSearchInput(''); setQueryParams({ q: null, year: null, page: null }); }}
-                                    className="text-xs text-blue-400 underline font-bold mt-2 inline-block"
-                                >
-                                    Reset Filters
-                                </button>
+                            <div className="bg-surface-card rounded-card border border-line">
+                                <EmptyState
+                                    icon={Search}
+                                    title="No archived matches found matching criteria."
+                                    message="Try adjusting your search terms or clearing the year filter."
+                                    action={
+                                        <button
+                                            onClick={() => { setSearchInput(''); setQueryParams({ q: null, year: null, page: null }); }}
+                                            className="text-xs text-blue-400 underline font-bold"
+                                        >
+                                            Reset Filters
+                                        </button>
+                                    }
+                                />
                             </div>
                         ) : (
                             <>

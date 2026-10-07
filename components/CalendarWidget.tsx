@@ -14,9 +14,9 @@ const CalendarWidget: React.FC = () => {
     if (!url) return null;
 
     return (
-        <div className="bg-[#111] border border-gray-800 rounded mb-8 overflow-hidden animate-fade-in">
-            <div className="p-4 border-b border-gray-800 bg-[#161616] flex items-center gap-2">
-                <Calendar className="text-[#ff6600]" size={20} />
+        <div className="bg-surface-card border border-line rounded-card mb-8 overflow-hidden">
+            <div className="p-4 border-b border-line bg-surface-raised flex items-center gap-2">
+                <Calendar className="text-brand" size={20} />
                 <h3 className="text-white font-bold uppercase text-sm">Upcoming Events</h3>
             </div>
             <div className="p-1 bg-white">
