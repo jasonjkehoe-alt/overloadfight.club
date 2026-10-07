@@ -27,9 +27,11 @@ export const CellLink: React.FC<LinkProps> = ({ className = '', ...rest }) => (
     <Link tabIndex={-1} className={`block ${className}`} {...rest} />
 );
 
-// A <td> holding a CellLink; the padding goes on the link so all of it is clickable.
-export const LinkCell: React.FC<LinkProps & { main?: boolean }> = ({ main, ...rest }) => (
-    <td className="p-0">{main ? <Link {...rest} className={`block ${rest.className ?? ''}`} /> : <CellLink {...rest} />}</td>
+// A <td> holding a CellLink; the padding goes on the link and the link fills
+// the row's height (`h-px` on the cell lets `h-full` resolve), so all of the
+// cell is clickable. `content-center` keeps the content in the middle.
+export const LinkCell: React.FC<LinkProps & { main?: boolean }> = ({ main, className = '', ...rest }) => (
+    <td className="p-0 h-px">{main ? <Link {...rest} className={`block h-full content-center ${className}`} /> : <CellLink {...rest} className={`h-full content-center ${className}`} />}</td>
 );
 
 export default Link;

@@ -463,14 +463,14 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                                         <div className="w-2 h-2 bg-gray-700 rounded-full mx-auto" title="Idle"></div>}
                                                             </LinkCell>
                                                             <td className="p-0">
-                                                                <div className="flex items-center gap-2 px-3 pt-3">
-                                                                    <Link to={url} className="font-bold text-gray-300 group-hover:text-white truncate flex items-center gap-2 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Link to={url} className="font-bold text-gray-300 group-hover:text-white truncate flex items-center gap-2 min-w-0 self-stretch pl-3 pt-3">
                                                                         <span className="truncate">{item.server.name}</span>
                                                                         {getHealthBadge(item.server.lastSeen)}
                                                                     </Link>
                                                                     <button
                                                                         onClick={() => handleCopyIp(item.server.ip)}
-                                                                        className="text-gray-500 hover:text-brand transition-colors p-1 rounded-control hover:bg-gray-800/60 inline-flex items-center gap-1"
+                                                                        className="text-gray-500 hover:text-brand transition-colors p-1 mt-3 rounded-control hover:bg-gray-800/60 inline-flex items-center gap-1"
                                                                         title={`Click to copy join IP: ${item.server.ip}`}
                                                                         aria-label={`Copy join IP ${item.server.ip}`}
                                                                     >

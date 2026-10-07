@@ -63,7 +63,7 @@
 }
 .stretched-link:focus-visible::after {
     outline: 2px solid theme('colors.brand.DEFAULT');
-    outline-offset: 2px;
+    outline-offset: -2px;
 }
 .stretched-link:active {
     opacity: 1;

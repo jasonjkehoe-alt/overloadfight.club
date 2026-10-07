@@ -376,7 +376,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                 <div className="bg-surface-card border border-line/90 rounded-card p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs font-mono">
                                     <div className="flex items-center gap-2 text-brand">
                                         <span className="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
-                                        <span>RECENT FORM: <strong>{stats.games} MATCHES ANALYZED</strong> (Past 365 Days)</span>
+                                        <span>RECENT FORM: <strong>{stats.games} MATCHES ANALYZED</strong> ({stats.scope === 'all' ? 'All Time' : 'Past 365 Days'})</span>
                                     </div>
                                     <span className="text-gray-400">
                                         CAREER RECORD: <strong className="text-white">{stats.career_games.toLocaleString()} MATCHES</strong>
@@ -606,8 +606,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                                 <div className="space-y-2 mb-4">
                                                     {renderTapeRow('Kill / Death (KD)', careerKd, activeRival.kd ?? activeRival.their_kd ?? 1.0)}
                                                     {renderTapeRow('Combat Ratio', careerKda, activeRival.kda ?? activeRival.kd ?? 1.0)}
-                                                    {renderTapeRow('Win Rate', stats?.win_rate ?? stats?.career_win_rate ?? 0, activeRival.win_rate ?? 0, (v) => `${v.toFixed(1)}%`)}
-                                                    {renderTapeRow('Flight Hours', stats?.flight_hours ?? stats?.career_flight_hours ?? 0, activeRival.flight_hours ?? 0, (v) => `${v.toFixed(1)}h`)}
+                                                    {renderTapeRow('Win Rate', stats?.career_win_rate ?? stats?.win_rate ?? 0, activeRival.win_rate ?? 0, (v) => `${v.toFixed(1)}%`)}
+                                                    {renderTapeRow('Flight Hours', stats?.career_flight_hours ?? stats?.flight_hours ?? 0, activeRival.flight_hours ?? 0, (v) => `${v.toFixed(1)}h`)}
                                                     {renderTapeRow('Threat Centrality', pilotPpi?.threat_centrality ?? 0, activeRival.threat_centrality ?? 0, (v) => v.toFixed(0))}
                                                     {renderTapeRow('Dominance Index', pilotPpi?.dominance_index ?? 0, activeRival.dominance_index ?? 0, (v) => v.toFixed(0))}
                                                 </div>

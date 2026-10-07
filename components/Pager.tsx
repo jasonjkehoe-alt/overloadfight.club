@@ -29,24 +29,25 @@ interface PagerProps {
     listId: string;
 }
 
-const BUTTON = `${secondaryButtonClass} disabled:opacity-40 disabled:cursor-not-allowed`;
+const BUTTON = `${secondaryButtonClass} aria-disabled:opacity-40 aria-disabled:cursor-not-allowed`;
 
 // Previous, "Page N of M", Next. Renders nothing for a single page.
 const Pager: React.FC<PagerProps> = ({ paging: { page, pageCount, setPage }, listId }) => {
     if (pageCount <= 1) return null;
     const go = (next: number) => {
+        if (next < 1 || next > pageCount) return;
         setPage(next);
         document.getElementById(listId)?.scrollIntoView({ block: 'start' });
     };
     return (
         <nav aria-label="Pages" className="flex justify-between items-center gap-3 pt-4">
-            <button onClick={() => go(page - 1)} disabled={page <= 1} className={BUTTON}>
+            <button onClick={() => go(page - 1)} aria-disabled={page <= 1} className={BUTTON}>
                 <ChevronLeft className="w-4 h-4" aria-hidden /> Previous
             </button>
             <span className="text-gray-500 font-mono text-xs" aria-live="polite">
                 Page <span className="text-white font-bold">{page}</span> of {pageCount}
             </span>
-            <button onClick={() => go(page + 1)} disabled={page >= pageCount} className={BUTTON}>
+            <button onClick={() => go(page + 1)} aria-disabled={page >= pageCount} className={BUTTON}>
                 Next <ChevronRight className="w-4 h-4" aria-hidden />
             </button>
         </nav>

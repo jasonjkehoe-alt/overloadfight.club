@@ -992,7 +992,7 @@ Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 13 files, 126 tests pass (S10, after the rebase onto the owner's `5afcdf5`) | 2026-10-07 |
+| `npx vitest run` | all pass | 13 files, 129 tests pass (S10, after the review fixes) | 2026-10-07 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.93 KB raw / 73.74 KB gzip (S10; 73.64 KB at S10's start, one 351.07 KB chunk before S4) | 2026-10-07 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S10) | 2026-10-07 |
@@ -1861,7 +1861,11 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   tape compared the pilot's 365-day ratio with the rival's career one;
   both sides are career now. The match page's column is "Combat Ratio"
   at two decimals (it was "KDA Ratio" at three, and gave kills + 0.5 ×
-  assists for a pilot with no deaths). The archive's hall-of-fame tab
+  assists for a pilot with no deaths). The cost of the no-deaths rule:
+  the ratio can rise at the first death (3 kills, 4 assists and no
+  deaths is 3.00; one death makes it 5.00), which shows most on the
+  match page. Kept, since the career numbers have always used it and
+  changing it means a stats rebuild. The archive's hall-of-fame tab
   that sorts by K/D said "Combat Ratio (K/D)"; it says "K/D". With the
   roster's Active (90d) toggle on, its Combat Ratio is the 90-day one,
   so it differs from the profile's career number on purpose, and its
@@ -2325,6 +2329,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S10) The roster's Active (90d) view has no Lethality: the owner's
   90-day totals (`5afcdf5`) are `game_players` sums without match time.
   Adding the summed `durationOf()` to that query would give it one.
+  Until then a `?sort=kpm` in the URL sorts nothing in that view while
+  the Lethality header still shows `aria-sort`.
 - (S10) K/D still has several copies: `getPilotTelemetry`, the stats
   worker, the owner's 90-day rows in `db.getPilotStats`, the startup
   repair SQL in `db.js` (which also repeats Combat Ratio), and client
