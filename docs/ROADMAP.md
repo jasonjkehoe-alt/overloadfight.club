@@ -40,19 +40,15 @@ On resume:
 
 ## Status
 
-S1 is on branch `ofc/s01-secrets-auth`, based on `origin/main` at `5516729`,
-PR #1 open and not merged, 2026-10-06. The branch's first commit adds
-`docs/`, so later sessions base on S1's branch until it merges, then on
-`origin/main`.
+S1, S2 and S3 are merged into `main` (PRs #1, #2 and #3, merged in that
+order on 2026-10-07 UTC; `main` is at `2b05787`, the PR #3 merge). Their
+branches stacked on each other, so `main`'s tree equals S3's tip
+`3c79f97`.
 
-S2 is on branch `ofc/s02-stat-correctness`, based on S1's branch at
-`ea4eace` because PR #1 was still open, PR #2 open and not merged, 2026-10-06. It holds
-S1's commits too, so its PR diff against `main` shows both until PR #1
-merges.
-
-S3 is on branch `ofc/s03-data-retention`, based on S2's branch at `e75e1e8`
-because PR #2 was still open, PR #3 open and not merged, 2026-10-06. Its
-PR diff against `main` shows S1 and S2 as well until those merge.
+S4 is on branch `ofc/s04-bundle-polling`, based on `origin/main` at
+`2b05787`, PR #4 open and not merged, 2026-10-07 UTC. It started on S3's
+branch while PR #3 was open and was rebased onto `main` once the three PRs
+merged during the session.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -63,10 +59,60 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 3 of 28 sessions done (PRs open, not merged). Phase 1: 3/6. Phase 2:
+Counts: 4 of 28 sessions done (S1 to S3 merged, S4's PR open). Phase 1: 4/6. Phase 2:
 0/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-06, audits at 10223be = 2c4f174 after the rewrite, S1 on `ofc/s01-secrets-auth` at 5516729, S2 on `ofc/s02-stat-correctness`, S3 on `ofc/s03-data-retention`)
+## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S3 merged into `main` at 2b05787, S4 on `ofc/s04-bundle-polling`)
+
+- S4, first move on Node 22.17.0: `npx vitest run` passed 4 files, 50
+  tests. `npx vite build` wrote one 1,291.78 KB chunk, 351.07 KB gzip.
+- S4, bundle: `npx vite build` writes 46 JS chunks. The entry
+  `index-*.js` is 232.15 KB raw / 72.84 KB gzip. In headless Chrome 154
+  against the dev server, the dashboard fetched the entry plus
+  `GameList`, `FightNightSection`, the recharts `BarChart` chunk and small
+  icon chunks. `/pilots` fetched only `PilotsList` and icons. `/taunts`
+  fetched `AudioTauntMaker` and its shared chunk and made no `/ffmpeg/`
+  request. Clicking Create then fetched `ffmpeg-core.js` and
+  `ffmpeg-core.wasm` (`Content-Encoding: br`) and the editor showed no
+  load error.
+- S4, poll (headless Chrome over CDP, hiding the tab by overriding
+  `document.hidden` and dispatching `visibilitychange`): 2 to 3
+  `/api/browser` requests per 25 to 31 s while visible, 0 in 21 s hidden,
+  1 within a second of showing the tab again. Before S4 the code polled
+  6 times a minute from `App` and once from `Layout`, hidden or not (read
+  from source, not measured).
+- S4, chunk failure: with `PilotsList-*.js` renamed away while the
+  dashboard was open, clicking Leaderboards reloaded the page once, then
+  showed the ErrorBoundary's "APPLICATION RECOVERY" screen, not a blank
+  page. The dashboard opens on the Server Browser tab (22 servers).
+- S4, server tests: `npx vitest run` passes 5 files, 57 tests. New:
+  `server/routes.test.js` (page 1 answers while the mocked sync never
+  resolves, a failed background sync still answers, an empty page waits
+  for the sync, a PPI miss returns `{}` without calling
+  `refreshPilotStats`), a pragma check that reads `journal_mode`,
+  `synchronous` and `busy_timeout` back from both connections, and a
+  backup and restore round trip on the live connection. With S3's
+  `routes.js` and `db.js` swapped back in, the pragma, page-1 and PPI
+  tests fail (the page-1 test times out at 5 s).
+- S4, server (`PORT=3100 DATA_DIR=/tmp/ofc-data npm start`, dev mode, no
+  secrets, fresh data dir): `/api/stats/global` returns `total_games: 25`
+  after the startup sync. `/api/games?page=1` more than 30 s after the
+  last sync returned in 0.0019 s, with `[Sync] Fetching page 1` logged
+  after it. `/api/pilot/NOBODY/ppi` returns `{}` in 0.001 s. The wasm
+  goes out as br (8,367,469 bytes) for `gzip, deflate, br, zstd`, gzip
+  (10,257,774 bytes) for `gzip` or `br;q=0, gzip`, and raw (32,232,419)
+  for `identity`, each with `public, max-age=3600`. Both copies decode to
+  bytes identical to `public/ffmpeg/ffmpeg-core.wasm`. Icons and
+  `ffmpeg-core.js` get `max-age=3600`, `/assets/*` one year immutable,
+  `index.html` and SPA routes `no-store`. Logged in as `admin123`,
+  `/api/admin/backup` returned a 507,904-byte file that `sqlite3` reads
+  (50 games, `integrity_check` ok) and left nothing in `uploads/`;
+  posting it to `/api/admin/restore` succeeded and the server kept
+  serving `/api/stats/global` and `/api/games`.
+- S4: `npx tsc --noEmit` exits 0 (JSX still untyped).
+- S4: brotli on the 32 MB wasm in Node 22: quality 5 8.57 MB in 0.5 s,
+  quality 9 8.37 MB in 2.1 s, quality 11 7.28 MB in 60.5 s; gzip level 9
+  10.26 MB in 0.7 s.
 
 - S3, before the fix: the new `server/backfill.test.js` run against S2's
   `db.js` and `backfill.js` failed 4 of 10 tests. A page-1 summary wiped a
@@ -164,11 +210,13 @@ Counts: 3 of 28 sessions done (PRs open, not merged). Phase 1: 3/6. Phase 2:
 - `server/routes.js:723` pins `gemini-2.0-flash`. Checked by grep.
 - CSP at `server/index.js:70-74` has no `frame-src`; COEP is `require-corp`.
   Read from source.
-- Production bundle: one JS chunk, 1,291.65 KB raw / 351.00 KB gzip, built with
-  `npx vite build` on Node 24 after `npm ci --ignore-scripts`. No `React.lazy`
-  or dynamic `import()` anywhere in the client.
-- `public/ffmpeg-core.wasm` (32,232,419 bytes) is a duplicate of
-  `public/ffmpeg/ffmpeg-core.wasm` and nothing references the root copy.
+- Before S4, production bundle: one JS chunk, 1,291.65 KB raw / 351.00 KB
+  gzip, built with `npx vite build` on Node 24 after `npm ci
+  --ignore-scripts`. No `React.lazy` or dynamic `import()` anywhere in the
+  client.
+- `public/ffmpeg-core.wasm` (32,232,419 bytes) was a byte-identical
+  duplicate of `public/ffmpeg/ffmpeg-core.wasm` (`cmp`, as was
+  `ffmpeg-core.js`) and nothing referenced the root copy. Deleted in S4.
 - `@types/react` and `@types/react-dom` are not in `package.json`; `tsc
   --noEmit --strict` reports 6,135 errors.
 
@@ -190,6 +238,24 @@ Counts: 3 of 28 sessions done (PRs open, not merged). Phase 1: 3/6. Phase 2:
 - Whether a hydrated game and the gamelist summary of the same game differ
   in fields other than the kill log. The upsert keeps all of the stored
   details, not only `kills`.
+- S4 was checked on a 50-game dev database. Nobody has run WAL, the
+  `.iterate()` refresh or the backup API against the 2.8 GB cold DB or on
+  the NAS's volume, timed `refreshPilotStats` there, or watched how large
+  `tracker.db-wal` grows during a refresh.
+- Whether the NAS volume supports WAL's shared-memory file. WAL does not
+  work on network filesystems; a local Docker volume should be fine.
+- Whether the DSM reverse proxy passes `Content-Encoding: br` through
+  unchanged and leaves the precompressed wasm alone.
+- The Create tab was opened once in headless Chrome. Nobody trimmed or
+  exported a taunt after the editor change, or switched tabs mid-edit to
+  check that the edit survives.
+- The hidden-tab test overrode `document.hidden` and fired the event by
+  hand. A real background tab, and Safari or Firefox, were not tried.
+- The admin backup and restore were driven with curl, not from the admin
+  page.
+- The `vite:preloadError` reload was seen only with a chunk renamed away
+  locally, not across a real deploy.
+
 - The admin panel's hydrate job (start, pause, resume) was not used in a
   browser.
 - The PilotsList K/D tooltip text was not looked at in a browser.
@@ -271,12 +337,14 @@ Counts: 3 of 28 sessions done (PRs open, not merged). Phase 1: 3/6. Phase 2:
 | Command | Expected | Last result | Date |
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
-| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S3) | 2026-10-06 |
-| `npx vitest run` | all pass | 4 files, 50 tests pass (S3) | 2026-10-06 |
+| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
+| `npx vitest run` | all pass | 5 files, 56 tests pass (S4) | 2026-10-06 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | one chunk, 351.00 KB gzip | 2026-10-06 |
-| `npx tsc --noEmit` | 0 errors (meaningful only after S6 installs React types) | 0 errors, JSX untyped | 2026-10-06 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets (S3) | 2026-10-06 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | 46 chunks, entry `index-*.js` 232.15 KB raw / 72.84 KB gzip (S4; was one chunk, 351.07 KB gzip) | 2026-10-06 |
+| `npx tsc --noEmit` | 0 errors (meaningful only after S6 installs React types) | 0 errors, JSX untyped (S4) | 2026-10-06 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets (S4) | 2026-10-06 |
+| Same server, `curl -w "%{time_total}" "localhost:3100/api/games?page=1"` more than 30 s after the last sync | answers from the DB, sync logged after | 200 in 0.0019 s, `[Sync] Fetching page 1` logged after it (S4) | 2026-10-06 |
+| Same server, `curl -D - -H "Accept-Encoding: gzip, deflate, br" localhost:3100/ffmpeg/ffmpeg-core.wasm` | `Content-Encoding: br`, short cache | br, 8,367,469 bytes, `public, max-age=3600` (S4) | 2026-10-06 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -334,7 +402,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       `db.insertGame` calls `saveGames` directly; fight-night day queries use
       `date >= ? AND date < ?`; a test proves a hydrated fixture survives a
       summary upsert; backfill marks a fixture game `fetched`.
-- [ ] **S4 Bundle and polling** (M). Done when: every view in `App.tsx` is
+- [x] **S4 Bundle and polling** (M). PR #4. Done when: every view in `App.tsx` is
       `React.lazy`; `AudioEditor` mounts only on its tab; the root
       `public/ffmpeg-core.*` files are deleted; the wasm is served
       precompressed with a short cache for non-hashed files; one shared
@@ -524,6 +592,58 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   `/api/fight-nights/:date` with a bad date stays a 404 instead of a 500.
 - 2026-10-06 (S3): The DB tests share their fixture setup through
   `server/testFixtures.js` (sample files, the move to a recent day).
+- 2026-10-06 (S4): `Layout` does not read the shared poll. Its 60 s
+  `/api/browser` fetch fed `playerCount`, which nothing rendered, so the
+  fetch and the state were deleted instead of subscribed. App is the only
+  reader of `useServerBrowser` for now. The hook is a module-level store
+  read through `useSyncExternalStore`, so any component that calls it
+  later shares the same poll.
+- 2026-10-06 (S4): The dashboard views (`GameList`, `FightNightSection`)
+  are lazy too, so every view in `App.tsx` loads on demand behind one
+  `Suspense`, inside the existing `ErrorBoundary`. `Layout` and
+  `OverloadFsProvider` stay in the entry chunk. A deploy renames the
+  hashed chunks, so `index.tsx` reloads once on `vite:preloadError`; a
+  timestamp in `sessionStorage` stops a reload loop, and a second failure
+  within 10 s shows the ErrorBoundary's reload screen.
+- 2026-10-06 (S4): The dashboard spinner stays up until the first
+  `/api/browser` answer settles, as it did when `refreshData` awaited both
+  lists. `GameList` picks its tab from `activeGames` when it mounts, and
+  mounting it before the poll answered opened the dashboard on History.
+  Fixing that inside `GameList` was left for S7, which reworks the
+  dashboard.
+- 2026-10-06 (S4): `AudioEditor` mounts the first time the Create tab
+  opens and stays mounted after that, hidden, so switching to Vault and
+  back keeps an edit in progress. Unmounting it on every tab switch would
+  also meet "mounts only on its tab" but would drop the loaded file and
+  regions.
+- 2026-10-06 (S4): The build writes `ffmpeg-core.wasm.br` (quality 9,
+  8.4 MB, about 2 s) and `.gz` (level 9, 10.3 MB). Brotli quality 11 is
+  7.3 MB but takes 60 s per build. The server prefers br whenever the
+  client accepts it; `req.acceptsEncodings('br', 'gzip')` follows the
+  client's order, and Chrome lists gzip first. Chrome only offers br over
+  HTTPS and localhost, so LAN access over plain HTTP gets the gzip copy.
+  The route only rewrites the URL to the copy, found once at startup;
+  `express.static` serves it with the usual cache rule.
+- 2026-10-06 (S4): Static files without a content hash get `public,
+  max-age=3600` and revalidate by ETag. Hashed `/assets/` keep one year
+  immutable, HTML stays `no-store`.
+- 2026-10-06 (S4): `/api/games` answers a full page (25 stored rows) from
+  the DB and lets the sync finish in the background. A page the DB cannot
+  fill still waits for the tracker, as before: answering a partial page
+  early gave a short page and a stale count, and Load More offsets then
+  skip or repeat rows.
+- 2026-10-06 (S4): A `/api/pilot/:name/ppi` miss returns `{}` until the
+  next `refreshPilotStats` run (startup when the cache is empty, then
+  every 6 hours). A pilot first seen after the last run has no PPI block
+  for up to 6 hours.
+- 2026-10-06 (S4): The WAL pragmas apply to both connections. Cold
+  storage writes go through `coldDb`, so the attached `cold` schema on
+  `hotDb` needs no pragma of its own. Under WAL a raw copy of
+  `tracker.db` can miss commits still in `tracker.db-wal`, and a restored
+  file can meet a stale `-wal` at the next start. `/api/admin/backup` and
+  `/api/admin/restore` now go through SQLite's backup API (`db.backupHot`,
+  `db.restoreHot`): the backup writes a consistent copy to `uploads/` and
+  sends it, and the restore writes the upload into the live database.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -538,7 +658,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   `server/debug_stats.js`, dead second attach at `db.js:962-969`. Removed in
   S6.
 - `cacheService.js` tries Redis on every boot and never sweeps expired keys.
-  Fix in S4 if time allows, otherwise S6.
+  S4 left it; S6.
 - The README promises ELO; none exists. Satisfied by S13.
 - (S1) `/api/import/*` (yt-dlp search, extract, stream, archive.org proxy)
   has no auth and no rate limit. The public taunt maker needs it, so locking
@@ -567,8 +687,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   limit can still make the server parse a 50 MB body.
 - (S1) `/api/overload/audio` guards paths with `path.normalize` and a regex
   strip rather than a resolved-prefix check. It is admin-only now.
-- (S1) `/api/ppi` still runs `refreshPilotStats` inline for anyone. S4 owns
-  it.
+- (S1) `/api/ppi` still runs `refreshPilotStats` inline for anyone. Fixed
+  in S4.
 
 - (S2) The `getPilotStats` suicide pass walks every kill log (2.9 s per 20k
   logged games against 0.37 s before, synthetic). No client page calls that
@@ -622,6 +742,29 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S3) vitest's module runner defines CommonJS `module`, so a test cannot
   catch code that uses it in an ES module. Check such code from a script
   file run by `node`.
+
+- (S4) The dashboard's first visit still loads recharts: `GameList`
+  pulls the `BarChart` chunk (336.50 KB raw / 98.25 KB gzip). The JS the
+  dashboard needs is about 195 KB gzip, down from 351 KB. Lazy-loading the
+  charts inside `GameList` would cut it further.
+- (S4) Other polls are untouched: `Layout`'s 60 s `/api/stats/active-count`,
+  each `LiveMatchCard`'s 30 s `/api/game/:ip`, and `AdminPanel`'s 2 s job
+  poll all keep running while the tab is hidden.
+- (S4) `refreshPilotStats` now holds one read snapshot open for the whole
+  `.iterate()` pass, so WAL checkpoints cannot get past it and
+  `tracker.db-wal` grows while ingest writes during a refresh. Paging by
+  rowid with short `.all()` reads would bound both memory and the WAL;
+  S5's worker is the natural place.
+- (S4) The restore only covers `tracker.db`, and the admin page still says
+  to restart afterwards. Cold storage has no backup. S6 owns backups.
+- (S4) `App.tsx` now has three copies of the orange spinner markup. S9's
+  `Loading` component replaces them.
+- (S4) `/api/games` pages past the stored count: the read-through sync
+  stores the tracker's page N, but the response reads local page N by
+  offset, so a page beyond what is stored comes back with `games: []`
+  even after a sync. This was the same before S4.
+- (S4) `cacheService.js` (Redis on boot, no sweep) is still open; S6.
+- (S4) `/api/import/*` still has no rate limit; S6.
 
 ## Rollback
 
@@ -749,12 +892,44 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   `durationOf`) and dropping `insertGame`. PR #3 opened against `main`,
   not merged.
 
+- 2026-10-06, S4 (Claude Opus 5.5): lazy views, one shared server-browser
+  poll that pauses while the tab is hidden, the editor mounted on demand,
+  precompressed wasm, `/api/games` answering from the DB, no inline PPI
+  rebuild, WAL pragmas, row iteration in `refreshPilotStats`. Status line
+  checked first: PRs #1 to #3 open, S3's branch at `3c79f97`, `10223be`
+  not an object in this clone, so S4 stacks on
+  `origin/ofc/s03-data-retention`. PRs #1 to #3 merged during the session,
+  so the branch was rebased onto `main` (`2b05787`, same tree as S3's
+  tip) before the PR. First move: 4 files, 50 tests pass;
+  one chunk, 351.07 KB gzip. Reading the code turned up three things the
+  tracker did not list: `Layout`'s poll fed a count nothing rendered, so it
+  was deleted rather than moved onto the hook; nothing serves
+  `/api/server/:ip/health`, so the status dot it fed went too; and WAL
+  breaks the admin backup and restore, which copied the raw file.
+  Server tests were written against the old code first (3 of the new ones
+  fail there). Checked in headless Chrome over CDP: lazy chunks per page,
+  no ffmpeg on `/taunts` until Create, the hidden-tab pause, and Chrome
+  picking gzip over br because `acceptsEncodings` follows the client's
+  order (fixed). /code-review found 10 issues: fixed restore and backup
+  under WAL (backup API), the dashboard opening on History, a blank page
+  when a chunk fails after a deploy, partial pages answered early, older
+  poll answers overwriting newer ones, and a test teardown; kept the stale
+  list on a failed poll (the old poll did the same), the PPI lag (the
+  Done-when decision) and Range on the precompressed file (valid HTTP).
+  /simplify: the wasm route rewrites the URL and lets `express.static`
+  serve the copy, one response path in `/api/games`, the lazy views
+  inside the existing `ErrorBoundary`, no refetch on a quick tab switch,
+  no per-request mkdir; skipped extracting a spinner (S9), fixing
+  `GameList`'s tab choice (S7), compressing in parallel at build time
+  (0.7 s) and paging the refresh query (S5). PR #4 opened against `main`,
+  not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S4: bundle and polling.
+Continue the overloadfight.club roadmap. This session is S5: indexed player table.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -763,42 +938,45 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  If the S3 PR (branch ofc/s03-data-retention) is merged:
-    git checkout -B ofc/s04-bundle-polling origin/main
+  If the S4 PR (branch ofc/s04-bundle-polling) is merged:
+    git checkout -B ofc/s05-player-table origin/main
   If it is still open:
-    git checkout -B ofc/s04-bundle-polling origin/ofc/s03-data-retention
-    and open the S4 PR against main anyway; say in its description that it sits on S3 (which sits on S2 and S1 while PRs #2 and #1 are open).
+    git checkout -B ofc/s05-player-table origin/ofc/s04-bundle-polling
+    and open the S5 PR against main anyway; say in its description that it sits on S4 (PR #4).
+  Check again before opening the PR: if PR #4 merged during the session, rebase onto origin/main first.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s03-data-retention has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s04-bundle-polling has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S4 entry and its Done-when list. That list is the scope. Also the S3 entries under "Decisions and deviations" and "Flagged, not fixed", and the Postmortems.
-- docs/audit/performance.md for the file:line evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; S1 to S3 moved lines in server/, so re-find them with grep -n).
-- App.tsx (views, the 10 s /api/browser poll), components/Layout.tsx (the duplicate 60 s poll), LiveMatchCard (the /api/server/:ip/health fetch), AudioTauntMaker.tsx and AudioEditor.tsx (the hidden editor that loads ffmpeg on mount).
-- server/index.js (static serving, compression, cache headers), server/routes.js (/api/games awaiting the upstream sync, the inline refreshPilotStats on /api/ppi), and in server/db.js the connection setup and refreshPilotStats (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
-- public/ (the root ffmpeg-core.* duplicates of public/ffmpeg/).
+- docs/ROADMAP.md, the S5 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S2 to S4 entries under "Decisions and deviations" and "Flagged, not fixed" (the S2 suicide pass, the LIKE prefilter gaps, the S4 refresh snapshot holding the WAL), and the Postmortems.
+- docs/audit/performance.md and docs/audit/data.md for the file:line evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; S1 to S4 moved lines in server/, so re-find them with grep -n).
+- server/db.js: the connection setup and pragmas, saveGames and upsertGameSql, moveGamesToColdStorage, refreshPilotStats, getPilotTelemetry, getPilotBreakdown, getPilotStats, getGamesByPilot, countGamesByPilot and the leaderboard queries (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
+- server/routes.js: the /api/pilot/:name/* routes and the leaderboard (/api/stats/pilots).
+- server/maintenance.js (the refresh schedule) and server/lib/gameParse.js.
 
 Binding decisions, do not re-derive:
-- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js.
-- server/lib/gameParse.js owns the game rules. Use it; do not add a second copy of a rule.
+- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
+- server/lib/gameParse.js owns the game rules (teamOf, winnerOf, durationOf, netKills, pilotKey, outcomeOf, pairOutcome). game_players rows must be built from it; do not add a second copy of a rule.
+- The games(id, date, ip, details) table and the hot/cold split stay. game_players is added beside games, not instead of it; the JSON blobs remain the source of truth. Do not change the public API paths (see "Canonical contract").
+- Both connections run journal_mode=WAL, synchronous=NORMAL, busy_timeout=5000 (S4). Backup and restore go through db.backupHot / db.restoreHot.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json).
-- Do not add a router library, state library or ORM. The shared poll is a plain React hook.
-- Do not change the games table, the hot/cold split or the public API paths (see "Canonical contract"). Do not add the game_players table or a worker; those are S5.
-- No production database exists locally. Server changes are proven with tests on fixture games or by running `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` and curling.
+- Do not add a router library, state library or ORM.
+- No production database exists locally. Server changes are proven with tests on fixture games or by running `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` and curling. Wait for `Startup sync complete` in the log before checking.
 
 Rules for this session:
-- One PR, scope is the S4 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- One PR, scope is the S5 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- Add a decision entry for the migration (how it backfills hot and cold games, how it is re-run safely, and its rollback).
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S4 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S5 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S5.
+- Before ending: tick S5 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S6 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S6.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S3 left 4 files, 50 tests passing) and `npx vite build 2>&1 | grep -E "assets/.*\.js"` (the Verification table records one chunk, 351.00 KB gzip), and record both results.
-Done when: every item in the S4 Done-when list is true, `npx vite build` shows the main chunk under 150 KB gzip, `npx vitest run` passes, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global` and `/api/games` answers without waiting on the upstream sync, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S4 left 5 files, 57 tests passing) and `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 72.84 KB gzip), and record both results.
+Done when: every item in the S5 Done-when list is true, `EXPLAIN QUERY PLAN` for the pilot and leaderboard queries shows the game_players indexes, `npx vitest run` passes with tests that compare game_players-backed pilot numbers against the S2 fixture expectations, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global`, `/api/stats/pilots` and `/api/pilot/:name/stats`, and the PR is open with the tracker updated.
 ```
