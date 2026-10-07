@@ -50,6 +50,10 @@ S2 is on branch `ofc/s02-stat-correctness`, based on S1's branch at
 S1's commits too, so its PR diff against `main` shows both until PR #1
 merges.
 
+S3 is on branch `ofc/s03-data-retention`, based on S2's branch at `e75e1e8`
+because PR #2 was still open, PR #3 open and not merged, 2026-10-06. Its
+PR diff against `main` shows S1 and S2 as well until those merge.
+
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
 now `2c4f174`, with identical code apart from the redacted password, so the
@@ -59,10 +63,40 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 2 of 28 sessions done (PRs open, not merged). Phase 1: 2/6. Phase 2:
+Counts: 3 of 28 sessions done (PRs open, not merged). Phase 1: 3/6. Phase 2:
 0/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-06, audits at 10223be = 2c4f174 after the rewrite, S1 on `ofc/s01-secrets-auth` at 5516729, S2 on `ofc/s02-stat-correctness`)
+## Validated (as of 2026-10-06, audits at 10223be = 2c4f174 after the rewrite, S1 on `ofc/s01-secrets-auth` at 5516729, S2 on `ofc/s02-stat-correctness`, S3 on `ofc/s03-data-retention`)
+
+- S3, before the fix: the new `server/backfill.test.js` run against S2's
+  `db.js` and `backfill.js` failed 4 of 10 tests. A page-1 summary wiped a
+  hydrated kill log in hot and in cold storage, and `getSummaryGames`
+  returned no rows at all. The two hydration-loop tests passed only because
+  the old filter found nothing to hydrate.
+- S3, `insertGame`: from a script file on Node 22.17.0 (how `npm start`
+  runs), `db.insertGame.run(...)` on the old code threw `ReferenceError:
+  module is not defined`, so every backfill fetch was recorded as failed.
+  After the fix it returns 1. The vitest test for it passed on the old code
+  too, because vitest's module runner defines `module`; this script run is
+  the before/after proof.
+- S3, after: `npx vitest run` passes 4 files, 50 tests, on Node 22.17.0.
+  They include a hydrated game surviving a summary upsert (hot and cold), a
+  summary still being replaced by a hydrated game, the hydrate filter
+  skipping hydrated and 30 s games, backfill marking a fixture game
+  `fetched` with its kill log stored, a hydration job that finishes when
+  the tracker returns no kills or every fetch fails, a resumed job starting
+  after `current_id`, and day bounds at 23:59:59.999 and the next midnight.
+- S3, loop guard: with the cursor update removed from `processHydrationJob`,
+  three hydration tests time out at 5 s instead of passing.
+- S3, `EXPLAIN QUERY PLAN` on the synced dev DB: `date LIKE '2026-10-05%'`
+  is `SCAN games USING COVERING INDEX idx_games_date`; `date >= ? AND date
+  < ?` is `SEARCH ... (date>? AND date<?)`. Both return the same 13 rows.
+- S3: `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets,
+  fresh data dir) syncs 25 games and serves `/api/stats/global` with
+  `total_games: 25`. A second page-1 poll went through the new upsert
+  without errors. `/api/fight-nights/foo` returns 404. A request made
+  before the startup sync finishes caches `total_games: 0` for that key, so
+  wait for `Startup sync complete` in the log before checking.
 
 - S2, before the fix: `server/db.test.js` (built from the two sample files)
   run against the unchanged `db.js` failed 10 of 14 tests. MAESTRO's
@@ -147,8 +181,17 @@ Counts: 2 of 28 sessions done (PRs open, not merged). Phase 1: 2/6. Phase 2:
 - Whether any stored game has a team named other than BLUE or ORANGE, more
   than two teams, or a team game without `teamScore`. `winnerOf` handles
   all three; none appears in the samples.
-- The hydration and overwrite claims in `docs/audit/data.md` were read from
-  code, not reproduced. S3 owns them.
+- S3's fixes were proven on fixture games only. No hydration job has run
+  against the real tracker. Nobody checked whether `/api/game/:id` returns
+  a kill log for live-era games (the audit says logs exist mainly for
+  2019-07 to 2022-04), how many hot games the job will now request, or how
+  long `getSummaryGames` takes over a year of hot games (`duration_of`
+  parses each kill-less row in JS).
+- Whether a hydrated game and the gamelist summary of the same game differ
+  in fields other than the kill log. The upsert keeps all of the stored
+  details, not only `kills`.
+- The admin panel's hydrate job (start, pause, resume) was not used in a
+  browser.
 - The PilotsList K/D tooltip text was not looked at in a browser.
 - The calendar iframe being blocked was inferred from headers plus a curl of
   the Google embed's resource policy, not observed in a browser.
@@ -228,12 +271,12 @@ Counts: 2 of 28 sessions done (PRs open, not merged). Phase 1: 2/6. Phase 2:
 | Command | Expected | Last result | Date |
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
-| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S2) | 2026-10-06 |
-| `npx vitest run` | all pass | 3 files, 38 tests pass (S2) | 2026-10-06 |
+| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S3) | 2026-10-06 |
+| `npx vitest run` | all pass | 4 files, 50 tests pass (S3) | 2026-10-06 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | one chunk, 351.00 KB gzip | 2026-10-06 |
 | `npx tsc --noEmit` | 0 errors (meaningful only after S6 installs React types) | 0 errors, JSX untyped | 2026-10-06 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets (S2) | 2026-10-06 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets (S3) | 2026-10-06 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -285,7 +328,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       includes cold storage; `getPilotStats` stops hard-coding suicides to 0;
       the PilotsList K/D tooltip text is correct; tests on fixture games cover
       an ORANGE win, a tie, an FFA win, and a duration from `settings.start`.
-- [ ] **S3 Data retention** (S). Done when: `getSummaryGames` selects games
+- [x] **S3 Data retention** (S). PR #3. Done when: `getSummaryGames` selects games
       whose `details` lack a non-empty `kills` array; the page-1 upsert keeps
       the richer `details` when the incoming row has empty `kills`;
       `db.insertGame` calls `saveGames` directly; fight-night day queries use
@@ -462,6 +505,25 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   only when it is before the date asked about. Anything else is rechecked
   against hot and cold storage, which repairs rows cached by the old
   hot-only query without a migration.
+- 2026-10-06 (S3): `getSummaryGames` keeps a 60 s floor, now through
+  `duration_of` instead of three fields the tracker never sends. It also
+  walks games in id order after a cursor. With the filter working, every
+  game the tracker returns without kills, or that fails, would otherwise
+  come back in the next batch and the job would never end. `current_id`
+  is the last game processed, in both the pause and progress writes, and
+  a resumed job starts after it.
+- 2026-10-06 (S3): The keep-the-kill-log rule is one SQL statement,
+  `upsertGameSql`, used by `saveGames` for hot and cold storage, so a deep
+  page sync cannot wipe archive kill logs either. The stored details are
+  kept whole, not merged with the summary.
+- 2026-10-06 (S3): The `db.js` default export is now a named `db` object,
+  so `insertGame` calls `db.saveGames`. `insertGame` stays because
+  `backfill.js` calls it.
+- 2026-10-06 (S3): `utcDayBounds` returns null for anything but
+  `YYYY-MM-DD`, and `getGamesForDate` returns no games for it.
+  `/api/fight-nights/:date` with a bad date stays a 404 instead of a 500.
+- 2026-10-06 (S3): The DB tests share their fixture setup through
+  `server/testFixtures.js` (sample files, the move to a recent day).
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -535,6 +597,32 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S2) Pilot pages still mix hot and cold games: telemetry and breakdown
   read cold storage only when hot has fewer than 5 matches (audit item 8).
 
+- (S3) `saveColdGamesBatch` (archive ingest) and `updateGameDetails` (the
+  `/api/game/:id` refresh) still overwrite `details` unconditionally.
+  Pointing them at `upsertGameSql` changes their behaviour, so it was left.
+- (S3) `saveGames` marks every hot game `fetched` in `game_metadata`,
+  summaries included, so the table cannot say which games were hydrated.
+  The cursor stops repeats within one job, but each new hydration job asks
+  the tracker for every kill-less game again. If the tracker has no kill
+  logs for live-era games, most of those requests are wasted.
+- (S3) `/api/game/:id` saves whatever the tracker returns for a game not
+  yet in the DB. If that is a game still in progress with a partial kill
+  log, the finished game's summary will not replace it. The client only
+  gets numeric ids from the gamelist (live games go through the IP
+  branch), so this needs a hand-typed id.
+- (S3) `fetchGame` returns `undefined` when the tracker answers with an
+  empty body, and the hydration and id-range loops read `result.success`,
+  which fails the whole job.
+- (S3) A pause caught at the top of the hydration `while` loop breaks out
+  without saving a `paused` state.
+- (S3) `routes.js` treats a game as a summary when `events`, `kills` and
+  `damageMatrix` are all empty; `db.js` looks at `kills` alone.
+- (S3) `getQualifyingFightNightDates` still runs one query per candidate
+  day. Each is now indexed and uses one prepared statement.
+- (S3) vitest's module runner defines CommonJS `module`, so a test cannot
+  catch code that uses it in an ES module. Check such code from a script
+  file run by `node`.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -570,6 +658,13 @@ table (the JSON blobs remain the source of truth, so no data is lost).
 `npm ci` fails compiling `better-sqlite3@11.8.1` on Node 24.6. Use `nvm use 22`
 (22.17.0 installed) or `npm ci --ignore-scripts` for a client-only build.
 Measured 2026-10-06.
+
+### `nvm use 22` does not carry over between tool calls
+
+Each Bash tool call starts a fresh shell on the default Node (24). Running
+vitest there fails to load `better-sqlite3` (`NODE_MODULE_VERSION 127` vs
+`137`). Prefix every command that needs Node with `source ~/.nvm/nvm.sh &&
+nvm use 22 &&`. Seen 2026-10-06 in S3.
 
 ### `npm run build` rewrites a tracked file
 
@@ -629,12 +724,37 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   `duration_of` to read a field list (it would copy `durationOf`'s rules
   into SQL). PR #2 opened against `main`, not merged.
 
+- 2026-10-06, S3 (Claude Opus 5.5): hydrate filter, summary upsert,
+  `insertGame` and fight-night day bounds fixed. Status line checked
+  first: PRs #1 and #2 open, S2's branch at `e75e1e8`, `10223be` not an
+  object in this clone, so S3 stacks on `origin/ofc/s02-stat-correctness`.
+  First move: `npx vitest run` failed to load `better-sqlite3` because
+  `nvm use 22` had not carried over into the new shell; on Node 22, 3
+  files and 38 tests pass. The grep found `getSummaryGames` at `db.js:566`,
+  `excluded.details` at 1734, 1771 and 1802, `date LIKE` day queries at
+  2716 and 2781, and the `insertGame` wrapper at 1705. Reading the code
+  turned up two things the tracker did not list: `insertGame` called
+  `module.exports.default.saveGames`, which throws in an ES module, and
+  once the filter worked the hydration loop would never end. Wrote the
+  tests first (4 of 10 fail on the old code). /code-review found 10
+  issues: fixed bad dates turning a 404 into a 500 and a resumed job
+  starting from the first game; kept the binding keep-the-kill-log rule
+  over the in-progress snapshot case and flagged it, the other writers,
+  `game_metadata`, `fetchGame`'s empty body and the N+1 day query; the
+  malformed-JSON case would already break every `json_extract` query.
+  /simplify: the upsert and day query are prepared once, `current_id`
+  means the last game processed in both writes, the fixture setup moved
+  to `server/testFixtures.js`, and the test reads games with
+  `getGameById`. Skipped computing duration in SQL (a copy of
+  `durationOf`) and dropping `insertGame`. PR #3 opened against `main`,
+  not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S3: data retention.
+Continue the overloadfight.club roadmap. This session is S4: bundle and polling.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -643,41 +763,42 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  If the S2 PR (branch ofc/s02-stat-correctness) is merged:
-    git checkout -B ofc/s03-data-retention origin/main
+  If the S3 PR (branch ofc/s03-data-retention) is merged:
+    git checkout -B ofc/s04-bundle-polling origin/main
   If it is still open:
-    git checkout -B ofc/s03-data-retention origin/ofc/s02-stat-correctness
-    and open the S3 PR against main anyway; say in its description that it sits on S2 (which sits on S1 while PR #1 is open).
-  nvm use 22
+    git checkout -B ofc/s04-bundle-polling origin/ofc/s03-data-retention
+    and open the S4 PR against main anyway; say in its description that it sits on S3 (which sits on S2 and S1 while PRs #2 and #1 are open).
+  source ~/.nvm/nvm.sh && nvm use 22
   npm ci
-If neither origin/main nor origin/ofc/s02-stat-correctness has docs/ROADMAP.md, stop and tell me.
+`nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
+If neither origin/main nor origin/ofc/s03-data-retention has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S3 entry and its Done-when list. That list is the scope. Also the S2 entries under "Decisions and deviations" and "Flagged, not fixed".
-- docs/audit/data.md, the "Storage" section (no-op hydrate filter, page-1 upsert wiping hydrated details), for the file:line evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; S2 moved db.js lines, so re-find them with grep -n).
-- server/db.js: getSummaryGames, saveGames, insertGame, getGamesForDate and getQualifyingFightNightDates; server/backfill.js and server/ingest.js; the game_metadata table (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
-- server/lib/gameParse.js and server/db.test.js (S2's fixture setup: sample games moved to a recent day so they land in hot storage).
-- types.ts and the fixture files gamelist_sample.json and game_detail_sample.json at the repo root.
+- docs/ROADMAP.md, the S4 entry and its Done-when list. That list is the scope. Also the S3 entries under "Decisions and deviations" and "Flagged, not fixed", and the Postmortems.
+- docs/audit/performance.md for the file:line evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; S1 to S3 moved lines in server/, so re-find them with grep -n).
+- App.tsx (views, the 10 s /api/browser poll), components/Layout.tsx (the duplicate 60 s poll), LiveMatchCard (the /api/server/:ip/health fetch), AudioTauntMaker.tsx and AudioEditor.tsx (the hidden editor that loads ffmpeg on mount).
+- server/index.js (static serving, compression, cache headers), server/routes.js (/api/games awaiting the upstream sync, the inline refreshPilotStats on /api/ppi), and in server/db.js the connection setup and refreshPilotStats (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
+- public/ (the root ffmpeg-core.* duplicates of public/ffmpeg/).
 
 Binding decisions, do not re-derive:
-- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js. DB tests set DATA_DIR to a temp dir before importing server/db.js, as server/db.test.js does.
-- server/lib/gameParse.js owns the game rules (teamOf, winnerOf, outcomeOf, pairOutcome, durationOf, netKills, pilotKey, pilotLikePattern). Use it; do not add a second copy of a rule.
-- "Richer details" means a non-empty kills array. The page-1 upsert must keep stored details that have kills when the incoming row has none.
-- Fight-night day queries use `date >= ? AND date < ?` (UTC day bounds). The time zone question is S14's; do not change it here.
-- Do not change the games table, the hot/cold split or the public API paths (see "Canonical contract"). Do not add the game_players table; that is S5.
-- No production database exists locally. Prove each fix with a test on fixture games, built from the sample JSON files.
+- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js.
+- server/lib/gameParse.js owns the game rules. Use it; do not add a second copy of a rule.
+- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json).
+- Do not add a router library, state library or ORM. The shared poll is a plain React hook.
+- Do not change the games table, the hot/cold split or the public API paths (see "Canonical contract"). Do not add the game_players table or a worker; those are S5.
+- No production database exists locally. Server changes are proven with tests on fixture games or by running `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` and curling.
 
 Rules for this session:
-- One PR, scope is the S3 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- One PR, scope is the S4 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S3 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S4 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S4.
+- Before ending: tick S4 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S5 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S5.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S2 left 3 files, 38 tests passing) and `grep -n "getSummaryGames\|excluded.details\|date LIKE\|insertGame" server/db.js`, and record both results.
-Done when: every item in the S3 Done-when list is true, `npx vitest run` passes with a test proving a hydrated fixture survives a summary upsert and a test that backfill marks a fixture game `fetched`, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S3 left 4 files, 50 tests passing) and `npx vite build 2>&1 | grep -E "assets/.*\.js"` (the Verification table records one chunk, 351.00 KB gzip), and record both results.
+Done when: every item in the S4 Done-when list is true, `npx vite build` shows the main chunk under 150 KB gzip, `npx vitest run` passes, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global` and `/api/games` answers without waiting on the upstream sync, and the PR is open with the tracker updated.
 ```
