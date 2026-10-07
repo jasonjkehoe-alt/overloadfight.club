@@ -3,6 +3,8 @@ import { ArrowLeft, Clock, Users, Trophy, Activity, AlertCircle } from 'lucide-r
 import { GameData, GameEvent, GameSettings } from '../types';
 import { apiService } from '../services/apiService';
 import JoinIp from './JoinIp';
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 // Fields this page reads from the live game that types.ts does not declare.
 type LiveGame = GameData & {
@@ -15,10 +17,9 @@ interface LiveGameDetailProps {
     onBack?: () => void;
     serverData?: any;
     archivedGames?: any;
-    onNavigate?: (view: string, param?: string) => void;
 }
 
-const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, serverData, onNavigate }) => {
+const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, serverData }) => {
     // Prioritize prop IP, fallback to serverData IP
     const ip = propIp || serverData?.server?.ip;
 
@@ -135,7 +136,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                     className="inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Dashboard
+                    Back
                 </button>
             </div>
         );
@@ -230,13 +231,13 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                                             {index + 1}
                                         </div>
                                         <div>
-                                            <button
-                                                onClick={() => onNavigate && onNavigate('pilot', player.name)}
+                                            <Link
+                                                to={urlFor('pilot', player.name)}
                                                 className="font-medium text-white hover:text-[#ff6600] hover:underline transition-colors text-left"
                                                 title={`View ${player.name}'s pilot dossier`}
                                             >
                                                 {player.name}
-                                            </button>
+                                            </Link>
                                             <div className="text-xs text-gray-500 flex items-center gap-2">
                                                 <span>{player.team ? `Team ${player.team}` : 'Free For All'}</span>
                                                 {player.connected === false && (
@@ -303,12 +304,12 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                             <div className="flex justify-between py-2 border-b border-white/5">
                                 <span className="text-gray-400">Creator</span>
                                 {game.settings?.creator && game.settings.creator !== "Server" ? (
-                                    <button
-                                        onClick={() => onNavigate && onNavigate('pilot', game.settings!.creator)}
+                                    <Link
+                                        to={urlFor('pilot', game.settings.creator)}
                                         className="text-white hover:text-[#ff6600] hover:underline transition-colors font-mono"
                                     >
                                         {game.settings.creator}
-                                    </button>
+                                    </Link>
                                 ) : (
                                     <span className="text-white">{game.settings?.creator || "Server"}</span>
                                 )}

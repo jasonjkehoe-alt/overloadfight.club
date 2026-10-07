@@ -13,6 +13,7 @@ import backfillManager from './backfill.js';
 import maintenance from './maintenance.js';
 import mapSyncService from './services/mapSyncService.js';
 import db from './db.js';
+import { withPageMeta } from './pageMeta.js';
 
 import bridgeRoutes from './bridge-routes.js';
 import { warmupEngine } from './services/audioImportService.js';
@@ -204,6 +205,8 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
     });
 
     app.use(express.static(distPath, {
+        // "/" goes to the page route below like every other page, for its share tags
+        index: false,
         setHeaders: (res, filePath) => {
             // Never cache index.html or version manifest so users get new builds instantly
             if (filePath.endsWith('.html') || filePath.endsWith('version.json')) {
@@ -219,6 +222,9 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
             }
         }
     }));
+    // Every page is index.html with its own <title> and og: tags (server/pageMeta.js).
+    // The file changes only with a deploy, which restarts the server.
+    const indexHtml = fs.readFileSync(path.join(distPath, 'index.html'), 'utf8');
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
@@ -226,7 +232,7 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
-        res.sendFile(path.join(distPath, 'index.html'));
+        res.type('html').send(withPageMeta(indexHtml, `${req.protocol}://${req.get('host')}`, req.originalUrl));
     });
 } else {
     // API Gateway & Status Console for Development

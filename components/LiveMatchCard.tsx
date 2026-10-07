@@ -3,11 +3,11 @@ import { BrowserApiResponse, GameData } from '../types';
 import { apiService } from '../services/apiService';
 import { getMapImage } from '../services/mapService';
 import MatchTimer from './MatchTimer';
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface LiveMatchCardProps {
     server: BrowserApiResponse;
-    onWatch: (server: BrowserApiResponse) => void;
-    onSelectPilot?: (name: string) => void;
 }
 
 interface PlayerState {
@@ -19,7 +19,7 @@ interface PlayerState {
     assists?: number;
 }
 
-const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server, onWatch, onSelectPilot }) => {
+const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
     const [gameData, setGameData] = useState<GameData | null>(null);
     const [players, setPlayers] = useState<Record<string, PlayerState>>({});
 
@@ -127,16 +127,13 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server, onWatch, onSelect
                                     <td className={`py-1 font-bold truncate max-w-[120px] ${p.team === 'BLUE' ? 'text-blue-400' :
                                         p.team === 'ORANGE' ? 'text-orange-400' : 'text-gray-300'
                                         }`}>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onSelectPilot && onSelectPilot(p.name);
-                                            }}
+                                        <Link
+                                            to={urlFor('pilot', p.name)}
                                             className="hover:underline hover:text-[#ff6600] text-left transition-colors truncate max-w-full block"
                                             title={`View ${p.name}'s pilot dossier`}
                                         >
                                             {p.name}
-                                        </button>
+                                        </Link>
                                     </td>
                                     <td className="text-center text-gray-500">{p.kills}</td>
                                     <td className="text-center text-gray-600">{p.deaths}</td>
@@ -177,12 +174,12 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server, onWatch, onSelect
                 </div>
             </div>
 
-            <button
-                onClick={() => onWatch(server)}
-                className="w-full bg-[#1a1a1a] hover:bg-[#ff6600] text-gray-400 hover:text-white text-xs py-2 uppercase font-bold transition-colors border-t border-gray-800"
+            <Link
+                to={urlFor('live-game-detail', serverIp)}
+                className="block text-center w-full bg-[#1a1a1a] hover:bg-[#ff6600] text-gray-400 hover:text-white text-xs py-2 uppercase font-bold transition-colors border-t border-gray-800"
             >
                 Full Screen View
-            </button>
+            </Link>
         </div>
     );
 };

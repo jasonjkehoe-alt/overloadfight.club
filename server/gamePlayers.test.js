@@ -173,6 +173,9 @@ describe('query plans', () => {
             expect(detail).not.toMatch(/SCAN (main\.|cold\.)?games/);
         }
         expect(plan(pilotStatements.firstSeen, { name: 'x' })).toMatch(byName);
+        const summary = plan(pilotStatements.summary, { name: 'x' });
+        expect(summary).toMatch(/SEARCH game_players USING (COVERING )?INDEX idx_game_players_name_date \(name=\?/);
+        expect(summary).toMatch(/SEARCH cold\.game_players USING (COVERING )?INDEX idx_game_players_name_date \(name=\?/);
     });
 
     it('filters the leaderboard by date through the date index', () => {

@@ -1405,6 +1405,16 @@ const getPilotFirstSeen = hotDb.prepare(`
   )
 `);
 
+// A pilot's all-time match count, kills and last game over both files, for the
+// pilot page's share preview; name is the spelling from the latest game.
+const getPilotSummary = hotDb.prepare(`
+  SELECT name, COUNT(DISTINCT game_id) AS games, SUM(net_kills(kills)) AS kills, MAX(date) AS last_date FROM (
+    SELECT game_id, name, date, kills FROM game_players WHERE name = TRIM(@name)
+    UNION ALL
+    SELECT game_id, name, date, kills FROM cold.game_players WHERE name = TRIM(@name)
+  )
+`);
+
 // Hot games in one UTC day; bind utcDayBounds().
 const getGamesInDay = hotDb.prepare(`
   SELECT id, date, details FROM games
@@ -2446,6 +2456,12 @@ VALUES(?, ?, ?, ?, ?)
     }
   },
 
+  // null when the pilot has no games
+  getPilotSummary: (name) => {
+    const row = getPilotSummary.get({ name });
+    return row?.games ? row : null;
+  },
+
   getFightNightRecapByDate: (date) => {
     try {
       const row = hotDb.prepare(`
@@ -2507,6 +2523,7 @@ export const pilotStatements = {
   gamesByPilot: getGamesByPilot,
   countGamesByPilot,
   firstSeen: getPilotFirstSeen,
+  summary: getPilotSummary,
   leaderboard: getPilotStats,
   leaderboardSince: getPilotStatsFiltered
 };

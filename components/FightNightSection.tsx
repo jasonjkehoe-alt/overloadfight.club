@@ -1,23 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { fetchFightNights, FightNightRecap } from '../services/apiService';
 import FightNightRecapCard from './FightNightRecapCard';
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
 import { Flame, Calendar, ChevronRight } from 'lucide-react';
 
 interface FightNightSectionProps {
-    initialDate?: string;
-    onNavigate?: (view: string, param?: string | number) => void;
-    onSelectGame?: (gameId: number) => void;
-    onSelectPilot?: (name: string) => void;
+    // The date in the URL (/fight-night/:date); the latest card when absent.
+    date?: string;
 }
 
-export const FightNightSection: React.FC<FightNightSectionProps> = ({
-    initialDate,
-    onNavigate,
-    onSelectGame,
-    onSelectPilot
-}) => {
+export const FightNightSection: React.FC<FightNightSectionProps> = ({ date }) => {
     const [recaps, setRecaps] = useState<FightNightRecap[]>([]);
-    const [selectedDate, setSelectedDate] = useState<string | null>(initialDate || null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -27,9 +21,6 @@ export const FightNightSection: React.FC<FightNightSectionProps> = ({
             if (!isCurrent) return;
             if (res && res.recaps && res.recaps.length > 0) {
                 setRecaps(res.recaps);
-                if (!selectedDate || !res.recaps.some(r => r.date === selectedDate)) {
-                    setSelectedDate(res.recaps[0].date);
-                }
             } else {
                 setRecaps([]);
             }
@@ -43,13 +34,7 @@ export const FightNightSection: React.FC<FightNightSectionProps> = ({
         return () => { isCurrent = false; };
     }, []);
 
-    useEffect(() => {
-        if (initialDate && recaps.some(r => r.date === initialDate)) {
-            setSelectedDate(initialDate);
-        }
-    }, [initialDate, recaps]);
-
-    const activeRecap = recaps.find(r => r.date === selectedDate) || recaps[0];
+    const activeRecap = recaps.find(r => r.date === date) || recaps[0];
 
     if (loading) {
         return (
@@ -96,11 +81,11 @@ export const FightNightSection: React.FC<FightNightSectionProps> = ({
                         <Calendar size={12} /> Past Cards:
                     </span>
                     {recaps.map(r => {
-                        const isSelected = r.date === selectedDate;
+                        const isSelected = r === activeRecap;
                         return (
-                            <button
+                            <Link
                                 key={r.date}
-                                onClick={() => setSelectedDate(r.date)}
+                                to={urlFor('fight-night', r.date)}
                                 className={`px-2.5 py-1 text-xs font-mono rounded whitespace-nowrap transition-colors ${
                                     isSelected
                                         ? 'bg-[#ff6600] text-black font-bold shadow'
@@ -108,7 +93,7 @@ export const FightNightSection: React.FC<FightNightSectionProps> = ({
                                 }`}
                             >
                                 {r.date}
-                            </button>
+                            </Link>
                         );
                     })}
                 </div>
@@ -116,12 +101,7 @@ export const FightNightSection: React.FC<FightNightSectionProps> = ({
 
             {/* Poster Card */}
             {activeRecap && (
-                <FightNightRecapCard
-                    recap={activeRecap}
-                    onNavigate={onNavigate}
-                    onSelectGame={onSelectGame}
-                    onSelectPilot={onSelectPilot}
-                />
+                <FightNightRecapCard recap={activeRecap} />
             )}
         </div>
     );

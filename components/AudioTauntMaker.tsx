@@ -5,13 +5,14 @@ import { OverloadVault, GameTauntItem } from './OverloadVault';
 import { LoadoutManager, PendingSlotAssignment } from './LoadoutManager';
 import { AudioManual } from './AudioManual';
 import { ErrorBoundary } from './ErrorBoundary';
+import { useQueryParam } from '../hooks/useLocation';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
-interface AudioTauntMakerProps {
-    onNavigate?: (view: string, param?: any) => void;
-}
+type TauntTab = 'editor' | 'vault' | 'loadout' | 'manual';
 
-export const AudioTauntMaker: React.FC<AudioTauntMakerProps> = ({ onNavigate }) => {
-    const [activeTab, setActiveTab] = useState<'editor' | 'vault' | 'loadout' | 'manual'>('vault');
+export const AudioTauntMaker: React.FC = () => {
+    const [tabParam, setActiveTab] = useQueryParam('tab', 'vault');
+    const activeTab = (['editor', 'vault', 'loadout', 'manual'].includes(tabParam) ? tabParam : 'vault') as TauntTab;
     const [editorFile, setEditorFile] = useState<File | null>(null);
     const [pendingSlotAssignment, setPendingSlotAssignment] = useState<PendingSlotAssignment | null>(null);
     // The editor loads the 30 MB ffmpeg core on mount, so mount it the first time its
@@ -52,7 +53,7 @@ export const AudioTauntMaker: React.FC<AudioTauntMakerProps> = ({ onNavigate }) 
                         <OverloadVault 
                             onLoadIntoEditor={handleLoadIntoEditor}
                             onEquipToSlot={handleEquipFromVault}
-                            onNavigateSettings={onNavigate ? () => onNavigate('pilot-manager') : undefined}
+                            settingsUrl={urlFor('pilot-manager')}
                         />
                     </div>
                     <div className={activeTab === 'loadout' ? 'block' : 'hidden'}>

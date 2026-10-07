@@ -1,20 +1,20 @@
 
 import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface ServerStatsProps {
     activeGames?: BrowserApiResponse[] | null;
     archivedGames?: GameData[] | null;
-    onNavigate: (view: string, param?: string) => void;
     globalStats?: any;
 }
 
 interface ServerMapCardProps {
     activeGames?: BrowserApiResponse[] | null;
-    onSelectLiveGame?: (server: BrowserApiResponse) => void;
 }
 
-const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames, onSelectLiveGame }) => {
+const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
     const [userExpandedMap, setUserExpandedMap] = useState(false);
 
     const totalActivePlayers = useMemo(() => {
@@ -119,11 +119,8 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames, onSelectLive
                             const color = isActive ? '#22c55e' : isLobby ? '#eab308' : '#4b5563';
 
                             return (
-                                <g
-                                    key={s.server.ip}
-                                    className={`group ${onSelectLiveGame ? 'cursor-pointer' : ''}`}
-                                    onClick={() => onSelectLiveGame && onSelectLiveGame(s)}
-                                >
+                                <Link key={s.server.ip} to={urlFor('live-game-detail', s.server.ip)}>
+                                <g className="group cursor-pointer">
                                     {isActive && (
                                         <circle cx={x} cy={y} r="1" fill="none" stroke={color} strokeWidth="0.5" opacity="0.5">
                                             <animate attributeName="r" from="1" to="8" dur="2s" repeatCount="indefinite" />
@@ -140,6 +137,7 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames, onSelectLive
                                         </div>
                                     </foreignObject>
                                 </g>
+                                </Link>
                             );
                         })}
                     </svg>
@@ -155,7 +153,7 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames, onSelectLive
     );
 };
 
-const ServerStats: React.FC<ServerStatsProps & { onSelectLiveGame?: (server: BrowserApiResponse) => void }> = ({ activeGames, archivedGames, onNavigate, onSelectLiveGame, globalStats }) => {
+const ServerStats: React.FC<ServerStatsProps> = ({ activeGames, archivedGames, globalStats }) => {
     const stats = useMemo(() => {
         if (!activeGames || !archivedGames) return null;
 
@@ -173,18 +171,18 @@ const ServerStats: React.FC<ServerStatsProps & { onSelectLiveGame?: (server: Bro
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Total Pop */}
-            <div
-                onClick={() => onNavigate('pilots')}
+            <Link
+                to={urlFor('pilots')}
                 className="bg-[#111] border border-gray-800 p-4 rounded flex flex-col justify-center items-center relative overflow-hidden group cursor-pointer hover:border-[#ff6600] transition-colors"
             >
                 <div className="absolute inset-0 bg-gradient-to-t from-[#ff6600]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest z-10">Pilots Online</h3>
                 <div className="text-5xl font-bold text-white z-10 mt-2 group-hover:text-[#ff6600] transition-colors">{stats.totalPlayers}</div>
                 <div className="text-xs text-[#ff6600] z-10 mt-1 font-mono">Active across {activeGames?.length || 0} servers</div>
-            </div>
+            </Link>
 
             {/* World Map - Adaptive */}
-            <ServerMapCard activeGames={activeGames} onSelectLiveGame={onSelectLiveGame} />
+            <ServerMapCard activeGames={activeGames} />
 
             {/* Map Pop */}
             <div className="bg-[#111] border border-gray-800 p-4 rounded flex flex-col justify-between">
@@ -192,15 +190,15 @@ const ServerStats: React.FC<ServerStatsProps & { onSelectLiveGame?: (server: Bro
                     <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-3">Top Maps</h3>
                     <div className="space-y-2">
                         {stats.topMaps.slice(0, 5).map((map: any, i: number) => (
-                            <div
+                            <Link
                                 key={map.name}
-                                onClick={() => onNavigate('maps', map.name)}
+                                to={urlFor('maps', map.name)}
                                 className="flex items-center gap-2 text-xs cursor-pointer group"
                             >
                                 <div className="w-4 text-gray-600 font-mono">{i + 1}</div>
                                 <div className="flex-1 text-gray-300 truncate group-hover:text-[#ff6600] transition-colors">{map.name}</div>
                                 <div className="text-[#ff6600] font-mono">{map.value}</div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </div>

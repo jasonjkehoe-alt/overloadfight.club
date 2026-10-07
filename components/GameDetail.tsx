@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { GameData } from '../types';
 import ScoreChart from './ScoreChart';
 import DamageMatrix from './DamageMatrix';
@@ -9,6 +9,11 @@ import { getMapImage } from '../services/mapService';
 // The server's rules, so this page shows the result and length the stats count.
 import { winnerOf, durationOf, measuredDurationOf } from '../server/lib/gameParse.js';
 import { resultLine } from '../utils/matchResult';
+import Link from './Link';
+import { useQueryParam } from '../hooks/useLocation';
+import { urlFor } from '../server/lib/siteRoutes.js';
+
+const TABS = ['overview', 'deep-dive', 'damage', 'timeline', 'analysis'];
 
 const teamColor = (team?: string | null) =>
     team === 'BLUE' ? 'text-blue-400' : team === 'ORANGE' ? 'text-orange-400' : 'text-white';
@@ -18,11 +23,11 @@ const PODIUM = [['1st', 'text-yellow-400'], ['2nd', 'text-gray-300'], ['3rd', 't
 interface GameDetailProps {
     game: GameData;
     onBack: () => void;
-    onNavigate?: (view: string, param?: string) => void;
 }
 
-const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'deep-dive' | 'damage' | 'timeline' | 'analysis'>('overview');
+const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
+    const [tabParam, setActiveTab] = useQueryParam('tab', 'overview');
+    const activeTab = TABS.includes(tabParam) ? tabParam : 'overview';
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(Math.abs(seconds) / 60);
@@ -123,7 +128,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                 onClick={onBack}
                 className="mb-4 flex items-center text-gray-500 hover:text-[#ff6600] transition-colors font-mono text-sm"
             >
-                <span className="mr-1">&lt;</span> RETURN TO DASHBOARD
+                <span className="mr-1">&lt;</span> BACK
             </button>
 
             {/* Game Header */}
@@ -196,12 +201,12 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                             {result.ranking.slice(0, 3).map((r, i) => (
                                 <li key={r.side} className="flex flex-col items-center min-w-[72px]">
                                     <span className={`text-xs font-bold ${PODIUM[i][1]}`}>{PODIUM[i][0]}</span>
-                                    <button
-                                        onClick={() => onNavigate && onNavigate('pilot', r.name)}
+                                    <Link
+                                        to={urlFor('pilot', r.name)}
                                         className="text-white font-bold hover:text-[#ff6600] hover:underline truncate max-w-[140px]"
                                     >
                                         {r.name}
-                                    </button>
+                                    </Link>
                                     <span className="text-gray-400 text-xs">{r.score}</span>
                                 </li>
                             ))}
@@ -212,10 +217,10 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
 
             {/* Navigation Tabs */}
             <div className="flex border-b border-gray-800 mb-6 font-mono overflow-x-auto">
-                {['overview', 'deep-dive', 'damage', 'timeline', 'analysis'].map((tab) => (
+                {TABS.map((tab) => (
                     <button
                         key={tab}
-                        onClick={() => setActiveTab(tab as any)}
+                        onClick={() => setActiveTab(tab)}
                         className={`px-6 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === tab
                                 ? 'border-[#ff6600] text-[#ff6600] bg-[#ff6600]/5'
                                 : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-700'
@@ -248,13 +253,13 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                                          <tr key={p.name} className="hover:bg-[#1a1a1a] transition-colors">
                                              <td className="p-4 font-bold text-white flex items-center gap-3">
                                                  <span className="text-gray-600 w-4">{idx + 1}</span>
-                                                 <button
-                                                     onClick={() => onNavigate && onNavigate('pilot', p.name)}
+                                                 <Link
+                                                     to={urlFor('pilot', p.name)}
                                                      className={`hover:underline hover:text-[#ff6600] transition-colors text-left font-bold ${teamColor(p.team)}`}
                                                      title={`View ${p.name}'s pilot dossier`}
                                                  >
                                                      {p.name}
-                                                 </button>
+                                                 </Link>
                                              </td>
                                              <td className="p-4 text-right text-lg">{p.kills}</td>
                                              <td className="p-4 text-right text-gray-400">{p.assists}</td>
@@ -283,7 +288,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                 )}
 
                 {activeTab === 'deep-dive' && <MatchAnalysis game={game} />}
-                {activeTab === 'damage' && <DamageMatrix game={game} onNavigate={onNavigate} />}
+                {activeTab === 'damage' && <DamageMatrix game={game} />}
                 {activeTab === 'timeline' && renderTimeline()}
                 {activeTab === 'analysis' && <Analysis game={game} />}
             </div>

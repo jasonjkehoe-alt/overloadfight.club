@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { GameData } from '../types';
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface DamageMatrixProps {
   game: GameData;
-  onNavigate?: (view: string, param?: string) => void;
 }
 
-const DamageMatrix: React.FC<DamageMatrixProps> = ({ game, onNavigate }) => {
+const DamageMatrix: React.FC<DamageMatrixProps> = ({ game }) => {
   if (!game.players || !game.damage) return <div>No damage data available.</div>;
 
   const sortedPlayers = [...game.players].sort((a, b) => a.name.localeCompare(b.name));
@@ -28,13 +29,13 @@ const DamageMatrix: React.FC<DamageMatrixProps> = ({ game, onNavigate }) => {
             <th className="p-2 text-left text-[#ff6600] border-b border-r border-gray-800 sticky left-0 bg-[#111] z-10">Attacker \ Defender</th>
             {sortedPlayers.map(p => (
               <th key={p.name} className="p-2 border-b border-gray-800 min-w-[80px] text-center">
-                <button
-                  onClick={() => onNavigate && onNavigate('pilot', p.name)}
+                <Link
+                  to={urlFor('pilot', p.name)}
                   className="truncate w-20 mx-auto hover:text-[#ff6600] hover:underline transition-colors block"
                   title={`View ${p.name}'s pilot dossier`}
                 >
                   {p.name}
-                </button>
+                </Link>
               </th>
             ))}
             <th className="p-2 border-b border-l border-gray-800 text-white font-bold">Total Dealt</th>
@@ -46,13 +47,13 @@ const DamageMatrix: React.FC<DamageMatrixProps> = ({ game, onNavigate }) => {
             return (
               <tr key={attacker.name} className="hover:bg-[#1a1a1a]">
                 <td className="p-2 border-r border-b border-gray-800 font-medium text-white sticky left-0 bg-[#111] z-10">
-                  <button
-                    onClick={() => onNavigate && onNavigate('pilot', attacker.name)}
+                  <Link
+                    to={urlFor('pilot', attacker.name)}
                     className="hover:text-[#ff6600] hover:underline transition-colors text-left"
                     title={`View ${attacker.name}'s pilot dossier`}
                   >
                     {attacker.name}
-                  </button>
+                  </Link>
                 </td>
                 {sortedPlayers.map(defender => {
                   const dmg = getDamage(attacker.name, defender.name);

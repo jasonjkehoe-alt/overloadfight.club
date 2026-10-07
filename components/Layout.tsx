@@ -1,15 +1,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, History, Users, Database, Map as MapIcon, Settings, Link as LinkIcon, Menu, X } from 'lucide-react';
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentView: string;
-  onNavigate: (view: string) => void;
   showColdStorage?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, showColdStorage }) => {
+const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage }) => {
   const [activePilotCount, setActivePilotCount] = useState<number>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -31,10 +32,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
     return () => clearInterval(interval);
   }, []);
 
-  const handleNavClick = (view: string) => {
-    onNavigate(view);
-    setIsMobileMenuOpen(false);
-  };
+  const closeMenu = () => setIsMobileMenuOpen(false);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -42,7 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
       <header className="bg-black border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center cursor-pointer" onClick={() => handleNavClick('dashboard')}>
+            <Link to={urlFor('dashboard')} onClick={closeMenu} className="flex items-center">
               <div className="flex-shrink-0 flex items-center gap-2">
                 <div className="w-8 h-8 bg-[#ff6600] rounded-sm flex items-center justify-center transform rotate-45">
                   <div className="w-4 h-4 bg-black transform -rotate-45"></div>
@@ -51,74 +49,83 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
                   overloadfight<span className="text-white">.club</span>
                 </h1>
               </div>
-            </div>
+            </Link>
 
             {/* Desktop Nav */}
             <div className="hidden xl:flex items-center gap-6">
-              <div
-                onClick={() => handleNavClick('pilots')}
+              <Link
+                to={urlFor('pilots')}
                 className="flex items-center gap-2 text-xs font-mono bg-[#1a1a1a] border border-gray-800 px-3 py-1 rounded-full cursor-pointer hover:border-[#ff6600] hover:text-white transition-colors group"
               >
                 <Users size={12} className="text-[#ff6600]" />
                 <span className="text-white font-bold group-hover:text-[#ff6600] transition-colors">{activePilotCount}</span>
                 <span className="text-gray-500 group-hover:text-gray-300 transition-colors">ACTIVE PILOTS</span>
-              </div>
+              </Link>
               <nav className="flex space-x-4">
-                <button
-                  onClick={() => handleNavClick('dashboard')}
+                <Link
+                  to={urlFor('dashboard')}
+                  onClick={closeMenu}
                   className={`${currentView === 'dashboard' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   Live
-                </button>
-                <button
-                  onClick={() => handleNavClick('fight-night')}
+                </Link>
+                <Link
+                  to={urlFor('fight-night')}
+                  onClick={closeMenu}
                   className={`${currentView === 'fight-night' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap`}
                 >
                   Fight Night
-                </button>
-                <button
-                  onClick={() => handleNavClick('pilots')}
+                </Link>
+                <Link
+                  to={urlFor('pilots')}
+                  onClick={closeMenu}
                   className={`${currentView === 'pilots' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   Leaderboards
-                </button>
-                <button
-                  onClick={() => handleNavClick('maps')}
+                </Link>
+                <Link
+                  to={urlFor('maps')}
+                  onClick={closeMenu}
                   className={`${currentView === 'maps' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   Maps
-                </button>
-                <button
-                  onClick={() => handleNavClick('taunts')}
+                </Link>
+                <Link
+                  to={urlFor('taunts')}
+                  onClick={closeMenu}
                   className={`${currentView === 'taunts' || currentView === 'tools' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   Taunts
-                </button>
-                <button
-                  onClick={() => handleNavClick('pilot-manager')}
+                </Link>
+                <Link
+                  to={urlFor('pilot-manager')}
+                  onClick={closeMenu}
                   className={`${currentView === 'pilot-manager' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   Pilot
-                </button>
-                <button
-                  onClick={() => handleNavClick('olmod')}
+                </Link>
+                <Link
+                  to={urlFor('olmod')}
+                  onClick={closeMenu}
                   className={`${currentView === 'olmod' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   OLMod
-                </button>
-                <button
-                  onClick={() => handleNavClick('resources')}
+                </Link>
+                <Link
+                  to={urlFor('resources')}
+                  onClick={closeMenu}
                   className={`${currentView === 'resources' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5`}
                 >
                   <LinkIcon className="w-3.5 h-3.5" />
                   Resources
-                </button>
-                <button
-                  onClick={() => handleNavClick('cold-storage')}
+                </Link>
+                <Link
+                  to={urlFor('cold-storage')}
+                  onClick={closeMenu}
                   className={`${currentView === 'cold-storage' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   Archive
-                </button>
+                </Link>
               </nav>
             </div>
 
@@ -138,60 +145,69 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
         {isMobileMenuOpen && (
           <div className="xl:hidden bg-[#111] border-b border-gray-800">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              <button
-                onClick={() => handleNavClick('dashboard')}
+              <Link
+                to={urlFor('dashboard')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'dashboard' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Live
-              </button>
-              <button
-                onClick={() => handleNavClick('fight-night')}
+              </Link>
+              <Link
+                to={urlFor('fight-night')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'fight-night' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Fight Night
-              </button>
-              <button
-                onClick={() => handleNavClick('pilots')}
+              </Link>
+              <Link
+                to={urlFor('pilots')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'pilots' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Leaderboards
-              </button>
-              <button
-                onClick={() => handleNavClick('maps')}
+              </Link>
+              <Link
+                to={urlFor('maps')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'maps' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Maps
-              </button>
-              <button
-                onClick={() => handleNavClick('taunts')}
+              </Link>
+              <Link
+                to={urlFor('taunts')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'taunts' || currentView === 'tools' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Taunts
-              </button>
-              <button
-                onClick={() => handleNavClick('pilot-manager')}
+              </Link>
+              <Link
+                to={urlFor('pilot-manager')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'pilot-manager' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Pilot
-              </button>
-              <button
-                onClick={() => handleNavClick('olmod')}
+              </Link>
+              <Link
+                to={urlFor('olmod')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'olmod' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 OLMod
-              </button>
-              <button
-                onClick={() => handleNavClick('resources')}
+              </Link>
+              <Link
+                to={urlFor('resources')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'resources' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Resources
-              </button>
-              <button
-                onClick={() => handleNavClick('cold-storage')}
+              </Link>
+              <Link
+                to={urlFor('cold-storage')}
+                onClick={closeMenu}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'cold-storage' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Archive
-              </button>
+              </Link>
             </div>
           </div>
         )}
@@ -210,9 +226,9 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
           <p className="text-sm text-gray-500">
             &copy; {new Date().getFullYear()} overloadfight.club. Community built. Not affiliated with Revival Productions.
           </p>
-          <button onClick={() => onNavigate('admin')} className="text-xs text-gray-800 hover:text-gray-600 transition-colors">
+          <Link to={urlFor('admin')} className="text-xs text-gray-800 hover:text-gray-600 transition-colors">
             ADMIN
-          </button>
+          </Link>
         </div>
       </footer>
     </div>

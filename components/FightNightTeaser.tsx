@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchFightNights, FightNightRecap } from '../services/apiService';
-
-interface FightNightTeaserProps {
-    onNavigate: (view: string, param?: string) => void;
-}
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 // One request per page load: switching tabs or coming back to the dashboard
 // reuses it. A failed request is dropped so the next mount tries again.
@@ -11,7 +9,7 @@ let latest: ReturnType<typeof fetchFightNights> | undefined;
 
 // One line on the dashboard pointing at the latest fight-night card. Renders
 // nothing until a recap exists; the full card lives on the Fight Night page.
-const FightNightTeaser: React.FC<FightNightTeaserProps> = ({ onNavigate }) => {
+const FightNightTeaser: React.FC = () => {
     const [recap, setRecap] = useState<FightNightRecap | null>(null);
 
     useEffect(() => {
@@ -27,8 +25,8 @@ const FightNightTeaser: React.FC<FightNightTeaserProps> = ({ onNavigate }) => {
     if (!recap) return null;
 
     return (
-        <button
-            onClick={() => onNavigate('fight-night', recap.date)}
+        <Link
+            to={urlFor('fight-night', recap.date)}
             className="w-full flex items-center gap-3 bg-[#111114] border border-gray-800 hover:border-[#ff6600] px-4 py-3 rounded-lg text-left font-mono text-xs transition-colors group"
         >
             <span className="text-base">🥊</span>
@@ -38,7 +36,7 @@ const FightNightTeaser: React.FC<FightNightTeaserProps> = ({ onNavigate }) => {
                 {recap.topFragger?.name && <>, top fragger {recap.topFragger.name} ({recap.topFragger.kills})</>}
             </span>
             <span className="ml-auto text-[#ff6600] whitespace-nowrap group-hover:underline">Full card &rarr;</span>
-        </button>
+        </Link>
     );
 };
 
