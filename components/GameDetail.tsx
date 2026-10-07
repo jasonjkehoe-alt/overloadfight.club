@@ -124,7 +124,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
     };
 
     return (
-        <div >
+        <div>
             <button
                 onClick={onBack}
                 className="mb-4 flex items-center text-gray-500 hover:text-brand transition-colors font-mono text-sm"

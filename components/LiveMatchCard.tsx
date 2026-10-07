@@ -144,7 +144,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
                         ) : (
                             <tr>
                                 <td colSpan={4}>
-                                    {!gameData && server.game?.currentPlayers ? (
+                                    {server.game?.currentPlayers ? (
                                         <Loading compact label={`Scanning ${server.game.currentPlayers} active pilots...`} />
                                     ) : (
                                         <EmptyState compact title="Waiting for players..." />
