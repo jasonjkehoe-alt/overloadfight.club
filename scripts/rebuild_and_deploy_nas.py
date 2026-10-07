@@ -150,6 +150,11 @@ def main():
     db_grep = stdout.read().decode('utf-8', errors='replace').strip()
     print(f"Verified upsertGameCold in server/db.js on NAS:\n{db_grep}")
 
+    # Verify MatchReplay component on NAS
+    stdin, stdout, stderr = client.exec_command(f"grep -n 'MatchReplay' {nas_dir}/components/GameDetail.tsx")
+    mr_grep = stdout.read().decode('utf-8', errors='replace').strip()
+    print(f"Verified MatchReplay in GameDetail.tsx on NAS:\n{mr_grep}")
+
     # 3. Rebuild Docker image
     no_cache_flag = "--no-cache" if "--no-cache" in sys.argv else ""
     print(f"\n--- Step 3: Rebuilding Docker image ({no_cache_flag or 'with layer caching'}) ---")

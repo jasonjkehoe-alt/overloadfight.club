@@ -278,6 +278,82 @@ router.get('/game/:id', async (req, res) => {
     }
 });
 
+// GET /api/match/:id/kills & /api/game/:id/kills - Normalized kill feed for Tactical Replay
+const getMatchKillsHandler = async (req, res) => {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: "Invalid match ID" });
+
+    try {
+        let game = null;
+        const cacheKey = `game_${id}`;
+        const cachedGame = await cacheService.get(cacheKey);
+        if (cachedGame) {
+            game = cachedGame;
+        } else {
+            const row = db.getGameById.get(id);
+            if (row) {
+                game = JSON.parse(row.details);
+            }
+        }
+
+        // If not found or summary without kills, attempt upstream fetch if numeric ID
+        const hasKills = game && Array.isArray(game.kills) && game.kills.length > 0;
+        if (!hasKills && !isNaN(id)) {
+            try {
+                const response = await axios.get(`https://tracker.otl.gg/api/game/${id}`, { timeout: 4000 });
+                if (response.data) {
+                    game = response.data;
+                    const row = db.getGameById.get(id);
+                    if (row) {
+                        db.updateGameDetails(game);
+                    } else {
+                        db.saveGames([game]);
+                    }
+                    await cacheService.set(cacheKey, game, 3600);
+                }
+            } catch (err) {
+                // Ignore upstream fetch error, proceed with whatever we have
+            }
+        }
+
+        if (!game) {
+            return res.status(404).json({ error: "Match not found" });
+        }
+
+        let rawKills = game.kills || [];
+        if (!rawKills.length && game.events && Array.isArray(game.events)) {
+            rawKills = game.events.filter(e => e.type === 'Kill').map(e => ({
+                time: e.time,
+                attacker: e.attacker || e.player,
+                defender: e.defender,
+                weapon: e.weapon
+            }));
+        }
+
+        const kills = rawKills.map(k => {
+            const killer = k.attacker || k.killer || '';
+            const victim = k.defender || k.victim || '';
+            const weapon = k.weapon || 'Unknown';
+            const suicide = Boolean((killer && victim && killer === victim) || weapon === 'Suicide' || weapon === 'Self-Destruct' || !killer);
+            return {
+                t: typeof k.time === 'number' ? k.time : (parseFloat(k.time) || 0),
+                killer,
+                victim,
+                weapon,
+                suicide
+            };
+        }).sort((a, b) => a.t - b.t);
+
+        return res.json(kills);
+    } catch (e) {
+        console.error(`Error fetching kills for match ${id}:`, e.message);
+        return res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+router.get('/match/:id/kills', getMatchKillsHandler);
+router.get('/game/:id/kills', getMatchKillsHandler);
+
 // GET /api/browser - Proxy for live server browser with 15s caching
 router.get('/browser', async (req, res) => {
     try {

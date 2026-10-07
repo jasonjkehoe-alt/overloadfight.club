@@ -6,6 +6,7 @@ import DamageMatrix from './DamageMatrix';
 import Analysis from './Analysis';
 import MatchAnalysis from './MatchAnalysis';
 import { EmptyState } from './States';
+import MatchReplay from './MatchReplay';
 import { getMapImage } from '../services/mapService';
 // The server's rules, so this page shows the result and length the stats count.
 import { winnerOf, durationOf, measuredDurationOf } from '../server/lib/gameParse.js';
@@ -284,13 +285,19 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
                                  </tbody>
                             </table>
                         </div>
+                        <MatchReplay game={game} mapImage={mapImage} />
                         <ScoreChart game={game} />
                     </>
                 )}
 
                 {activeTab === 'deep-dive' && <MatchAnalysis game={game} />}
                 {activeTab === 'damage' && <DamageMatrix game={game} />}
-                {activeTab === 'timeline' && renderTimeline()}
+                {activeTab === 'timeline' && (
+                    <div className="space-y-6">
+                        <MatchReplay game={game} mapImage={mapImage} />
+                        {renderTimeline()}
+                    </div>
+                )}
                 {activeTab === 'analysis' && <Analysis game={game} />}
             </div>
         </div>
