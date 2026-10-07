@@ -55,10 +55,15 @@ S4 to S8 are merged into `main` (PRs #4 to #8, merged in order on
 commits after it.
 
 S9 is merged into `main` (PR #9, squash-merged 2026-10-07 19:50 UTC as
-`ae050c4`); `main` is at `ae050c4` with no owner commits after it.
+`ae050c4`). During S10 the owner pushed three commits straight to
+`main`: `95196e7` (Tactical Replay v3, a 1,970-line
+`components/MatchReplay.tsx` on the match page's overview and timeline
+tabs), `887934e` (stats caches refresh after a backfill, an admin
+refresh button, a startup freshness check) and `45cb57b` (awaits those
+refreshes). `main` is at `45cb57b`.
 
-S10 is on branch `ofc/s10-glossary-a11y-mobile`, based on `ae050c4`, PR
-#10 open against `main` and not merged, 2026-10-07 UTC.
+S10 is on branch `ofc/s10-glossary-a11y-mobile`, rebased onto
+`45cb57b`, PR #10 open against `main` and not merged, 2026-10-07 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -72,7 +77,28 @@ descends from `10223be`. The local docs branch
 Counts: 10 of 28 sessions done (S1 to S9 merged, PR for S10 open).
 Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S9 merged into `main`, `main` at ae050c4, S10 on `ofc/s10-glossary-a11y-mobile`)
+## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S9 merged into `main`, `main` at 45cb57b, S10 on `ofc/s10-glossary-a11y-mobile`)
+
+- S10, after rebasing onto the owner's `45cb57b`: no conflicts. The
+  glossary script found the replay's new strings (six "frag", the
+  "OVERLOAD ARENA" fallback) and one "cold storage" on the admin page;
+  all now use the S10 words, and the grep is 0 again. The replay has no
+  table and no clickable non-control. `npx vitest run` passes 13 files,
+  122 tests (the owner's commits add `server/match-replay.test.js` and
+  tests in four files). `npx tsc --noEmit` exits 0; the entry is
+  still 230.93 KB raw / 73.74 KB gzip (the replay is in the match
+  page's chunk), CSS 85.25 KB / 13.60 KB gzip. All 81 browser checks
+  below were run again on the rebased build against a restarted
+  server: 80 passed at once. The Combat Ratio check failed (leaderboard
+  and profile 0.78, cache 0.76): the owner's new startup check had
+  refreshed the cache (WD-40 from 21 to 23 matches), but
+  `/api/stats/pilots?source=all` kept answering the old row for more
+  than nine minutes while `/ppi` and the database file had the new one
+  (flagged). After another restart the leaderboard, the profile and
+  the cache all read 0.76 and 1.15, and the check passed. Server on the
+  rebased code: `/api/health` ok, `/api/stats/global` `total_games:
+  30`, `/api/stats/pilots` 21 pilots (top WD-40, 23 games),
+  `/api/pilot/WD-40/stats` 23 games and 380 kills.
 
 - S10, first move on Node 22.17.0, on `main` at `ae050c4` (PR #9
   merged): `npx vitest run` passed 12 files, 107 tests. `npx vite
@@ -942,7 +968,7 @@ Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 12 files, 109 tests pass (S10) | 2026-10-07 |
+| `npx vitest run` | all pass | 13 files, 122 tests pass (S10, after the rebase onto the owner's `45cb57b`) | 2026-10-07 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.93 KB raw / 73.74 KB gzip (S10; 73.64 KB at S10's start, one 351.07 KB chunk before S4) | 2026-10-07 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S10) | 2026-10-07 |
@@ -1773,6 +1799,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
     (a setting).
   - server: old words node ("Active Nodes", "Dedicated Node"), relay,
     uplink ("Establishing uplink").
+  - The replay's full-screen "theater" mode is a video-player word,
+    not a map, and stays.
   - archive: only the `/archive` page, every stored match of every
     year. `/history` is "Match History", the list of the last 365 days,
     and is never called an archive ("Historical Archive", "Fetching
@@ -2252,10 +2280,19 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S10) Before the first stats refresh fills `pilot_stats_cache`, the
   roster's Lethality column shows `—` (the fallback totals have no match
   time) and Combat Ratio comes from `combatRatio()` on the totals. The
-  cache also lags new games until the scheduled refresh (WD-40: 21
-  games in the cache, 23 in telemetry locally); the leaderboard and the
-  profile's career cards read the same cache, so they agree with each
-  other.
+  cache also lags new games until a refresh (WD-40: 21 games in the
+  cache, 23 in telemetry, until the owner's startup check refreshed
+  it); the leaderboard and the profile's career cards read the same
+  cache, so they agree with each other.
+- (S10) Seen once, cause not found: on the server start where the
+  owner's startup check refreshed `pilot_stats_cache` (`887934e`),
+  `/api/stats/pilots?source=all` answered WD-40's pre-refresh row (21
+  matches, Combat Ratio 0.78) for more than nine minutes, past its
+  5-minute route cache, while `/api/pilot/WD-40/ppi` and the database
+  file (read with `sqlite3` and a separate better-sqlite3 connection)
+  had the new row (23, 0.76). A restart with the cache already current
+  answered the new row. Worth a look in S11, which splits `db.js`: a
+  read held open on the hot connection would explain it.
 - (S10) K/D still has several copies: `getPilotTelemetry`, the stats
   worker, the startup repair SQL in `db.js` (which also repeats Combat
   Ratio), and client fallbacks that divide by `Math.max(1, deaths)`
@@ -2274,6 +2311,13 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   not `role="tablist"`. Not on S10's Done-when list.
 - (S10) The live page's dead OFFLINE branch says "This server is
   currently not hosting a match." twice in a row (older than S10).
+- (S10) The owner's `MatchReplay.tsx` (pushed during S10) sits on the
+  match page, which S9 migrated, but uses hex classes (`#ff6600`) and
+  `text-[10px]`. Its window-level keyboard shortcuts call
+  `preventDefault` on Space while the replay is open, so Space no
+  longer presses a focused button or scrolls the page then. Its full-
+  screen "theater" mode is a fixed overlay without `role="dialog"` or a
+  focus trap; Escape collapses the replay. S10 changed only its words.
 
 ## Rollback
 
@@ -2648,8 +2692,11 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   `page` inside `setQueryParams` (it would reset the archive's pager on
   a tab change), the archive's pager on `Pager`, one `SortHeader`
   adapter, hint constants for win rate and suicides, a `Dialog`
-  wrapper, and K/D copies (flagged). PR #10 opened against `main`, not
-  merged.
+  wrapper, and K/D copies (flagged). Before pushing, `origin/main` had
+  three new owner commits (the replay and stats refreshes); the branch
+  rebased onto them cleanly, the replay's new strings got the S10
+  words, and the checks ran again on the rebased build. PR #10 opened
+  against `main`, not merged.
 
 ## Next session prompt
 
@@ -2672,7 +2719,7 @@ Set up:
     git checkout -B ofc/s11-split-giants origin/ofc/s10-glossary-a11y-mobile
     and open the S11 PR against main anyway; say in its description that it sits on PR #10.
   Check again before opening the PR: if PR #10 merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6). If origin/main has commits PR #10 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e and 45cb57b during S10). If origin/main has commits PR #10 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
@@ -2680,7 +2727,7 @@ If neither origin/main nor origin/ofc/s10-glossary-a11y-mobile has docs/ROADMAP.
 
 Read first:
 - docs/ROADMAP.md, the S11 entry and its Done-when list. That list is the scope. Also "Canonical contract", the decisions on db.js (S3's named `db` object, S4's WAL and refresh, S5's game_players, migration, worker and cold move, S6's backups and shutdown), the S8 link pattern, the S10 entries (useDialog in WebImportModal and PilotSettingsPanel, LinkCell, the focus and tap rules, usePage and the setter's second argument, combatRatio and lethality), every "Flagged, not fixed" item that names S11, db.js, routes.js, dead code, overloadBridge.js, apiService or the four components (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
-- server/db.js (2,520 lines at S10), server/routes.js (964), server/index.js, server/lib/statsPasses.js, server/statsWorker.js, services/apiService.ts, and the four components: PilotSettingsPanel.tsx (2,119), AudioEditor.tsx (1,353), WebImportModal.tsx (1,332), AdminPanel.tsx (919, imports axios). Re-count with wc -l before quoting any.
+- server/db.js (2,520 lines at S10), server/routes.js (964), server/index.js, server/lib/statsPasses.js, server/statsWorker.js, services/apiService.ts, and the four components: PilotSettingsPanel.tsx (2,119), AudioEditor.tsx (1,353), WebImportModal.tsx (1,332), AdminPanel.tsx (919 at S10's start, more after the owner's 887934e; imports axios). Re-count with wc -l before quoting any. components/MatchReplay.tsx (1,970 lines, pushed by the owner during S10) is not on the Done-when list; flag it, do not split it, unless I say otherwise.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour (an export list, a circular import) from a script run by `node`.
@@ -2710,6 +2757,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S10 left 12 files, 109 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.74 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then record what must not change: from a script run by `node`, the sorted export names of server/db.js (and the keys of its `db` object); the route list (method and path) that server/index.js mounts; `wc -l` of the six files; and the JSON of `/api/stats/global`, `/api/stats/pilots?source=all`, `/api/pilot/WD-40/stats`, `/api/pilot/WD-40/ppi` and `/api/games?page=1` from the running server.
+First move: run `npx vitest run` (S10 left 13 files, 122 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.74 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then record what must not change: from a script run by `node`, the sorted export names of server/db.js (and the keys of its `db` object); the route list (method and path) that server/index.js mounts; `wc -l` of the six files; and the JSON of `/api/stats/global`, `/api/stats/pilots?source=all`, `/api/pilot/WD-40/stats`, `/api/pilot/WD-40/ppi` and `/api/games?page=1` from the running server.
 Done when: every item in the S11 Done-when list is true (db.js split into connection, migrations, repos and analytics modules with the same export names and `db` keys as before, shown by the node script; routes.js one file per resource with the same route list; PilotSettingsPanel, AudioEditor, WebImportModal and AdminPanel each under 500 lines by wc -l with hooks extracted; no axios import in AdminPanel), the five API answers are byte-identical before and after on the same data dir (or every difference explained), the taunt tools, pilot settings and admin page (mocked session) work in headless Chrome (S10's dialog checks still pass, the editor's Create tab loads, admin stats load), `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S11 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```

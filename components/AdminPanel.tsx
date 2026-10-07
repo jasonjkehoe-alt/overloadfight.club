@@ -633,7 +633,7 @@ const AdminPanel: React.FC = () => {
                             <p className="text-xs text-emerald-400 font-medium">{refreshStatsMessage}</p>
                         )}
                         <p className="text-xs text-gray-400">
-                            Rebuilds pilot, cold storage, and map telemetry caches from current match &amp; kill data.
+                            Rebuilds pilot, archive, and map telemetry caches from current match &amp; kill data.
                         </p>
                     </div>
                 </div>
