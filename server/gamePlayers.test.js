@@ -135,6 +135,13 @@ describe('other writers', () => {
         expect(rowCount(coldFile, 'WHERE game_id = 70001')).toBe(2);
     });
 
+    it('keeps rows from a stored kill log when the archive sends the game again without one', () => {
+        const archived = { ...veteranSoup, id: 70002 };
+        db.saveColdGamesBatch([archived]);
+        db.saveColdGamesBatch([{ ...archived, kills: [] }]);
+        expect(rowCount(coldFile, 'WHERE game_id = 70002 AND suicides = 1')).toBe(1);
+    });
+
     it('builds game_players for a restored backup from before S5', async () => {
         const legacy = path.join(dataDir, 'legacy.db');
         writeLegacyDb(legacy, hotGames);

@@ -46,6 +46,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+    db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
@@ -71,6 +72,29 @@ describe('saveGames upsert', () => {
         db.saveGames([old]);
         db.saveGames([{ ...old, kills: [] }]);
         expect(storedKills(90030)).toHaveLength(1);
+    });
+});
+
+describe('saveColdGamesBatch upsert', () => {
+    it('keeps a stored kill log when re-inserted with an empty kill log', () => {
+        const old = { ...detailSample, id: 90040 };
+        db.saveColdGamesBatch([old]);
+        db.saveColdGamesBatch([{ ...old, kills: [] }]);
+        expect(storedKills(90040)).toHaveLength(1);
+    });
+
+    it('overwrites a stored kill log when re-inserted with a non-empty kill log', () => {
+        const old = { ...detailSample, id: 90041 };
+        db.saveColdGamesBatch([old]);
+        const updated = {
+            ...old,
+            kills: [
+                ...old.kills,
+                { ...old.kills[0], time: 99 }
+            ]
+        };
+        db.saveColdGamesBatch([updated]);
+        expect(storedKills(90041)).toHaveLength(2);
     });
 });
 

@@ -1752,22 +1752,14 @@ VALUES(?, ?, ?, ?, ?)
   },
 
   saveColdGamesBatch: (gamesList) => {
-    const insertCold = coldDb.prepare(`
-      INSERT INTO games (id, date, ip, details)
-      VALUES (@id, @date, @ip, @details)
-      ON CONFLICT(id) DO UPDATE SET
-        details = excluded.details,
-        date = excluded.date,
-        ip = excluded.ip
-    `);
-
     const transaction = coldDb.transaction((list) => {
       let changes = 0;
       for (const game of list) {
         const date = game.date || game.start || new Date().toISOString();
         const details = typeof game.details === 'string' ? game.details : JSON.stringify(game);
-        insertCold.run({ id: game.id, date, ip: game.ip || game.server?.ip || null, details });
-        writeColdPlayers(game.id, date, JSON.parse(details));
+        // The upsert keeps a stored kill log over an empty one; build rows from what it kept.
+        const stored = upsertGameCold.get({ id: game.id, date, ip: game.ip || game.server?.ip || null, details }).details;
+        writeColdPlayers(game.id, date, JSON.parse(stored));
         changes++;
       }
       return changes;
@@ -2429,6 +2421,11 @@ VALUES(?, ?, ?, ?, ?)
       console.error("Failed to save fight night recap", e);
       return null;
     }
+  },
+
+  close: () => {
+    try { hotDb.close(); } catch {}
+    try { coldDb.close(); } catch {}
   },
 
   getPilotTelemetry,
