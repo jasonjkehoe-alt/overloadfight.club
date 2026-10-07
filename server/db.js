@@ -637,6 +637,51 @@ const getPilotStats = hotDb.prepare(pilotTotalsSql());
 
 const getPilotStatsFiltered = hotDb.prepare(pilotTotalsSql('WHERE date >= @startDate'));
 
+const getGamesDetailsSince = hotDb.prepare(`
+    SELECT details FROM games WHERE date >= @startDate
+    UNION ALL
+    SELECT details FROM cold.games WHERE date >= @startDate
+`);
+
+function computeWindowedOutcomes(startDate) {
+  const winLossMap = new Map();
+  const gameRows = getGamesDetailsSince.all({ startDate });
+
+  for (const row of gameRows) {
+    let g;
+    try {
+      g = typeof row.details === 'string' ? JSON.parse(row.details) : row.details;
+    } catch {
+      continue;
+    }
+    if (!g) continue;
+    const players = Array.isArray(g.players) ? g.players : [];
+    if (players.length < 2 || durationOf(g) < 60) continue;
+
+    const result = winnerOf(g);
+    if (!result || !Array.isArray(result.winners) || result.winners.length === 0) continue;
+
+    const seenPilotsInGame = new Set();
+    for (const p of players) {
+      const key = pilotKey(p?.name);
+      if (!key || seenPilotsInGame.has(key)) continue;
+      seenPilotsInGame.add(key);
+      const outcome = outcomeOf(g, p, result);
+      if (outcome && OUTCOME_FIELD[outcome]) {
+        const field = OUTCOME_FIELD[outcome];
+        let rec = winLossMap.get(key);
+        if (!rec) {
+          rec = { wins: 0, losses: 0, ties: 0 };
+          winLossMap.set(key, rec);
+        }
+        rec[field]++;
+      }
+    }
+  }
+
+  return winLossMap;
+}
+
 const getDatabaseStats = hotDb.prepare(`
     SELECT
         COUNT(*) as total_games,
@@ -1686,8 +1731,43 @@ const db = {
   getMonthlyGameCounts,
   getPilotStats: {
     all: (startDate) => {
-      if (startDate) return getPilotStatsFiltered.all({ startDate });
-      return getPilotStats.all();
+      const rows = startDate ? getPilotStatsFiltered.all({ startDate }) : getPilotStats.all();
+      if (!rows || rows.length === 0) return [];
+
+      let winLossMap = null;
+      if (startDate) {
+        winLossMap = computeWindowedOutcomes(startDate);
+      }
+
+      return rows.map(r => {
+        const kills = r.kills || 0;
+        const deaths = r.deaths || 0;
+        const assists = r.assists || 0;
+        const kd = deaths > 0 ? Math.round((kills / deaths) * 100) / 100 : kills;
+        const kda = deaths > 0 ? Math.round(((kills + assists * 0.5) / deaths) * 100) / 100 : kills;
+
+        if (!startDate) {
+          return {
+            ...r,
+            kd,
+            kda
+          };
+        }
+
+        const key = pilotKey(r.name);
+        const wl = winLossMap?.get(key);
+        const totalRanked = wl ? (wl.wins + wl.losses + wl.ties) : 0;
+
+        return {
+          ...r,
+          kd,
+          kda,
+          wins: totalRanked > 0 ? wl.wins : undefined,
+          losses: totalRanked > 0 ? wl.losses : undefined,
+          ties: totalRanked > 0 ? wl.ties : undefined,
+          win_rate: totalRanked > 0 ? Math.round((wl.wins / totalRanked) * 1000) / 10 : undefined
+        };
+      });
     }
   },
   getTopPlayedMaps,

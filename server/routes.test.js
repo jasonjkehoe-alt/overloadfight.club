@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import express from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { onDay, sample } from './testFixtures.js';
+import { day, onDay, sample } from './testFixtures.js';
 
 const syncPage = vi.fn();
 vi.mock('./ingest.js', () => ({ default: { syncPage } }));
@@ -91,5 +91,38 @@ describe('GET /api/pilot/:name/ppi', () => {
         expect(body).toEqual({});
         expect(refresh).not.toHaveBeenCalled();
         refresh.mockRestore();
+    });
+});
+
+describe('GET /api/stats/pilots', () => {
+    it('answers all-time stats when source=all', async () => {
+        const { status, body } = await getJson('/api/stats/pilots?source=all');
+        expect(status).toBe(200);
+        expect(Array.isArray(body)).toBe(true);
+        expect(body.length).toBeGreaterThan(0);
+        const pilot = body.find(p => p.name === 'STITCH');
+        expect(pilot).toBeDefined();
+        expect(pilot.games).toBeGreaterThan(0);
+    });
+
+    it('answers windowed stats with win_rate, wins, losses, ties, kd, kda when startDate is provided', async () => {
+        const { status, body } = await getJson('/api/stats/pilots?startDate=' + encodeURIComponent(day) + '&source=hot');
+        expect(status).toBe(200);
+        expect(Array.isArray(body)).toBe(true);
+        expect(body.length).toBeGreaterThan(0);
+        const pilot = body.find(p => p.name === 'STITCH');
+        expect(pilot).toBeDefined();
+        expect(pilot.games).toBeGreaterThan(0);
+        expect(pilot.kd).toBeDefined();
+        expect(pilot.kda).toBeDefined();
+        expect(pilot.wins).toBeDefined();
+        expect(pilot.losses).toBeDefined();
+        expect(pilot.win_rate).toBeDefined();
+    });
+
+    it('answers empty array for future startDate', async () => {
+        const { status, body } = await getJson('/api/stats/pilots?startDate=2099-01-01T00:00:00.000Z&source=hot');
+        expect(status).toBe(200);
+        expect(body).toEqual([]);
     });
 });

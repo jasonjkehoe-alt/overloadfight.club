@@ -85,11 +85,20 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
     const [loadingRoster, setLoadingRoster] = useState(false);
     const [rosterError, setRosterError] = useState(false);
 
+    const activeReqRef = React.useRef(0);
+
     // Fetch aggregated stats from server
-    const loadRoster = () => {
+    const loadRoster = (isActiveWindow: boolean = activeOnly) => {
+        const reqId = ++activeReqRef.current;
         setLoadingRoster(true);
         setRosterError(false);
         let url = '/api/stats/pilots?source=all';
+        if (isActiveWindow) {
+            const d = new Date();
+            d.setDate(d.getDate() - 90);
+            d.setMinutes(0, 0, 0, 0);
+            url = `/api/stats/pilots?startDate=${encodeURIComponent(d.toISOString())}&source=hot`;
+        }
 
         fetch(url)
             .then(res => {
@@ -97,13 +106,14 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                 return res.json();
             })
             .then(data => {
+                if (reqId !== activeReqRef.current) return;
                 const formatted = data.map((p: any) => ({
                     ...p,
                     lastSeen: new Date(p.lastSeen || p.last_updated),
                     suicides: p.suicides || 0,
                     kd: p.kd !== undefined ? p.kd : (p.kills / Math.max(1, p.deaths)),
                     kda: p.kda !== undefined ? p.kda : ((p.kills + p.assists * 0.5) / Math.max(1, p.deaths)),
-                    win_rate: p.win_rate !== undefined ? p.win_rate : (p.games > 0 && p.wins !== undefined ? ((p.wins / p.games) * 100) : 0),
+                    win_rate: p.win_rate !== undefined ? p.win_rate : (p.games > 0 && p.wins !== undefined ? ((p.wins / p.games) * 100) : undefined),
                     wins: p.wins,
                     losses: p.losses,
                     ties: p.ties,
@@ -116,6 +126,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                 setLoadingRoster(false);
             })
             .catch(err => {
+                if (reqId !== activeReqRef.current) return;
                 console.error("Failed to load pilot stats", err);
                 setRosterError(true);
                 setLoadingRoster(false);
@@ -123,20 +134,12 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
     };
 
     React.useEffect(() => {
-        // Always fetch roster if not loaded, as we need it for autocomplete in comparison too
-        if (pilotRoster.length === 0) loadRoster();
-    }, []);
+        loadRoster(activeOnly);
+    }, [activeOnly]);
 
 
     const sortedRoster = useMemo(() => {
         let data = [...pilotRoster];
-
-        // Filter by Date if activeOnly is toggled and no active text search
-        if (activeOnly && !searchTerm.trim()) {
-            const ninetyDaysAgo = new Date();
-            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-            data = data.filter(p => p.lastSeen >= ninetyDaysAgo);
-        }
 
         // Qualification Filter (min matches) - automatically bypassed during search
         if (!searchTerm.trim() && minGamesThreshold > 1) {
@@ -155,7 +158,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
             if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [pilotRoster, searchTerm, sortConfig, activeOnly, minGamesThreshold]);
+    }, [pilotRoster, searchTerm, sortConfig, minGamesThreshold]);
 
     const handleSort = (key: keyof PilotStats) => {
         setSortConfig(prev => ({

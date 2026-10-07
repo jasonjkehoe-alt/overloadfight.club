@@ -120,6 +120,19 @@ describe('getPilotStats', () => {
         expect(rows).toHaveLength(1);
         expect(rows[0].games).toBe(10);
     });
+
+    it('computes windowed wins, losses, ties, win_rate, kd, and kda when startDate is provided', () => {
+        const maestro = db.getPilotStats.all(day).find(r => r.name.toLowerCase() === 'maestro');
+        expect(maestro).toMatchObject({
+            games: 7,
+            wins: 1,
+            losses: 5,
+            ties: 1,
+            win_rate: 14.3
+        });
+        expect(maestro.kd).toBeDefined();
+        expect(maestro.kda).toBeDefined();
+    });
 });
 
 describe('getPilotTelemetry and getPilotBreakdown', () => {

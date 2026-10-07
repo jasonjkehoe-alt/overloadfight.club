@@ -403,7 +403,7 @@ router.get('/stats/pilots', async (req, res) => {
 
         let stats = await cacheService.get(cacheKey);
         if (!stats) {
-            if (source === 'all') {
+            if (source === 'all' && !startDate) {
                 stats = db.getAllTimePilotStats.all();
             } else {
                 stats = db.getPilotStats.all(startDate);
