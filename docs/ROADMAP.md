@@ -71,6 +71,11 @@ S7 is on branch `ofc/s07-live-dashboard`, based on S6's tip `7c09011`
 not merged, 2026-10-07 UTC. PR #7 contains S4's, S5's and S6's commits;
 merge PRs #4, #5 and #6 first.
 
+S8 is on branch `ofc/s08-links-urls`, based on S7's tip `a9a1699`
+(`main` had not moved since `fb4064a`), PR open against `main` and not
+merged, 2026-10-07 UTC. The S8 PR contains S4's to S7's commits; merge
+PRs #4 to #7 first.
+
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
 now `2c4f174`, with identical code apart from the redacted password, so the
@@ -80,10 +85,116 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 7 of 28 sessions done (S1 to S3 merged, PRs for S4 to S7
-open). Phase 1: 6/6. Phase 2: 1/5. Phase 3: 0/6. Phase 4: 0/11.
+Counts: 8 of 28 sessions done (S1 to S3 merged, PRs for S4 to S8
+open). Phase 1: 6/6. Phase 2: 2/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S3 merged into `main`, `main` at fb4064a, S4 on `ofc/s04-bundle-polling`, S5 on `ofc/s05-player-table`, S6 on `ofc/s06-ops-types`, S7 on `ofc/s07-live-dashboard`)
+## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S3 merged into `main`, `main` at fb4064a, S4 on `ofc/s04-bundle-polling`, S5 on `ofc/s05-player-table`, S6 on `ofc/s06-ops-types`, S7 on `ofc/s07-live-dashboard`, S8 on `ofc/s08-links-urls`)
+
+- S8, first move on Node 22.17.0, on S7's tip `a9a1699`: `npx vitest
+  run` passed 10 files, 99 tests. `npx vite build` wrote the entry
+  `index-BQooUDxx.js` at 233.61 KB raw / 73.21 KB gzip. `npx tsc
+  --noEmit` exited 0. All three match the S7 records.
+- S8, tests: `npx vitest run` passes 12 files, 107 tests. New in
+  `server/lib/siteRoutes.test.js`: every view's URL parses back to the
+  same view and parameter (a pilot named `a/b?c#d%` included), the old
+  paths (`/fight-nights/:date`, `/cold-storage`, `/tools`) still open
+  their pages, `/game/abc` goes to the history, and the title of each
+  kind of page. New in `server/pageMeta.test.js`, on fixture games:
+  `/game/72102` gives "Match 72102: ASCENT | overloadfight.club" and
+  "BLUE wins 42–35. TEAM ANARCHY on ASCENT, 15:10."; `/pilot/zergling`
+  gives ZERGLING's match and kill totals from the fixtures; Soup's
+  totals count the 2019 game in cold storage; a forced recap gives its
+  own description on `/fight-night/<day>` and on `/fight-night`; an
+  unknown pilot or date falls back to the site description; `og:url`
+  keeps the query string; `<`, `"`, `$&` in a name come out escaped and
+  never as a tag or a replacement pattern. `gamePlayers.test.js` checks
+  that the pilot summary reads `idx_game_players_name_date` in both
+  files. `matchResult.test.js` moved beside `server/lib/matchResult.js`.
+- S8, share tags with curl against `PORT=3100 DATA_DIR=/tmp/ofc-data npm
+  start` serving the built `dist/` (fresh data dir, 25 games synced,
+  recaps for 2026-10-06 and 2026-10-07 forced with
+  `generateRecapForDate(date, true)`; neither night qualified):
+  - `/pilot/WD-40`: "WD-40 | overloadfight.club", "WD-40: 20 matches,
+    325 kills, last match 2026-10-07." `/pilot/wd-40` gives the same
+    description under the URL's spelling.
+  - `/game/78758`: "Match 78758: ISOTOXIN V3 | overloadfight.club",
+    "RAZOR wins on 30, 17 ahead of WD-40. ANARCHY on ISOTOXIN V3,
+    13:11." `/game/78734`: "ORANGE wins 59–54. TEAM ANARCHY on
+    CONVENTION, 15:11." before the match page was opened and 15:10
+    after (opening it hydrated the stored details; the page shows
+    15:10).
+  - `/fight-night/2026-10-06`: "Tuesday, October 6, 2026: 7 matches, 5
+    pilots, top fragger WD-40 (109)." `/fight-night` describes the
+    latest card (2026-10-07).
+  - `og:url` is `http://localhost:3100/<path>`; with `X-Forwarded-Proto:
+    https` and `Host: overloadfight.club` it is
+    `https://overloadfight.club/pilot/WD-40`. `/pilots?tab=online&min=10`
+    keeps its query (`&` escaped). Page responses stay `no-store`,
+    `text/html`.
+- S8, headless Chrome 154 over CDP against the same server. Run before
+  the review, after the review fixes and after /simplify, same answers:
+  - Links: a plain click on the nav's Leaderboards went to `/pilots`
+    in the same document (a marker set on `window` survived) and opened
+    no tab. A middle, Cmd or Shift click on a roster pilot link opened
+    `/pilot/WD-40` in a new target and left this tab on
+    `/pilots?min=1`. Ctrl-click opened nothing and did not navigate:
+    on macOS Chrome treats it as a right click; the handler leaves it to
+    the browser. A middle click on a roster row outside the link called
+    `window.open('/pilot/WD-40')` and created a target; a plain click on
+    the row navigated in place. The server map's markers are SVG `<a>`
+    links to `/live/<ip>`.
+  - Titles: `/` "Live", `/history` "Match history", `/pilots`
+    "Leaderboards", `/pilot/WD-40` "WD-40", `/game/78758` "Match 78758:
+    ISOTOXIN V3", `/fight-night` "Fight Night", `/fight-night/2026-10-06`
+    "Fight Night 2026-10-06", `/maps` "Maps", `/maps/BLIZZARD` "BLIZZARD
+    map", `/archive` "Archive", `/taunts` "Taunts",
+    `/live/143.110.230.67` "Live: San Francisco 1", each followed by "|
+    overloadfight.club".
+  - State: the dashboard's History tab wrote `/?tab=history` and was
+    still open after a reload. `/?tab=history&q=RAZOR` reloaded with
+    "RAZOR" in the box and 6 cards, the count `/api/games?search=RAZOR`
+    returns, with one search request and no unfiltered GameList fetch
+    (the one unfiltered `/api/games?page=1` is App's). The leaderboard
+    wrote `/pilots?min=10&active=1&q=wd`, kept it across a reload, and
+    after opening WD-40 and pressing back the URL and the box were the
+    same. The pilot page wrote `?mode=ANARCHY&weapons=defense`, the match
+    page `?tab=damage`, the archive `?hall=games&year=2026` (still
+    selected after a reload), Reset Filters went to `/archive`. Typing
+    "ice" into the map search updated the box at once and the URL
+    within 300 ms; a reload kept the box and its 10 cards.
+  - Map popup: DOSSIER with Community Custom selected opened
+    `/maps/ICEWOLF%20DEATH%20MATCH%20V.1?origin=custom`; after a reload
+    the popup and the filter were back. Its CLOSE (no in-app history
+    after the reload) went to `/maps?origin=custom`. Opened again,
+    browser back closed it and forward reopened it. `/maps/blizzard`
+    opens BLIZZARD's popup; `/maps/not a map?sort=name&origin=custom`
+    became `/maps?sort=name&origin=custom&q=not+a+map` after the intel
+    request answered 404. The popup asks for intel by name
+    (`/api/maps/BLIZZARD/intel`) in parallel with the list.
+  - Fight night: `/fight-night` selects 2026-10-07; clicking the
+    2026-10-06 pill went to `/fight-night/2026-10-06` with that pill
+    selected and its title, kept it after a reload, and back returned
+    to `/fight-night` with 2026-10-07 selected.
+  - Back: from `/pilot/WD-40?mode=ANARCHY&weapons=defense` into match
+    78758, the match's BACK button returned to that exact URL. Opened
+    directly in a fresh tab, `/game/78758` has `history.state` null; its
+    BACK replaced the entry with `/history` and stayed on the site (the
+    next browser back left for the page before it, `about:blank`).
+  - Stale match: from match 78758 to WD-40, then match 78757 with its
+    `/api/game/78757` held for 2 s by CDP's Fetch domain: while it
+    loaded, the page showed "RETRIEVING COMBAT LOG #78757" and not
+    ISOTOXIN V3, title "Match 78757"; then SWAT and "Match 78757: SWAT".
+    Back twice showed 78758 again at once.
+  - No console errors or exceptions on 16 routes. At 1,280 px the page
+    is 1,280 px wide; at 390 px the menu's Leaderboards went to
+    `/pilots`, closed the menu, and the page is 390 px wide.
+- S8, server (same command): `/api/health` `{"status":"ok"}`,
+  `/api/stats/global` `total_games: 25`, `/api/stats/pilots` 15 pilots
+  (top WD-40, 20 games), `/api/pilot/WD-40/stats` 20 games and 325
+  kills. The only errors in the log are the scraper's 404s for the idle
+  server's live page.
+- S8: `npx vite build` entry `index-IHj8glyl.js` 230.55 KB raw / 73.47
+  KB gzip (73.21 in S7). `npx tsc --noEmit` exits 0.
 
 - S7, first move on Node 22.17.0, on S6's tip `7c09011`: `npx vitest
   run` passed 9 files, 92 tests. `npx vite build` wrote the entry
@@ -452,6 +563,25 @@ open). Phase 1: 6/6. Phase 2: 1/5. Phase 3: 0/6. Phase 4: 0/11.
 
 ## NOT validated, do not claim these work
 
+- S8 was checked in headless Chrome 154 on macOS only. Ctrl-click
+  opening a tab on Windows and Linux, Firefox and Safari (including
+  their limits on rapid history writes), and a real phone were not
+  tried.
+- No link was pasted into Discord: the site is not public from this
+  machine. The tags were read with curl. Whether Discord's crawler
+  shows them as expected is unknown.
+- Whether the DSM reverse proxy passes the original `Host` header.
+  `og:url` uses it; if the proxy rewrites it to the container's address,
+  the tag points there.
+- The cost of the share-tag lookup on production data: one indexed
+  `game_players` read per pilot page load and one details parse per
+  match page load, on the main thread. Timed on 25 games only.
+- Scroll position after back: a new path scrolls to the top, as before
+  S8, so back returns to the top of a list rather than to the row.
+- The live page with a real live game, and fight nights that met the
+  thresholds; both recaps were forced.
+- The CI workflow on the S8 PR before it opened; see the PR's checks.
+
 - S7's UI was checked in headless Chrome 154 on macOS only. Safari,
   Firefox and a real phone were not tried; the 390 px menu was opened
   in device emulation.
@@ -623,17 +753,19 @@ open). Phase 1: 6/6. Phase 2: 1/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 10 files, 99 tests pass (S7) | 2026-10-07 |
+| `npx vitest run` | all pass | 12 files, 107 tests pass (S8) | 2026-10-07 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry `index-BQooUDxx.js` 233.61 KB raw / 73.21 KB gzip (S7; 72.81 KB in S6, one 351.07 KB chunk before S4) | 2026-10-07 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S7; `winnerOf` typed through JSDoc) | 2026-10-07 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets; `/api/stats/pilots` 15 pilots, `/api/pilot/WD-40/stats` 20 games, `/api/health` ok (S7) | 2026-10-07 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry `index-IHj8glyl.js` 230.55 KB raw / 73.47 KB gzip (S8; 73.21 KB in S7, one 351.07 KB chunk before S4) | 2026-10-07 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S8) | 2026-10-07 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets; `/api/stats/pilots` 15 pilots, `/api/pilot/WD-40/stats` 20 games, `/api/health` ok (S8) | 2026-10-07 |
+| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | healthy in about 9 s, uid 1000, 567 MB (S6) | 2026-10-07 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | under 1 s, exit 0, no `-wal` left (S6) | 2026-10-07 |
 | `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
 | Same server, `curl -w "%{time_total}" "localhost:3100/api/games?page=1"` more than 30 s after the last sync | answers from the DB, sync logged after | 200 in 0.0019 s, `[Sync] Fetching page 1` logged after it (S4) | 2026-10-06 |
 | Same server, `curl -D - -H "Accept-Encoding: gzip, deflate, br" localhost:3100/ffmpeg/ffmpeg-core.wasm` | `Content-Encoding: br`, short cache | br, 8,367,469 bytes, `public, max-age=3600` (S4) | 2026-10-06 |
 | Headless Chrome over CDP on the same server serving `dist/` (S7 scripts: dashboard order, nav, favorites across a reload, copy button, match result) | live section above the teaser; Fight Night in the nav; "Copied"; winner, score or podium, duration and result line | all seen, see the S7 Validated entry | 2026-10-07 |
+| Headless Chrome over CDP, S8 scripts (real mouse clicks: plain, middle, Cmd, Ctrl, Shift; reload and back on each piece of URL state; a held `/api/game/<id>` for the stale match) | new tab on middle/Cmd click, same document on a plain click, a title per route, state back after reload and back, no stale match | all seen, see the S8 Validated entry | 2026-10-07 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -737,7 +869,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       podium, winner, real duration and a result line; server favorites
       persist in `localStorage`; every hard-coded number listed in
       `docs/audit/ux.md` is wired to the API or removed.
-- [ ] **S8 Links, titles, URL state** (M). Done when: internal navigation uses
+- [x] **S8 Links, titles, URL state** (M). Done when: internal navigation uses
       `<a href>` with click interception; `document.title` is set per route;
       the server catch-all injects `og:title`, `og:description` and
       `og:url` per route; tabs, filters, the map popup and the fight-night
@@ -1213,6 +1345,103 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   1,250 px. Before S7 the page already overflowed from 768 to 1,150 px
   (Archive off screen); adding Fight Night pushed 1,280 px over too.
   After the change nothing overflows from 768 to 1,600 px.
+- 2026-10-07 (S8): Links. Internal navigation is `components/Link.tsx`,
+  an `<a href>` whose click handler calls `navigate()` from
+  `hooks/useLocation.ts` (a `pushState` plus a notice to subscribers).
+  The handler steps aside, and the browser does its usual thing, when the
+  click is not the primary button or carries Cmd, Ctrl, Shift or Alt, when
+  an earlier handler called `preventDefault`, or when the link has a
+  `target`. So middle and Cmd clicks open a new tab, Shift a new window,
+  and on macOS Ctrl-click stays Chrome's context-menu gesture. Table rows
+  and cards that hold their own buttons or links cannot be one `<a>`
+  (nested interactive content), so they keep a click handler from
+  `rowLink(url)` and put a real link on their main text (the pilot name,
+  the server name, the map name). `rowLink` ignores clicks that land on an
+  inner `a` or `button`, navigates on a plain click, and opens a new tab
+  with `window.open` on a middle or modified click. Every navigation prop
+  (`onNavigate`, `onSelectGame`, `onSelectPilot`, `onSelectLiveGame`,
+  `onWatch`, `onSelectServer`) is gone: components build hrefs with
+  `urlFor` instead. No router library. The nav is one list rendered
+  twice (desktop bar, menu below `xl`), and the menu closes on any path
+  change, including back and forward.
+- 2026-10-07 (S8): Routing. `server/lib/siteRoutes.js` holds one route
+  table (view, path, older aliases, title) and `parseRoute`, `urlFor`
+  and `pageTitle` read it. `App.tsx` and the server both import it, as
+  they import `gameParse.js`. `App` reads the path through `useSyncExternalStore`
+  and derives the view and its parameter from it; the parallel
+  `currentView`/`selectedGameId`/`selectedPilot` state, `applyView` and
+  the popstate listener are gone. A new path scrolls to the top, except
+  between `/maps` and `/maps/:name`, so opening or closing the popup keeps
+  the list where it was.
+- 2026-10-07 (S8): Titles are `<page> | overloadfight.club`, page first so
+  tabs stay readable. The page part: the nav label for list pages
+  ("Live", "Leaderboards", "Match history", "Maps", "Archive", ...), the
+  pilot name from the URL, `Match <id>` plus `: <map>` once the match has
+  loaded, `Fight Night <date>`, `<map> map`, and `Live: <server name>` (the
+  IP until the server browser answers). `App` sets `document.title` in an
+  effect; the server writes the same string into `<title>` and `og:title`,
+  so a reload never flashes the old generic title. The live page's server
+  name comes from the browser poll, which the server does not read, so its
+  share title shows the IP.
+- 2026-10-07 (S8): Share tags. The page route in `server/index.js` reads
+  `dist/index.html` (2 KB) on each request and, for every page, replaces its
+  `<title>` with the page title, `og:title`, `og:description` and `og:url`
+  (`server/pageMeta.js`). `express.static` no longer serves `index.html`
+  for `/`, so the dashboard goes through the same route. Names come from
+  the URL, then the database: a pilot's description is
+  `db.getPilotSummary`, the pilot's all-time leaderboard row (the
+  leaderboard's `pilotTotalsSql` with `name = TRIM(@name)`, both files,
+  through `idx_game_players_name_date`, the spelling from the latest
+  game); a match reads its stored details (`db.getGameById`, hot
+  then cold) and says `resultLine(winnerOf(game))`, the mode, the map and
+  the measured length (no length when only the time limit is known); a
+  fight night reads its saved card (`/fight-night` alone reads the
+  latest). Live pages say "Join at <ip>". Every other page, and any lookup
+  that finds nothing or throws, gets the site description. `og:url` is
+  the request's protocol and `Host` with the path and query; with `trust
+  proxy` set, the protocol follows `X-Forwarded-Proto`. Every value is
+  HTML-escaped. `resultLine` moved from `utils/matchResult.ts` to
+  `server/lib/matchResult.js` so the page and the preview share one
+  sentence, and `utils/matchResult.ts` is gone. Rejected: a `PUBLIC_URL`
+  setting; the request already carries the host the visitor used.
+- 2026-10-07 (S8): URL state. Pages and the things a share should open
+  are in the path: `/pilot/:name`, `/game/:id`, `/live/:ip`,
+  `/fight-night/:date` (the date pills are links, so each date has its own
+  entry and its own preview) and `/maps/:name` (the map popup; it shows
+  the listed map whose name matches case-insensitively, or the map
+  `/api/maps/:name/intel` returns; an all-digit name waits for the list
+  and asks by id, since the server reads digits as an id; a name the
+  intel route answers 404 for becomes `/maps?q=<name>` with the other
+  filters kept, so old `/maps/<search>` links still work). Tabs and
+  filters are in the query string, written with `replaceState` so back
+  leaves the page instead of undoing each click; default values are left
+  out, a value outside a parameter's allowed list reads as the default,
+  and `setQueryParams` writes several keys at once (an archive filter
+  and `page`). Search boxes that filter as you type (leaderboard, maps)
+  update the box at once and the URL 300 ms after typing stops
+  (`useQueryText`), because browsers throttle rapid history writes.
+  Parameters: dashboard and `/history`
+  `tab` (`servers`/`history`), `idle=1`, `q` (the submitted search);
+  leaderboard `tab=online`, `q`, `min`, `active=1`; pilot page `mode`,
+  `weapons=defense`; match page `tab`; maps `q`, `size`, `origin`,
+  `sort` (kept on the popup's URL so a reload shows the same list behind
+  it); archive `hall`, `year`, `page`, `q`; taunts `tab`. Not in the URL:
+  sort orders, the rival picked on a pilot page, server favorites (still
+  `favorite_servers` in `localStorage`).
+- 2026-10-07 (S8): Back. `navigate()` stores a depth in `history.state`
+  on each push. `goBack(fallback)` calls `history.back()` when the depth
+  is above 0, that is when the previous entry is a page of this tab's
+  session; on a page opened directly (a shared link, a new tab) it
+  replaces the entry with the fallback instead of leaving the site: the
+  match page falls back to `/history`, the live page to `/`, the pilot
+  page to `/pilots`, the map popup to the map list with its filters. The
+  buttons now say "Back".
+- 2026-10-07 (S8): Stale match. `App` keeps the last fetched match with
+  its id and shows it only on the page with that id; match B shows the
+  loading screen until B arrives instead of match A. `PilotDetail` and
+  `LiveGameDetail` are keyed by pilot and IP, so going from one pilot or
+  server to another starts with empty state rather than the previous
+  one's numbers.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -1459,7 +1688,47 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   (`'2026'` down to `'2019'`) until `/api/stats/cold/deep` answers. Not
   in the audit's list.
 - (S7) The match page's back button still says "RETURN TO DASHBOARD"
-  and goes to `/history`. S8 owns back buttons.
+  and goes to `/history`. S8 owns back buttons. Fixed in S8: "Back",
+  `history.back()` with `/history` as the fallback.
+
+- (S8) Only the path scrolls to the top; back to a list lands at its
+  top, not at the row the reader left. Moving the scroll into
+  `navigate()` for pushes and leaving popstate to the browser's own
+  restoration was suggested; the browser restores before the lazy view
+  renders, so it needs a test of its own.
+- (S8) The share tags do a database read on every page load, for people
+  and crawlers alike, and the page then fetches the same data from the
+  API. The pilot summary is not a covering read (`kills` is not in
+  `idx_game_players_name_date`). A per-URL cache or a crawler check
+  would cut it if the NAS shows a cost.
+- (S8) Sort orders are not in the URL: the server browser's column sort
+  and the leaderboard's. The rival picked on a pilot page is not either.
+- (S8) The history and archive search boxes copy `?q=` once when the
+  page opens. Nothing on those pages changes `q` from elsewhere today,
+  so they do not need `useQueryText`'s re-sync yet.
+- (S8) `GameList` runs a search from its `[query]` effect and, for an
+  empty or repeated search, from the submit handler. One effect keyed on
+  a counter would read better, but the URL store updates synchronously,
+  so setting the query and then the counter would likely render twice
+  and search twice. Not tried; left as two entry points with a comment.
+- (S8) The dashboard still fetches archive page 1 in `App` when the URL
+  carries `?tab=history&q=`, and `GameList` ignores it.
+- (S8) Unused props, older than S8: `Layout`'s `showColdStorage`,
+  `LiveGameDetail`'s `archivedGames` (App still passes it), and
+  `PilotsList`'s `archivedGames`. The audit's dead `'weapons'` view key
+  went with `applyView`, and `/tools` is now only an alias of `/taunts`.
+- (S8) Six copies of an m:ss formatter (`GameDetail`, `MatchTimer`,
+  `ScoreChart`, `LiveGameDetail`, `LiveMatchCard`, `pageMeta.js`). One
+  in `server/lib/` would serve them all.
+- (S8) Table rows and cards that hold their own controls keep a click
+  handler (`rowLink`) beside a real link on their main text. S10 makes
+  clickable rows into buttons or links.
+- (S8) `npx vite dev` serves its own `index.html`, so titles show but
+  the share tags exist only when the Node server serves `dist/`. A
+  request for `/index.html` itself gets the static file and the generic
+  title.
+- (S8) The live page's share title shows the IP: the server name comes
+  from the browser poll, which the page route does not read.
 
 ## Rollback
 
@@ -1723,12 +1992,48 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   full JSON scan on a cache miss). PR #7 opened against `main`, not
   merged.
 
+- 2026-10-07, S8 (Claude Opus 5.5): internal navigation is real `<a
+  href>` links, every page sets its own title, the server writes a
+  title and `og:` tags for every page, tabs, filters, the map popup and
+  the fight-night date live in the URL, back buttons use the history,
+  and match B no longer shows match A while it loads. Status line
+  checked first: PRs #4 to #7 open, S7's tip `a9a1699`, `main` at
+  `fb4064a` with nothing S7 lacks, `10223be` not an object here. S8
+  stacks on `origin/ofc/s07-live-dashboard`. First move: 10 files, 99
+  tests; entry 73.21 KB gzip; tsc 0. Reading the code turned up things
+  the tracker did not list: `App` kept the route in six pieces of state
+  beside the URL, so the stale match came from `selectedGameData`
+  outliving its id; `PilotDetail` and `LiveGameDetail` carried state
+  from one pilot or server to the next; `express.static` answered `/`
+  itself, so the dashboard would have skipped the page route; the S7
+  wording for results was TypeScript the server could not import. No
+  fight night qualified, so two recaps were forced. A leftover headless
+  Chrome on the debugging port once made the page hidden, which paused
+  the shared poll and stalled the dashboard; the scripts now refuse a
+  busy port. /code-review found 10 issues. Fixed: an unfiltered and a
+  searched history fetch racing on `/history?q=`, a history write per
+  keystroke (now 300 ms after typing stops), App re-rendering on every
+  query change, map intel asked by name where the server reads digits
+  as an id, the unknown-map fallback firing on a failed request and
+  dropping filters, the archive reset keeping `page`, `index.html`
+  cached at startup, repeated allowed-value checks. Kept the share-tag
+  read on every page load (flagged). /simplify (four agents): one route
+  table for `parseRoute`, `urlFor` and titles, the nav from one list,
+  the menu closing on any page change, one history write for several
+  query keys, archive record cards as links, the pilot summary on the
+  leaderboard's SQL, the `matchResult.ts` shim removed, no refetch on
+  back to a match, intel fetched beside the map list, fight-night
+  statements prepared once. Skipped: scroll restoration in `navigate()`,
+  a per-URL meta cache, flag and number param hooks, a shared m:ss
+  formatter, a `StatList` and one search effect (flagged). PR opened
+  against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S8: links, titles, URL state.
+Continue the overloadfight.club roadmap. This session is S9: design tokens and shared states.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -1737,49 +2042,50 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S7 (branch ofc/s07-live-dashboard, PR #7) sits on S6 (ofc/s06-ops-types, PR #6), which sits on S5 (PR #5) and S4 (PR #4).
-  If PRs #4 to #7 are all merged:
-    git checkout -B ofc/s08-links-urls origin/main
-  If PR #7 is still open:
-    git checkout -B ofc/s08-links-urls origin/ofc/s07-live-dashboard
-    and open the S8 PR against main anyway; say in its description which open PRs it sits on.
-  If some of PRs #4 to #6 merged but #7 did not, still branch from origin/ofc/s07-live-dashboard.
+  S8 (branch ofc/s08-links-urls, PR #S8PR) sits on S7 (ofc/s07-live-dashboard, PR #7), which sits on S6 (PR #6), S5 (PR #5) and S4 (PR #4).
+  If PRs #4 to #S8PR are all merged:
+    git checkout -B ofc/s09-design-tokens origin/main
+  If PR #S8PR is still open:
+    git checkout -B ofc/s09-design-tokens origin/ofc/s08-links-urls
+    and open the S9 PR against main anyway; say in its description which open PRs it sits on.
+  If some of PRs #4 to #7 merged but #S8PR did not, still branch from origin/ofc/s08-links-urls.
   Check again before opening the PR: if PRs merged during the session, rebase onto origin/main first.
   The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6). If origin/main has commits the open PRs lack, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s07-live-dashboard has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s08-links-urls has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S8 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S4 and S7 entries under "Decisions and deviations" (lazy views behind one Suspense, the dashboard order, the favorites key, the match result from gameParse.js), every "Flagged, not fixed" item that names S8 (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
-- docs/audit/ux.md, "Site map issues" (the hand-rolled router, state not in the URL, back buttons, the stale match flash A→pilot→B, document.title, OG tags). Refs are as of 10223be (2c4f174 after the rewrite); re-find every line with grep -n before touching it.
-- App.tsx (getUrlForView, parseUrlPath, applyView, handleNavigate, the popstate listener, selectedGameData), components/Layout.tsx (nav, now with Fight Night and the hamburger below xl), GameList.tsx (tabs, initialTab, search), PilotsList.tsx, PilotDetail.tsx, MapLibrary.tsx (the map popup), FightNightSection.tsx (date pills), GameDetail.tsx and LiveGameDetail.tsx (back buttons), ColdStorage.tsx, and the SPA catch-all in server/index.js.
+- docs/ROADMAP.md, the S9 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S4, S7 and S8 entries under "Decisions and deviations" (lazy views behind one Suspense and the ErrorBoundary inside it, the dashboard order, the link pattern and URL state), every "Flagged, not fixed" item that names S9 or the spinners (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
+- docs/audit/ux.md, "Biggest" (no design tokens: 95 hex colors, #ff6600 x612, 6 hover oranges, 34 near-blacks, two border systems) and "Visual" (dead classes primary-*, animate-fade-in, animate-in, custom-scrollbar, prose; radius mix; 6+ spinners). Counts are as of 10223be (2c4f174 after the rewrite); re-count with grep before quoting any.
+- tailwind.config.js, index.html (inline styles), index.tsx, App.tsx (the Suspense fallback, the dashboard and match loading screens, the match error view), components/ErrorBoundary.tsx, and the dashboard, pilots, match and live pages: GameList.tsx, ServerStats.tsx, LiveMatchCard.tsx, PilotsList.tsx, PilotDetail.tsx, GameDetail.tsx, LiveGameDetail.tsx.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
 - gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so.
-- types.ts is canonical contract: widen a type locally where a component reads a field it lacks (as LiveGameDetail and PilotsList do since S6) and flag the gap; do not edit types.ts without my say-so.
-- server/lib/gameParse.js owns the game rules. The client imports it directly since S7 (GameDetail, MatchAnalysis, utils/matchResult.ts); never copy a rule into the client. Do not change the public API paths (add endpoints if needed).
+- types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
+- server/lib/gameParse.js owns the game rules; the client imports it directly. server/lib/siteRoutes.js owns page URLs and titles (one route table) and server/lib/matchResult.js the result sentence; both client and server import them. Never copy a rule into the client. Do not change the public API paths (add endpoints if needed).
+- Internal navigation is components/Link.tsx (an <a href> with click interception) or rowLink() from hooks/useLocation.ts for rows that hold their own controls; hrefs come from urlFor(). Tabs and filters live in the query string through useQueryParam/useQueryText/setQueryParams. Do not add navigation callbacks or local state that duplicates the URL (S8).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
 - Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts and pauses while the tab is hidden. Keep both. The dashboard leads with the live section and a one-line Fight Night teaser (S7); keep that order.
-- Server favorites live in localStorage under `favorite_servers` as a JSON array of IPs (S7). URL state must not replace them.
+- Server favorites live in localStorage under `favorite_servers` as a JSON array of IPs (S7).
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
-- Do not add a router library, state library or ORM. Tailwind utility classes, functional React.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist (or `npx vite dev`, whose proxy points at port 3000) and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4 and S7 did; never use the claude-in-chrome tools. S7 mocked `/api/browser` and `/api/game/<ip>` with CDP's Fetch domain when no live game existed, and forced a fight-night recap with `generateRecapForDate(date, true)`.
+- Do not add a router library, state library, ORM or component library. Tailwind utility classes, functional React.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist (or `npx vite dev`, whose proxy points at port 3000) and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4, S7 and S8 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port: In S8 a leftover instance answered on the port and its hidden tab paused the shared poll. S7 mocked `/api/browser` and `/api/game/<ip>` with CDP's Fetch domain when no live game existed, and S7 and S8 forced fight-night recaps with `generateRecapForDate(date, true)`.
 
 Rules for this session:
-- One PR, scope is the S8 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the link pattern (how clicks are intercepted and which modifier keys fall through), the title format, how the catch-all builds OG tags per route and where it gets names, which state goes into the URL (path or query, parameter names), and how back works when there is no history entry to go back to.
+- One PR, scope is the S9 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the token names and values (and how each old hex maps onto them), the type scale and radius, what Loading, EmptyState and ErrorState take as props, where the top-level ErrorBoundary sits relative to Layout and the Suspense, and which pages were migrated and which were left.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S8 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S9 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S9.
+- Before ending: tick S9 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S10 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S10.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S7 left 10 files, 99 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.21 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results.
-Done when: every item in the S8 Done-when list is true and seen in headless Chrome (a middle-click or Ctrl-click on an internal link opens a new tab, a plain click stays in the app, the tab title changes per route, curl of a pilot, match and fight-night URL returns their own og:title, og:description and og:url, a tab, filter, map popup and fight-night date survive a reload and the back button, back from a match returns to the pilot it came from, and no stale match shows when going from match A to a pilot to match B), `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S8 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S8 left 12 files, 107 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.47 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then take before screenshots of the dashboard, leaderboard, a pilot, a match and a live page at 1,280 and 390 px.
+Done when: every item in the S9 Done-when list is true and seen in headless Chrome (after screenshots of the same five pages at both widths look the same as before apart from the intended colour, radius and type changes; each view shows the shared Loading, EmptyState and ErrorState where it loads, has nothing to show, or fails, forced with CDP's Fetch domain; a component that throws shows the top-level ErrorBoundary instead of a blank page), a grep shows no dead classes left and the hex count on the migrated pages, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S9 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```
