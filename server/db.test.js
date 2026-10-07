@@ -172,3 +172,19 @@ describe('fight night recap', () => {
         expect(recap.closestFinish.copy).toMatch(/exact draw/);
     });
 });
+
+// Last: it rewrites the hot database the tests above read.
+describe('backup and restore (backupHot, restoreHot)', () => {
+    it('copies the live database and writes the copy back into it', async () => {
+        const copy = path.join(dataDir, 'copy.db');
+        await db.backupHot(copy);
+        const before = db.countGames(null, null).count;
+        db.saveGames([{ ...onDay(byId(72099)), id: 99999 }]);
+        expect(db.countGames(null, null).count).toBe(before + 1);
+
+        await db.restoreHot(copy);
+        expect(db.countGames(null, null).count).toBe(before);
+        expect(db.getGameById.get(99999)).toBeFalsy();
+        expect(db.getGameById.get(72099)).toBeTruthy();
+    });
+});

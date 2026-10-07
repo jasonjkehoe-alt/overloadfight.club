@@ -21,28 +21,29 @@ router.get('/auth-status', checkAuth);
 // Protected admin routes
 router.use(requireAuth);
 
-// GET /api/admin/backup - Download the database file
-router.get('/backup', (req, res) => {
-    const dbPath = path.join(process.env.DATA_DIR || path.join(process.cwd(), 'data'), 'tracker.db');
-    if (fs.existsSync(dbPath)) {
-        db.checkpointHot();
-        res.download(dbPath, `tracker_backup_${new Date().toISOString().split('T')[0]}.db`);
-    } else {
-        res.status(404).json({ error: 'Database file not found' });
+// GET /api/admin/backup - Download a consistent copy of the database
+router.get('/backup', async (req, res) => {
+    const copyPath = path.join('uploads', `tracker_backup_${Date.now()}.db`);
+    try {
+        fs.mkdirSync('uploads', { recursive: true });
+        await db.backupHot(copyPath);
+        res.download(copyPath, `tracker_backup_${new Date().toISOString().split('T')[0]}.db`, () => fs.rmSync(copyPath, { force: true }));
+    } catch (e) {
+        console.error('Backup failed:', e);
+        fs.rmSync(copyPath, { force: true });
+        res.status(500).json({ error: 'Failed to back up database' });
     }
 });
 
 // POST /api/admin/restore - Restore database from backup
-router.post('/restore', upload.single('backup'), (req, res) => {
+router.post('/restore', upload.single('backup'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const dbPath = path.join(process.env.DATA_DIR || path.join(process.cwd(), 'data'), 'tracker.db');
-
     try {
-        // Overwrite the DB file
-        fs.copyFileSync(req.file.path, dbPath);
+        // Write the upload into the live database through SQLite, not over the file
+        await db.restoreHot(req.file.path);
 
         // Clean up uploaded file
         fs.unlinkSync(req.file.path);

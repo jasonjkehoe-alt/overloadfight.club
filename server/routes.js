@@ -35,9 +35,9 @@ router.get('/games', async (req, res) => {
             // For Page 1, we rely on the ingest module's TTL (30s) to prevent spam
             const sync = ingest.syncPage(page);
 
-            // Cached rows go out now; the sync lands them for the next request.
-            // Only a page with nothing stored yet waits for the tracker.
-            if (games.length > 0) {
+            // A full page goes out now and the sync lands new rows for the next request.
+            // Only a page the DB cannot fill yet waits for the tracker.
+            if (games.length === limit) {
                 sync.catch(syncError => console.warn(`[Route] Background sync of page ${page} failed: ${syncError.message}`));
             } else {
                 try {

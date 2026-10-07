@@ -1602,8 +1602,17 @@ const getGamesInDay = hotDb.prepare(`
 `);
 
 const db = {
-  // Copy committed WAL pages into tracker.db, so a raw copy of the file (admin backup) is complete.
-  checkpointHot: () => hotDb.pragma('wal_checkpoint(TRUNCATE)'),
+  // Copy and replace tracker.db through SQLite's backup API. Under WAL a raw file copy
+  // can miss commits still in tracker.db-wal, or be replayed against that stale WAL.
+  backupHot: destination => hotDb.backup(destination),
+  restoreHot: async source => {
+    const uploaded = new Database(source, { readonly: true, fileMustExist: true });
+    try {
+      await uploaded.backup(dbPath);
+    } finally {
+      uploaded.close();
+    }
+  },
 
   getGames: (limit, offset, search, startDate) => {
     if (search) {

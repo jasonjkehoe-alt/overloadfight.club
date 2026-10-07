@@ -8,20 +8,27 @@ export interface ServerBrowserSnapshot {
   // null until the first successful fetch; a failed fetch keeps the last list
   games: BrowserApiResponse[] | null;
   updatedAt: Date | null;
+  // the first fetch has finished, whether or not it succeeded
+  settled: boolean;
 }
 
 // One /api/browser poll for the whole page, shared by every component that
 // calls useServerBrowser(). It runs while at least one component is
 // subscribed and the tab is visible, and refetches as soon as the tab
 // becomes visible again.
-let snapshot: ServerBrowserSnapshot = { games: null, updatedAt: null };
+let snapshot: ServerBrowserSnapshot = { games: null, updatedAt: null, settled: false };
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setInterval> | undefined;
+let latestPoll = 0;
 
 async function poll() {
+  const id = ++latestPoll;
   const games = await fetchActiveGames();
-  if (games === null) return;
-  snapshot = { games, updatedAt: new Date() };
+  // A poll started after this one (the tab was hidden and shown again) has the newer answer.
+  if (id !== latestPoll) return;
+  if (games !== null) snapshot = { games, updatedAt: new Date(), settled: true };
+  else if (!snapshot.settled) snapshot = { ...snapshot, settled: true };
+  else return;
   listeners.forEach(listener => listener());
 }
 

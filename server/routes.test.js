@@ -34,7 +34,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-    server.close();
+    server?.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 

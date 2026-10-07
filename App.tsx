@@ -98,7 +98,7 @@ const App: React.FC = () => {
   );
 
   // Change types to allow null (error state)
-  const { games: activeGames, updatedAt: lastRefreshed } = useServerBrowser();
+  const { games: activeGames, updatedAt: lastRefreshed, settled: browserSettled } = useServerBrowser();
   const [archivedGames, setArchivedGames] = useState<GameData[] | null>(null);
   const [selectedGameData, setSelectedGameData] = useState<GameData | null>(null);
   const [gameDetailError, setGameDetailError] = useState(false);
@@ -302,7 +302,8 @@ const App: React.FC = () => {
             onSelectPilot={(name) => handleNavigate('pilot', name)}
           />
 
-          {loading && activeGames === null && archivedGames === null ? (
+          {/* GameList picks its tab from activeGames when it mounts, so wait for the first poll */}
+          {!browserSettled || (loading && archivedGames === null) ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin mb-4"></div>
               <div className="text-[#ff6600] font-mono animate-pulse text-sm">ESTABLISHING UPLINK...</div>
