@@ -6,14 +6,20 @@ export interface MatchResult {
     winners: string[];
 }
 
+// "A", "A and B", "A, B and C"
+const listNames = (names: string[]) =>
+    names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join('');
+
 // One sentence on how the match ended.
 export const resultLine = ({ team, ranking, winners }: MatchResult): string => {
-    if (winners.length === 0) return 'No result: the tracker recorded no score for this match.';
+    // winnerOf needs two sides with a score to call a result
+    if (winners.length === 0) return 'No result: this match has no scores to compare.';
     const top = ranking.slice(0, winners.length);
+    const names = listNames(top.map(r => r.name));
     if (winners.length > 1) {
         return team
-            ? `${top.map(r => r.name).join(' and ')} draw, ${top.map(r => r.score).join('–')}.`
-            : `${top.map(r => r.name).join(' and ')} tie for first on ${top[0].score}.`;
+            ? `${names} draw, ${top.map(r => r.score).join('–')}.`
+            : `${names} tie for first on ${top[0].score}.`;
     }
     const [first, second] = ranking;
     return team

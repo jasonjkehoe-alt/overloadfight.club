@@ -21,8 +21,20 @@ describe('resultLine', () => {
         expect(resultLine(winnerOf(byId(72098)))).toBe('JFTP and . tie for first on 2.');
     });
 
+    it('lists three pilots sharing first place', () => {
+        const game = byId(72104);
+        game.players.forEach(p => { p.kills = p.name === 'PHOENIX' ? 1 : 5; });
+        expect(resultLine(winnerOf(game))).toBe('XB1, JFTP and STITCH tie for first on 5.');
+    });
+
     it('says so when a team game has no score', () => {
         const game = { ...byId(72102), teamScore: {} };
-        expect(resultLine(winnerOf(game))).toBe('No result: the tracker recorded no score for this match.');
+        expect(resultLine(winnerOf(game))).toBe('No result: this match has no scores to compare.');
+    });
+
+    it('says so when only one pilot played', () => {
+        const game = byId(72108);
+        game.players = game.players.slice(0, 1);
+        expect(resultLine(winnerOf(game))).toBe('No result: this match has no scores to compare.');
     });
 });

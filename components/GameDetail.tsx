@@ -10,6 +10,9 @@ import { getMapImage } from '../services/mapService';
 import { winnerOf, durationOf } from '../server/lib/gameParse.js';
 import { MatchResult, resultLine } from '../utils/matchResult';
 
+const teamColor = (team?: string | null) =>
+    team === 'BLUE' ? 'text-blue-400' : team === 'ORANGE' ? 'text-orange-400' : 'text-white';
+
 interface GameDetailProps {
     game: GameData;
     onBack: () => void;
@@ -28,6 +31,8 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
     const mapImage = getMapImage(game.settings?.level);
     const result: MatchResult = useMemo(() => winnerOf(game), [game]);
     const durationSec: number = useMemo(() => durationOf(game), [game]);
+    // durationOf falls back to the time limit when the game has no timestamps.
+    const durationIsLimit = durationSec > 0 && durationSec === Number(game.settings?.timeLimit);
 
     // Calculate derived stats
     const processedPlayers = useMemo(() => {
@@ -148,7 +153,9 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                                 {durationSec > 0 ? formatTime(durationSec) : 'Unknown'}
                             </div>
                             <div className="text-xs text-gray-500 uppercase tracking-widest">
-                                Duration{game.settings?.timeLimit ? ` of ${Math.floor(game.settings.timeLimit / 60)} min limit` : ''}
+                                {durationIsLimit
+                                    ? 'Time limit, real length unknown'
+                                    : `Duration${game.settings?.timeLimit ? ` of ${Math.floor(game.settings.timeLimit / 60)} min limit` : ''}`}
                             </div>
                         </div>
                     </div>
@@ -162,20 +169,20 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                         {result.winners.length === 1 ? 'Winner' : result.winners.length > 1 ? 'Draw' : 'Result'}
                     </div>
                     {result.winners.length === 1 && (
-                        <div className={`text-2xl font-bold brand-font ${result.team ? (result.ranking[0].side === 'BLUE' ? 'text-blue-400' : result.ranking[0].side === 'ORANGE' ? 'text-orange-400' : 'text-white') : 'text-[#ff6600]'}`}>
+                        <div className={`text-2xl font-bold brand-font ${result.team ? teamColor(result.ranking[0].side) : 'text-[#ff6600]'}`}>
                             {result.ranking[0].name}
                         </div>
                     )}
                     <div className="text-sm text-gray-300 mt-1">{resultLine(result)}</div>
                 </div>
-                {result.ranking.length > 0 && (
+                {result.winners.length > 0 && (
                     result.team ? (
                         <div className="flex items-center gap-3 text-3xl font-bold">
                             {result.ranking.map((r, i) => (
                                 <React.Fragment key={r.side}>
                                     {i > 0 && <span className="text-gray-600 text-xl">–</span>}
                                     <span className="flex flex-col items-center">
-                                        <span className={r.side === 'BLUE' ? 'text-blue-400' : r.side === 'ORANGE' ? 'text-orange-400' : 'text-white'}>{r.score}</span>
+                                        <span className={teamColor(r.side)}>{r.score}</span>
                                         <span className="text-[10px] text-gray-500 tracking-widest">{r.name}</span>
                                     </span>
                                 </React.Fragment>
@@ -240,7 +247,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                                                  <span className="text-gray-600 w-4">{idx + 1}</span>
                                                  <button
                                                      onClick={() => onNavigate && onNavigate('pilot', p.name)}
-                                                     className={`hover:underline hover:text-[#ff6600] transition-colors text-left font-bold ${p.team === 'BLUE' ? 'text-blue-400' : p.team === 'ORANGE' ? 'text-orange-400' : 'text-white'}`}
+                                                     className={`hover:underline hover:text-[#ff6600] transition-colors text-left font-bold ${teamColor(p.team)}`}
                                                      title={`View ${p.name}'s pilot dossier`}
                                                  >
                                                      {p.name}
