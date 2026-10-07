@@ -72,8 +72,8 @@ not merged, 2026-10-07 UTC. PR #7 contains S4's, S5's and S6's commits;
 merge PRs #4, #5 and #6 first.
 
 S8 is on branch `ofc/s08-links-urls`, based on S7's tip `a9a1699`
-(`main` had not moved since `fb4064a`), PR open against `main` and not
-merged, 2026-10-07 UTC. The S8 PR contains S4's to S7's commits; merge
+(`main` had not moved since `fb4064a`), PR #8 open against `main` and not
+merged, 2026-10-07 UTC. PR #8 contains S4's to S7's commits; merge
 PRs #4 to #7 first.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
@@ -869,7 +869,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       podium, winner, real duration and a result line; server favorites
       persist in `localStorage`; every hard-coded number listed in
       `docs/audit/ux.md` is wired to the API or removed.
-- [x] **S8 Links, titles, URL state** (M). Done when: internal navigation uses
+- [x] **S8 Links, titles, URL state** (M). PR #8. Done when: internal navigation uses
       `<a href>` with click interception; `document.title` is set per route;
       the server catch-all injects `og:title`, `og:description` and
       `og:url` per route; tabs, filters, the map popup and the fight-night
@@ -2025,7 +2025,7 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   back to a match, intel fetched beside the map list, fight-night
   statements prepared once. Skipped: scroll restoration in `navigate()`,
   a per-URL meta cache, flag and number param hooks, a shared m:ss
-  formatter, a `StatList` and one search effect (flagged). PR opened
+  formatter, a `StatList` and one search effect (flagged). PR #8 opened
   against `main`, not merged.
 
 ## Next session prompt
@@ -2042,13 +2042,13 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S8 (branch ofc/s08-links-urls, PR #S8PR) sits on S7 (ofc/s07-live-dashboard, PR #7), which sits on S6 (PR #6), S5 (PR #5) and S4 (PR #4).
-  If PRs #4 to #S8PR are all merged:
+  S8 (branch ofc/s08-links-urls, PR #8) sits on S7 (ofc/s07-live-dashboard, PR #7), which sits on S6 (PR #6), S5 (PR #5) and S4 (PR #4).
+  If PRs #4 to #8 are all merged:
     git checkout -B ofc/s09-design-tokens origin/main
-  If PR #S8PR is still open:
+  If PR #8 is still open:
     git checkout -B ofc/s09-design-tokens origin/ofc/s08-links-urls
     and open the S9 PR against main anyway; say in its description which open PRs it sits on.
-  If some of PRs #4 to #7 merged but #S8PR did not, still branch from origin/ofc/s08-links-urls.
+  If some of PRs #4 to #7 merged but #8 did not, still branch from origin/ofc/s08-links-urls.
   Check again before opening the PR: if PRs merged during the session, rebase onto origin/main first.
   The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6). If origin/main has commits the open PRs lack, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
