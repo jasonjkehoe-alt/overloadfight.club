@@ -55,15 +55,18 @@ S4 to S8 are merged into `main` (PRs #4 to #8, merged in order on
 commits after it.
 
 S9 is merged into `main` (PR #9, squash-merged 2026-10-07 19:50 UTC as
-`ae050c4`). During S10 the owner pushed three commits straight to
+`ae050c4`). During S10 the owner pushed four commits straight to
 `main`: `95196e7` (Tactical Replay v3, a 1,970-line
 `components/MatchReplay.tsx` on the match page's overview and timeline
 tabs), `887934e` (stats caches refresh after a backfill, an admin
-refresh button, a startup freshness check) and `45cb57b` (awaits those
-refreshes). `main` is at `45cb57b`.
+refresh button, a startup freshness check), `45cb57b` (awaits those
+refreshes) and `5afcdf5` (the leaderboard's Active (90d) toggle fetches
+90-day totals and win rates from the server). `main` is at `5afcdf5`.
+`5afcdf5` fails `npx tsc --noEmit` on its own (`setMinutes` with four
+arguments); S10's branch fixes it.
 
 S10 is on branch `ofc/s10-glossary-a11y-mobile`, rebased onto
-`45cb57b`, PR #10 open against `main` and not merged, 2026-10-07 UTC.
+`5afcdf5`, PR #10 open against `main` and not merged, 2026-10-07 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -77,7 +80,26 @@ descends from `10223be`. The local docs branch
 Counts: 10 of 28 sessions done (S1 to S9 merged, PR for S10 open).
 Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S9 merged into `main`, `main` at 45cb57b, S10 on `ofc/s10-glossary-a11y-mobile`)
+## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S9 merged into `main`, `main` at 5afcdf5, S10 on `ofc/s10-glossary-a11y-mobile`)
+
+- S10, second rebase, onto the owner's `5afcdf5` (pushed while S10's
+  PR was being prepared). One conflict, in `PilotsList.tsx`: kept the
+  owner's server-side 90-day fetch and S10's URL sort, paging and
+  `combatRatio()` fallback. The owner's new 90-day rows in
+  `db.getPilotStats` computed Combat Ratio inline; they call
+  `combatRatio()` now. The roster's Retry passed its click event as the
+  new `isActiveWindow` argument (it would have loaded the 90-day
+  window); it calls `loadRoster()` with no argument now. `5afcdf5` alone
+  fails `tsc` (`d.setMinutes(0, 0, 0, 0)`, TS2554); the branch drops the
+  fourth argument, which changes nothing at runtime. After the rebase:
+  `npx tsc --noEmit` 0, `npx vitest run` 13 files and 126 tests, entry
+  230.93 KB raw / 73.74 KB gzip, every scratch grep 0. The full
+  `checks.mjs` run on this build against a restarted server: 81 of 81
+  pass, WD-40 at Combat Ratio 0.76 and Lethality 1.15 on the
+  leaderboard, the profile and `/ppi` (the cache had refreshed to 23
+  matches). Server: `/api/health` ok, `/api/stats/global`
+  `total_games: 30`, `/api/stats/pilots` top WD-40 with 23 games,
+  `/api/pilot/WD-40/stats` 23 games and 380 kills.
 
 - S10, after rebasing onto the owner's `45cb57b`: no conflicts. The
   glossary script found the replay's new strings (six "frag", the
@@ -134,7 +156,9 @@ Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
   results:
   - Combat Ratio and Lethality for WD-40: leaderboard 0.78 and 1.15,
     profile sidebar 0.78, profile Lethality card 1.15,
-    `/api/pilot/WD-40/ppi` `kda` 0.78 and `kpm` 1.15.
+    `/api/pilot/WD-40/ppi` `kda` 0.78 and `kpm` 1.15 (the cache then
+    held 21 of WD-40's 23 matches; after the rebases and a refresh all
+    three read 0.76 and 1.15).
   - Tab from the top of the page reaches every visible focusable
     element, each with a 2px `#ff6600` ring (on the `::after` for
     stretched links): `/` 63 at 1,280 and 49 at 390, `/history` 109,
@@ -968,7 +992,7 @@ Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 13 files, 122 tests pass (S10, after the rebase onto the owner's `45cb57b`) | 2026-10-07 |
+| `npx vitest run` | all pass | 13 files, 126 tests pass (S10, after the rebase onto the owner's `5afcdf5`) | 2026-10-07 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.93 KB raw / 73.74 KB gzip (S10; 73.64 KB at S10's start, one 351.07 KB chunk before S4) | 2026-10-07 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S10) | 2026-10-07 |
@@ -1822,8 +1846,10 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   `combatRatio()` and `lethality()` in `server/lib/gameParse.js`, beside
   the tooltip text for each (`COMBAT_RATIO_HINT`, `LETHALITY_HINT`).
   The stats worker (`statsPasses.js`, the career numbers in
-  `pilot_stats_cache.kda` and `.kpm`) and the pilot telemetry
-  (`getPilotTelemetry`, the 365-day and per-mode numbers) call them;
+  `pilot_stats_cache.kda` and `.kpm`), the pilot telemetry
+  (`getPilotTelemetry`, the 365-day and per-mode numbers) and the
+  roster's 90-day totals (`db.getPilotStats`, the owner's `5afcdf5`)
+  call them;
   the leaderboard's fallback, the profile's fallback and the match page
   call `combatRatio` too. The leaderboard and the profile show the
   career numbers from the cache: the roster's Combat Ratio column, a
@@ -1836,7 +1862,10 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   both sides are career now. The match page's column is "Combat Ratio"
   at two decimals (it was "KDA Ratio" at three, and gave kills + 0.5 ×
   assists for a pilot with no deaths). The archive's hall-of-fame tab
-  that sorts by K/D said "Combat Ratio (K/D)"; it says "K/D".
+  that sorts by K/D said "Combat Ratio (K/D)"; it says "K/D". With the
+  roster's Active (90d) toggle on, its Combat Ratio is the 90-day one,
+  so it differs from the profile's career number on purpose, and its
+  Lethality is `—` (the 90-day totals carry no match time).
 - 2026-10-07 (S10): Clickable rows and divs. The 22 found became:
   - Sortable headers: `components/SortHeader.tsx`, a `<button>` inside
     the `<th>` with `aria-sort` on the `<th>` (the roster and the server
@@ -2293,9 +2322,13 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   had the new row (23, 0.76). A restart with the cache already current
   answered the new row. Worth a look in S11, which splits `db.js`: a
   read held open on the hot connection would explain it.
+- (S10) The roster's Active (90d) view has no Lethality: the owner's
+  90-day totals (`5afcdf5`) are `game_players` sums without match time.
+  Adding the summed `durationOf()` to that query would give it one.
 - (S10) K/D still has several copies: `getPilotTelemetry`, the stats
-  worker, the startup repair SQL in `db.js` (which also repeats Combat
-  Ratio), and client fallbacks that divide by `Math.max(1, deaths)`
+  worker, the owner's 90-day rows in `db.getPilotStats`, the startup
+  repair SQL in `db.js` (which also repeats Combat Ratio), and client
+  fallbacks that divide by `Math.max(1, deaths)`
   without rounding. A `killDeath()` in `gameParse.js`, and
   better-sqlite3's `db.function()` for the SQL, would make one copy.
 - (S10) The win-rate and suicides tooltips are written out twice
@@ -2695,8 +2728,11 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   wrapper, and K/D copies (flagged). Before pushing, `origin/main` had
   three new owner commits (the replay and stats refreshes); the branch
   rebased onto them cleanly, the replay's new strings got the S10
-  words, and the checks ran again on the rebased build. PR #10 opened
-  against `main`, not merged.
+  words, and the checks ran again on the rebased build. A fourth owner
+  commit (`5afcdf5`, the 90-day roster) arrived after that: one
+  conflict in `PilotsList.tsx`, its inline Combat Ratio moved onto
+  `combatRatio()`, its Retry argument fixed, and its `tsc` error fixed.
+  PR #10 opened against `main`, not merged.
 
 ## Next session prompt
 
@@ -2719,7 +2755,7 @@ Set up:
     git checkout -B ofc/s11-split-giants origin/ofc/s10-glossary-a11y-mobile
     and open the S11 PR against main anyway; say in its description that it sits on PR #10.
   Check again before opening the PR: if PR #10 merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e and 45cb57b during S10). If origin/main has commits PR #10 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10, the last one while the S10 PR was being prepared). If origin/main has commits PR #10 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
@@ -2757,6 +2793,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S10 left 13 files, 122 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.74 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then record what must not change: from a script run by `node`, the sorted export names of server/db.js (and the keys of its `db` object); the route list (method and path) that server/index.js mounts; `wc -l` of the six files; and the JSON of `/api/stats/global`, `/api/stats/pilots?source=all`, `/api/pilot/WD-40/stats`, `/api/pilot/WD-40/ppi` and `/api/games?page=1` from the running server.
+First move: run `npx vitest run` (S10 left 13 files, 126 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.74 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then record what must not change: from a script run by `node`, the sorted export names of server/db.js (and the keys of its `db` object); the route list (method and path) that server/index.js mounts; `wc -l` of the six files; and the JSON of `/api/stats/global`, `/api/stats/pilots?source=all`, `/api/pilot/WD-40/stats`, `/api/pilot/WD-40/ppi` and `/api/games?page=1` from the running server.
 Done when: every item in the S11 Done-when list is true (db.js split into connection, migrations, repos and analytics modules with the same export names and `db` keys as before, shown by the node script; routes.js one file per resource with the same route list; PilotSettingsPanel, AudioEditor, WebImportModal and AdminPanel each under 500 lines by wc -l with hooks extracted; no axios import in AdminPanel), the five API answers are byte-identical before and after on the same data dir (or every difference explained), the taunt tools, pilot settings and admin page (mocked session) work in headless Chrome (S10's dialog checks still pass, the editor's Create tab loads, admin stats load), `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S11 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```
