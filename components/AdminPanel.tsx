@@ -13,12 +13,10 @@ import {
     CheckCircle,
     Server,
     Download,
-    Calendar as CalendarIcon,
-    Key,
-    Save,
     Map as MapIcon,
     PlusCircle,
-    Archive
+    Archive,
+    Zap
 } from 'lucide-react';
 import {
     BarChart,
@@ -37,7 +35,7 @@ interface AdminStats {
         minId: number;
         earliestDate: string;
         latestDate: string;
-        coveragePercent: number;
+        coveragePercent?: number;
     };
     history: { month: string; count: number }[];
     activeJob: any;
@@ -77,8 +75,6 @@ const AdminPanel: React.FC = () => {
     const [version, setVersion] = useState<VersionInfo | null>(null);
 
     // Settings
-    const [geminiKey, setGeminiKey] = useState('');
-    const [calendarUrl, setCalendarUrl] = useState('');
     const [showColdStorage, setShowColdStorage] = useState(false);
 
     // Auth state
@@ -103,7 +99,6 @@ const AdminPanel: React.FC = () => {
 
     // Historical Archive Sync state
     const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus | null>(null);
-    const [archiveLoading, setArchiveLoading] = useState(false);
 
     useEffect(() => {
         checkAuth();
@@ -180,12 +175,6 @@ const AdminPanel: React.FC = () => {
 
     const fetchSettings = async () => {
         try {
-            const keyRes = await axios.get('/api/admin/settings/GEMINI_API_KEY');
-            setGeminiKey(keyRes.data.value || '');
-
-            const calRes = await axios.get('/api/admin/settings/CALENDAR_EMBED_URL');
-            setCalendarUrl(calRes.data.value || '');
-
             const coldRes = await axios.get('/api/admin/settings/show_cold_storage');
             setShowColdStorage(coldRes.data.value === 'true');
         } catch (e) {
@@ -196,10 +185,6 @@ const AdminPanel: React.FC = () => {
     const saveSetting = async (key: string, value: string) => {
         try {
             await axios.post('/api/admin/settings', { key, value });
-            // Only alert for manual saves (buttons), not toggle
-            if (key !== 'show_cold_storage') {
-                alert(`${key} saved successfully`);
-            }
         } catch (e) {
             alert(`Failed to save ${key}`);
         }
@@ -261,12 +246,12 @@ const AdminPanel: React.FC = () => {
         }
     };
 
-    const startBackfill = async (type: 'page_sync' | 'gap_fill') => {
+    const startBackfill = async (type: 'page_sync' | 'hydrate') => {
         if (!stats) return;
 
         let start = 1;
         let end = stats.overview.maxId || 75000;
-        let rateLimit = 1000;
+        let rateLimit = 500;
 
         if (type === 'page_sync') {
             // Calculate rate limit based on target duration
@@ -281,7 +266,7 @@ const AdminPanel: React.FC = () => {
             start = 1;
             end = totalPages;
         } else {
-            // Gap fill - usually faster per item but we want to be gentle
+            // Hydrate kill logs
             rateLimit = 500;
         }
 
@@ -318,21 +303,6 @@ const AdminPanel: React.FC = () => {
             setArchiveStatus(res.data);
         } catch (e) {
             console.error("Failed to fetch archive status", e);
-        }
-    };
-
-    const handleStartArchiveSync = async () => {
-        if (!window.confirm('Start historical archive ingest (2019-07 through 2022-04)? This will download and bulk-insert ~20,000 matches into the historical archive.')) {
-            return;
-        }
-        setArchiveLoading(true);
-        try {
-            await axios.post('/api/admin/archive-sync/start');
-            fetchArchiveStatus();
-        } catch (e: any) {
-            alert(e.response?.data?.error || 'Failed to start archive sync');
-        } finally {
-            setArchiveLoading(false);
         }
     };
 
@@ -422,13 +392,7 @@ const AdminPanel: React.FC = () => {
                         </div>
                         <Database className="text-blue-500 w-8 h-8 opacity-80" />
                     </div>
-                    <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-                        <div
-                            className="bg-blue-500 h-full"
-                            style={{ width: `${stats.overview.coveragePercent}%` }}
-                        />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">{stats.overview.coveragePercent}% Coverage of known history</p>
+                    <p className="text-xs text-gray-400 mt-2">Combined Hot &amp; Cold Archive</p>
                 </div>
 
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
@@ -471,7 +435,9 @@ const AdminPanel: React.FC = () => {
                             <p className="text-gray-400 text-sm">Active Job</p>
                             <h3 className="text-xl font-bold text-white mt-1">
                                 {stats.activeJob ? (
-                                    <span className="text-yellow-400">{stats.activeJob.job_type === 'page_sync' ? 'Page Sync' : 'Gap Fill'}</span>
+                                    <span className="text-yellow-400">
+                                        {stats.activeJob.job_type === 'page_sync' ? 'Page Sync' : stats.activeJob.job_type === 'hydrate' ? 'Hydrate Kill Logs' : 'Gap Fill'}
+                                    </span>
                                 ) : (
                                     <span className="text-gray-500">Idle</span>
                                 )}
@@ -601,79 +567,23 @@ const AdminPanel: React.FC = () => {
                                 <div className="border-t border-gray-700 my-4"></div>
 
                                 <button
-                                    onClick={() => startBackfill('gap_fill')}
-                                    className="w-full bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg flex items-center justify-center gap-2 transition"
+                                    onClick={() => startBackfill('hydrate')}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-lg flex items-center justify-center gap-2 transition"
                                 >
-                                    <AlertTriangle className="w-5 h-5 text-yellow-500" /> Start Gap Fill (Phase 2)
+                                    <Zap className="w-5 h-5 text-yellow-400" /> Hydrate Kill Logs
                                 </button>
                                 <p className="text-xs text-gray-400 text-center">
-                                    Scans for missing IDs and fills them (Precise).
+                                    Walks games and fetches full kill logs for matches over 1 minute.
                                 </p>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                {/* Integrations Section */}
-                <div className="lg:col-span-1 bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-                    <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <Server className="text-purple-400" /> Integrations
-                    </h3>
 
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
-                                <Key size={14} /> Gemini API Key
-                            </label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="password"
-                                    value={geminiKey}
-                                    onChange={(e) => setGeminiKey(e.target.value)}
-                                    placeholder="Enter Gemini API Key"
-                                    className="flex-1 bg-gray-700 border border-gray-600 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-                                />
-                                <button
-                                    onClick={() => saveSetting('GEMINI_API_KEY', geminiKey)}
-                                    className="bg-purple-600 hover:bg-purple-500 text-white p-2 rounded"
-                                >
-                                    <Save size={18} />
-                                </button>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-2">
-                                Used for AI-powered analysis and insights.
-                            </p>
-                        </div>
-
-                        <div className="border-t border-gray-700 pt-4">
-                            <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
-                                <CalendarIcon size={14} /> Google Calendar Embed URL
-                            </label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={calendarUrl}
-                                    onChange={(e) => setCalendarUrl(e.target.value)}
-                                    placeholder="https://calendar.google.com/embed..."
-                                    className="flex-1 bg-gray-700 border border-gray-600 rounded p-2 text-white focus:outline-none focus:border-purple-500 text-xs font-mono"
-                                />
-                                <button
-                                    onClick={() => saveSetting('CALENDAR_EMBED_URL', calendarUrl)}
-                                    className="bg-purple-600 hover:bg-purple-500 text-white p-2 rounded"
-                                >
-                                    <Save size={18} />
-                                </button>
-                            </div>
-                            <p className="text-xs text-gray-400 mt-2">
-                                Must be the 'Embed Code' URL (starts with https://calendar.google.com/calendar/embed?...)
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
+            <div className="mt-8">
                 {/* Dashboard Settings */}
-                <div className="lg:col-span-1 bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                <div className="max-w-md bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
                     <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                         <LayoutDashboard className="text-orange-400" /> Dashboard Config
                     </h3>
@@ -733,16 +643,9 @@ const AdminPanel: React.FC = () => {
                                 <Square className="w-4 h-4" /> Cancel Ingest
                             </button>
                         ) : (
-                            <button
-                                onClick={handleStartArchiveSync}
-                                disabled={archiveLoading}
-                                className={`px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 text-sm transition shadow ${
-                                    archiveLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white'
-                                }`}
-                            >
-                                <Download className="w-4 h-4" />
-                                {archiveLoading ? 'Starting...' : 'Start Archive Ingest'}
-                            </button>
+                            <div className="px-4 py-2 rounded-lg font-semibold flex items-center gap-2 text-sm bg-green-900/40 text-green-300 border border-green-700/60 shadow">
+                                <CheckCircle className="w-4 h-4 text-green-400" /> Ingest Completed
+                            </div>
                         )}
                     </div>
                 </div>
