@@ -40,6 +40,18 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+// The Docker image runs as uid 1000. Files an older image left while running as
+// root (the databases, their -wal and -shm, maps/, map_images/) are read-only to
+// it, and SQLite or a map download would fail later with a less clear error.
+for (const file of [dataDir, ...fs.readdirSync(dataDir).map(name => path.join(dataDir, name))]) {
+  try {
+    fs.accessSync(file, fs.constants.W_OK);
+  } catch {
+    console.error(`Refusing to start: ${file} is not writable by uid ${process.getuid?.()}. On the host, chown the data folder to 1000:1000 (see DEPLOYMENT.md).`);
+    process.exit(1);
+  }
+}
+
 export const backupsDir = path.join(dataDir, 'backups');
 export const mapsDir = path.join(dataDir, 'maps');
 export const mapImagesDir = path.join(dataDir, 'map_images');
@@ -49,17 +61,6 @@ if (!fs.existsSync(mapImagesDir)) fs.mkdirSync(mapImagesDir, { recursive: true }
 const dbPath = path.join(dataDir, 'tracker.db');
 const coldDbPath = path.join(dataDir, 'cold_storage.db');
 
-// The Docker image runs as uid 1000. Files left by an older image that ran as
-// root are read-only to it, and SQLite would fail later with a less clear error.
-for (const file of [dataDir, dbPath, coldDbPath]) {
-  try {
-    fs.accessSync(file, fs.constants.W_OK);
-  } catch (err) {
-    if (err.code === 'ENOENT') continue;
-    console.error(`Refusing to start: ${file} is not writable by uid ${process.getuid?.()}. On the host, chown the data folder to 1000:1000 (see DEPLOYMENT.md).`);
-    process.exit(1);
-  }
-}
 
 const hotDb = new Database(dbPath);
 const coldDb = new Database(coldDbPath);
@@ -1437,7 +1438,7 @@ const runStatsWorker = () => new Promise((resolve, reject) => {
   worker.once('message', resolve);
   worker.once('error', reject);
   worker.once('exit', code => {
-    statsWorker = null;
+    if (statsWorker === worker) statsWorker = null;
     reject(new Error(`stats worker exited with code ${code}`));
   });
 });
@@ -1844,13 +1845,14 @@ VALUES(?, ?, ?, ?, ?)
   `);
 
     const transaction = targetDb.transaction(() => {
+      const details = JSON.stringify(game);
       const kept = update.get({
         id: game.id,
         date: gameDate,
         ip: game.server?.ip || game.ip || null,
-        details: JSON.stringify(game)
+        details
       });
-      if (kept) writePlayers(game.id, gameDate, JSON.parse(kept.details));
+      if (kept) writePlayers(game.id, gameDate, kept.details === details ? game : JSON.parse(kept.details));
 
       // Only update metadata if it's in Hot DB or we want to track it globally
       // For simplicity, we update metadata in Hot DB

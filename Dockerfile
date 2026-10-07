@@ -3,8 +3,9 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
-# Toolchain for native modules (better-sqlite3), git for version info
-RUN apk add --no-cache python3 make g++ git
+# Toolchain for native modules (better-sqlite3). .git is not in the build context,
+# so generate-version.js keeps the hash already in public/version.json.
+RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
 RUN npm ci

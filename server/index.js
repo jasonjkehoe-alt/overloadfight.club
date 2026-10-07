@@ -97,7 +97,8 @@ app.get('/api/health', (req, res) => {
         db.checkHealth();
         res.json({ status: 'ok' });
     } catch (error) {
-        res.status(503).json({ status: 'error', error: error.message });
+        console.error('[Health] Database check failed:', error.message);
+        res.status(503).json({ status: 'error' });
     }
 });
 
@@ -567,11 +568,15 @@ const server = app.listen(PORT, () => {
     warmupEngine().catch(() => {});
 });
 
-// docker stop sends SIGTERM: stop taking requests, stop the stats worker and
-// close both databases, so nothing is left mid-write when the container exits.
+// docker stop sends SIGTERM and kills after 10 s: stop taking requests, give
+// those in flight up to 5 s, then stop the stats worker and close both databases.
 async function shutdown(signal) {
     console.log(`[Shutdown] ${signal} received, closing databases...`);
-    server.close();
+    await new Promise(resolve => {
+        server.close(resolve);
+        server.closeIdleConnections();
+        setTimeout(resolve, 5000).unref();
+    });
     await db.close();
     console.log('[Shutdown] Done.');
     process.exit(0);

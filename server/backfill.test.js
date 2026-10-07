@@ -45,8 +45,8 @@ beforeAll(async () => {
     db.saveGames([...listed, short]);
 });
 
-afterAll(() => {
-    db.close?.();
+afterAll(async () => {
+    await db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
