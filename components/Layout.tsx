@@ -1,6 +1,5 @@
 
 import React, { useEffect, useState } from 'react';
-import { fetchActiveGames } from '../services/apiService';
 import { LayoutDashboard, History, Users, Database, Map as MapIcon, Settings, Link as LinkIcon, Menu, X } from 'lucide-react';
 
 interface LayoutProps {
@@ -11,19 +10,11 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, showColdStorage }) => {
-  const [playerCount, setPlayerCount] = useState<number>(0);
   const [activePilotCount, setActivePilotCount] = useState<number>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const getCount = async () => {
-      // Online count
-      const games = await fetchActiveGames();
-      if (games) {
-        const count = games.reduce((acc, g) => acc + (g.game?.currentPlayers || 0), 0);
-        setPlayerCount(count);
-      }
-
       // Active Pilots count
       try {
         const res = await fetch('/api/stats/active-count');

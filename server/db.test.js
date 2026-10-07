@@ -1,7 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import Database from 'better-sqlite3';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { day, detailSample, onDay, sample } from './testFixtures.js';
 
 const byId = id => structuredClone(sample.find(g => g.id === id));
@@ -44,11 +45,16 @@ const hotGames = [...sample.map(g => structuredClone(g)), orangeWin, teamTie, lo
 let dataDir;
 let db;
 let generateRecapForDate;
+let connections;
 
 beforeAll(async () => {
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ofc-db-'));
     process.env.DATA_DIR = dataDir;
+    // db.js keeps its connections private; collect them as it sets its pragmas.
+    const pragma = vi.spyOn(Database.prototype, 'pragma');
     db = (await import('./db.js')).default;
+    connections = [...new Set(pragma.mock.contexts)];
+    pragma.mockRestore();
     ({ generateRecapForDate } = await import('./services/fightNightService.js'));
     db.saveGames([...hotGames, veteranSoup]);
     db.refreshPilotStats();
@@ -60,6 +66,17 @@ afterAll(() => {
 });
 
 const cached = name => db.getPilotPPI(name);
+
+describe('connection setup', () => {
+    it('opens the hot and cold databases in WAL mode with NORMAL sync and a 5 s busy timeout', () => {
+        expect(connections).toHaveLength(2);
+        for (const conn of connections) {
+            expect(conn.pragma('journal_mode', { simple: true })).toBe('wal');
+            expect(conn.pragma('synchronous', { simple: true })).toBe(1); // NORMAL
+            expect(conn.pragma('busy_timeout', { simple: true })).toBe(5000);
+        }
+    });
+});
 
 describe('pilot stats cache (refreshPilotStats)', () => {
     it('credits an ORANGE win and a tie to the ORANGE pilots', () => {
@@ -154,5 +171,21 @@ describe('fight night recap', () => {
         const recap = await generateRecapForDate(day, true);
         expect(recap.closestFinish).toMatchObject({ gameId: 90002, margin: 0, score: '10 - 10' });
         expect(recap.closestFinish.copy).toMatch(/exact draw/);
+    });
+});
+
+// Last: it rewrites the hot database the tests above read.
+describe('backup and restore (backupHot, restoreHot)', () => {
+    it('copies the live database and writes the copy back into it', async () => {
+        const copy = path.join(dataDir, 'copy.db');
+        await db.backupHot(copy);
+        const before = db.countGames(null, null).count;
+        db.saveGames([{ ...onDay(byId(72099)), id: 99999 }]);
+        expect(db.countGames(null, null).count).toBe(before + 1);
+
+        await db.restoreHot(copy);
+        expect(db.countGames(null, null).count).toBe(before);
+        expect(db.getGameById.get(99999)).toBeFalsy();
+        expect(db.getGameById.get(72099)).toBeTruthy();
     });
 });

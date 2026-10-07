@@ -27,8 +27,6 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server, onWatch, onSelect
     const serverIp = server.server.ip;
     const mapImage = getMapImage(gameData?.settings?.level || server.game?.mapName || '');
 
-    const [health, setHealth] = useState<any>(null);
-
     // Poll for live data
     useEffect(() => {
         const fetchLiveStats = async () => {
@@ -57,26 +55,8 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server, onWatch, onSelect
             }
         };
 
-        const fetchHealth = async () => {
-            try {
-                const res = await fetch(`/api/server/${serverIp}/health`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.length > 0) {
-                        setHealth(data[data.length - 1]);
-                    }
-                }
-            } catch (e) {
-                // Silent fail
-            }
-        };
-
         fetchLiveStats();
-        fetchHealth();
-        const interval = setInterval(() => {
-            fetchLiveStats();
-            fetchHealth();
-        }, 30000);
+        const interval = setInterval(fetchLiveStats, 30000);
         return () => clearInterval(interval);
     }, [serverIp]);
 
@@ -101,13 +81,6 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server, onWatch, onSelect
 
     const timeString = getTimeString();
 
-    const getHealthColor = () => {
-        if (!health) return 'bg-gray-500'; // Unknown
-        if (!health.is_reachable) return 'bg-red-500 animate-pulse';
-        if (health.packet_loss_pct > 0 || health.latency_ms > 150) return 'bg-yellow-500';
-        return 'bg-green-500';
-    };
-
     return (
         <div className="bg-black border border-gray-800 rounded overflow-hidden flex flex-col shadow-lg min-h-[200px]">
             {/* Map Header */}
@@ -127,7 +100,6 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server, onWatch, onSelect
             {/* IP / Connection Info */}
             <div className="bg-[#111] border-b border-gray-800 p-2 flex justify-between items-center">
                 <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
-                    <div className={`w-2 h-2 rounded-full ${getHealthColor()}`} title={health ? `Ping: ${health.latency_ms}ms | Jitter: ${health.jitter_ms}ms` : 'Checking health...'}></div>
                     <span>Join at <span className="text-white">{serverIp}</span></span>
                 </div>
                 <button onClick={copyIp} className="text-gray-500 hover:text-[#ff6600] transition-colors" title="Copy IP">

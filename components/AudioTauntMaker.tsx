@@ -14,6 +14,10 @@ export const AudioTauntMaker: React.FC<AudioTauntMakerProps> = ({ onNavigate }) 
     const [activeTab, setActiveTab] = useState<'editor' | 'vault' | 'loadout' | 'manual'>('vault');
     const [editorFile, setEditorFile] = useState<File | null>(null);
     const [pendingSlotAssignment, setPendingSlotAssignment] = useState<PendingSlotAssignment | null>(null);
+    // The editor loads the 30 MB ffmpeg core on mount, so mount it the first time its
+    // tab opens, then keep it mounted so an edit survives a tab switch.
+    const [editorOpened, setEditorOpened] = useState(false);
+    if (activeTab === 'editor' && !editorOpened) setEditorOpened(true);
 
     const handleLoadIntoEditor = (file: File) => {
         setEditorFile(file);
@@ -37,11 +41,13 @@ export const AudioTauntMaker: React.FC<AudioTauntMakerProps> = ({ onNavigate }) 
                 <TauntHeader activeTab={activeTab} onSelectTab={setActiveTab} />
 
                 <div className="w-full">
-                    <div className={activeTab === 'editor' ? 'block' : 'hidden'}>
-                        <AudioEditor 
-                            initialFile={editorFile} 
-                        />
-                    </div>
+                    {editorOpened && (
+                        <div className={activeTab === 'editor' ? 'block' : 'hidden'}>
+                            <AudioEditor 
+                                initialFile={editorFile} 
+                            />
+                        </div>
+                    )}
                     <div className={activeTab === 'vault' ? 'block' : 'hidden'}>
                         <OverloadVault 
                             onLoadIntoEditor={handleLoadIntoEditor}

@@ -53,6 +53,14 @@ const coldDbPath = path.join(dataDir, 'cold_storage.db');
 const hotDb = new Database(dbPath);
 const coldDb = new Database(coldDbPath);
 
+// WAL lets reads run while a write commits, NORMAL is crash-safe under WAL,
+// and a locked database waits up to 5 s instead of throwing SQLITE_BUSY.
+for (const conn of [hotDb, coldDb]) {
+  conn.pragma('journal_mode = WAL');
+  conn.pragma('synchronous = NORMAL');
+  conn.pragma('busy_timeout = 5000');
+}
+
 // SQL access to the gameParse rules, so queries and JS loops count the same way.
 hotDb.function('net_kills', { deterministic: true }, kills => netKills({ kills }));
 hotDb.function('pilot_key', { deterministic: true }, name => pilotKey(name));
@@ -1613,6 +1621,18 @@ const getGamesInDay = hotDb.prepare(`
 `);
 
 const db = {
+  // Copy and replace tracker.db through SQLite's backup API. Under WAL a raw file copy
+  // can miss commits still in tracker.db-wal, or be replayed against that stale WAL.
+  backupHot: destination => hotDb.backup(destination),
+  restoreHot: async source => {
+    const uploaded = new Database(source, { readonly: true, fileMustExist: true });
+    try {
+      await uploaded.backup(dbPath);
+    } finally {
+      uploaded.close();
+    }
+  },
+
   getGames: (limit, offset, search, startDate) => {
     if (search) {
       if (startDate) {
@@ -1991,18 +2011,18 @@ VALUES(@id, @date, @ip, @details)
     }
 
     try {
+      // One row at a time: .all() would hold every hot and cold game in memory at once.
       const rows = hotDb.prepare(`
         SELECT details, date FROM games
         UNION ALL
         SELECT details, date FROM cold.games
-      `).all();
+      `).iterate();
 
       const pilotMap = {};
       const killGraph = {};
       const h2h = {};
 
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
+      for (const row of rows) {
         if (!row.details) continue;
         let g;
         try {

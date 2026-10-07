@@ -174,9 +174,25 @@ app.get('/version.json', (req, res) => {
 });
 
 if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) {
+    // The build writes .br and .gz copies of the 32 MB ffmpeg wasm (vite.config.ts).
+    // Send one of those rather than letting compression() gzip it on every request.
+    // express.static then serves the copy, keeping this Content-Type and its cache rules.
+    const wasmUrl = '/ffmpeg/ffmpeg-core.wasm';
+    const wasmCopies = Object.entries({ br: '.br', gzip: '.gz' })
+        .filter(([, ext]) => fs.existsSync(path.join(distPath, wasmUrl + ext)));
+    app.get(wasmUrl, (req, res, next) => {
+        // br first: acceptsEncodings('br', 'gzip') would follow the client's order, and Chrome lists gzip first
+        const copy = wasmCopies.find(([encoding]) => req.acceptsEncodings(encoding));
+        if (copy) {
+            res.setHeader('Content-Type', 'application/wasm');
+            res.setHeader('Content-Encoding', copy[0]);
+            res.setHeader('Vary', 'Accept-Encoding');
+            req.url = wasmUrl + copy[1];
+        }
+        next();
+    });
+
     app.use(express.static(distPath, {
-        maxAge: '1y',
-        immutable: true,
         setHeaders: (res, filePath) => {
             // Never cache index.html or version manifest so users get new builds instantly
             if (filePath.endsWith('.html') || filePath.endsWith('version.json')) {
@@ -186,6 +202,9 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
             } else if (filePath.includes(path.sep + 'assets' + path.sep) || filePath.includes('/assets/')) {
                 // Content-hashed Vite assets: 1 year immutable cache
                 res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            } else {
+                // No content hash (ffmpeg, icons, images): the file can change under the same URL
+                res.setHeader('Cache-Control', 'public, max-age=3600');
             }
         }
     }));
