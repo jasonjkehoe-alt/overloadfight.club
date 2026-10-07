@@ -95,6 +95,21 @@ describe('game_players migration', () => {
         expect(userVersion(hotFile)).toBe(1);
     });
 
+    it('repairs rows a writer that bypassed game_players left behind', () => {
+        // As a script or an older image would leave it: one game with no rows and
+        // rows for a game that no longer exists.
+        const conn = new Database(hotFile);
+        const before = conn.prepare('SELECT COUNT(*) AS n FROM game_players').get().n;
+        conn.prepare('DELETE FROM game_players WHERE game_id = 72108').run();
+        conn.prepare("INSERT INTO game_players (game_id, date, name) VALUES (123456, '2026-01-01', 'GHOST')").run();
+        conn.close();
+
+        db.migrateGamePlayers();
+        expect(rowCount(hotFile)).toBe(before);
+        expect(rowCount(hotFile, "WHERE name = 'GHOST'")).toBe(0);
+        expect(rowCount(hotFile, 'WHERE game_id = 72108')).toBe(4);
+    });
+
     it('serves pilot numbers from the backfilled rows', () => {
         // SOUP's hot game (14 kills, 46 deaths) and the 2019 cold game as "Soup",
         // where he killed himself once and scored -1, which counts as 0.
@@ -103,9 +118,12 @@ describe('game_players migration', () => {
 });
 
 describe('moveGamesToColdStorage', () => {
-    it('moves old games and their rows, and drops a hot copy already in cold storage', () => {
-        // Before the move 80002 is counted twice, once from each file.
+    it('moves old games and their rows, and drops a hot copy already in cold storage', async () => {
+        // Before the move 80002 is counted twice, once from each file, except by
+        // the stats worker, which counts a game id once.
         expect(db.getPilotStats.all().find(r => r.name === 'B2AF').games).toBe(5);
+        await db.refreshPilotStats();
+        expect((await db.getColdStorageStats()).total_games).toBe(hotGames.length + 3);
 
         expect(db.moveGamesToColdStorage()).toBe(2);
 

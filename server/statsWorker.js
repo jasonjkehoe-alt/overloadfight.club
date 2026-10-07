@@ -15,14 +15,21 @@ const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thir
 // A pass that throws stops on its own; the others carry on, as when each pass
 // ran its own scan.
 const errors = {};
+// Ids read from hot storage. The pages are separate reads, so a game moved to
+// cold storage mid-pass (or left in both files by a crash) would otherwise be
+// read twice.
+const seen = new Set();
 
 for (const file of [hotPath, coldPath]) {
+    const isHot = file === hotPath;
     const conn = new Database(file, { readonly: true, fileMustExist: true });
     try {
         const page = conn.prepare('SELECT id, date, ip, details FROM games WHERE id > ? ORDER BY id LIMIT ?');
         let afterId = Number.MIN_SAFE_INTEGER;
         for (let rows = page.all(afterId, PAGE_SIZE); rows.length > 0; rows = page.all(afterId, PAGE_SIZE)) {
             for (const row of rows) {
+                if (isHot) seen.add(row.id);
+                else if (seen.has(row.id)) continue;
                 let game = null;
                 try {
                     game = JSON.parse(row.details);

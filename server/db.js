@@ -189,14 +189,15 @@ function gamePlayersWriter(conn) {
 const writeHotPlayers = gamePlayersWriter(hotDb);
 const writeColdPlayers = gamePlayersWriter(coldDb);
 
-// Backfill game_players from every games row in one file, 1,000 games per
-// transaction. Runs when the file's user_version is below GAME_PLAYERS_VERSION;
-// it starts from an empty table each time, so a run cut short is redone whole.
-function backfillGamePlayers(conn, writePlayers, label) {
-  if (conn.pragma('user_version', { simple: true }) >= GAME_PLAYERS_VERSION) return;
+// Bring one file's game_players in line with its games. Below GAME_PLAYERS_VERSION
+// (user_version) it empties the table and backfills every game in id order, 1,000
+// per transaction, so a run cut short is redone whole. At the version it repairs
+// what a writer that bypassed game_players (a script, an older image after a
+// rollback) left behind: rows of games that are gone, and games with no rows.
+// A game with no named players has no rows, so the repair re-reads it each start.
+function syncGamePlayers(conn, writePlayers, label) {
   const started = performance.now();
-  const page = conn.prepare('SELECT id, date, details FROM games WHERE id > ? ORDER BY id LIMIT 1000');
-  const writePage = conn.transaction(rows => {
+  const writeRows = conn.transaction(rows => {
     for (const row of rows) {
       let game;
       try {
@@ -207,23 +208,37 @@ function backfillGamePlayers(conn, writePlayers, label) {
       writePlayers(row.id, row.date, game);
     }
   });
-  conn.exec('DELETE FROM game_players');
-  let games = 0;
-  let afterId = Number.MIN_SAFE_INTEGER;
-  for (let rows = page.all(afterId); rows.length > 0; rows = page.all(afterId)) {
-    writePage(rows);
-    games += rows.length;
-    afterId = rows[rows.length - 1].id;
+
+  if (conn.pragma('user_version', { simple: true }) < GAME_PLAYERS_VERSION) {
+    const page = conn.prepare('SELECT id, date, details FROM games WHERE id > ? ORDER BY id LIMIT 1000');
+    conn.exec('DELETE FROM game_players');
+    let games = 0;
+    let afterId = Number.MIN_SAFE_INTEGER;
+    for (let rows = page.all(afterId); rows.length > 0; rows = page.all(afterId)) {
+      writeRows(rows);
+      games += rows.length;
+      afterId = rows[rows.length - 1].id;
+    }
+    conn.pragma(`user_version = ${GAME_PLAYERS_VERSION}`);
+    console.log(`[game_players] Backfilled ${label} storage: ${games} games in ${((performance.now() - started) / 1000).toFixed(1)}s.`);
+    return;
   }
-  conn.pragma(`user_version = ${GAME_PLAYERS_VERSION}`);
-  console.log(`[game_players] Backfilled ${label} storage: ${games} games in ${((performance.now() - started) / 1000).toFixed(1)}s.`);
+
+  const orphaned = conn.prepare('DELETE FROM game_players WHERE game_id NOT IN (SELECT id FROM games)').run().changes;
+  const missing = conn.prepare('SELECT id FROM games WHERE id NOT IN (SELECT game_id FROM game_players)').pluck().all();
+  const getRow = conn.prepare('SELECT id, date, details FROM games WHERE id = ?');
+  for (let i = 0; i < missing.length; i += 1000) writeRows(missing.slice(i, i + 1000).map(id => getRow.get(id)));
+  const repaired = missing.length - conn.prepare('SELECT COUNT(*) FROM games WHERE id NOT IN (SELECT game_id FROM game_players)').pluck().get();
+  if (orphaned || repaired) {
+    console.log(`[game_players] Repaired ${label} storage: removed ${orphaned} orphaned rows, added rows for ${repaired} games.`);
+  }
 }
 
 function migrateGamePlayers() {
   ensureGamePlayersTable(coldDb);
   ensureGamePlayersTable(hotDb);
-  backfillGamePlayers(coldDb, writeColdPlayers, 'cold');
-  backfillGamePlayers(hotDb, writeHotPlayers, 'hot');
+  syncGamePlayers(coldDb, writeColdPlayers, 'cold');
+  syncGamePlayers(hotDb, writeHotPlayers, 'hot');
 }
 migrateGamePlayers();
 
@@ -1392,61 +1407,60 @@ const runStatsWorker = () => new Promise((resolve, reject) => {
 });
 
 async function refreshCaches() {
-  // 1. Create Cache Table if not exists
-  hotDb.exec(`
-    CREATE TABLE IF NOT EXISTS pilot_stats_cache (
-      name TEXT PRIMARY KEY,
-      kills INTEGER,
-      deaths INTEGER,
-      assists INTEGER,
-      suicides INTEGER DEFAULT 0,
-      games INTEGER,
-      time_played_seconds INTEGER,
-      kd REAL,
-      kda REAL,
-      akdr REAL,
-      kpm REAL,
-      tce REAL,
-      aci REAL,
-      wins INTEGER DEFAULT 0,
-      losses INTEGER DEFAULT 0,
-      ties INTEGER DEFAULT 0,
-      win_rate REAL DEFAULT 0,
-      total_damage REAL DEFAULT 0,
-      dpm REAL DEFAULT 0,
-      flight_hours REAL DEFAULT 0,
-      finisher_rating REAL,
-      arsenal_entropy REAL,
-      threat_centrality REAL DEFAULT 0,
-      dominance_index REAL DEFAULT 0,
-      last_updated TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-
-  // Ensure columns exist on older tables
-  const extraCols = [
-    'kd REAL',
-    'kda REAL',
-    'aci REAL',
-    'suicides INTEGER DEFAULT 0',
-    'wins INTEGER DEFAULT 0',
-    'losses INTEGER DEFAULT 0',
-    'ties INTEGER DEFAULT 0',
-    'win_rate REAL DEFAULT 0',
-    'total_damage REAL DEFAULT 0',
-    'dpm REAL DEFAULT 0',
-    'flight_hours REAL DEFAULT 0'
-  ];
-  for (const col of extraCols) {
-    try {
-      hotDb.exec(`ALTER TABLE pilot_stats_cache ADD COLUMN ${col}`);
-    } catch (e) {
-      // already exists
-    }
-  }
-
-
   try {
+    // 1. Create Cache Table if not exists
+    hotDb.exec(`
+      CREATE TABLE IF NOT EXISTS pilot_stats_cache (
+        name TEXT PRIMARY KEY,
+        kills INTEGER,
+        deaths INTEGER,
+        assists INTEGER,
+        suicides INTEGER DEFAULT 0,
+        games INTEGER,
+        time_played_seconds INTEGER,
+        kd REAL,
+        kda REAL,
+        akdr REAL,
+        kpm REAL,
+        tce REAL,
+        aci REAL,
+        wins INTEGER DEFAULT 0,
+        losses INTEGER DEFAULT 0,
+        ties INTEGER DEFAULT 0,
+        win_rate REAL DEFAULT 0,
+        total_damage REAL DEFAULT 0,
+        dpm REAL DEFAULT 0,
+        flight_hours REAL DEFAULT 0,
+        finisher_rating REAL,
+        arsenal_entropy REAL,
+        threat_centrality REAL DEFAULT 0,
+        dominance_index REAL DEFAULT 0,
+        last_updated TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Ensure columns exist on older tables
+    const extraCols = [
+      'kd REAL',
+      'kda REAL',
+      'aci REAL',
+      'suicides INTEGER DEFAULT 0',
+      'wins INTEGER DEFAULT 0',
+      'losses INTEGER DEFAULT 0',
+      'ties INTEGER DEFAULT 0',
+      'win_rate REAL DEFAULT 0',
+      'total_damage REAL DEFAULT 0',
+      'dpm REAL DEFAULT 0',
+      'flight_hours REAL DEFAULT 0'
+    ];
+    for (const col of extraCols) {
+      try {
+        hotDb.exec(`ALTER TABLE pilot_stats_cache ADD COLUMN ${col}`);
+      } catch (e) {
+        // already exists
+      }
+    }
+
     const started = performance.now();
     const { errors, pilots, archive, maps } = await runStatsWorker();
     for (const [pass, message] of Object.entries(errors)) console.error(`[StatsWorker] ${pass} pass failed: ${message}`);
