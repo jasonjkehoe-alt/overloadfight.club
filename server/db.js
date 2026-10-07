@@ -6,6 +6,15 @@ import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, pilotLikePatter
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// [start, end) of a UTC day ('YYYY-MM-DD') for `date >= ? AND date < ?`,
+// which can use idx_games_date where `date LIKE 'YYYY-MM-DD%'` cannot.
+// null when dateStr is not a calendar day.
+function utcDayBounds(dateStr) {
+  const start = Date.parse(`${dateStr}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || Number.isNaN(start)) return null;
+  return [dateStr, new Date(start + 86400000).toISOString().slice(0, 10)];
+}
+
 // Counter field for each outcomeOf()/pairOutcome() result.
 const OUTCOME_FIELD = { win: 'wins', loss: 'losses', tie: 'ties' };
 
@@ -563,14 +572,14 @@ const getMarathonMaps = hotDb.prepare(`
     LIMIT 5
 `);
 
+// Games stored without a kill log (gamelist summaries) that ran over a minute,
+// in id order after `afterId`, so a hydration pass never revisits a game.
 const getSummaryGames = hotDb.prepare(`
-    SELECT id FROM games 
-    WHERE (json_extract(details, '$.kills') IS NULL OR json_array_length(json_extract(details, '$.kills')) = 0)
-    AND (
-       json_extract(details, '$.timeElapsed') > 60 
-       OR json_extract(details, '$.duration') > 60
-       OR json_extract(details, '$.game.matchLength') > 60
-    )
+    SELECT id FROM games
+    WHERE id > ?
+    AND COALESCE(json_array_length(details, '$.kills'), 0) = 0
+    AND duration_of(details) > 60
+    ORDER BY id
     LIMIT ?
 `);
 
@@ -1558,7 +1567,23 @@ const buildMapStatsCache = () => {
   }
 };
 
-export default {
+// saveGames upsert. A gamelist summary carries an empty kill log, so it does not
+// replace stored details that have one (a hydrated or archive game).
+const upsertGameSql = `
+  INSERT INTO games(id, date, ip, details)
+  VALUES(@id, @date, @ip, @details)
+  ON CONFLICT(id) DO UPDATE SET
+    details = CASE
+      WHEN COALESCE(json_array_length(excluded.details, '$.kills'), 0) = 0
+        AND COALESCE(json_array_length(games.details, '$.kills'), 0) > 0
+      THEN games.details
+      ELSE excluded.details
+    END,
+    date = excluded.date,
+    ip = excluded.ip
+`;
+
+const db = {
   getGames: (limit, offset, search, startDate) => {
     if (search) {
       if (startDate) {
@@ -1706,7 +1731,7 @@ COALESCE(json_extract(details, '$.server.ip'), ip) as ip,
     run: (params) => {
       // Wrapper to route to saveGames logic
       const game = JSON.parse(params.details);
-      return module.exports.default.saveGames([game]);
+      return db.saveGames([game]);
     }
   },
 
@@ -1727,14 +1752,7 @@ COALESCE(json_extract(details, '$.server.ip'), ip) as ip,
     }
 
     // Transaction for Hot DB
-    const insertHot = hotDb.prepare(`
-      INSERT INTO games(id, date, ip, details)
-VALUES(@id, @date, @ip, @details)
-      ON CONFLICT(id) DO UPDATE SET
-details = excluded.details,
-  date = excluded.date,
-  ip = excluded.ip
-    `);
+    const insertHot = hotDb.prepare(upsertGameSql);
 
     const insertMeta = hotDb.prepare(`
       INSERT OR REPLACE INTO game_metadata(game_id, fetch_status, fetch_attempts, last_fetch_at, error_message)
@@ -1764,14 +1782,7 @@ VALUES(?, ?, ?, ?, ?)
     });
 
     // Transaction for Cold DB
-    const insertCold = coldDb.prepare(`
-      INSERT INTO games(id, date, ip, details)
-VALUES(@id, @date, @ip, @details)
-      ON CONFLICT(id) DO UPDATE SET
-details = excluded.details,
-  date = excluded.date,
-  ip = excluded.ip
-    `);
+    const insertCold = coldDb.prepare(upsertGameSql);
 
     const transactionCold = coldDb.transaction((gamesList) => {
       let changes = 0;
@@ -2413,7 +2424,7 @@ VALUES(@id, @date, @ip, @details)
     updateMany(updates);
   },
   getSummaryGames: {
-    all: (limit) => getSummaryGames.all(limit)
+    all: (afterId, limit) => getSummaryGames.all(afterId, limit)
   },
 
   // Map Database Operations
@@ -2711,11 +2722,13 @@ VALUES(@id, @date, @ip, @details)
   },
 
   getGamesForDate: (dateStr) => {
+    const bounds = utcDayBounds(dateStr);
+    if (!bounds) return [];
     return hotDb.prepare(`
       SELECT id, date, details FROM games 
-      WHERE date LIKE ? 
+      WHERE date >= ? AND date < ?
       ORDER BY date ASC
-    `).all(`${dateStr}%`);
+    `).all(...bounds);
   },
 
   getAllCachedPilotStats: () => {
@@ -2778,8 +2791,8 @@ VALUES(@id, @date, @ip, @details)
     const qualifying = [];
     for (const row of dayRows) {
       const dayMatches = hotDb.prepare(`
-        SELECT details FROM games WHERE date LIKE ?
-      `).all(`${row.day}%`);
+        SELECT details FROM games WHERE date >= ? AND date < ?
+      `).all(...utcDayBounds(row.day));
 
       const pilots = new Set();
       let frags = 0;
@@ -2858,3 +2871,5 @@ VALUES(@id, @date, @ip, @details)
   PRIMARY_WEAPONS,
   SECONDARY_WEAPONS
 };
+
+export default db;

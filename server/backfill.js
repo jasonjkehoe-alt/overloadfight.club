@@ -232,12 +232,17 @@ class BackfillManager {
 
         console.log(`Starting Hydration Job ${job.id}...`);
 
+        // Walk summaries in id order. A game the tracker returns without kills,
+        // or that fails, stays a summary, so never ask for it again in this pass.
+        // A paused job saved the game it had not fetched yet as current_id.
+        let lastId = Math.max(0, (job.current_id || 0) - 1);
+
         while (true) {
             // Check cancel/pause
             if (this.cancelRequested || this.pauseRequested) break;
 
             const batchLimit = 50;
-            const summaries = db.getSummaryGames.all(batchLimit);
+            const summaries = db.getSummaryGames.all(lastId, batchLimit);
 
             if (summaries.length === 0) {
                 console.log("No more summary games found to hydrate.");
@@ -248,6 +253,7 @@ class BackfillManager {
 
             for (const row of summaries) {
                 const gameId = row.id;
+                lastId = gameId;
 
                 // Check cancel
                 if (this.cancelRequested) {
