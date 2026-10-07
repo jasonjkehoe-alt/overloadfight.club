@@ -63,12 +63,18 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
                 <span className="text-white font-bold group-hover:text-[#ff6600] transition-colors">{activePilotCount}</span>
                 <span className="text-gray-500 group-hover:text-gray-300 transition-colors">ACTIVE PILOTS</span>
               </div>
-              <nav className="flex space-x-5 xl:space-x-7">
+              <nav className="flex space-x-4">
                 <button
                   onClick={() => handleNavClick('dashboard')}
                   className={`${currentView === 'dashboard' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
                 >
                   Live
+                </button>
+                <button
+                  onClick={() => handleNavClick('fight-night')}
+                  className={`${currentView === 'fight-night' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap`}
+                >
+                  Fight Night
                 </button>
                 <button
                   onClick={() => handleNavClick('pilots')}
@@ -137,6 +143,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'dashboard' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
               >
                 Live
+              </button>
+              <button
+                onClick={() => handleNavClick('fight-night')}
+                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'fight-night' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+              >
+                Fight Night
               </button>
               <button
                 onClick={() => handleNavClick('pilots')}

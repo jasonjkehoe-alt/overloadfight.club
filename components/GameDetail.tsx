@@ -6,6 +6,9 @@ import DamageMatrix from './DamageMatrix';
 import Analysis from './Analysis';
 import MatchAnalysis from './MatchAnalysis';
 import { getMapImage } from '../services/mapService';
+// The server's rules, so this page shows the result and length the stats count.
+import { winnerOf, durationOf } from '../server/lib/gameParse.js';
+import { MatchResult, resultLine } from '../utils/matchResult';
 
 interface GameDetailProps {
     game: GameData;
@@ -23,14 +26,14 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
     };
 
     const mapImage = getMapImage(game.settings?.level);
+    const result: MatchResult = useMemo(() => winnerOf(game), [game]);
+    const durationSec: number = useMemo(() => durationOf(game), [game]);
 
     // Calculate derived stats
     const processedPlayers = useMemo(() => {
         if (!game.players) return [];
 
-        const durationMinutes = game.start && game.end
-            ? (new Date(game.end).getTime() - new Date(game.start).getTime()) / 60000
-            : (game.settings?.timeLimit || 20) / 60;
+        const durationMinutes = durationSec / 60;
 
         return game.players.map(p => {
             // Calculate damage from events if not present in player object
@@ -41,7 +44,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                     .reduce((sum, d) => sum + d.damage, 0);
             }
 
-            const dpm = durationMinutes > 0 ? totalDamage / durationMinutes : 0;
+            const dpm = durationMinutes > 0 ? totalDamage / durationMinutes : null;
             const kda = (p.kills + p.assists * 0.5) / Math.max(1, p.deaths);
 
             return {
@@ -51,7 +54,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                 kda
             };
         }).sort((a, b) => b.kills - a.kills);
-    }, [game]);
+    }, [game, durationSec]);
 
     const renderTimeline = () => {
         let timelineEvents = [];
@@ -142,12 +145,59 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                         </div>
                         <div className="text-right font-mono">
                             <div className="text-2xl font-bold text-white">
-                                {game.settings?.timeLimit ? Math.floor(game.settings.timeLimit / 60) : '??'} MIN
+                                {durationSec > 0 ? formatTime(durationSec) : 'Unknown'}
                             </div>
-                            <div className="text-xs text-gray-500 uppercase tracking-widest">Match Limit</div>
+                            <div className="text-xs text-gray-500 uppercase tracking-widest">
+                                Duration{game.settings?.timeLimit ? ` of ${Math.floor(game.settings.timeLimit / 60)} min limit` : ''}
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Result */}
+            <div className="bg-[#111] border border-gray-800 rounded-sm p-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono">
+                <div>
+                    <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">
+                        {result.winners.length === 1 ? 'Winner' : result.winners.length > 1 ? 'Draw' : 'Result'}
+                    </div>
+                    {result.winners.length === 1 && (
+                        <div className={`text-2xl font-bold brand-font ${result.team ? (result.ranking[0].side === 'BLUE' ? 'text-blue-400' : result.ranking[0].side === 'ORANGE' ? 'text-orange-400' : 'text-white') : 'text-[#ff6600]'}`}>
+                            {result.ranking[0].name}
+                        </div>
+                    )}
+                    <div className="text-sm text-gray-300 mt-1">{resultLine(result)}</div>
+                </div>
+                {result.ranking.length > 0 && (
+                    result.team ? (
+                        <div className="flex items-center gap-3 text-3xl font-bold">
+                            {result.ranking.map((r, i) => (
+                                <React.Fragment key={r.side}>
+                                    {i > 0 && <span className="text-gray-600 text-xl">–</span>}
+                                    <span className="flex flex-col items-center">
+                                        <span className={r.side === 'BLUE' ? 'text-blue-400' : r.side === 'ORANGE' ? 'text-orange-400' : 'text-white'}>{r.score}</span>
+                                        <span className="text-[10px] text-gray-500 tracking-widest">{r.name}</span>
+                                    </span>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    ) : (
+                        <ol className="flex gap-4 text-sm">
+                            {result.ranking.slice(0, 3).map((r, i) => (
+                                <li key={r.side} className="flex flex-col items-center min-w-[72px]">
+                                    <span className={`text-xs font-bold ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : 'text-amber-600'}`}>{['1st', '2nd', '3rd'][i]}</span>
+                                    <button
+                                        onClick={() => onNavigate && onNavigate('pilot', r.name)}
+                                        className="text-white font-bold hover:text-[#ff6600] hover:underline truncate max-w-[140px]"
+                                    >
+                                        {r.name}
+                                    </button>
+                                    <span className="text-gray-400 text-xs">{r.score}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    )
+                )}
             </div>
 
             {/* Navigation Tabs */}
@@ -203,7 +253,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                                                  {Math.round(p.totalDamage).toLocaleString()}
                                              </td>
                                              <td className="p-4 text-right text-gray-500">
-                                                 {Math.round(p.dpm).toLocaleString()}
+                                                 {p.dpm === null ? '–' : Math.round(p.dpm).toLocaleString()}
                                              </td>
                                              <td className="p-4 text-right">
                                                  <div className="flex flex-col items-end">

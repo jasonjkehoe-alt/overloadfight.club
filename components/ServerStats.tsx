@@ -146,17 +146,6 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames, onSelectLive
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col justify-center space-y-2.5 my-2">
-                    <div className="text-xs text-gray-300 font-mono flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <span>Global Mesh Operational</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                        {['US-CENTRAL', 'US-EAST', 'FRANKFURT', 'AUSTRALIA', 'CHICAGO'].map(region => (
-                            <span key={region} className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-gray-400 font-mono">
-                                {region}
-                            </span>
-                        ))}
-                    </div>
                     <div className="text-[10px] text-gray-600 font-mono">
                         {totalActivePlayers > 0 ? `${totalActivePlayers} pilot(s) active in dogfights` : 'No dogfights currently in progress'}
                     </div>

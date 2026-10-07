@@ -20,12 +20,27 @@ interface GameListProps {
     globalStats?: any;
     startDate?: string;
     showColdStorage?: boolean;
+    initialTab?: 'servers' | 'history';
+    // Rendered on the servers tab between the server browser and the recent matches.
+    afterLive?: React.ReactNode;
 }
 
-const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initialArchivedGames, onSelectGame, onSelectLiveGame, onNavigate, globalStats, startDate, showColdStorage }) => {
-    const [activeTab, setActiveTab] = useState<'servers' | 'history'>(activeGames === null ? 'history' : 'servers');
+// Favorite servers survive a reload: a JSON array of server IPs.
+const FAVORITES_KEY = 'favorite_servers';
+
+const loadFavorites = (): string[] => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+        return Array.isArray(saved) ? saved.filter((ip): ip is string => typeof ip === 'string') : [];
+    } catch {
+        return [];
+    }
+};
+
+const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initialArchivedGames, onSelectGame, onSelectLiveGame, onNavigate, globalStats, startDate, showColdStorage, initialTab = 'servers', afterLive }) => {
+    const [activeTab, setActiveTab] = useState<'servers' | 'history'>(initialTab);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'activity', direction: 'desc' });
-    const [favorites, setFavorites] = useState<string[]>([]);
+    const [favorites, setFavorites] = useState<string[]>(loadFavorites);
     const [showIdleServers, setShowIdleServers] = useState<boolean>(false);
     const [copiedIp, setCopiedIp] = useState<string | null>(null);
 
@@ -104,6 +119,11 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
             newFavs = [...favorites, ip];
         }
         setFavorites(newFavs);
+        try {
+            localStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavs));
+        } catch {
+            // storage blocked (private mode): the star still works until the next reload
+        }
     };
 
     const handleLoadMoreHistory = async () => {
@@ -323,7 +343,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             <div className="bg-[#111] border border-gray-800 rounded p-8 text-center space-y-3">
                                 <div className="flex items-center justify-center gap-2 text-xs font-mono text-gray-400">
                                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                    <span className="font-bold text-gray-200 uppercase tracking-wider">All {activeGames?.length || 21} Servers Standing By</span>
+                                    <span className="font-bold text-gray-200 uppercase tracking-wider">All {activeGames?.length} Servers Standing By</span>
                                 </div>
                                 <p className="text-xs text-gray-500 font-mono max-w-md mx-auto">
                                     {liveMatches.length > 0 ? 'Active match is running above. Other servers are idle.' : 'No active matches or lobbies in progress right now.'}
@@ -489,6 +509,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             </>
                         )}
                     </div>
+
+                    {afterLive}
 
                     {/* Recently Completed Matches (Top 3) */}
                     {historyGames && historyGames.length > 0 && (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import Layout from './components/Layout';
+import FightNightTeaser from './components/FightNightTeaser';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useServerBrowser } from './hooks/useServerBrowser';
 import { OverloadFsProvider } from './context/OverloadFsContext';
@@ -298,14 +299,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Fight Night Recaps Section */}
-          <FightNightSection
-            onNavigate={handleNavigate}
-            onSelectGame={handleSelectGame}
-            onSelectPilot={(name) => handleNavigate('pilot', name)}
-          />
-
-          {/* GameList picks its tab from activeGames when it mounts, so wait for the first poll */}
+          {/* Live first: wait for the first poll rather than flash "Connection Failed" */}
           {!browserSettled || (loading && archivedGames === null) ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -322,6 +316,7 @@ const App: React.FC = () => {
               globalStats={stats}
               startDate={ONE_YEAR_AGO}
               showColdStorage={showColdStorage}
+              afterLive={<FightNightTeaser onNavigate={handleNavigate} />}
             />
           )}
         </div>
@@ -362,6 +357,7 @@ const App: React.FC = () => {
             archivedGames={null}
             onNavigate={handleNavigate}
             globalStats={stats}
+            initialTab="history"
           />
         </div>
       )}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Clock, Users, Trophy, Activity, AlertCircle } from 'lucide-react';
 import { GameData, GameEvent, GameSettings } from '../types';
 import { apiService } from '../services/apiService';
+import JoinIp from './JoinIp';
 
 // Fields this page reads from the live game that types.ts does not declare.
 type LiveGame = GameData & {
@@ -127,7 +128,8 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                     <AlertCircle className="w-8 h-8 text-red-500" />
                 </div>
                 <h2 className="text-xl font-bold text-white mb-2">Unable to Load Game</h2>
-                <p className="text-gray-400 mb-6">{error || "Game not found"}</p>
+                <p className="text-gray-400 mb-4">{error || "Game not found"}</p>
+                {ip && <div className="flex justify-center mb-6"><JoinIp ip={ip} /></div>}
                 <button
                     onClick={onBack}
                     className="inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
@@ -173,6 +175,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                             <span className="w-1 h-1 rounded-full bg-gray-600" />
                             <span>{game.settings?.level || "Unknown Map"}</span>
                         </div>
+                        {ip && <div className="mt-2"><JoinIp ip={ip} /></div>}
                     </div>
                 </div>
 

@@ -24,6 +24,10 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
     const [maps, setMaps] = useState<MapData[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<MapStats | null>(null);
+    // All-time match count (the archive stats, hot and cold) and the number of
+    // maps the Stock filter shows; both null until they load.
+    const [totalMatches, setTotalMatches] = useState<number | null>(null);
+    const [stockCount, setStockCount] = useState<number | null>(null);
 
     // Filter and Sort states
     const [search, setSearch] = useState(initialSearch || '');
@@ -71,6 +75,17 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
             .then(data => setStats(data))
             .catch(err => console.error("Failed to load map stats", err));
     };
+
+    useEffect(() => {
+        fetch('/api/stats/cold/deep')
+            .then(res => (res.ok ? res.json() : null))
+            .then(data => setTotalMatches(data?.total_games ?? null))
+            .catch(err => console.error("Failed to load match count", err));
+        fetch('/api/maps?type=stock&limit=1')
+            .then(res => (res.ok ? res.json() : null))
+            .then(data => setStockCount(data?.count ?? null))
+            .catch(err => console.error("Failed to load stock map count", err));
+    }, []);
 
     useEffect(() => {
         if (initialSearch) setSearch(initialSearch);
@@ -139,7 +154,9 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                             <span className="px-2 py-0.5 bg-[#ff6600]/10 border border-[#ff6600]/30 text-[#ff6600] text-[10px] font-bold uppercase tracking-wider rounded">
                                 Combat Zone Intelligence
                             </span>
-                            <span className="text-gray-500 font-mono text-xs">• 75,820 Matches Indexed</span>
+                            {totalMatches !== null && (
+                                <span className="text-gray-500 font-mono text-xs">• {totalMatches.toLocaleString()} Matches Indexed</span>
+                            )}
                         </div>
                         <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight brand-font">
                             Overload Map Database
@@ -162,7 +179,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                         </div>
                         <div className="bg-[#111] border border-gray-800 px-4 py-3 rounded-lg text-center font-mono">
                             <div className="text-[10px] uppercase font-bold text-gray-500">Base Game</div>
-                            <div className="text-xl md:text-2xl font-bold text-emerald-400">12 Stock</div>
+                            <div className="text-xl md:text-2xl font-bold text-emerald-400">{stockCount === null ? '–' : `${stockCount} Stock`}</div>
                         </div>
                     </div>
                 </div>
@@ -177,7 +194,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                             <h3 className="text-[#ff6600] font-bold uppercase text-xs flex items-center gap-2 tracking-wider">
                                 <Trophy className="w-4 h-4" /> All-Time Favorites
                             </h3>
-                            <span className="text-[10px] text-gray-500 font-mono">ALL 75k MATCHES</span>
+                            <span className="text-[10px] text-gray-500 font-mono">{totalMatches !== null ? `ALL ${formatNumber(totalMatches)} MATCHES` : 'ALL TIME'}</span>
                         </div>
                         <ul className="space-y-2.5">
                             {stats.topPlayed.slice(0, 5).map((m, i) => (

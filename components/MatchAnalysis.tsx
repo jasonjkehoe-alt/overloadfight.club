@@ -6,6 +6,7 @@ import {
     calculatePlayStyles, calculateKillHeatmap, calculateFirstBlood,
     calculateTeamSynergy
 } from '../utils/statCalculators';
+import { durationOf } from '../server/lib/gameParse.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis } from 'recharts';
 
 interface MatchAnalysisProps {
@@ -18,12 +19,8 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
     const streak = useMemo(() => calculateStreaks(game.kills), [game.kills]);
     const styles = useMemo(() => calculatePlayStyles(game), [game]);
     const firstBlood = useMemo(() => calculateFirstBlood(game.kills), [game.kills]);
-    const heatmap = useMemo(() => {
-        const duration = game.end && game.start 
-            ? (new Date(game.end).getTime() - new Date(game.start).getTime()) / 60000
-            : (game.settings?.timeLimit || 15 * 60) / 60;
-        return calculateKillHeatmap(game.kills, duration);
-    }, [game]);
+    // An unknown length (0) falls back to the helper's 15-minute default.
+    const heatmap = useMemo(() => calculateKillHeatmap(game.kills, durationOf(game) / 60 || undefined), [game]);
     const synergy = useMemo(() => calculateTeamSynergy(game.players || []), [game.players]);
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
