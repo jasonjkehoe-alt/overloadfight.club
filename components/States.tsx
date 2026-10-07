@@ -4,6 +4,10 @@ import { AlertTriangle, Inbox, RefreshCw, LucideIcon } from 'lucide-react';
 // The three states every view shows while it loads, when it has nothing to
 // show, and when its data failed. compact is for a section inside a page.
 
+const CARD = 'bg-surface-card border border-line rounded-card';
+// for a second button beside ErrorState's Retry (Back, Logout)
+export const secondaryButtonClass = 'px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-control font-bold text-xs uppercase tracking-wider inline-flex items-center gap-2 transition-colors';
+
 interface LoadingProps {
     label?: React.ReactNode;
     compact?: boolean;
@@ -22,10 +26,12 @@ interface EmptyStateProps {
     icon?: LucideIcon;
     action?: React.ReactNode;
     compact?: boolean;
+    // draw the card around it, for a state that stands alone in the page
+    card?: boolean;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({ title, message, icon: Icon = Inbox, action, compact }) => (
-    <div className={`flex flex-col items-center text-center gap-2 font-mono ${compact ? 'py-8 px-4' : 'py-16 px-6'}`}>
+export const EmptyState: React.FC<EmptyStateProps> = ({ title, message, icon: Icon = Inbox, action, compact, card }) => (
+    <div className={`flex flex-col items-center text-center gap-2 font-mono ${compact ? 'py-8 px-4' : 'py-16 px-6'} ${card ? CARD : ''}`}>
         <Icon className="w-6 h-6 text-gray-600 mb-1" />
         <p className="text-sm font-bold text-gray-300">{title}</p>
         {message && <div className="text-xs text-gray-500 max-w-md leading-relaxed">{message}</div>}

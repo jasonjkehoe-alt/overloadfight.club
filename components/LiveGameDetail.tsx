@@ -3,7 +3,7 @@ import { ArrowLeft, Clock, Users, Trophy, Activity } from 'lucide-react';
 import { GameData, GameEvent, GameSettings } from '../types';
 import { apiService } from '../services/apiService';
 import JoinIp from './JoinIp';
-import { Loading, EmptyState, ErrorState } from './States';
+import { Loading, EmptyState, ErrorState, secondaryButtonClass } from './States';
 import Link from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
 
@@ -125,11 +125,8 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     {ip && <div className="flex justify-center mt-4"><JoinIp ip={ip} /></div>}
                 </>}
                 action={
-                    <button
-                        onClick={onBack}
-                        className="inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-control transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
+                    <button onClick={onBack} className={secondaryButtonClass}>
+                        <ArrowLeft className="w-4 h-4" />
                         Back
                     </button>
                 }

@@ -14,9 +14,9 @@ import { colors } from '../designTokens.js';
 import { Loading, EmptyState, ErrorState } from './States';
 
 const GlobalActivityChart: React.FC = () => {
-    const [data, setData] = useState<any[]>([]);
+    // null when the request failed
+    const [data, setData] = useState<any[] | null>(null);
     const [loading, setLoading] = useState(true);
-    const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -25,12 +25,9 @@ const GlobalActivityChart: React.FC = () => {
                 if (res.ok) {
                     const json = await res.json();
                     setData(json);
-                } else {
-                    setFailed(true);
                 }
             } catch (e) {
                 console.error("Failed to load activity timeline", e);
-                setFailed(true);
             } finally {
                 setLoading(false);
             }
@@ -40,7 +37,7 @@ const GlobalActivityChart: React.FC = () => {
     }, []);
 
     if (loading) return <Loading compact />;
-    if (failed) return <ErrorState compact title="Timeline unavailable" message="Could not load the activity timeline." />;
+    if (!data) return <ErrorState compact title="Timeline unavailable" message="Could not load the activity timeline." />;
     if (data.length === 0) return <EmptyState compact title="No activity recorded yet." />;
 
     return (

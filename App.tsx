@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Layout from './components/Layout';
 import FightNightTeaser from './components/FightNightTeaser';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Loading, ErrorState } from './components/States';
+import { Loading, ErrorState, secondaryButtonClass } from './components/States';
 import { useServerBrowser } from './hooks/useServerBrowser';
 import { usePathname, goBack } from './hooks/useLocation';
 import { parseRoute, urlFor, pageTitle } from './server/lib/siteRoutes.js';
@@ -217,10 +217,7 @@ const App: React.FC = () => {
             title="Combat telemetry unavailable"
             message={`Could not retrieve match details for log #${selectedGameId}. The upstream telemetry provider (tracker.otl.gg) may be offline or experiencing connection timeouts.`}
             action={
-              <button
-                onClick={() => goBack(urlFor('history'))}
-                className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-control font-bold text-xs uppercase tracking-wider transition-colors"
-              >
+              <button onClick={() => goBack(urlFor('history'))} className={secondaryButtonClass}>
                 Back
               </button>
             }

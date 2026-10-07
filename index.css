@@ -8,7 +8,7 @@
         background-color: theme('colors.surface.page');
         color: theme('colors.neutral.200');
     }
-    h1, h2, h3, h4 {
+    h1, h2, h3, h4, .brand-font {
         font-family: 'Orbitron', sans-serif;
     }
     ::-webkit-scrollbar {
@@ -24,11 +24,5 @@
     }
     ::-webkit-scrollbar-thumb:hover {
         background: theme('colors.brand.hover');
-    }
-}
-
-@layer components {
-    .brand-font {
-        font-family: 'Orbitron', sans-serif;
     }
 }

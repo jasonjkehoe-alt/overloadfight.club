@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { GameData } from '../types';
-import { colors } from '../designTokens.js';
+import { colors, chartTooltip } from '../designTokens.js';
 
 interface ScoreChartProps {
   game: GameData;
@@ -92,7 +92,7 @@ const ScoreChart: React.FC<ScoreChartProps> = ({ game }) => {
           />
           <YAxis stroke="#666" />
           <Tooltip 
-            contentStyle={{ backgroundColor: colors.surface.raised, borderColor: colors.line, color: '#fff', borderRadius: '4px' }}
+            contentStyle={{ ...chartTooltip, color: '#fff' }}
             labelFormatter={(val) => formatTime(val as number)}
             itemStyle={{ color: '#fff' }}
             labelStyle={{ color: '#ccc' }}

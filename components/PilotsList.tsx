@@ -92,7 +92,10 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
         let url = '/api/stats/pilots?source=all';
 
         fetch(url)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
             .then(data => {
                 const formatted = data.map((p: any) => ({
                     ...p,
@@ -284,13 +287,12 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                             </table>
                         </div>
                     ) : (
-                        <div className="bg-surface-card border border-line rounded-card">
-                            <EmptyState
-                                icon={Users}
-                                title="No identified pilots in active matches."
-                                message="Connect to a server to see the full player manifest."
-                            />
-                        </div>
+                        <EmptyState
+                            card
+                            icon={Users}
+                            title="No identified pilots in active matches."
+                            message="Connect to a server to see the full player manifest."
+                        />
                     )}
                 </div>
             )}

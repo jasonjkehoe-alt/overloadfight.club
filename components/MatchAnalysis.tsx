@@ -9,7 +9,7 @@ import {
 } from '../utils/statCalculators';
 import { durationOf } from '../server/lib/gameParse.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis } from 'recharts';
-import { colors } from '../designTokens.js';
+import { colors, chartTooltip } from '../designTokens.js';
 
 interface MatchAnalysisProps {
     game: GameData;
@@ -89,7 +89,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                             <ZAxis type="category" dataKey="name" name="Weapon" />
                             <Tooltip 
                                 cursor={{ strokeDasharray: '3 3' }} 
-                                contentStyle={{backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px'}} 
+                                contentStyle={chartTooltip} 
                                 itemStyle={{color: '#fff'}}
                                 labelStyle={{color: '#ccc'}}
                             />
@@ -121,7 +121,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                                 ))}
                             </Pie>
                             <Tooltip 
-                                contentStyle={{backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px'}} 
+                                contentStyle={chartTooltip} 
                                 itemStyle={{color: '#fff'}}
                             />
                         </PieChart>
@@ -137,7 +137,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                         <BarChart data={heatmap}>
                             <XAxis dataKey="minute" stroke="#666" fontSize={10} tickFormatter={val => `${val}'`} />
                             <Tooltip 
-                                contentStyle={{backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px'}} 
+                                contentStyle={chartTooltip} 
                                 cursor={{fill: colors.surface.raised}} 
                                 itemStyle={{color: '#fff'}}
                                 labelStyle={{color: '#ccc'}}

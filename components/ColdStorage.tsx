@@ -111,8 +111,8 @@ const ColdStorage: React.FC = () => {
     const page = Math.max(1, parseInt(pageParam, 10) || 1);
     const setPage = (next: number) => setPageParam(String(next));
 
-    // Initial Load of Deep Stats, Pilots & Maps
-    useEffect(() => {
+    // Deep Stats, Pilots & Maps; statsError when the deep stats or the pilots failed
+    const loadStats = () => {
         setLoadingStats(true);
         setStatsError(false);
         Promise.all([
@@ -120,12 +120,14 @@ const ColdStorage: React.FC = () => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return res.json();
             }),
-            fetch('/api/stats/pilots?source=all').then(res => res.json()).catch(() => []),
+            fetch('/api/stats/pilots?source=all').then(res => (res.ok ? res.json() : null)).catch(() => null),
             fetch('/api/stats/maps?source=all').then(res => res.json()).catch(() => null)
         ]).then(([deepData, pilotsData, mapsData]) => {
             setDeepStats(deepData);
             if (Array.isArray(pilotsData)) {
                 setPilotRoster(pilotsData);
+            } else {
+                setStatsError(true);
             }
             if (mapsData?.topPlayed) {
                 setTopMaps(mapsData.topPlayed);
@@ -138,6 +140,10 @@ const ColdStorage: React.FC = () => {
             setStatsError(true);
             setLoadingStats(false);
         });
+    };
+
+    useEffect(() => {
+        loadStats();
     }, []);
 
     // Load Games whenever page, search, or selectedYear changes
@@ -147,22 +153,16 @@ const ColdStorage: React.FC = () => {
 
     const loadGames = async () => {
         setLoadingGames(true);
-        setGamesError(false);
-        try {
-            let effectiveSearch = search.trim();
-            if (selectedYear !== 'ALL') {
-                effectiveSearch = effectiveSearch ? `${selectedYear} ${effectiveSearch}` : selectedYear;
-            }
-
-            const gamesData = await fetchColdGames(page, effectiveSearch);
-            setGamesError(!gamesData);
-            setGames(gamesData?.games || []);
-            setGamesTotalCount(gamesData?.count || 0);
-        } catch (error) {
-            console.error("Failed to load cold storage games", error);
-            setGames([]);
-            setGamesTotalCount(0);
+        let effectiveSearch = search.trim();
+        if (selectedYear !== 'ALL') {
+            effectiveSearch = effectiveSearch ? `${selectedYear} ${effectiveSearch}` : selectedYear;
         }
+
+        // fetchColdGames answers null when the request fails
+        const gamesData = await fetchColdGames(page, effectiveSearch);
+        setGamesError(!gamesData);
+        setGames(gamesData?.games || []);
+        setGamesTotalCount(gamesData?.count || 0);
         setLoadingGames(false);
     };
 
@@ -335,7 +335,7 @@ const ColdStorage: React.FC = () => {
                                 compact
                                 title="Archive telemetry unavailable"
                                 message="Unable to load historical archive telemetry. Some statistics may be unavailable."
-                                onRetry={() => window.location.reload()}
+                                onRetry={loadStats}
                             />
                         </div>
                     )}
@@ -672,7 +672,11 @@ const ColdStorage: React.FC = () => {
                                     ) : hallOfFamePilots.length === 0 ? (
                                         <tr>
                                             <td colSpan={5}>
-                                                <EmptyState compact title="No pilots found with 50+ matches." />
+                                                {statsError ? (
+                                                    <ErrorState compact title="Pilot records unavailable" message="Could not load pilot stats." onRetry={loadStats} />
+                                                ) : (
+                                                    <EmptyState compact title="No pilots found with 50+ matches." />
+                                                )}
                                             </td>
                                         </tr>
                                     ) : (
@@ -963,21 +967,20 @@ const ColdStorage: React.FC = () => {
                         ) : gamesError ? (
                             <ErrorState title="Archive unavailable" message="Could not load archived matches." onRetry={loadGames} />
                         ) : games.length === 0 ? (
-                            <div className="bg-surface-card rounded-card border border-line">
-                                <EmptyState
-                                    icon={Search}
-                                    title="No archived matches found matching criteria."
-                                    message="Try adjusting your search terms or clearing the year filter."
-                                    action={
-                                        <button
-                                            onClick={() => { setSearchInput(''); setQueryParams({ q: null, year: null, page: null }); }}
-                                            className="text-xs text-blue-400 underline font-bold"
-                                        >
-                                            Reset Filters
-                                        </button>
-                                    }
-                                />
-                            </div>
+                            <EmptyState
+                                card
+                                icon={Search}
+                                title="No archived matches found matching criteria."
+                                message="Try adjusting your search terms or clearing the year filter."
+                                action={
+                                    <button
+                                        onClick={() => { setSearchInput(''); setQueryParams({ q: null, year: null, page: null }); }}
+                                        className="text-xs text-blue-400 underline font-bold"
+                                    >
+                                        Reset Filters
+                                    </button>
+                                }
+                            />
                         ) : (
                             <>
                                 <div className="mb-2 text-xs font-mono text-gray-500 uppercase tracking-wider flex justify-between items-center">

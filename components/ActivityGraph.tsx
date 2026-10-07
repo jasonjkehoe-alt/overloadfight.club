@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { colors } from '../designTokens.js';
+import { colors, chartTooltip } from '../designTokens.js';
 
 interface ActivityGraphProps {
   globalActivity?: { day: string; hour: string; count: number }[];
@@ -144,7 +144,7 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
             />
             <Tooltip
               cursor={{ fill: '#222' }}
-              contentStyle={{ backgroundColor: colors.surface.raised, border: `1px solid ${colors.line}`, borderRadius: '4px', fontSize: '12px' }}
+              contentStyle={{ ...chartTooltip, fontSize: '12px' }}
               labelFormatter={(label) => `${formatTimeLabel(label)} - ${formatTimeLabel(label + 1)}`}
               formatter={(value) => [value, 'Games Played']}
               itemStyle={{ color: '#fff' }}

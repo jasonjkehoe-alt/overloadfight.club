@@ -558,12 +558,12 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                             <EmptyState
                                 icon={FolderOpen}
                                 title="Your PC Overload folder is not connected."
-                                message={<>Connect your local game directory (<code className="text-[#ff6600] bg-black/40 px-1 py-0.5 rounded">AppData\LocalLow\Revival\Overload</code>) to index your custom taunts and opponent audio in your Library.</>}
+                                message={<>Connect your local game directory (<code className="text-brand bg-black/40 px-1 py-0.5 rounded-control">AppData\LocalLow\Revival\Overload</code>) to index your custom taunts and opponent audio in your Library.</>}
                                 action={
                                     <button
                                         onClick={connectLocalFolder}
                                         disabled={isConnecting}
-                                        className="flex items-center gap-2 px-5 py-2.5 bg-[#ff6600] text-black font-bold text-xs rounded-xl shadow-lg hover:bg-[#ff8533] transition-all uppercase tracking-wider"
+                                        className="flex items-center gap-2 px-5 py-2.5 bg-brand text-black font-bold text-xs rounded-xl shadow-lg hover:bg-brand-hover transition-all uppercase tracking-wider"
                                     >
                                         {isConnecting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />}
                                         <span>{isConnecting ? 'Connecting...' : 'Connect Overload Folder'}</span>

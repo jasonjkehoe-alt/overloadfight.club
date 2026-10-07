@@ -12,42 +12,39 @@ interface FightNightSectionProps {
 }
 
 export const FightNightSection: React.FC<FightNightSectionProps> = ({ date }) => {
-    const [recaps, setRecaps] = useState<FightNightRecap[]>([]);
+    // null when the request failed
+    const [recaps, setRecaps] = useState<FightNightRecap[] | null>([]);
     const [loading, setLoading] = useState(true);
-    const [failed, setFailed] = useState(false);
     const [retries, setRetries] = useState(0);
 
     useEffect(() => {
         let isCurrent = true;
         setLoading(true);
-        setFailed(false);
         fetchFightNights(15).then(res => {
             if (!isCurrent) return;
-            // fetchFightNights answers null when the request fails
-            setFailed(!res);
-            setRecaps(res?.recaps ?? []);
+            setRecaps(res ? res.recaps ?? [] : null);
             setLoading(false);
         });
         return () => { isCurrent = false; };
     }, [retries]);
 
-    const activeRecap = recaps.find(r => r.date === date) || recaps[0];
 
     if (loading) return <Loading label="Loading Fight Night Recaps..." />;
 
-    if (failed) {
+    if (!recaps) {
         return <ErrorState title="Fight night recaps unavailable" message="Could not load the fight night cards." onRetry={() => setRetries(n => n + 1)} />;
     }
 
-    if (recaps.length === 0) {
+    const activeRecap = recaps.find(r => r.date === date) || recaps[0];
+
+    if (!activeRecap) {
         return (
-            <div className="bg-surface-card border border-line rounded-card">
-                <EmptyState
-                    icon={Flame}
-                    title="No fight nights yet"
-                    message="Check back after the next big one. When the arena erupts with heavy traffic and high frags, the official fight card will auto-generate here."
-                />
-            </div>
+            <EmptyState
+                card
+                icon={Flame}
+                title="No fight nights yet"
+                message="Check back after the next big one. When the arena erupts with heavy traffic and high frags, the official fight card will auto-generate here."
+            />
         );
     }
 

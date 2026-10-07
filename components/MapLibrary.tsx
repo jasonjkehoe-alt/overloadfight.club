@@ -394,13 +394,12 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
             ) : mapsError && maps.length === 0 ? (
                 <ErrorState title="Arena registry unavailable" message="Could not load the map list." onRetry={loadMaps} />
             ) : filteredMaps.length === 0 ? (
-                <div className="bg-surface-card border border-line rounded-card">
-                    <EmptyState
-                        icon={MapIcon}
-                        title="No combat zones match your filters"
-                        message="Try resetting the search terms or origin filter."
-                    />
-                </div>
+                <EmptyState
+                    card
+                    icon={MapIcon}
+                    title="No combat zones match your filters"
+                    message="Try resetting the search terms or origin filter."
+                />
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {filteredMaps.map((map, index) => {

@@ -145,13 +145,13 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
 
                 if (statsRes.ok) {
                     setStats(await statsRes.json());
-                } else {
-                    setFailed(true);
                 }
                 if (gamesRes.ok) {
                     const gamesData = await gamesRes.json();
                     setGames(gamesData.games || []);
                 }
+                // without stats or the match list the page has nothing true to show
+                if (!statsRes.ok || !gamesRes.ok) setFailed(true);
                 if (ppiRes.ok) {
                     setPilotPpi(await ppiRes.json());
                 }

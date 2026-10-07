@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Loading, ErrorState } from './States';
+import { Loading, ErrorState, secondaryButtonClass } from './States';
 import {
     LayoutDashboard,
     Database,
@@ -348,10 +348,7 @@ const AdminPanel: React.FC = () => {
                 message={error || "Unknown error occurred"}
                 onRetry={() => { setLoading(true); fetchStats(); }}
                 action={
-                    <button
-                        onClick={() => setIsAuthenticated(false)}
-                        className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600 font-bold text-white text-xs uppercase"
-                    >
+                    <button onClick={() => setIsAuthenticated(false)} className={secondaryButtonClass}>
                         Logout
                     </button>
                 }

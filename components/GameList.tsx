@@ -96,8 +96,11 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
         if (query) return;
         if (initialArchivedGames) {
             setHistoryGames(initialArchivedGames);
+        } else if (activeGames) {
+            // the dashboard: App's page-1 fetch failed; Retry asks again
+            setHistoryError(true);
         } else if (!historyGames) {
-            // No games handed in (the History view, or the dashboard's fetch failed): fetch page 1
+            // the History view fetches page 1 itself
             loadFirstPage();
         }
     }, [initialArchivedGames, startDate]);
@@ -367,22 +370,21 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                         {sortedActiveGames === null ? (
                             <ErrorState compact title="Connection failed" message="Could not retrieve live data." />
                         ) : displayServers && displayServers.length === 0 ? (
-                            <div className="bg-surface-card border border-line rounded-card">
-                                <EmptyState
-                                    compact
-                                    icon={Server}
-                                    title={idleCount > 0 ? `All ${idleCount} Idle Servers Standing By` : 'No Idle Servers'}
-                                    message={liveMatches.length > 0 ? 'Active match is running above. Other servers are idle.' : 'No active matches or lobbies in progress right now.'}
-                                    action={
-                                        <button
-                                            onClick={() => setShowIdleServers(true)}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-surface-raised border border-gray-700 hover:border-brand text-gray-300 hover:text-brand text-xs font-mono font-bold uppercase tracking-wider rounded-control transition-colors"
-                                        >
-                                            <span>Show Idle Servers ({idleCount})</span>
-                                        </button>
-                                    }
-                                />
-                            </div>
+                            <EmptyState
+                                card
+                                compact
+                                icon={Server}
+                                title={idleCount > 0 ? `All ${idleCount} Idle Servers Standing By` : 'No Idle Servers'}
+                                message={liveMatches.length > 0 ? 'Active match is running above. Other servers are idle.' : 'No active matches or lobbies in progress right now.'}
+                                action={
+                                    <button
+                                        onClick={() => setShowIdleServers(true)}
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-surface-raised border border-gray-700 hover:border-brand text-gray-300 hover:text-brand text-xs font-mono font-bold uppercase tracking-wider rounded-control transition-colors"
+                                    >
+                                        <span>Show Idle Servers ({idleCount})</span>
+                                    </button>
+                                }
+                            />
                         ) : (
                             <>
                                 {/* Mobile Cards View */}
@@ -629,18 +631,16 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             </div>
                         </div>
 
-                        {historyGames === null ? (
-                            isLoadingHistory || isSearching ? (
-                                <Loading compact label="Fetching archival data..." />
-                            ) : historyError ? (
-                                <ErrorState
-                                    compact
-                                    title="Archive unavailable"
-                                    message="Could not load the match history."
-                                    onRetry={() => (query ? runSearch(query) : loadFirstPage())}
-                                />
-                            ) : null
-                        ) : historyGames.length === 0 ? (
+                        {historyGames === null && (isLoadingHistory || isSearching) ? (
+                            <Loading compact label="Fetching archival data..." />
+                        ) : historyError ? (
+                            <ErrorState
+                                compact
+                                title="Archive unavailable"
+                                message="Could not load the match history."
+                                onRetry={() => (query ? runSearch(query) : loadFirstPage())}
+                            />
+                        ) : historyGames === null ? null : historyGames.length === 0 ? (
                             <EmptyState
                                 icon={Search}
                                 title="No matches found"

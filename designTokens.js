@@ -17,3 +17,10 @@ export const borderRadius = {
   control: '0.25rem', // buttons, inputs, badges, tabs
   card: '0.5rem', // cards, panels, dialogs
 };
+
+// Recharts' tooltip box (contentStyle)
+export const chartTooltip = {
+  backgroundColor: colors.surface.raised,
+  border: `1px solid ${colors.line}`,
+  borderRadius: borderRadius.control,
+};

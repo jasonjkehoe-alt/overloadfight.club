@@ -37,7 +37,7 @@ export const AudioTauntMaker: React.FC = () => {
 
     return (
         <ErrorBoundary>
-            <div className="w-full text-gray-200 flex flex-col selection:bg-[#ff6600] selection:text-black pb-12">
+            <div className="w-full text-gray-200 flex flex-col selection:bg-brand selection:text-black pb-12">
                 <TauntHeader activeTab={activeTab} onSelectTab={setActiveTab} />
 
                 <div className="w-full">
