@@ -4,19 +4,13 @@
 
 const MAX_DURATION_SEC = 86400;
 
+// Counter field for each outcomeOf()/pairOutcome() result.
+export const OUTCOME_FIELD = { win: 'wins', loss: 'losses', tie: 'ties' };
+
 // Case-insensitive identity for a pilot name. Use it for map keys and
 // comparisons, never for display.
 export function pilotKey(name) {
     return String(name ?? '').trim().toLowerCase();
-}
-
-// LIKE pattern matching `name` as a whole JSON string in a details blob, with
-// LIKE wildcards escaped. Use with `LIKE ? ESCAPE '\'`. SQLite's LIKE already
-// ignores ASCII case, so the name is not lowercased here. It is a prefilter:
-// confirm the match with pilotKey() on the parsed players.
-export function pilotLikePattern(name) {
-    const json = JSON.stringify(String(name ?? '').trim());
-    return `%${json.replace(/[\\%_]/g, '\\$&')}%`;
 }
 
 // Team of a player in upper case ('BLUE', 'ORANGE', ...), or null in FFA.
@@ -38,19 +32,30 @@ function secondsBetween(from, to) {
     return diff > 0 && diff < MAX_DURATION_SEC ? diff : 0;
 }
 
-// Match length in seconds, 0 when nothing in the game says how long it ran.
-// Archive games carry start/end. Live-era games carry only settings.start
-// (the StartGame event) and date (when the tracker closed the game).
-// settings.timeLimit is the cap, not the length, so it comes last.
-export function durationOf(game) {
+function plausibleSeconds(value) {
+    const n = Number(value);
+    return n > 0 && n < MAX_DURATION_SEC ? n : 0;
+}
+
+// How long the match actually ran, in seconds, or 0 when the game does not
+// record it. Archive games carry start/end. Live-era games carry only
+// settings.start (the StartGame event) and date (when the tracker closed it).
+export function measuredDurationOf(game) {
     if (!game) return 0;
     const fromTimestamps = secondsBetween(game.start || game.settings?.start, game.end || game.date);
     if (fromTimestamps) return fromTimestamps;
-    for (const field of [game.timeElapsed, game.elapsed, game.duration, game.settings?.timeLimit]) {
-        const n = Number(field);
-        if (n > 0 && n < MAX_DURATION_SEC) return n;
+    for (const field of [game.timeElapsed, game.elapsed, game.duration]) {
+        const n = plausibleSeconds(field);
+        if (n) return n;
     }
     return 0;
+}
+
+// Match length in seconds for stats, 0 when nothing in the game says how long
+// it ran. settings.timeLimit is the cap, not the length, so it is used only
+// when measuredDurationOf() finds nothing.
+export function durationOf(game) {
+    return measuredDurationOf(game) || plausibleSeconds(game?.settings?.timeLimit);
 }
 
 // Who won. Team games rank teams by teamScore (any number of teams; teams
@@ -59,6 +64,7 @@ export function durationOf(game) {
 // `side` is the team or the pilotKey(), `name` is what to display.
 // `winners` holds every side sharing the top score: one entry is an outright
 // win, more than one is a tie, none means the game has no result to read.
+/** @returns {{ team: boolean, ranking: { side: string, name: string, score: number }[], winners: string[] }} */
 export function winnerOf(game) {
     const players = Array.isArray(game?.players) ? game.players : [];
     const teamScore = game?.teamScore && typeof game.teamScore === 'object' ? game.teamScore : {};
@@ -108,4 +114,49 @@ export function pairOutcome(game, a, b, result = winnerOf(game)) {
     if (!scoreA || !scoreB || scoreA === scoreB) return null;
     if (scoreA.score === scoreB.score) return 'tie';
     return scoreA.score > scoreB.score ? 'win' : 'loss';
+}
+
+// One row per named player for the game_players table in server/db.js. `kills`
+// is the raw in-game score (pass it through netKills for totals). Suicides come
+// from the kill log and `damage` is damage dealt to other pilots from the damage
+// log, so both are 0 for a game stored without its logs. A pilot listed twice
+// in one game gets those log counts once, on the first row.
+export function playerRows(game) {
+    const suicides = new Map();
+    for (const k of Array.isArray(game?.kills) ? game.kills : []) {
+        const key = pilotKey(k?.defender);
+        if (key && pilotKey(k.attacker) === key) suicides.set(key, (suicides.get(key) || 0) + 1);
+    }
+    const dealt = new Map();
+    for (const d of Array.isArray(game?.damage) ? game.damage : []) {
+        const key = pilotKey(d?.attacker);
+        if (key && pilotKey(d.defender) !== key) dealt.set(key, (dealt.get(key) || 0) + (Number(d.damage) || 0));
+    }
+
+    const take = (counts, key) => {
+        const n = counts.get(key) || 0;
+        counts.delete(key);
+        return n;
+    };
+
+    const mode = game?.settings?.matchMode ?? null;
+    const map = game?.settings?.level ?? null;
+    const rows = [];
+    for (const p of Array.isArray(game?.players) ? game.players : []) {
+        const name = String(p?.name ?? '').trim();
+        if (!name) continue;
+        const key = pilotKey(name);
+        rows.push({
+            name,
+            team: teamOf(p),
+            kills: Number(p.kills) || 0,
+            deaths: Number(p.deaths) || 0,
+            assists: Number(p.assists) || 0,
+            suicides: take(suicides, key),
+            damage: take(dealt, key),
+            mode,
+            map
+        });
+    }
+    return rows;
 }

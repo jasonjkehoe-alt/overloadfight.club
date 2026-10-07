@@ -1,20 +1,32 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { GameData } from '../types';
 import ScoreChart from './ScoreChart';
 import DamageMatrix from './DamageMatrix';
 import Analysis from './Analysis';
 import MatchAnalysis from './MatchAnalysis';
 import { getMapImage } from '../services/mapService';
+// The server's rules, so this page shows the result and length the stats count.
+import { winnerOf, durationOf, measuredDurationOf } from '../server/lib/gameParse.js';
+import { resultLine } from '../server/lib/matchResult.js';
+import Link from './Link';
+import { useQueryParam } from '../hooks/useLocation';
+import { urlFor } from '../server/lib/siteRoutes.js';
+
+const TABS = ['overview', 'deep-dive', 'damage', 'timeline', 'analysis'] as const;
+
+const teamColor = (team?: string | null) =>
+    team === 'BLUE' ? 'text-blue-400' : team === 'ORANGE' ? 'text-orange-400' : 'text-white';
+
+const PODIUM = [['1st', 'text-yellow-400'], ['2nd', 'text-gray-300'], ['3rd', 'text-amber-600']];
 
 interface GameDetailProps {
     game: GameData;
     onBack: () => void;
-    onNavigate?: (view: string, param?: string) => void;
 }
 
-const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'deep-dive' | 'damage' | 'timeline' | 'analysis'>('overview');
+const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
+    const [activeTab, setActiveTab] = useQueryParam('tab', 'overview', TABS);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(Math.abs(seconds) / 60);
@@ -23,14 +35,17 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
     };
 
     const mapImage = getMapImage(game.settings?.level);
+    const result = useMemo(() => winnerOf(game), [game]);
+    // durationOf is what the stats count; it falls back to the time limit
+    // when the game does not record how long it ran.
+    const durationSec = useMemo(() => durationOf(game), [game]);
+    const durationIsLimit = durationSec > 0 && !measuredDurationOf(game);
 
     // Calculate derived stats
     const processedPlayers = useMemo(() => {
         if (!game.players) return [];
 
-        const durationMinutes = game.start && game.end
-            ? (new Date(game.end).getTime() - new Date(game.start).getTime()) / 60000
-            : (game.settings?.timeLimit || 20) / 60;
+        const durationMinutes = durationSec / 60;
 
         return game.players.map(p => {
             // Calculate damage from events if not present in player object
@@ -41,7 +56,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                     .reduce((sum, d) => sum + d.damage, 0);
             }
 
-            const dpm = durationMinutes > 0 ? totalDamage / durationMinutes : 0;
+            const dpm = durationMinutes > 0 ? totalDamage / durationMinutes : null;
             const kda = (p.kills + p.assists * 0.5) / Math.max(1, p.deaths);
 
             return {
@@ -51,7 +66,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                 kda
             };
         }).sort((a, b) => b.kills - a.kills);
-    }, [game]);
+    }, [game, durationSec]);
 
     const renderTimeline = () => {
         let timelineEvents = [];
@@ -112,7 +127,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                 onClick={onBack}
                 className="mb-4 flex items-center text-gray-500 hover:text-[#ff6600] transition-colors font-mono text-sm"
             >
-                <span className="mr-1">&lt;</span> RETURN TO DASHBOARD
+                <span className="mr-1">&lt;</span> BACK
             </button>
 
             {/* Game Header */}
@@ -142,20 +157,69 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                         </div>
                         <div className="text-right font-mono">
                             <div className="text-2xl font-bold text-white">
-                                {game.settings?.timeLimit ? Math.floor(game.settings.timeLimit / 60) : '??'} MIN
+                                {durationSec > 0 ? formatTime(durationSec) : 'Unknown'}
                             </div>
-                            <div className="text-xs text-gray-500 uppercase tracking-widest">Match Limit</div>
+                            <div className="text-xs text-gray-500 uppercase tracking-widest">
+                                {durationIsLimit
+                                    ? 'Time limit, real length unknown'
+                                    : `Duration${game.settings?.timeLimit ? ` of ${Math.floor(game.settings.timeLimit / 60)} min limit` : ''}`}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
+            {/* Result */}
+            <div className="bg-[#111] border border-gray-800 rounded-sm p-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono">
+                <div>
+                    <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">
+                        {result.winners.length === 1 ? 'Winner' : 'Result'}
+                    </div>
+                    {result.winners.length === 1 && (
+                        <div className={`text-2xl font-bold brand-font ${result.team ? teamColor(result.ranking[0].side) : 'text-[#ff6600]'}`}>
+                            {result.ranking[0].name}
+                        </div>
+                    )}
+                    <div className="text-sm text-gray-300 mt-1">{resultLine(result)}</div>
+                </div>
+                {result.winners.length > 0 && (
+                    result.team ? (
+                        <div className="flex items-center gap-3 text-3xl font-bold">
+                            {result.ranking.map((r, i) => (
+                                <React.Fragment key={r.side}>
+                                    {i > 0 && <span className="text-gray-600 text-xl">–</span>}
+                                    <span className="flex flex-col items-center">
+                                        <span className={teamColor(r.side)}>{r.score}</span>
+                                        <span className="text-[10px] text-gray-500 tracking-widest">{r.name}</span>
+                                    </span>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    ) : (
+                        <ol className="flex gap-4 text-sm">
+                            {result.ranking.slice(0, 3).map((r, i) => (
+                                <li key={r.side} className="flex flex-col items-center min-w-[72px]">
+                                    <span className={`text-xs font-bold ${PODIUM[i][1]}`}>{PODIUM[i][0]}</span>
+                                    <Link
+                                        to={urlFor('pilot', r.name)}
+                                        className="text-white font-bold hover:text-[#ff6600] hover:underline truncate max-w-[140px]"
+                                    >
+                                        {r.name}
+                                    </Link>
+                                    <span className="text-gray-400 text-xs">{r.score}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    )
+                )}
+            </div>
+
             {/* Navigation Tabs */}
             <div className="flex border-b border-gray-800 mb-6 font-mono overflow-x-auto">
-                {['overview', 'deep-dive', 'damage', 'timeline', 'analysis'].map((tab) => (
+                {TABS.map((tab) => (
                     <button
                         key={tab}
-                        onClick={() => setActiveTab(tab as any)}
+                        onClick={() => setActiveTab(tab)}
                         className={`px-6 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === tab
                                 ? 'border-[#ff6600] text-[#ff6600] bg-[#ff6600]/5'
                                 : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-700'
@@ -188,13 +252,13 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                                          <tr key={p.name} className="hover:bg-[#1a1a1a] transition-colors">
                                              <td className="p-4 font-bold text-white flex items-center gap-3">
                                                  <span className="text-gray-600 w-4">{idx + 1}</span>
-                                                 <button
-                                                     onClick={() => onNavigate && onNavigate('pilot', p.name)}
-                                                     className={`hover:underline hover:text-[#ff6600] transition-colors text-left font-bold ${p.team === 'BLUE' ? 'text-blue-400' : p.team === 'ORANGE' ? 'text-orange-400' : 'text-white'}`}
+                                                 <Link
+                                                     to={urlFor('pilot', p.name)}
+                                                     className={`hover:underline hover:text-[#ff6600] transition-colors text-left font-bold ${teamColor(p.team)}`}
                                                      title={`View ${p.name}'s pilot dossier`}
                                                  >
                                                      {p.name}
-                                                 </button>
+                                                 </Link>
                                              </td>
                                              <td className="p-4 text-right text-lg">{p.kills}</td>
                                              <td className="p-4 text-right text-gray-400">{p.assists}</td>
@@ -203,7 +267,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                                                  {Math.round(p.totalDamage).toLocaleString()}
                                              </td>
                                              <td className="p-4 text-right text-gray-500">
-                                                 {Math.round(p.dpm).toLocaleString()}
+                                                 {p.dpm === null ? '–' : Math.round(p.dpm).toLocaleString()}
                                              </td>
                                              <td className="p-4 text-right">
                                                  <div className="flex flex-col items-end">
@@ -223,7 +287,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                 )}
 
                 {activeTab === 'deep-dive' && <MatchAnalysis game={game} />}
-                {activeTab === 'damage' && <DamageMatrix game={game} onNavigate={onNavigate} />}
+                {activeTab === 'damage' && <DamageMatrix game={game} />}
                 {activeTab === 'timeline' && renderTimeline()}
                 {activeTab === 'analysis' && <Analysis game={game} />}
             </div>

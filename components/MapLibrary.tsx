@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MapData, MapIntelData } from '../types';
+import { getMapData } from '../services/mapService';
 import { 
     Trophy, TrendingUp, Users, Map as MapIcon, Skull, Timer, Info, 
     Download, Search, X, Shield, Crosshair, Award, Flame, Calendar, 
     ExternalLink, ChevronRight, Activity
 } from 'lucide-react';
+import Link from './Link';
+import { navigate, goBack, useUrl, useQueryParam, useQueryText } from '../hooks/useLocation';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface MapLibraryProps {
-    initialSearch?: string;
-    onSelectMap?: (mapName: string) => void;
-    onNavigate?: (view: string, id?: any) => void;
+    // From /maps/:name: the map whose popup is open
+    mapName?: string;
 }
 
 interface MapStats {
@@ -20,21 +23,30 @@ interface MapStats {
     marathon: { map: string; avg_duration: number }[];
 }
 
-const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) => {
+const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
     const [maps, setMaps] = useState<MapData[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<MapStats | null>(null);
+    // All-time match count (the archive stats, hot and cold) and the number of
+    // maps the Stock filter shows; both null until they load.
+    const [totalMatches, setTotalMatches] = useState<number | null>(null);
+    const [stockCount, setStockCount] = useState<number | null>(null);
 
-    // Filter and Sort states
-    const [search, setSearch] = useState(initialSearch || '');
-    const [filterSize, setFilterSize] = useState('all');
-    const [filterOrigin, setFilterOrigin] = useState<'all' | 'stock' | 'custom'>('all');
-    const [sortBy, setSortBy] = useState<'popularity' | 'deadliest' | 'recent' | 'name' | 'downloads'>('popularity');
+    // Filter and Sort states, in the URL: ?q=, ?size=, ?origin=, ?sort=
+    const [search, setSearch] = useQueryText('q');
+    const [filterSize, setFilterSize] = useQueryParam('size', 'all');
+    const [filterOrigin, setFilterOrigin] = useQueryParam('origin', 'all', ['all', 'stock', 'custom'] as const);
+    const [sortBy, setSortBy] = useQueryParam('sort', 'popularity', ['popularity', 'deadliest', 'recent', 'name', 'downloads'] as const);
+    // The popup's URL keeps the list's filters, so closing it or reloading shows the same list.
+    const listQuery = useUrl().split('?')[1];
+    const withListQuery = (path: string) => (listQuery ? `${path}?${listQuery}` : path);
+    const dossierUrl = (name: string) => withListQuery(urlFor('maps', name));
     
-    // Tactical Dossier Modal State
-    const [selectedMapForIntel, setSelectedMapForIntel] = useState<MapData | null>(null);
-    const [intelData, setIntelData] = useState<MapIntelData | null>(null);
-    const [loadingIntel, setLoadingIntel] = useState(false);
+    // Tactical Dossier Modal State: the intel last fetched, with the map name it is
+    // for; missing when the server has no such map (a 404, not a failed request)
+    const [intel, setIntel] = useState<{ name: string; data: MapIntelData | null; missing: boolean } | null>(null);
+    const intelData = mapName && intel?.name === mapName ? intel.data : null;
+    const loadingIntel = !!mapName && intel?.name !== mapName;
 
     // Initial load of maps and global stats
     useEffect(() => {
@@ -73,8 +85,16 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
     };
 
     useEffect(() => {
-        if (initialSearch) setSearch(initialSearch);
-    }, [initialSearch]);
+        fetch('/api/stats/cold/deep')
+            .then(res => (res.ok ? res.json() : null))
+            .then(data => setTotalMatches(data?.total_games ?? null))
+            .catch(err => console.error("Failed to load match count", err));
+        // the shared map list (cached in mapService) holds stock and custom maps alike
+        getMapData().then(list => {
+            if (list.length > 0) setStockCount(list.filter(m => !m.isCustom).length);
+        });
+    }, []);
+
 
     // Client-side filtering for fast interactive typing
     const filteredMaps = useMemo(() => {
@@ -95,30 +115,40 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
         return result;
     }, [maps, search, filterSize]);
 
-    // Open Tactical Dossier Modal
-    const handleOpenDossier = async (map: MapData) => {
-        setSelectedMapForIntel(map);
-        setLoadingIntel(true);
-        try {
-            const res = await fetch(`/api/maps/${map.id || encodeURIComponent(map.name)}/intel`);
-            if (res.ok) {
-                const data = await res.json();
-                setIntelData(data);
-            } else {
-                setIntelData(map as MapIntelData);
-            }
-        } catch (err) {
-            console.error('Failed to load map intel:', err);
-            setIntelData(map as MapIntelData);
-        } finally {
-            setLoadingIntel(false);
-        }
-    };
+    // Tactical Dossier Modal: open while the URL names a map
+    const listedMap = mapName ? maps.find(m => m.name.toLowerCase() === mapName.toLowerCase()) : undefined;
+    const selectedMapForIntel: MapData | null = listedMap ?? intelData;
 
-    const handleCloseDossier = () => {
-        setSelectedMapForIntel(null);
-        setIntelData(null);
-    };
+    // The server reads an all-digit name as an id, so such a name waits for the
+    // list to find its id; any other name is asked for at once.
+    const digitsOnly = !!mapName && /^\d+$/.test(mapName);
+    const intelKey = digitsOnly ? (loading ? undefined : listedMap?.id ?? mapName) : mapName;
+    useEffect(() => {
+        if (!mapName || intelKey === undefined) return;
+        let isCurrent = true;
+        fetch(`/api/maps/${encodeURIComponent(String(intelKey))}/intel`)
+            .then(async res => ({ data: res.ok ? await res.json() : null, missing: res.status === 404 }))
+            .catch(err => {
+                console.error('Failed to load map intel:', err);
+                return { data: null, missing: false };
+            })
+            .then(({ data, missing }) => {
+                if (isCurrent) setIntel({ name: mapName, data, missing });
+            });
+        return () => { isCurrent = false; };
+    }, [mapName, intelKey]);
+
+    // /maps/<text> that names no map (an old search link, a renamed map) becomes
+    // a search for it, keeping the other filters.
+    const notAMap = !!mapName && !listedMap && intel?.name === mapName && intel.missing;
+    useEffect(() => {
+        if (!notAMap) return;
+        const params = new URLSearchParams(listQuery);
+        params.set('q', mapName!);
+        navigate(`${urlFor('maps')}?${params}`, { replace: true });
+    }, [notAMap]);
+
+    const handleCloseDossier = () => goBack(withListQuery(urlFor('maps')));
 
     const formatNumber = (num?: number) => {
         if (!num) return '0';
@@ -139,7 +169,9 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                             <span className="px-2 py-0.5 bg-[#ff6600]/10 border border-[#ff6600]/30 text-[#ff6600] text-[10px] font-bold uppercase tracking-wider rounded">
                                 Combat Zone Intelligence
                             </span>
-                            <span className="text-gray-500 font-mono text-xs">• 75,820 Matches Indexed</span>
+                            {totalMatches !== null && (
+                                <span className="text-gray-500 font-mono text-xs">• {totalMatches.toLocaleString()} Matches Indexed</span>
+                            )}
                         </div>
                         <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight brand-font">
                             Overload Map Database
@@ -162,7 +194,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                         </div>
                         <div className="bg-[#111] border border-gray-800 px-4 py-3 rounded-lg text-center font-mono">
                             <div className="text-[10px] uppercase font-bold text-gray-500">Base Game</div>
-                            <div className="text-xl md:text-2xl font-bold text-emerald-400">12 Stock</div>
+                            <div className="text-xl md:text-2xl font-bold text-emerald-400">{stockCount === null ? '–' : `${stockCount} Stock`}</div>
                         </div>
                     </div>
                 </div>
@@ -177,19 +209,15 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                             <h3 className="text-[#ff6600] font-bold uppercase text-xs flex items-center gap-2 tracking-wider">
                                 <Trophy className="w-4 h-4" /> All-Time Favorites
                             </h3>
-                            <span className="text-[10px] text-gray-500 font-mono">ALL 75k MATCHES</span>
+                            <span className="text-[10px] text-gray-500 font-mono">{totalMatches !== null ? `ALL ${formatNumber(totalMatches)} MATCHES` : 'ALL TIME'}</span>
                         </div>
                         <ul className="space-y-2.5">
                             {stats.topPlayed.slice(0, 5).map((m, i) => (
-                                <li 
-                                    key={i} 
-                                    onClick={() => {
-                                        const match = maps.find(x => x.name.toLowerCase() === m.map.toLowerCase());
-                                        if (match) handleOpenDossier(match);
-                                        else setSearch(m.map);
-                                    }}
-                                    className="flex justify-between items-center text-xs p-1.5 rounded hover:bg-gray-800/40 cursor-pointer transition-colors"
-                                >
+                                <li key={i}>
+                                    <Link
+                                        to={dossierUrl(m.map)}
+                                        className="flex justify-between items-center text-xs p-1.5 rounded hover:bg-gray-800/40 cursor-pointer transition-colors"
+                                    >
                                     <div className="flex items-center gap-2 truncate">
                                         <span className={`w-4 text-center font-mono font-bold ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-600' : 'text-gray-600'}`}>
                                              {i + 1}.
@@ -197,6 +225,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                                         <span className="text-gray-200 font-bold truncate hover:text-[#ff6600]">{m.map}</span>
                                     </div>
                                     <span className="text-gray-400 font-mono font-bold">{m.count.toLocaleString()} <span className="text-gray-600 text-[10px]">matches</span></span>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
@@ -212,20 +241,17 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                         </div>
                         <ul className="space-y-2.5">
                             {stats.deadliest?.slice(0, 5).map((m, i) => (
-                                <li 
-                                    key={i} 
-                                    onClick={() => {
-                                        const match = maps.find(x => x.name.toLowerCase() === m.map.toLowerCase());
-                                        if (match) handleOpenDossier(match);
-                                        else setSearch(m.map);
-                                    }}
-                                    className="flex justify-between items-center text-xs p-1.5 rounded hover:bg-gray-800/40 cursor-pointer transition-colors"
-                                >
+                                <li key={i}>
+                                    <Link
+                                        to={dossierUrl(m.map)}
+                                        className="flex justify-between items-center text-xs p-1.5 rounded hover:bg-gray-800/40 cursor-pointer transition-colors"
+                                    >
                                     <div className="flex items-center gap-2 truncate">
                                         <span className="w-4 text-center font-mono font-bold text-red-500/80">{i + 1}.</span>
                                         <span className="text-gray-200 font-bold truncate hover:text-red-400">{m.map}</span>
                                     </div>
                                     <span className="text-red-400 font-mono font-bold">{formatNumber(m.total_kills)} <span className="text-gray-600 text-[10px]">frags</span></span>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
@@ -241,20 +267,17 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                         </div>
                         <ul className="space-y-2.5">
                             {stats.recentTop.slice(0, 5).map((m, i) => (
-                                <li 
-                                    key={i} 
-                                    onClick={() => {
-                                        const match = maps.find(x => x.name.toLowerCase() === m.map.toLowerCase());
-                                        if (match) handleOpenDossier(match);
-                                        else setSearch(m.map);
-                                    }}
-                                    className="flex justify-between items-center text-xs p-1.5 rounded hover:bg-gray-800/40 cursor-pointer transition-colors"
-                                >
+                                <li key={i}>
+                                    <Link
+                                        to={dossierUrl(m.map)}
+                                        className="flex justify-between items-center text-xs p-1.5 rounded hover:bg-gray-800/40 cursor-pointer transition-colors"
+                                    >
                                     <div className="flex items-center gap-2 truncate">
                                         <span className="w-4 text-center font-mono font-bold text-cyan-500/80">{i + 1}.</span>
                                         <span className="text-gray-200 font-bold truncate hover:text-cyan-400">{m.map}</span>
                                     </div>
                                     <span className="text-cyan-400 font-mono font-bold">{m.count} <span className="text-gray-600 text-[10px]">recent</span></span>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
@@ -325,7 +348,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                     <select
                         className="bg-[#0a0a0c] border border-gray-800 text-gray-300 px-3 py-2.5 rounded-lg outline-none font-mono text-xs hover:border-gray-700 cursor-pointer"
                         value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as any)}
+                        onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                     >
                         <option value="popularity">Sort: Most Played (Matches)</option>
                         <option value="deadliest">Sort: Deadliest (Frags)</option>
@@ -383,9 +406,9 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                                 className="bg-[#121214] border border-gray-800/80 hover:border-[#ff6600]/80 rounded-xl overflow-hidden flex flex-col group transition-all duration-300 shadow-lg hover:shadow-2xl hover:shadow-[#ff6600]/5"
                             >
                                 {/* Thumbnail Container */}
-                                <div 
-                                    className="relative h-44 overflow-hidden bg-gray-950 cursor-pointer"
-                                    onClick={() => handleOpenDossier(map)}
+                                <Link
+                                    to={dossierUrl(map.name)}
+                                    className="block relative h-44 overflow-hidden bg-gray-950 cursor-pointer"
                                 >
                                     <img
                                         src={map.image?.startsWith('http') || map.image?.startsWith('/') ? map.image : `https://www.omdb.net/${map.image}`}
@@ -456,18 +479,17 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                                             </span>
                                         )}
                                     </div>
-                                </div>
+                                </Link>
 
                                 {/* Content Details */}
                                 <div className="p-4 flex flex-col flex-grow justify-between space-y-3">
                                     <div>
                                         <div className="flex justify-between items-start gap-2 mb-1">
                                             <h3 
-                                                onClick={() => handleOpenDossier(map)}
                                                 className="text-white font-bold text-base leading-snug group-hover:text-[#ff6600] transition-colors truncate cursor-pointer" 
                                                 title={map.name}
                                             >
-                                                {map.name}
+                                                <Link to={dossierUrl(map.name)}>{map.name}</Link>
                                             </h3>
                                         </div>
 
@@ -513,16 +535,13 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                                                     <span className="text-amber-500 font-bold flex items-center gap-1">
                                                         <Award className="w-2.5 h-2.5" /> ACE:
                                                     </span>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (onNavigate) onNavigate('pilot', map.topPilot?.name);
-                                                        }}
+                                                    <Link
+                                                        to={urlFor('pilot', map.topPilot.name)}
                                                         className="text-amber-300 font-bold hover:underline truncate max-w-[130px]"
                                                         title={`Top Pilot: ${map.topPilot.name} (${map.topPilot.kills} kills)`}
                                                     >
                                                         {map.topPilot.name}
-                                                    </button>
+                                                    </Link>
                                                 </div>
                                             )}
                                         </div>
@@ -530,12 +549,12 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
 
                                     {/* Action Footer */}
                                     <div className="flex items-center justify-between gap-2 border-t border-gray-800/80 pt-2.5 text-xs">
-                                        <button
-                                            onClick={() => handleOpenDossier(map)}
+                                        <Link
+                                            to={dossierUrl(map.name)}
                                             className="flex-1 bg-[#1a1a1c] hover:bg-[#ff6600] text-gray-300 hover:text-white py-1.5 px-2.5 rounded text-[11px] font-mono font-bold transition-colors flex items-center justify-center gap-1"
                                         >
                                             DOSSIER <ChevronRight className="w-3 h-3" />
-                                        </button>
+                                        </Link>
 
                                         {map.downloadLink && (
                                             <a
@@ -716,17 +735,12 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                                                 <span className="text-cyan-400">{intelData.recordMatch.players} Pilots in Arena</span>
                                             </div>
                                         </div>
-                                        {onNavigate && (
-                                            <button
-                                                onClick={() => {
-                                                    handleCloseDossier();
-                                                    onNavigate('game-detail', intelData.recordMatch?.id);
-                                                }}
-                                                className="px-4 py-2 bg-[#ff6600] hover:bg-[#ff771a] text-white font-bold text-xs rounded transition-colors shrink-0"
-                                            >
-                                                INSPECT SCOREBOARD &rarr;
-                                            </button>
-                                        )}
+                                        <Link
+                                            to={urlFor('game-detail', intelData.recordMatch.id)}
+                                            className="px-4 py-2 bg-[#ff6600] hover:bg-[#ff771a] text-white font-bold text-xs rounded transition-colors shrink-0"
+                                        >
+                                            INSPECT SCOREBOARD &rarr;
+                                        </Link>
                                     </div>
                                 </div>
                             )}
@@ -755,15 +769,12 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
                                                             {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
                                                         </td>
                                                         <td className="p-2.5">
-                                                            <button
-                                                                onClick={() => {
-                                                                    handleCloseDossier();
-                                                                    if (onNavigate) onNavigate('pilot', pilot.name);
-                                                                }}
+                                                            <Link
+                                                                to={urlFor('pilot', pilot.name)}
                                                                 className="text-white font-bold hover:text-[#ff6600] transition-colors"
                                                             >
                                                                 {pilot.name}
-                                                            </button>
+                                                            </Link>
                                                         </td>
                                                         <td className="p-2.5 text-right text-gray-400">{pilot.sorties}</td>
                                                         <td className="p-2.5 text-right text-red-400 font-bold">{pilot.kills.toLocaleString()}</td>

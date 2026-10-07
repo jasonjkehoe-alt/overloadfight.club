@@ -13,6 +13,7 @@ import backfillManager from './backfill.js';
 import maintenance from './maintenance.js';
 import mapSyncService from './services/mapSyncService.js';
 import db from './db.js';
+import { withPageMeta } from './pageMeta.js';
 
 import bridgeRoutes from './bridge-routes.js';
 import { warmupEngine } from './services/audioImportService.js';
@@ -88,6 +89,17 @@ app.get('/api/stats', (req, res) => {
         res.json(stats);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Docker healthcheck: 200 when both database files answer a query, 503 otherwise.
+app.get('/api/health', (req, res) => {
+    try {
+        db.checkHealth();
+        res.json({ status: 'ok' });
+    } catch (error) {
+        console.error('[Health] Database check failed:', error.message);
+        res.status(503).json({ status: 'error' });
     }
 });
 
@@ -193,6 +205,8 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
     });
 
     app.use(express.static(distPath, {
+        // "/" goes to the page route below like every other page, for its share tags
+        index: false,
         setHeaders: (res, filePath) => {
             // Never cache index.html or version manifest so users get new builds instantly
             if (filePath.endsWith('.html') || filePath.endsWith('version.json')) {
@@ -208,14 +222,17 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
             }
         }
     }));
-    app.get('*', (req, res) => {
+    // Every page is index.html with its own <title> and og: tags (server/pageMeta.js).
+    // Read per request (a 2 KB file), so a rebuild under a running server is picked up.
+    app.get('*', async (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
         }
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
-        res.sendFile(path.join(distPath, 'index.html'));
+        const indexHtml = await fs.promises.readFile(path.join(distPath, 'index.html'), 'utf8');
+        res.type('html').send(withPageMeta(indexHtml, `${req.protocol}://${req.get('host')}`, req.originalUrl));
     });
 } else {
     // API Gateway & Status Console for Development
@@ -529,7 +546,7 @@ async function warmupStatsCache() {
 }
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 
     // Start data ingestion and polling
@@ -556,3 +573,18 @@ app.listen(PORT, () => {
     // Pre-warm Audio Import Engine (yt-dlp & python)
     warmupEngine().catch(() => {});
 });
+
+// docker stop sends SIGTERM and kills after 10 s: stop taking requests, give
+// those in flight up to 5 s, then stop the stats worker and close both databases.
+async function shutdown(signal) {
+    console.log(`[Shutdown] ${signal} received, closing databases...`);
+    await new Promise(resolve => {
+        server.close(resolve);
+        setTimeout(resolve, 5000).unref();
+    });
+    await db.close();
+    console.log('[Shutdown] Done.');
+    process.exit(0);
+}
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);

@@ -10,23 +10,41 @@ import MatchTimer from './MatchTimer';
 import LiveMatchCard from './LiveMatchCard';
 import CalendarWidget from './CalendarWidget';
 import { Database, Copy, Check } from 'lucide-react';
+import Link from './Link';
+import { useQueryParam, rowLink } from '../hooks/useLocation';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface GameListProps {
     activeGames?: BrowserApiResponse[] | null;
     archivedGames?: GameData[] | null;
-    onSelectGame: (id: number) => void;
-    onSelectLiveGame: (server: BrowserApiResponse) => void;
-    onNavigate: (view: string, param?: string) => void;
     globalStats?: any;
     startDate?: string;
     showColdStorage?: boolean;
+    initialTab?: 'servers' | 'history';
+    // Rendered on the servers tab between the server browser and the recent matches.
+    afterLive?: React.ReactNode;
 }
 
-const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initialArchivedGames, onSelectGame, onSelectLiveGame, onNavigate, globalStats, startDate, showColdStorage }) => {
-    const [activeTab, setActiveTab] = useState<'servers' | 'history'>(activeGames === null ? 'history' : 'servers');
+// Favorite servers survive a reload: a JSON array of server IPs.
+const FAVORITES_KEY = 'favorite_servers';
+
+const loadFavorites = (): string[] => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+        return Array.isArray(saved) ? saved.filter((ip): ip is string => typeof ip === 'string') : [];
+    } catch {
+        return [];
+    }
+};
+
+const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initialArchivedGames, globalStats, startDate, showColdStorage, initialTab = 'servers', afterLive }) => {
+    // ?tab=, ?idle=1 and ?q= (the submitted history search) keep the list's state in the URL
+    const [activeTab, setActiveTab] = useQueryParam('tab', initialTab, ['servers', 'history'] as const);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'activity', direction: 'desc' });
-    const [favorites, setFavorites] = useState<string[]>([]);
-    const [showIdleServers, setShowIdleServers] = useState<boolean>(false);
+    const [favorites, setFavorites] = useState<string[]>(loadFavorites);
+    const [idleParam, setIdleParam] = useQueryParam('idle');
+    const showIdleServers = idleParam === '1';
+    const setShowIdleServers = (show: boolean) => setIdleParam(show ? '1' : '');
     const [copiedIp, setCopiedIp] = useState<string | null>(null);
 
     const handleCopyIp = (ip: string, e: React.MouseEvent) => {
@@ -43,8 +61,9 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     const [historyPage, setHistoryPage] = useState(1);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-    // Archive Search State
-    const [searchId, setSearchId] = useState('');
+    // Archive Search State: the box's text, and the search last run (in the URL)
+    const [query, setQuery] = useQueryParam('q');
+    const [searchId, setSearchId] = useState(query);
     const [isSearching, setIsSearching] = useState(false);
 
     // Global Stats State
@@ -53,6 +72,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     // ... (useEffect hooks unchanged)
 
     useEffect(() => {
+        // a search in the URL fills the list itself (below)
+        if (query) return;
         if (initialArchivedGames) {
             setHistoryGames(initialArchivedGames);
         } else if (!initialArchivedGames && !historyGames && !activeGames) {
@@ -70,8 +91,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
 
     // ... (other handlers unchanged)
 
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const runSearch = async (term: string) => {
         setIsSearching(true);
 
         // Reset to page 1 for new search
@@ -79,7 +99,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
 
         try {
             // Fix: Include startDate
-            const response = await fetchArchivedGames(1, searchId, startDate);
+            const response = await fetchArchivedGames(1, term, startDate);
             if (response && response.games) {
                 setHistoryGames(response.games);
                 if (response.count !== undefined) {
@@ -95,6 +115,19 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
         setIsSearching(false);
     };
 
+    // Run the search in the URL when the page opens with one, and whenever it changes.
+    useEffect(() => {
+        if (query) runSearch(query);
+    }, [query]);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        const term = searchId.trim();
+        // the effect runs a new search; an empty or repeated one runs here
+        if (!term || term === query) runSearch(term);
+        setQuery(term);
+    };
+
     const toggleFavorite = (ip: string, e: React.MouseEvent) => {
         e.stopPropagation();
         let newFavs = [];
@@ -104,13 +137,18 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
             newFavs = [...favorites, ip];
         }
         setFavorites(newFavs);
+        try {
+            localStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavs));
+        } catch {
+            // storage blocked (private mode): the star still works until the next reload
+        }
     };
 
     const handleLoadMoreHistory = async () => {
         setIsLoadingHistory(true);
         const nextPage = historyPage + 1;
         // Fix: Include startDate
-        const response = await fetchArchivedGames(nextPage, searchId, startDate);
+        const response = await fetchArchivedGames(nextPage, query, startDate);
         if (response && response.games) {
             setHistoryGames(prev => {
                 // Filter out duplicates just in case
@@ -229,8 +267,6 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
             <ServerStats
                 activeGames={activeGames}
                 archivedGames={historyGames}
-                onNavigate={onNavigate}
-                onSelectLiveGame={onSelectLiveGame}
                 globalStats={globalStats}
             />
 
@@ -256,13 +292,13 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                     </button>
                 </div>
                 {showColdStorage && (
-                    <button
-                        onClick={() => onNavigate('cold-storage')}
+                    <Link
+                        to={urlFor('cold-storage')}
                         className="mb-3 mr-4 text-xs font-mono text-blue-500 hover:text-blue-400 uppercase font-bold flex items-center gap-2 transition-colors"
                     >
                         <span className="flex items-center gap-1"><Database size={12} /> Historical Archive</span>
                         <span>→</span>
-                    </button>
+                    </Link>
                 )}
             </div>
 
@@ -283,8 +319,6 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                     <LiveMatchCard
                                         key={match.server.ip}
                                         server={match}
-                                        onWatch={onSelectLiveGame}
-                                        onSelectPilot={(pilot) => onNavigate && onNavigate('pilot', pilot)}
                                     />
                                 ))}
                             </div>
@@ -302,7 +336,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setShowIdleServers(prev => !prev)}
+                                    onClick={() => setShowIdleServers(!showIdleServers)}
                                     className={`px-3 py-1.5 text-xs font-mono rounded border transition-colors flex items-center gap-1.5 ${
                                         showIdleServers
                                             ? 'bg-[#ff6600]/10 border-[#ff6600]/50 text-[#ff6600]'
@@ -323,7 +357,9 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             <div className="bg-[#111] border border-gray-800 rounded p-8 text-center space-y-3">
                                 <div className="flex items-center justify-center gap-2 text-xs font-mono text-gray-400">
                                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                    <span className="font-bold text-gray-200 uppercase tracking-wider">All {activeGames?.length || 21} Servers Standing By</span>
+                                    <span className="font-bold text-gray-200 uppercase tracking-wider">
+                                        {idleCount > 0 ? `All ${idleCount} Idle Servers Standing By` : 'No Idle Servers'}
+                                    </span>
                                 </div>
                                 <p className="text-xs text-gray-500 font-mono max-w-md mx-auto">
                                     {liveMatches.length > 0 ? 'Active match is running above. Other servers are idle.' : 'No active matches or lobbies in progress right now.'}
@@ -345,14 +381,14 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                         return (
                                             <div
                                                 key={item.server.ip}
-                                                onClick={() => onSelectLiveGame(item)}
+                                                {...rowLink(urlFor('live-game-detail', item.server.ip))}
                                                 className="bg-[#111] border border-gray-800 rounded p-3 cursor-pointer hover:border-[#ff6600] transition-colors"
                                             >
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div className="flex items-center gap-2 min-w-0">
                                                         <button onClick={(e) => toggleFavorite(item.server.ip, e)} className={`text-sm ${favorites.includes(item.server.ip) ? 'text-yellow-500' : 'text-gray-700'}`}>★</button>
                                                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isGameActive ? 'bg-green-500 animate-pulse' : isLobby ? 'bg-yellow-500' : 'bg-gray-700'}`}></span>
-                                                        <span className="font-bold text-gray-200 text-sm truncate">{item.server.name}</span>
+                                                        <Link to={urlFor('live-game-detail', item.server.ip)} className="font-bold text-gray-200 text-sm truncate">{item.server.name}</Link>
                                                     </div>
                                                     <div className="flex items-center gap-2 flex-shrink-0">
                                                         <button
@@ -401,7 +437,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                     const mapImage = item.game ? getMapImage(item.game.mapName) : null;
 
                                                     return (
-                                                        <tr key={item.server.ip} onClick={() => onSelectLiveGame(item)} className="hover:bg-[#1a1a1a] transition-colors group cursor-pointer">
+                                                        <tr key={item.server.ip} {...rowLink(urlFor('live-game-detail', item.server.ip))} className="hover:bg-[#1a1a1a] transition-colors group cursor-pointer">
                                                             <td className="p-3 text-center">
                                                                 <button onClick={(e) => toggleFavorite(item.server.ip, e)} className={`hover:scale-125 transition-transform ${favorites.includes(item.server.ip) ? 'text-yellow-500' : 'text-gray-700 hover:text-gray-500'}`}>★</button>
                                                             </td>
@@ -412,9 +448,9 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                             </td>
                                                             <td className="p-3">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="font-bold text-gray-300 group-hover:text-white truncate">
+                                                                    <Link to={urlFor('live-game-detail', item.server.ip)} className="font-bold text-gray-300 group-hover:text-white truncate">
                                                                         {item.server.name}
-                                                                    </span>
+                                                                    </Link>
                                                                     {getHealthBadge(item.server.lastSeen)}
                                                                     <button
                                                                         onClick={(e) => handleCopyIp(item.server.ip, e)}
@@ -490,6 +526,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                         )}
                     </div>
 
+                    {afterLive}
+
                     {/* Recently Completed Matches (Top 3) */}
                     {historyGames && historyGames.length > 0 && (
                         <div className="pt-2">
@@ -506,7 +544,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                 {historyGames.slice(0, 3).map(game => {
                                     const thumb = getMapImage(game.settings?.level);
                                     return (
-                                        <div key={game.id} onClick={() => game.id && onSelectGame(game.id)} className="bg-[#111] border border-gray-800 hover:border-[#ff6600] rounded flex overflow-hidden cursor-pointer group h-20 transition-colors">
+                                        <Link key={game.id} to={urlFor('game-detail', game.id)} className="bg-[#111] border border-gray-800 hover:border-[#ff6600] rounded flex overflow-hidden cursor-pointer group h-20 transition-colors">
                                             <div className="w-20 bg-gray-900 bg-cover bg-center relative flex-shrink-0" style={{ backgroundImage: `url(${thumb})` }}>
                                                 <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></div>
                                             </div>
@@ -518,7 +556,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                 <div className="text-xs font-bold text-gray-300 truncate group-hover:text-white">{game.server?.name}</div>
                                                 <div className="text-[10px] text-gray-500 truncate">{game.settings?.level}</div>
                                             </div>
-                                        </div>
+                                        </Link>
                                     );
                                 })}
                             </div>
@@ -583,7 +621,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             {historyGames?.map((game) => {
                                 const thumb = getMapImage(game.settings?.level);
                                 return (
-                                    <div key={game.id} onClick={() => game.id && onSelectGame(game.id)} className="bg-[#111] border border-gray-800 hover:border-[#ff6600] rounded-sm overflow-hidden cursor-pointer transition-all group relative">
+                                    <div key={game.id} {...rowLink(urlFor('game-detail', game.id))} className="bg-[#111] border border-gray-800 hover:border-[#ff6600] rounded-sm overflow-hidden cursor-pointer transition-all group relative">
                                         {thumb && (
                                             <div className="absolute inset-0 opacity-10 group-hover:opacity-20 bg-cover bg-center transition-opacity" style={{ backgroundImage: `url(${thumb})` }}></div>
                                         )}
@@ -592,23 +630,20 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                 <span className="text-[10px] text-gray-500 font-mono bg-black px-1.5 py-0.5 rounded border border-gray-800">{game.date ? new Date(game.date).toLocaleDateString() : 'Unknown'}</span>
                                                 <span className="text-[10px] text-[#ff6600] font-bold uppercase">{game.settings?.matchMode}</span>
                                             </div>
-                                            <h3 className="font-bold text-gray-300 truncate text-sm mb-1 group-hover:text-white">{game.server?.name || "Unknown"}</h3>
+                                            <h3 className="font-bold text-gray-300 truncate text-sm mb-1 group-hover:text-white"><Link to={urlFor('game-detail', game.id)}>{game.server?.name || "Unknown"}</Link></h3>
                                             <div className="text-xs text-gray-500 mb-3">Map: {game.settings?.level}</div>
                                             <div className="pt-2 border-t border-gray-800/50 flex flex-wrap gap-2 text-[10px] font-mono">
                                                 {game.teamScore && Object.keys(game.teamScore).length > 0 ?
                                                     Object.entries(game.teamScore).map(([team, score]) => <span key={team} className={team === 'BLUE' ? 'text-blue-400' : 'text-orange-400'}>{team}:{score}</span>) :
                                                     game.players?.slice(0, 3).sort((a, b) => b.kills - a.kills).map((p, i) => (
-                                                        <button
+                                                        <Link
                                                             key={p.name}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                onNavigate && onNavigate('pilot', p.name);
-                                                            }}
+                                                            to={urlFor('pilot', p.name)}
                                                             className={`hover:underline hover:text-[#ff6600] transition-colors ${i === 0 ? 'text-white font-bold' : 'text-gray-400'}`}
                                                             title={`View ${p.name}'s pilot dossier`}
                                                         >
                                                             {p.name}({p.kills})
-                                                        </button>
+                                                        </Link>
                                                     ))
                                                 }
                                             </div>

@@ -3,9 +3,7 @@ import os from 'os';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { day, detailSample, onDay, sample } from './testFixtures.js';
-
-const byId = id => structuredClone(sample.find(g => g.id === id));
+import { byId, day, onDay, sample, veteranSoup } from './testFixtures.js';
 
 // Fixture games built from the samples:
 // 90001: game 72102 with the score flipped, an ORANGE win (STITCH, MAESTRO).
@@ -14,7 +12,7 @@ const byId = id => structuredClone(sample.find(g => g.id === id));
 // 90004: game 72106 with a kill log in which XB1 kills himself once.
 // 90010-90012: game 72099 cut to a 1v1 Monsterball that BLUE wins 2-1 on goals
 //   while scoring fewer kills.
-// 2: the 2019 Monsterball detail sample with its pilot renamed "Soup" (cold storage).
+// 2: veteranSoup from testFixtures.js (cold storage).
 const orangeWin = { ...byId(72102), id: 90001, teamScore: { BLUE: 35, ORANGE: 42 } };
 const teamTie = { ...byId(72096), id: 90002, teamScore: { BLUE: 10, ORANGE: 10 } };
 const lowerCaseJftp = byId(72107);
@@ -38,7 +36,6 @@ const monsterball = [90010, 90011, 90012].map(id => ({
         { name: 'FRAGGER', team: 'ORANGE', kills: 5, deaths: 1, assists: 0 }
     ]
 }));
-const veteranSoup = { ...detailSample, id: 2, players: detailSample.players.map(p => ({ ...p, name: 'Soup' })) };
 
 const hotGames = [...sample.map(g => structuredClone(g)), orangeWin, teamTie, lowerCaseJftp, withSuicide, ...monsterball].map(onDay);
 
@@ -57,11 +54,11 @@ beforeAll(async () => {
     pragma.mockRestore();
     ({ generateRecapForDate } = await import('./services/fightNightService.js'));
     db.saveGames([...hotGames, veteranSoup]);
-    db.refreshPilotStats();
+    await db.refreshPilotStats();
 });
 
-afterAll(() => {
-    db.close?.();
+afterAll(async () => {
+    await db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
@@ -136,11 +133,41 @@ describe('getPilotTelemetry and getPilotBreakdown', () => {
     });
 });
 
+describe('pilot match history (getGamesByPilot, countGamesByPilot)', () => {
+    it('finds every spelling of a pilot and ignores surrounding space', () => {
+        expect(db.countGamesByPilot.get({ name: ' JFTP ', startDate: null }).count).toBe(10);
+        const games = db.getGamesByPilot.all({ name: 'jftp', startDate: null, limit: 25, offset: 0 });
+        expect(games).toHaveLength(10);
+        expect(games.map(g => JSON.parse(g.details).id)).toContain(90003);
+    });
+
+    it('reads cold storage, pages newest first and applies the start date', () => {
+        expect(db.countGamesByPilot.get({ name: 'soup', startDate: null }).count).toBe(2);
+        const [newest, oldest] = db.getGamesByPilot.all({ name: 'soup', startDate: null, limit: 25, offset: 0 }).map(g => JSON.parse(g.details).id);
+        expect([newest, oldest]).toEqual([72108, 2]);
+        expect(db.getGamesByPilot.all({ name: 'soup', startDate: null, limit: 1, offset: 1 }).map(g => JSON.parse(g.details).id)).toEqual([2]);
+        expect(db.countGamesByPilot.get({ name: 'soup', startDate: day }).count).toBe(1);
+    });
+
+    it('treats LIKE wildcards in a name literally', () => {
+        expect(db.countGamesByPilot.get({ name: 'J_TP', startDate: null }).count).toBe(0);
+    });
+});
+
+describe('game_players after a summary upsert', () => {
+    it('keeps the suicide from the stored kill log', () => {
+        // The gamelist summary of 90004 carries no kill log; saveGames keeps the
+        // stored details, and game_players is rebuilt from those.
+        db.saveGames([onDay({ ...byId(72106), id: 90004 })]);
+        expect(db.getPilotStats.all().find(r => r.name === 'XB1').suicides).toBe(1);
+    });
+});
+
 describe('cold storage stats', () => {
-    it('picks the longest match by real duration, not timeLimit', () => {
+    it('picks the longest match by real duration, not timeLimit', async () => {
         // 72086 ran 07:13:42 to 07:30:54 (1032 s) under a 1020 s limit; 72084 has
         // a 1200 s limit but ran 702 s.
-        expect(db.getColdStorageStats().records.longest_match.id).toBe(72086);
+        expect((await db.getColdStorageStats()).records.longest_match.id).toBe(72086);
     });
 });
 
@@ -187,5 +214,6 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.countGames(null, null).count).toBe(before);
         expect(db.getGameById.get(99999)).toBeFalsy();
         expect(db.getGameById.get(72099)).toBeTruthy();
+        expect(db.countGamesByPilot.get({ name: 'JFTP', startDate: null }).count).toBe(10);
     });
 });

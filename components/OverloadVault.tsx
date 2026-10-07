@@ -26,6 +26,7 @@ import {
     Trash2,
     Award
 } from 'lucide-react';
+import Link from './Link';
 import { clsx } from 'clsx';
 import { useOverloadFs } from '../context/OverloadFsContext';
 import { getPilotDataClient } from '../utils/overloadFsBridge';
@@ -53,12 +54,12 @@ export interface GameTauntItem {
 interface OverloadVaultProps {
     onLoadIntoEditor: (file: File) => void;
     onEquipToSlot: (item: GameTauntItem, slotNum: number) => void;
-    onNavigateSettings?: () => void;
+    settingsUrl?: string;
 }
 
 export type VaultSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc';
 
-export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, onEquipToSlot, onNavigateSettings }) => {
+export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, onEquipToSlot, settingsUrl }) => {
     const {
         isSupported,
         isServerNative,
@@ -451,15 +452,15 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                                 <span>Delete</span>
                             </button>
 
-                            {onNavigateSettings && (
-                                <button
-                                    onClick={onNavigateSettings}
+                            {settingsUrl && (
+                                <Link
+                                    to={settingsUrl}
                                     className="flex items-center gap-1 px-3 py-1 rounded-lg bg-[#ff6600]/15 hover:bg-[#ff6600]/25 border border-[#ff6600]/40 text-[#ff6600] font-bold transition-all text-xs"
                                     title="Open Pilot Settings (.xprefs, .xconfig, keybinds)"
                                 >
                                     <Sliders className="w-3 h-3" />
                                     <span>Settings</span>
-                                </button>
+                                </Link>
                             )}
                         </div>
                     </div>

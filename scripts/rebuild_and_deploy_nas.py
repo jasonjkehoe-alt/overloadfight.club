@@ -160,9 +160,10 @@ def main():
         client.close()
         sys.exit(1)
 
-    # 4. Recreate container (--force-recreate)
+    # 4. Recreate container (--force-recreate). The image runs as uid 1000, so data/
+    # (root-owned from older images) is handed to it while the container is stopped.
     print("\n--- Step 4: Recreating container (--force-recreate) ---")
-    up_out, up_code = run_sudo(f"cd {nas_dir} && /usr/local/bin/docker-compose up -d --force-recreate")
+    up_out, up_code = run_sudo(f"cd {nas_dir} && /usr/local/bin/docker-compose stop && chown -R 1000:1000 data && /usr/local/bin/docker-compose up -d --force-recreate")
     if up_code != 0:
         print(f"\nERROR: docker-compose up failed with exit code {up_code}", file=sys.stderr)
         client.close()

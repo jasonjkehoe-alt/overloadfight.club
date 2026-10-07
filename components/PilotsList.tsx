@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
 import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X } from 'lucide-react';
+import Link from './Link';
+import { useQueryParam, useQueryText, rowLink } from '../hooks/useLocation';
+import { urlFor } from '../server/lib/siteRoutes.js';
+
+// The browser API also sends a player list, which types.ts does not declare.
+type BrowserGame = NonNullable<BrowserApiResponse['game']> & { players?: (string | { name?: string })[] };
 
 interface PilotsListProps {
     activeGames?: BrowserApiResponse[] | null;
     archivedGames?: GameData[] | null;
-    onSelectServer: (server: BrowserApiResponse) => void;
-    onSelectGame: (gameId: number) => void;
-    onNavigate: (view: string, param?: string) => void;
 }
 
 interface PilotStats {
@@ -30,12 +33,17 @@ interface PilotStats {
     kpm?: number;
 }
 
-const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onSelectServer, onSelectGame, onNavigate }) => {
-    const [activeTab, setActiveTab] = useState<'online' | 'roster'>('roster');
-    const [searchTerm, setSearchTerm] = useState('');
+const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) => {
+    // The tab and the filters live in the URL: ?tab=online, ?q=, ?min=, ?active=1
+    const [activeTab, setActiveTab] = useQueryParam('tab', 'roster', ['roster', 'online'] as const);
+    const [searchTerm, setSearchTerm] = useQueryText('q');
     const [sortConfig, setSortConfig] = useState<{ key: keyof PilotStats; direction: 'asc' | 'desc' }>({ key: 'games', direction: 'desc' });
-    const [activeOnly, setActiveOnly] = useState(false);
-    const [minGamesThreshold, setMinGamesThreshold] = useState<number>(50);
+    const [activeParam, setActiveParam] = useQueryParam('active');
+    const activeOnly = activeParam === '1';
+    const setActiveOnly = (on: boolean) => setActiveParam(on ? '1' : '');
+    const [minParam, setMinParam] = useQueryParam('min', '50');
+    const minGamesThreshold = parseInt(minParam, 10) || 50;
+    const setMinGamesThreshold = (min: number) => setMinParam(String(min));
 
 
     // Generate Online Pilots List from Active Games
@@ -53,9 +61,10 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                         isCreator: true
                     });
                 }
-                if (Array.isArray(server.game.players)) {
-                    server.game.players.forEach(p => {
-                        const pName = typeof p === 'string' ? p : (p as any)?.name;
+                const players = (server.game as BrowserGame).players;
+                if (Array.isArray(players)) {
+                    players.forEach(p => {
+                        const pName = typeof p === 'string' ? p : p?.name;
                         if (pName && !pilotsMap.has(pName)) {
                             pilotsMap.set(pName, {
                                 name: pName,
@@ -238,12 +247,12 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                             <td className="p-4">
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                                    <button
-                                                        onClick={() => onNavigate('pilot', pilot.name)}
+                                                    <Link
+                                                        to={urlFor('pilot', pilot.name)}
                                                         className="font-bold text-white text-lg hover:text-[#ff6600] hover:underline transition-colors text-left"
                                                     >
                                                         {pilot.name}
-                                                    </button>
+                                                    </Link>
                                                     {pilot.isCreator && <span className="text-[10px] bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded border border-gray-700">HOST</span>}
                                                 </div>
                                             </td>
@@ -256,12 +265,12 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                                 {pilot.server.game?.mapName}
                                             </td>
                                             <td className="p-4 text-right">
-                                                <button
-                                                    onClick={() => onSelectServer(pilot.server)}
+                                                <Link
+                                                    to={urlFor('live-game-detail', pilot.server.server.ip)}
                                                     className="bg-[#ff6600]/10 hover:bg-[#ff6600] text-[#ff6600] hover:text-white border border-[#ff6600]/50 px-3 py-1.5 rounded text-xs font-bold uppercase transition-all"
                                                 >
                                                     View Match
-                                                </button>
+                                                </Link>
                                             </td>
                                         </tr>
                                     ))}
@@ -498,13 +507,13 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                                             <tr
                                                 key={pilot.name}
                                                 className="hover:bg-[#1a1a1a] cursor-pointer group transition-colors"
-                                                onClick={() => onNavigate('pilot', pilot.name)}
+                                                {...rowLink(urlFor('pilot', pilot.name))}
                                             >
                                                 <td className="p-3 text-center text-gray-600 font-bold">{index + 1}</td>
                                                 <td className="p-3 font-bold text-white">
                                                     <div className="flex items-center gap-2">
                                                         <User size={14} className="text-gray-600" />
-                                                        {pilot.name}
+                                                        <Link to={urlFor('pilot', pilot.name)}>{pilot.name}</Link>
                                                     </div>
                                                 </td>
                                                 <td className="p-3 text-right text-gray-400">{pilot.games.toLocaleString()}</td>

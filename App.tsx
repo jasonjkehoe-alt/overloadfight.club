@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Layout from './components/Layout';
+import FightNightTeaser from './components/FightNightTeaser';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useServerBrowser } from './hooks/useServerBrowser';
+import { usePathname, goBack } from './hooks/useLocation';
+import { parseRoute, urlFor, pageTitle } from './server/lib/siteRoutes.js';
 import { OverloadFsProvider } from './context/OverloadFsContext';
 import { fetchArchivedGames, fetchGameDetail, getGlobalStats, fetchConfig } from './services/apiService';
-import { BrowserApiResponse, GameData, AdminSettings } from './types';
+import { GameData, AdminSettings } from './types';
 
 // Every view loads on demand, so the first page fetches only its own code.
 const GameList = lazy(() => import('./components/GameList'));
@@ -21,88 +24,26 @@ const AudioTauntMaker = lazy(() => import('./components/AudioTauntMaker'));
 const PilotManager = lazy(() => import('./components/PilotManager'));
 const FightNightSection = lazy(() => import('./components/FightNightSection'));
 
-interface RouteState {
-  view: string;
-  param?: string | number;
-}
-
-const getUrlForView = (view: string, param?: string | number): string => {
-  switch (view) {
-    case 'dashboard': return '/';
-    case 'history': return '/history';
-    case 'maps': return param ? `/maps/${encodeURIComponent(String(param))}` : '/maps';
-    case 'olmod': return '/olmod';
-    case 'tools':
-    case 'taunts': return '/taunts';
-    case 'pilot-manager': return '/pilot';
-    case 'fight-night': return param ? `/fight-night/${encodeURIComponent(String(param))}` : '/fight-night';
-    case 'resources': return '/resources';
-    case 'cold-storage': return '/archive';
-    case 'admin': return '/admin';
-    case 'pilots': return '/pilots';
-    case 'pilot': return param ? `/pilot/${encodeURIComponent(String(param))}` : '/pilot';
-    case 'game-detail': return param ? `/game/${param}` : '/history';
-    case 'live-game-detail': return param ? `/live/${param}` : '/';
-    default: return '/';
-  }
-};
-
-const parseUrlPath = (): RouteState => {
-  const pathname = window.location.pathname;
-  const parts = pathname.split('/').filter(Boolean);
-  if (parts.length === 0 || parts[0] === 'dashboard') {
-    return { view: 'dashboard' };
-  }
-  const [first, second] = parts;
-  if (first === 'history') return { view: 'history' };
-  if (first === 'maps') return { view: 'maps', param: second ? decodeURIComponent(second) : '' };
-  if (first === 'olmod') return { view: 'olmod' };
-  if (first === 'tools' || first === 'taunts') return { view: 'taunts' };
-  if (first === 'fight-night' || first === 'fight-nights') return { view: 'fight-night', param: second ? decodeURIComponent(second) : undefined };
-  if (first === 'resources') return { view: 'resources' };
-  if (first === 'cold-storage' || first === 'archive') return { view: 'cold-storage' };
-  if (first === 'admin') return { view: 'admin' };
-  if (first === 'pilots') return { view: 'pilots' };
-  if (first === 'pilot') {
-    if (second) return { view: 'pilot', param: decodeURIComponent(second) };
-    return { view: 'pilot-manager' };
-  }
-  if (first === 'game' && second) {
-    const gameId = parseInt(second, 10);
-    return isNaN(gameId) ? { view: 'history' } : { view: 'game-detail', param: gameId };
-  }
-  if (first === 'live' && second) return { view: 'live-game-detail', param: second };
-  return { view: 'dashboard' };
-};
-
 const App: React.FC = () => {
-  const initialRoute = useMemo(() => parseUrlPath(), []);
+  // The URL is the route: links and the back button change it, and the view follows.
+  const pathname = usePathname();
+  const route = useMemo(() => parseRoute(pathname), [pathname]);
+  const currentView = route.view;
+  const selectedGameId = currentView === 'game-detail' ? Number(route.param) : null;
+  const activeServerIp = currentView === 'live-game-detail' ? String(route.param) : null;
+  const selectedPilot = currentView === 'pilot' ? String(route.param) : null;
+  const selectedFightNightDate = currentView === 'fight-night' && route.param ? String(route.param) : undefined;
 
-  const [currentView, setCurrentView] = useState<string>(initialRoute.view);
-  const [selectedGameId, setSelectedGameId] = useState<number | null>(
-    initialRoute.view === 'game-detail' && typeof initialRoute.param === 'number' ? initialRoute.param : null
-  );
-  const [activeServer, setActiveServer] = useState<BrowserApiResponse | null>(null);
-  const [activeServerIp, setActiveServerIp] = useState<string | null>(
-    initialRoute.view === 'live-game-detail' && typeof initialRoute.param === 'string' ? initialRoute.param : null
-  );
-  const [selectedPilot, setSelectedPilot] = useState<string | null>(
-    initialRoute.view === 'pilot' && typeof initialRoute.param === 'string' ? initialRoute.param : null
-  );
-  const [selectedFightNightDate, setSelectedFightNightDate] = useState<string | undefined>(
-    initialRoute.view === 'fight-night' && typeof initialRoute.param === 'string' ? initialRoute.param : undefined
-  );
-
-  // Shared State Params
-  const [mapSearchTerm, setMapSearchTerm] = useState<string>(
-    initialRoute.view === 'maps' && typeof initialRoute.param === 'string' ? initialRoute.param : ''
-  );
-
-  // Change types to allow null (error state)
   const { games: activeGames, updatedAt: lastRefreshed, settled: browserSettled } = useServerBrowser();
+  const activeServer = activeServerIp ? activeGames?.find(s => s.server?.ip === activeServerIp) : undefined;
   const [archivedGames, setArchivedGames] = useState<GameData[] | null>(null);
-  const [selectedGameData, setSelectedGameData] = useState<GameData | null>(null);
-  const [gameDetailError, setGameDetailError] = useState(false);
+  // The last match fetched, with its id: a page shows it only when the id is
+  // its own, so match B never shows match A while B loads. data null = failed.
+  const [loadedGame, setLoadedGame] = useState<{ id: number; data: GameData | null } | null>(null);
+  const [gameRetries, setGameRetries] = useState(0);
+  const shownGame = loadedGame && loadedGame.id === selectedGameId ? loadedGame : null;
+  const selectedGameData = shownGame?.data ?? null;
+  const gameDetailError = shownGame !== null && shownGame.data === null;
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -156,120 +97,33 @@ const App: React.FC = () => {
 
   // Load Detail View
   useEffect(() => {
-    if (selectedGameId) {
-      let isCurrent = true;
-      const loadGame = async () => {
-        setLoading(true);
-        setGameDetailError(false);
-        try {
-          const data = await fetchGameDetail(selectedGameId);
-          if (isCurrent) {
-            if (data) {
-              setSelectedGameData(data);
-              setGameDetailError(false);
-            } else {
-              setSelectedGameData(null);
-              setGameDetailError(true);
-            }
-          }
-        } catch {
-          if (isCurrent) {
-            setSelectedGameData(null);
-            setGameDetailError(true);
-          }
-        } finally {
-          if (isCurrent) setLoading(false);
-        }
-      };
-      loadGame();
-      return () => { isCurrent = false; };
-    }
-  }, [selectedGameId]);
+    // back to the match just shown: it is already loaded
+    if (!selectedGameId || (loadedGame?.id === selectedGameId && loadedGame.data)) return;
+    let isCurrent = true;
+    fetchGameDetail(selectedGameId)
+      .catch(() => null)
+      .then(data => {
+        if (isCurrent) setLoadedGame({ id: selectedGameId, data: data || null });
+      });
+    return () => { isCurrent = false; };
+  }, [selectedGameId, gameRetries]);
 
-  const applyView = useCallback((view: string, param?: string | number) => {
-    if (view === 'game-detail' && param) {
-      const id = typeof param === 'number' ? param : parseInt(String(param), 10);
-      setSelectedGameId(id);
-      setCurrentView('game-detail');
-      window.scrollTo(0, 0);
-      return;
-    }
-    if (view === 'live-game-detail' && param) {
-      setActiveServerIp(String(param));
-      setCurrentView('live-game-detail');
-      window.scrollTo(0, 0);
-      return;
-    }
-    if (view === 'pilot' && param) {
-      setSelectedPilot(String(param));
-      setCurrentView('pilot');
-      window.scrollTo(0, 0);
-      return;
-    }
-    if (view === 'fight-night') {
-      setSelectedFightNightDate(typeof param === 'string' ? param : undefined);
-    }
-    setCurrentView(view);
-    if (view === 'maps' && param) {
-      setMapSearchTerm(String(param));
-    } else if (view !== 'maps') {
-      setMapSearchTerm('');
-    }
-
-    if (view === 'dashboard' || view === 'history' || view === 'pilots' || view === 'maps' || view === 'weapons' || view === 'olmod' || view === 'admin' || view === 'tools' || view === 'taunts' || view === 'pilot-manager' || view === 'fight-night' || view === 'resources' || view === 'cold-storage') {
-      setSelectedGameId(null);
-      setSelectedGameData(null);
-      setGameDetailError(false);
-      setActiveServer(null);
-      setActiveServerIp(null);
-      setSelectedPilot(null);
-    }
-    window.scrollTo(0, 0);
-  }, []);
-
-  const handleNavigate = (view: string, param?: string) => {
-    applyView(view, param);
-    const targetUrl = getUrlForView(view, param);
-    if (window.location.pathname !== targetUrl) {
-      window.history.pushState({ view, param }, '', targetUrl);
-    }
-  };
-
-  const handleSelectGame = (id: number) => {
-    setSelectedGameId(id);
-    setCurrentView('game-detail');
-    const targetUrl = getUrlForView('game-detail', id);
-    if (window.location.pathname !== targetUrl) {
-      window.history.pushState({ view: 'game-detail', param: id }, '', targetUrl);
-    }
-    window.scrollTo(0, 0);
-  };
-
-  const handleSelectLiveGame = (server: BrowserApiResponse) => {
-    setActiveServer(server);
-    const ip = server.server?.ip || '';
-    setActiveServerIp(ip);
-    setCurrentView('live-game-detail');
-    const targetUrl = getUrlForView('live-game-detail', ip);
-    if (window.location.pathname !== targetUrl) {
-      window.history.pushState({ view: 'live-game-detail', param: ip }, '', targetUrl);
-    }
-    window.scrollTo(0, 0);
-  };
-
-  // Listen to browser Back and Forward navigation
+  // A new page starts at the top. Opening or closing a map's popup keeps the list where it was.
+  const scrollKey = currentView === 'maps' ? 'maps' : pathname;
   useEffect(() => {
-    const onPopState = () => {
-      const route = parseUrlPath();
-      applyView(route.view, route.param);
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, [applyView]);
+    window.scrollTo(0, 0);
+  }, [scrollKey]);
+
+  const titleName = currentView === 'game-detail' ? selectedGameData?.settings?.level
+    : currentView === 'live-game-detail' ? activeServer?.server?.name
+    : undefined;
+  useEffect(() => {
+    document.title = pageTitle(route, titleName);
+  }, [route, titleName]);
 
   return (
     <OverloadFsProvider>
-      <Layout currentView={currentView} onNavigate={handleNavigate} showColdStorage={showColdStorage}>
+      <Layout currentView={currentView} showColdStorage={showColdStorage}>
       {/* a failed chunk load (see index.tsx) lands here instead of blanking the page */}
       <ErrorBoundary>
       <Suspense fallback={
@@ -298,14 +152,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Fight Night Recaps Section */}
-          <FightNightSection
-            onNavigate={handleNavigate}
-            onSelectGame={handleSelectGame}
-            onSelectPilot={(name) => handleNavigate('pilot', name)}
-          />
-
-          {/* GameList picks its tab from activeGames when it mounts, so wait for the first poll */}
+          {/* Live first: wait for the first poll rather than flash "Connection Failed" */}
           {!browserSettled || (loading && archivedGames === null) ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -315,13 +162,11 @@ const App: React.FC = () => {
           ) : (
             <GameList
               activeGames={activeGames}
-              onSelectGame={handleSelectGame}
-              onSelectLiveGame={handleSelectLiveGame}
               archivedGames={archivedGames}
-              onNavigate={handleNavigate}
               globalStats={stats}
               startDate={ONE_YEAR_AGO}
               showColdStorage={showColdStorage}
+              afterLive={<FightNightTeaser />}
             />
           )}
         </div>
@@ -338,12 +183,7 @@ const App: React.FC = () => {
               Auto-generated post-fight intelligence reports from high-traffic combat evenings.
             </p>
           </div>
-          <FightNightSection
-            initialDate={selectedFightNightDate}
-            onNavigate={handleNavigate}
-            onSelectGame={handleSelectGame}
-            onSelectPilot={(name) => handleNavigate('pilot', name)}
-          />
+          <FightNightSection date={selectedFightNightDate} />
         </div>
       )}
 
@@ -357,17 +197,15 @@ const App: React.FC = () => {
           </div>
           <GameList
             activeGames={null}
-            onSelectGame={handleSelectGame}
-            onSelectLiveGame={handleSelectLiveGame}
             archivedGames={null}
-            onNavigate={handleNavigate}
             globalStats={stats}
+            initialTab="history"
           />
         </div>
       )}
 
       {currentView === 'cold-storage' && (
-        <ColdStorage onNavigate={handleNavigate} />
+        <ColdStorage />
       )}
 
       {currentView === 'resources' && (
@@ -378,8 +216,7 @@ const App: React.FC = () => {
         selectedGameData ? (
           <GameDetail
             game={selectedGameData}
-            onBack={() => handleNavigate('history')}
-            onNavigate={handleNavigate}
+            onBack={() => goBack(urlFor('history'))}
           />
         ) : gameDetailError ? (
           <div className="bg-[#101012] border border-red-900/60 rounded-xl p-8 max-w-xl mx-auto my-16 text-center font-mono shadow-2xl">
@@ -392,20 +229,15 @@ const App: React.FC = () => {
             </p>
             <div className="flex gap-4 justify-center">
               <button
-                onClick={() => handleNavigate('history')}
+                onClick={() => goBack(urlFor('history'))}
                 className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded font-bold text-xs uppercase tracking-wider transition-colors"
               >
-                Return to History
+                Back
               </button>
               <button
                 onClick={() => {
-                  if (selectedGameId) {
-                    setGameDetailError(false);
-                    fetchGameDetail(selectedGameId).then(d => {
-                      if (d) setSelectedGameData(d);
-                      else setGameDetailError(true);
-                    });
-                  }
+                  setLoadedGame(null);
+                  setGameRetries(n => n + 1);
                 }}
                 className="px-5 py-2.5 bg-[#ff6600] hover:bg-[#ff8533] text-black font-bold rounded text-xs uppercase tracking-wider transition-colors"
               >
@@ -423,11 +255,11 @@ const App: React.FC = () => {
 
       {currentView === 'live-game-detail' && (
         <LiveGameDetail
-          ip={activeServerIp || activeServer?.server?.ip}
-          serverData={activeServer || (activeServerIp ? { server: { ip: activeServerIp } } : undefined)}
+          key={activeServerIp}
+          ip={activeServerIp}
+          serverData={activeServer}
           archivedGames={archivedGames}
-          onBack={() => handleNavigate('dashboard')}
-          onNavigate={handleNavigate}
+          onBack={() => goBack(urlFor('dashboard'))}
         />
       )}
 
@@ -435,23 +267,19 @@ const App: React.FC = () => {
         <PilotsList
           activeGames={activeGames}
           archivedGames={archivedGames}
-          onSelectServer={handleSelectLiveGame}
-          onSelectGame={handleSelectGame}
-          onNavigate={handleNavigate}
         />
       )}
 
       {currentView === 'pilot' && selectedPilot && (
         <PilotDetail
+          key={selectedPilot}
           pilotName={selectedPilot}
-          onBack={() => handleNavigate('pilots')}
-          onSelectGame={handleSelectGame}
-          onSelectPilot={(pilot) => handleNavigate('pilot', pilot)}
+          onBack={() => goBack(urlFor('pilots'))}
         />
       )}
 
       {currentView === 'maps' && (
-        <MapLibrary initialSearch={mapSearchTerm} onNavigate={handleNavigate} />
+        <MapLibrary mapName={route.param ? String(route.param) : undefined} />
       )}
 
       {currentView === 'olmod' && (
@@ -463,11 +291,11 @@ const App: React.FC = () => {
       )}
 
       {currentView === 'pilot-manager' && (
-        <PilotManager onNavigate={handleNavigate} />
+        <PilotManager />
       )}
 
-      {(currentView === 'tools' || currentView === 'taunts') && (
-        <AudioTauntMaker onNavigate={handleNavigate} />
+      {currentView === 'taunts' && (
+        <AudioTauntMaker />
       )}
       </Suspense>
       </ErrorBoundary>

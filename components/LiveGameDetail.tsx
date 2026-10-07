@@ -1,24 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Clock, Users, Trophy, Activity, AlertCircle } from 'lucide-react';
-import { GameData } from '../types';
+import { GameData, GameEvent, GameSettings } from '../types';
 import { apiService } from '../services/apiService';
+import JoinIp from './JoinIp';
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
+
+// Fields this page reads from the live game that types.ts does not declare.
+type LiveGame = GameData & {
+    settings?: GameSettings & { respawnTimeSeconds?: number };
+    events?: (GameEvent & { source?: string; target?: string; weapon?: string; message?: string })[];
+};
 
 interface LiveGameDetailProps {
-    ip?: string;
+    ip: string;
     onBack?: () => void;
     serverData?: any;
     archivedGames?: any;
-    onNavigate?: (view: string, param?: string) => void;
 }
 
-const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, serverData, onNavigate }) => {
-    // Prioritize prop IP, fallback to serverData IP
-    const ip = propIp || serverData?.server?.ip;
-
+const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData }) => {
     const [healthHistory, setHealthHistory] = useState<any[]>([]);
 
     // Restore missing state variables that caused the blank screen/render failure
-    const [game, setGame] = useState<GameData | null>(null);
+    const [game, setGame] = useState<LiveGame | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -121,13 +126,14 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                     <AlertCircle className="w-8 h-8 text-red-500" />
                 </div>
                 <h2 className="text-xl font-bold text-white mb-2">Unable to Load Game</h2>
-                <p className="text-gray-400 mb-6">{error || "Game not found"}</p>
+                <p className="text-gray-400 mb-4">{error || "Game not found"}</p>
+                {ip && <div className="flex justify-center mb-6"><JoinIp ip={ip} /></div>}
                 <button
                     onClick={onBack}
                     className="inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Dashboard
+                    Back
                 </button>
             </div>
         );
@@ -167,6 +173,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                             <span className="w-1 h-1 rounded-full bg-gray-600" />
                             <span>{game.settings?.level || "Unknown Map"}</span>
                         </div>
+                        {ip && <div className="mt-2"><JoinIp ip={ip} /></div>}
                     </div>
                 </div>
 
@@ -221,13 +228,13 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                                             {index + 1}
                                         </div>
                                         <div>
-                                            <button
-                                                onClick={() => onNavigate && onNavigate('pilot', player.name)}
+                                            <Link
+                                                to={urlFor('pilot', player.name)}
                                                 className="font-medium text-white hover:text-[#ff6600] hover:underline transition-colors text-left"
                                                 title={`View ${player.name}'s pilot dossier`}
                                             >
                                                 {player.name}
-                                            </button>
+                                            </Link>
                                             <div className="text-xs text-gray-500 flex items-center gap-2">
                                                 <span>{player.team ? `Team ${player.team}` : 'Free For All'}</span>
                                                 {player.connected === false && (
@@ -294,12 +301,12 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
                             <div className="flex justify-between py-2 border-b border-white/5">
                                 <span className="text-gray-400">Creator</span>
                                 {game.settings?.creator && game.settings.creator !== "Server" ? (
-                                    <button
-                                        onClick={() => onNavigate && onNavigate('pilot', game.settings!.creator)}
+                                    <Link
+                                        to={urlFor('pilot', game.settings.creator)}
                                         className="text-white hover:text-[#ff6600] hover:underline transition-colors font-mono"
                                     >
                                         {game.settings.creator}
-                                    </button>
+                                    </Link>
                                 ) : (
                                     <span className="text-white">{game.settings?.creator || "Server"}</span>
                                 )}

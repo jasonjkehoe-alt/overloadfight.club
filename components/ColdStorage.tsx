@@ -6,10 +6,13 @@ import {
 } from 'lucide-react';
 import { fetchColdGames } from '../services/apiService';
 import { getMapImage } from '../services/mapService';
+import Link from './Link';
+import { useQueryParam, setQueryParams, rowLink } from '../hooks/useLocation';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
-interface ColdStorageProps {
-    onNavigate: (view: string, params?: any) => void;
-}
+// A record card; with a match it is a link to that match.
+const RecordCard: React.FC<{ matchId?: number; className: string; children: React.ReactNode }> = ({ matchId, className, children }) =>
+    matchId ? <Link to={urlFor('game-detail', matchId)} className={`block ${className}`}>{children}</Link> : <div className={className}>{children}</div>;
 
 const DeepStatCard: React.FC<{
     title: string;
@@ -84,7 +87,7 @@ const TableSkeletonRows: React.FC<{ cols: number }> = ({ cols }) => (
     </>
 );
 
-const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
+const ColdStorage: React.FC = () => {
     const [deepStats, setDeepStats] = useState<any>(null);
     const [pilotRoster, setPilotRoster] = useState<any[]>([]);
     const [topMaps, setTopMaps] = useState<any[]>([]);
@@ -92,16 +95,19 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
     const [statsError, setStatsError] = useState(false);
 
     // Hall of Fame Category
-    const [hallCategory, setHallCategory] = useState<'kills' | 'games' | 'kd' | 'damage' | 'win_rate'>('kills');
+    const [hallCategory, setHallCategory] = useQueryParam('hall', 'kills', ['kills', 'games', 'kd', 'damage', 'win_rate'] as const);
 
     // Archive Browser State
     const [games, setGames] = useState<any[]>([]);
     const [gamesTotalCount, setGamesTotalCount] = useState(0);
     const [loadingGames, setLoadingGames] = useState(true);
-    const [search, setSearch] = useState('');
-    const [searchInput, setSearchInput] = useState('');
-    const [selectedYear, setSelectedYear] = useState<string>('ALL');
-    const [page, setPage] = useState(1);
+    // The submitted search, the year pill and the page live in the URL: ?q=, ?year=, ?page=
+    const [search] = useQueryParam('q');
+    const [searchInput, setSearchInput] = useState(search);
+    const [selectedYear] = useQueryParam('year', 'ALL');
+    const [pageParam, setPageParam] = useQueryParam('page', '1');
+    const page = Math.max(1, parseInt(pageParam, 10) || 1);
+    const setPage = (next: number) => setPageParam(String(next));
 
     // Initial Load of Deep Stats, Pilots & Maps
     useEffect(() => {
@@ -158,19 +164,16 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setPage(1);
-        setSearch(searchInput);
+        setQueryParams({ q: searchInput.trim(), page: null });
     };
 
     const handleClearSearch = () => {
         setSearchInput('');
-        setSearch('');
-        setPage(1);
+        setQueryParams({ q: null, page: null });
     };
 
     const handleYearFilter = (year: string) => {
-        setSelectedYear(year);
-        setPage(1);
+        setQueryParams({ year: year === 'ALL' ? null : year, page: null });
     };
 
     // Filtered & Sorted Hall of Fame Pilots (requiring min 50 games for genuine competitive ranking)
@@ -437,8 +440,8 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                 const rec = deepStats?.records?.bloodiest_match;
                                 const hasRecord = Boolean(rec && rec.id);
                                 return (
-                                    <div 
-                                        onClick={() => hasRecord && onNavigate('game-detail', rec.id.toString())}
+                                    <RecordCard
+                                        matchId={hasRecord ? rec.id : undefined}
                                         className={`bg-gradient-to-br from-[#131111] to-[#1a1111] border border-red-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
                                             hasRecord ? 'hover:border-red-500/70 cursor-pointer' : 'opacity-80'
                                         }`}
@@ -471,7 +474,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </RecordCard>
                                 );
                             })()}
 
@@ -480,8 +483,8 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                 const rec = deepStats?.records?.max_single_pilot_frags;
                                 const hasRecord = Boolean(rec && rec.id);
                                 return (
-                                    <div 
-                                        onClick={() => hasRecord && onNavigate('game-detail', rec.id.toString())}
+                                    <RecordCard
+                                        matchId={hasRecord ? rec.id : undefined}
                                         className={`bg-gradient-to-br from-[#131311] to-[#1a1811] border border-amber-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
                                             hasRecord ? 'hover:border-amber-500/70 cursor-pointer' : 'opacity-80'
                                         }`}
@@ -514,7 +517,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </RecordCard>
                                 );
                             })()}
 
@@ -523,8 +526,8 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                 const rec = deepStats?.records?.longest_match;
                                 const hasRecord = Boolean(rec && rec.id);
                                 return (
-                                    <div 
-                                        onClick={() => hasRecord && onNavigate('game-detail', rec.id.toString())}
+                                    <RecordCard
+                                        matchId={hasRecord ? rec.id : undefined}
                                         className={`bg-gradient-to-br from-[#111218] to-[#121622] border border-blue-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
                                             hasRecord ? 'hover:border-blue-500/70 cursor-pointer' : 'opacity-80'
                                         }`}
@@ -557,7 +560,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </RecordCard>
                                 );
                             })()}
 
@@ -566,8 +569,8 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                 const rec = deepStats?.records?.most_attended_match;
                                 const hasRecord = Boolean(rec && rec.id);
                                 return (
-                                    <div 
-                                        onClick={() => hasRecord && onNavigate('game-detail', rec.id.toString())}
+                                    <RecordCard
+                                        matchId={hasRecord ? rec.id : undefined}
                                         className={`bg-gradient-to-br from-[#121118] to-[#181224] border border-purple-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
                                             hasRecord ? 'hover:border-purple-500/70 cursor-pointer' : 'opacity-80'
                                         }`}
@@ -600,7 +603,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </RecordCard>
                                 );
                             })()}
                         </div>
@@ -673,14 +676,14 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                         hallOfFamePilots.map((pilot, idx) => (
                                             <tr 
                                                 key={pilot.name} 
-                                                onClick={() => onNavigate('pilot', pilot.name)}
+                                                {...rowLink(urlFor('pilot', pilot.name))}
                                                 className="hover:bg-[#181818] cursor-pointer group transition-colors"
                                             >
                                                 <td className="p-3 text-center text-gray-600 font-bold">
                                                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
                                                 </td>
                                                 <td className="p-3 font-bold text-white group-hover:text-[#ff6600] transition-colors">
-                                                    {pilot.name}
+                                                    <Link to={urlFor('pilot', pilot.name)}>{pilot.name}</Link>
                                                 </td>
                                                 <td className="p-3 text-right text-gray-400">
                                                     {pilot.games?.toLocaleString()}
@@ -962,7 +965,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                 <p className="text-gray-300 font-bold">No archived matches found matching criteria.</p>
                                 <p className="text-xs text-gray-600">Try adjusting your search terms or clearing the year filter.</p>
                                 <button
-                                    onClick={() => { setSearchInput(''); setSearch(''); setSelectedYear('ALL'); }}
+                                    onClick={() => { setSearchInput(''); setQueryParams({ q: null, year: null, page: null }); }}
                                     className="text-xs text-blue-400 underline font-bold mt-2 inline-block"
                                 >
                                     Reset Filters
@@ -976,9 +979,9 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                 </div>
 
                                 {games.map((game) => (
-                                    <div
+                                    <Link
                                         key={game.id}
-                                        onClick={() => onNavigate('game-detail', game.id.toString())}
+                                        to={urlFor('game-detail', game.id)}
                                         className="group bg-[#111] border border-gray-800/80 hover:border-blue-500/60 p-3.5 rounded-lg transition-all hover:bg-[#161616] flex flex-col md:flex-row items-center gap-4 cursor-pointer"
                                     >
                                         <div className="flex items-center gap-4 w-full md:w-auto">
@@ -1017,7 +1020,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                             </div>
                                             <ArrowRight size={14} className="text-gray-600 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
                                         </div>
-                                    </div>
+                                    </Link>
                                 ))}
                             </>
                         )}
@@ -1026,7 +1029,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                     {/* Pagination */}
                     <div className="flex justify-between items-center pt-4 border-t border-gray-800">
                         <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            onClick={() => setPage(Math.max(1, page - 1))}
                             disabled={page === 1 || loadingGames}
                             className="px-4 py-2 bg-[#151515] border border-gray-800 rounded text-xs font-bold font-mono hover:bg-[#202020] disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-white"
                         >
@@ -1036,7 +1039,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                             PAGE <span className="text-white font-bold">{page}</span> OF <span className="text-gray-400">{Math.ceil(gamesTotalCount / 25) || 1}</span>
                         </span>
                         <button
-                            onClick={() => setPage(p => p + 1)}
+                            onClick={() => setPage(page + 1)}
                             disabled={games.length < 25 || loadingGames}
                             className="px-4 py-2 bg-[#151515] border border-gray-800 rounded text-xs font-bold font-mono hover:bg-[#202020] disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-white"
                         >

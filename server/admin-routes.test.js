@@ -27,8 +27,8 @@ beforeAll(async () => {
     ]);
 });
 
-afterAll(() => {
-    db.close?.();
+afterAll(async () => {
+    await db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 

@@ -1,36 +1,14 @@
 import React from 'react';
 import { FightNightRecap } from '../services/apiService';
 import { Shield, Zap, Flame, Award, Skull, ExternalLink, Users, Crosshair, ChevronRight } from 'lucide-react';
+import Link from './Link';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface FightNightRecapCardProps {
     recap: FightNightRecap;
-    onNavigate?: (view: string, param?: string | number) => void;
-    onSelectGame?: (gameId: number) => void;
-    onSelectPilot?: (name: string) => void;
 }
 
-export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
-    recap,
-    onNavigate,
-    onSelectGame,
-    onSelectPilot
-}) => {
-    const handleGameClick = (gameId?: number) => {
-        if (!gameId) return;
-        if (onSelectGame) onSelectGame(gameId);
-        else if (onNavigate) onNavigate('game-detail', gameId);
-    };
-
-    const handlePilotClick = (name?: string) => {
-        if (!name) return;
-        if (onSelectPilot) onSelectPilot(name);
-        else if (onNavigate) onNavigate('pilot', name);
-    };
-
-    const handleMapClick = (mapName?: string) => {
-        if (!mapName) return;
-        if (onNavigate) onNavigate('maps', mapName);
-    };
+export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap }) => {
 
     return (
         <div className="relative bg-[#0d0d10] border-2 border-gray-800 rounded-xl overflow-hidden shadow-2xl font-mono text-gray-200">
@@ -76,23 +54,23 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                     <div className="flex items-center gap-1.5">
                         <Award size={13} className="text-yellow-400" />
                         <span>Top Fragger:</span>
-                        <button
-                            onClick={() => handlePilotClick(recap.topFragger.name)}
+                        <Link
+                            to={urlFor('pilot', recap.topFragger.name)}
                             className="font-bold text-white hover:text-[#ff6600] underline decoration-[#ff6600]/40 transition-colors"
                         >
                             {recap.topFragger.name}
-                        </button>
+                        </Link>
                         <span className="text-gray-500">({recap.topFragger.kills} K)</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <Zap size={13} className="text-[#ff6600]" />
                         <span>Most Active:</span>
-                        <button
-                            onClick={() => handlePilotClick(recap.mostActivePilot.name)}
+                        <Link
+                            to={urlFor('pilot', recap.mostActivePilot.name)}
                             className="font-bold text-white hover:text-[#ff6600] underline decoration-[#ff6600]/40 transition-colors"
                         >
                             {recap.mostActivePilot.name}
-                        </button>
+                        </Link>
                         <span className="text-gray-500">({recap.mostActivePilot.matches} Bouts)</span>
                     </div>
                 </div>
@@ -108,21 +86,21 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                                 <span className="bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/40 text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-widest">
                                     MAIN EVENT
                                 </span>
-                                <button
-                                    onClick={() => handleMapClick(recap.headlineBout.map)}
+                                <Link
+                                    to={urlFor('maps', recap.headlineBout.map)}
                                     className="text-white font-bold hover:text-[#ff6600] transition-colors"
                                 >
                                     {recap.headlineBout.map}
-                                </button>
+                                </Link>
                                 <span className="text-gray-500 text-xs">• {recap.headlineBout.matchMode}</span>
                             </div>
-                            <button
-                                onClick={() => handleGameClick(recap.headlineBout.gameId)}
+                            <Link
+                                to={urlFor('game-detail', recap.headlineBout.gameId)}
                                 className="flex items-center gap-1 text-xs text-[#ff6600] hover:text-white transition-colors bg-[#ff6600]/10 hover:bg-[#ff6600]/20 border border-[#ff6600]/30 px-2.5 py-1 rounded"
                             >
                                 <span>Scoreboard #{recap.headlineBout.gameId}</span>
                                 <ExternalLink size={11} />
-                            </button>
+                            </Link>
                         </div>
                         <p className="text-sm text-gray-300 leading-relaxed">
                             {recap.headlineBout.copy}
@@ -136,12 +114,12 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                             </span>
                             <span className="text-gray-500">
                                 Match Victor / MVP:{' '}
-                                <button
-                                    onClick={() => handlePilotClick(recap.headlineBout.topPilot)}
+                                <Link
+                                    to={urlFor('pilot', recap.headlineBout.topPilot)}
                                     className="font-bold text-white hover:text-[#ff6600] transition-colors ml-1"
                                 >
                                     {recap.headlineBout.topPilot}
-                                </button>
+                                </Link>
                             </span>
                         </div>
                     </div>
@@ -158,12 +136,12 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                                         <Zap size={11} /> UPSET OF THE NIGHT
                                     </span>
                                     {recap.biggestUpset.gameId && (
-                                        <button
-                                            onClick={() => handleGameClick(recap.biggestUpset.gameId)}
+                                        <Link
+                                            to={urlFor('game-detail', recap.biggestUpset.gameId)}
                                             className="text-[11px] text-gray-400 hover:text-white flex items-center gap-0.5"
                                         >
                                             #{recap.biggestUpset.gameId} <ExternalLink size={10} />
-                                        </button>
+                                        </Link>
                                     )}
                                 </div>
                                 <p className="text-xs text-gray-300 leading-relaxed">
@@ -172,19 +150,19 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                             </div>
                             {recap.biggestUpset.winner && recap.biggestUpset.defeated && (
                                 <div className="mt-2.5 pt-2 border-t border-gray-800/80 flex items-center justify-between text-[11px]">
-                                    <button
-                                        onClick={() => handlePilotClick(recap.biggestUpset.winner)}
+                                    <Link
+                                        to={urlFor('pilot', recap.biggestUpset.winner)}
                                         className="font-bold text-yellow-400 hover:underline"
                                     >
                                         {recap.biggestUpset.winner} ({recap.biggestUpset.winnerKd} KD)
-                                    </button>
+                                    </Link>
                                     <span className="text-gray-500 font-bold">def.</span>
-                                    <button
-                                        onClick={() => handlePilotClick(recap.biggestUpset.defeated)}
+                                    <Link
+                                        to={urlFor('pilot', recap.biggestUpset.defeated)}
                                         className="font-bold text-gray-300 hover:underline"
                                     >
                                         {recap.biggestUpset.defeated} ({recap.biggestUpset.defeatedKd} KD)
-                                    </button>
+                                    </Link>
                                 </div>
                             )}
                         </div>
@@ -198,12 +176,12 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                                     <span className="text-[10px] font-black uppercase tracking-widest text-red-400 flex items-center gap-1">
                                         <Skull size={11} /> BIGGEST BLOWOUT
                                     </span>
-                                    <button
-                                        onClick={() => handleGameClick(recap.biggestBlowout.gameId)}
+                                    <Link
+                                        to={urlFor('game-detail', recap.biggestBlowout.gameId)}
                                         className="text-[11px] text-gray-400 hover:text-white flex items-center gap-0.5"
                                     >
                                         #{recap.biggestBlowout.gameId} <ExternalLink size={10} />
-                                    </button>
+                                    </Link>
                                 </div>
                                 <p className="text-xs text-gray-300 leading-relaxed">
                                     {recap.biggestBlowout.copy}
@@ -226,12 +204,12 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                                     <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1">
                                         <Shield size={11} /> DOWN TO THE WIRE
                                     </span>
-                                    <button
-                                        onClick={() => handleGameClick(recap.closestFinish.gameId)}
+                                    <Link
+                                        to={urlFor('game-detail', recap.closestFinish.gameId)}
                                         className="text-[11px] text-gray-400 hover:text-white flex items-center gap-0.5"
                                     >
                                         #{recap.closestFinish.gameId} <ExternalLink size={10} />
-                                    </button>
+                                    </Link>
                                 </div>
                                 <p className="text-xs text-gray-300 leading-relaxed">
                                     {recap.closestFinish.copy}
@@ -257,12 +235,12 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                                     <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 flex items-center gap-1">
                                         <Flame size={11} /> HOTTEST ARENA
                                     </span>
-                                    <button
-                                        onClick={() => handleMapClick(recap.hottestArena.name)}
+                                    <Link
+                                        to={urlFor('maps', recap.hottestArena.name)}
                                         className="text-[11px] text-[#ff6600] hover:text-white flex items-center gap-0.5"
                                     >
                                         Arena Intel <ChevronRight size={10} />
-                                    </button>
+                                    </Link>
                                 </div>
                                 <p className="text-xs text-gray-300 leading-relaxed">
                                     {recap.hottestArena.copy}
@@ -275,12 +253,12 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                                 {recap.hottestArena.topPilot && (
                                     <span className="text-gray-400">
                                         Sector King:{' '}
-                                        <button
-                                            onClick={() => handlePilotClick(recap.hottestArena.topPilot)}
+                                        <Link
+                                            to={urlFor('pilot', recap.hottestArena.topPilot)}
                                             className="font-bold text-[#ff6600] hover:underline"
                                         >
                                             {recap.hottestArena.topPilot}
-                                        </button>
+                                        </Link>
                                     </span>
                                 )}
                             </div>
@@ -302,13 +280,13 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                             {recap.newBlood.pilots && recap.newBlood.pilots.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5">
                                     {recap.newBlood.pilots.map(p => (
-                                        <button
+                                        <Link
                                             key={p}
-                                            onClick={() => handlePilotClick(p)}
+                                            to={urlFor('pilot', p)}
                                             className="text-[11px] bg-blue-950/60 border border-blue-800/80 hover:border-blue-500 text-blue-200 px-2 py-0.5 rounded transition-colors"
                                         >
                                             {p}
-                                        </button>
+                                        </Link>
                                     ))}
                                 </div>
                             )}
@@ -324,12 +302,12 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                                         <Award size={11} /> STREAK WATCH
                                     </span>
                                     {recap.longestStreak.gameId && (
-                                        <button
-                                            onClick={() => handleGameClick(recap.longestStreak.gameId)}
+                                        <Link
+                                            to={urlFor('game-detail', recap.longestStreak.gameId)}
                                             className="text-[11px] text-gray-400 hover:text-white flex items-center gap-0.5"
                                         >
                                             #{recap.longestStreak.gameId} <ExternalLink size={10} />
-                                        </button>
+                                        </Link>
                                     )}
                                 </div>
                                 <p className="text-xs text-gray-300 leading-relaxed">
@@ -339,12 +317,12 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({
                             <div className="mt-2.5 pt-2 border-t border-gray-800/80 flex items-center justify-between text-[11px]">
                                 <span>
                                     Gunner:{' '}
-                                    <button
-                                        onClick={() => handlePilotClick(recap.longestStreak.pilot)}
+                                    <Link
+                                        to={urlFor('pilot', recap.longestStreak.pilot)}
                                         className="font-bold text-purple-300 hover:underline"
                                     >
                                         {recap.longestStreak.pilot}
-                                    </button>
+                                    </Link>
                                 </span>
                                 <span className="bg-purple-950 border border-purple-800 text-purple-300 font-mono font-bold px-2 py-0.5 rounded">
                                     {recap.longestStreak.streak} K Streak

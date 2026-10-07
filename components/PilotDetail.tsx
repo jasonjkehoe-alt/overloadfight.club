@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { GameData } from '../types';
 import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink, Zap, Clock, Flame, Filter } from 'lucide-react';
 import PilotPerformanceCard from './PilotPerformanceCard';
+import Link from './Link';
+import { useQueryParam, rowLink } from '../hooks/useLocation';
+import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface PilotStats {
     games: number;
@@ -110,19 +113,18 @@ interface PilotBreakdown {
 interface PilotDetailProps {
     pilotName: string;
     onBack?: () => void;
-    onSelectGame: (gameId: number) => void;
-    onSelectPilot?: (name: string) => void;
 }
 
-const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGame, onSelectPilot }) => {
+const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     const [stats, setStats] = useState<PilotStats | null>(null);
     const [breakdown, setBreakdown] = useState<PilotBreakdown>({ mapStats: [], rivals: [] });
     const [games, setGames] = useState<GameData[]>([]);
     const [pilotPpi, setPilotPpi] = useState<any>(null);
     const [selectedRivalName, setSelectedRivalName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [selectedMode, setSelectedMode] = useState<string>('ALL');
-    const [weaponView, setWeaponView] = useState<'offense' | 'defense'>('offense');
+    // ?mode= filters the stats and match list; ?weapons=defense picks the weapon tab
+    const [selectedMode, setSelectedMode] = useQueryParam('mode', 'ALL');
+    const [weaponView, setWeaponView] = useQueryParam('weapons', 'offense', ['offense', 'defense'] as const);
 
     useEffect(() => {
         const loadData = async () => {
@@ -179,7 +181,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                         onClick={onBack}
                         className="flex items-center text-gray-500 hover:text-[#ff6600] transition-colors font-mono text-sm"
                     >
-                        <span className="mr-1">&lt;</span> RETURN TO PILOT ROSTER
+                        <span className="mr-1">&lt;</span> BACK
                     </button>
                 ) : <div />}
 
@@ -576,13 +578,13 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
 
                                                     <div className="col-span-5 bg-gradient-to-l from-cyan-950/60 to-black/80 border border-cyan-900/60 p-2.5 rounded-lg text-right">
                                                         <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">RIVAL CORNER</div>
-                                                        <button
-                                                            onClick={() => onSelectPilot && onSelectPilot(activeRival.name)}
+                                                        <Link
+                                                            to={urlFor('pilot', activeRival.name)}
                                                             className="text-sm sm:text-base font-black text-white hover:text-cyan-300 transition-colors truncate block ml-auto"
                                                             title={`View ${activeRival.name}'s dossier`}
                                                         >
                                                             {activeRival.name}
-                                                        </button>
+                                                        </Link>
                                                     </div>
                                                 </div>
 
@@ -640,16 +642,14 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                                                 <span className="font-bold text-white group-hover:text-[#ff6600] transition-colors truncate">
                                                                     {rival.name}
                                                                 </span>
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (onSelectPilot) onSelectPilot(rival.name);
-                                                                    }}
+                                                                <Link
+                                                                    to={urlFor('pilot', rival.name)}
+                                                                    onClick={(e) => e.stopPropagation()}
                                                                     title={`View ${rival.name}'s dossier`}
                                                                     className="text-gray-500 hover:text-white shrink-0"
                                                                 >
                                                                     <ExternalLink size={12} />
-                                                                </button>
+                                                                </Link>
                                                             </div>
                                                             <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
                                                                 isSelected
@@ -755,14 +755,14 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack, onSelectGa
                                                     <tr
                                                         key={game.id}
                                                         className="hover:bg-[#111] transition-colors cursor-pointer group"
-                                                        onClick={() => game.id && onSelectGame(game.id)}
+                                                        {...rowLink(urlFor('game-detail', game.id))}
                                                     >
                                                         <td className="p-4 text-gray-500">
                                                             {new Date(game.date || '').toLocaleDateString()}
                                                             <div className="text-[10px] text-gray-700">{new Date(game.date || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                                         </td>
                                                         <td className="p-4">
-                                                            <div className="text-white font-bold group-hover:text-[#ff6600] transition-colors">{game.settings?.level}</div>
+                                                            <Link to={urlFor('game-detail', game.id)} className="block text-white font-bold group-hover:text-[#ff6600] transition-colors">{game.settings?.level}</Link>
                                                             <div className="text-[10px] text-gray-600">{game.settings?.matchMode}</div>
                                                         </td>
                                                         <td className="p-4 text-center">

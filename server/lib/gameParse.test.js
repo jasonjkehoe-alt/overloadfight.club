@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
-import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, pilotLikePattern, teamOf, winnerOf } from './gameParse.js';
+import { durationOf, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
@@ -99,12 +99,14 @@ describe('durationOf', () => {
 
     it('prefers start/end when the game has them', () => {
         expect(durationOf(detailSample)).toBeCloseTo(64.729, 3);
+        expect(measuredDurationOf(detailSample)).toBeCloseTo(64.729, 3);
     });
 
     it('falls back to timeLimit only when no timestamps are usable', () => {
         const game = byId(72108);
         delete game.settings.start;
         expect(durationOf(game)).toBe(900);
+        expect(measuredDurationOf(game)).toBe(0);
         delete game.settings.timeLimit;
         expect(durationOf(game)).toBe(0);
     });
@@ -124,17 +126,10 @@ describe('netKills', () => {
     });
 });
 
-describe('pilotKey and pilotLikePattern', () => {
+describe('pilotKey', () => {
     it('matches names case-insensitively and ignores surrounding space', () => {
         expect(pilotKey(' Soup ')).toBe(pilotKey('SOUP'));
         expect(pilotKey(undefined)).toBe('');
-    });
-
-    it('matches the whole JSON string and escapes LIKE wildcards', () => {
-        expect(pilotLikePattern(' J_TP ')).toBe('%"J\\_TP"%');
-        expect(pilotLikePattern('100%')).toBe('%"100\\%"%');
-        // JSON writes a backslash as two; each is then escaped for LIKE.
-        expect(pilotLikePattern('a\\b')).toBe('%"a\\\\\\\\b"%');
     });
 });
 
@@ -142,5 +137,35 @@ describe('teamOf', () => {
     it('upper-cases the team and returns null in FFA', () => {
         expect(teamOf({ team: 'orange' })).toBe('ORANGE');
         expect(teamOf(player(byId(72108), 'ZERGLING'))).toBeNull();
+    });
+});
+
+describe('playerRows', () => {
+    it('keeps the raw score and reads suicides from the kill log', () => {
+        // The 2019 sample: RONCLI killed himself once and scored -1.
+        expect(playerRows(detailSample)).toEqual([
+            { name: 'RONCLI', team: 'BLUE', kills: -1, deaths: 1, assists: 0, suicides: 1, damage: 0, mode: 'MONSTERBALL', map: null }
+        ]);
+    });
+
+    it('counts damage dealt to others, trims names and skips blank ones', () => {
+        const game = {
+            settings: { matchMode: 'ANARCHY', level: 'Vault' },
+            players: [{ name: ' Soup ', kills: 2, deaths: 1, assists: 3 }, { name: 'XB1', kills: 1 }, { name: '  ' }],
+            damage: [
+                { attacker: 'soup', defender: 'XB1', damage: 40.5, weapon: 'IMPULSE' },
+                { attacker: 'SOUP', defender: 'SOUP', damage: 10, weapon: 'FALCON' },
+                { attacker: 'XB1', defender: 'SOUP', damage: 7, weapon: 'DRILLER' }
+            ]
+        };
+        expect(playerRows(game)).toEqual([
+            { name: 'Soup', team: null, kills: 2, deaths: 1, assists: 3, suicides: 0, damage: 40.5, mode: 'ANARCHY', map: 'Vault' },
+            { name: 'XB1', team: null, kills: 1, deaths: 0, assists: 0, suicides: 0, damage: 7, mode: 'ANARCHY', map: 'Vault' }
+        ]);
+    });
+
+    it('gives a pilot listed twice the log counts once', () => {
+        const game = { ...detailSample, players: [...detailSample.players, ...detailSample.players] };
+        expect(playerRows(game).map(r => r.suicides)).toEqual([1, 0]);
     });
 });
