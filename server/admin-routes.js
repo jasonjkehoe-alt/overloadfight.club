@@ -8,13 +8,13 @@ import archiveIngestService from './services/archiveIngestService.js';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
-import { requireAuth, login, logout, checkAuth } from './auth.js';
+import { requireAuth, login, logout, checkAuth, loginRateLimit } from './auth.js';
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
 // Authentication routes (not protected)
-router.post('/login', login);
+router.post('/login', loginRateLimit, login);
 router.post('/logout', logout);
 router.get('/auth-status', checkAuth);
 

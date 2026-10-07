@@ -27,9 +27,13 @@ import {
     getYouTubeStreamUrl,
     searchArchive,
 } from './services/audioImportService.js';
+import { requireAuth } from './auth.js';
 
 const router = express.Router();
 const overloadDir = getOverloadPath();
+
+// Pilot files, taunt installs and game status are admin-only
+router.use('/overload', requireAuth);
 
 // SSRF Protection: Restrict proxy to trusted audio hosts & prevent private/loopback/CGNAT IP access
 const ALLOWED_AUDIO_HOST_PATTERNS = [

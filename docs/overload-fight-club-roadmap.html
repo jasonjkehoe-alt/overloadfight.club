@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Overload Fight Club Roadmap</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Roboto+Mono:wght@300;400;600&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: a fight-card programme. One dark ground (the site's own identity), orange for the headline act,
+   a single wide column of running text with full-bleed tables. Single theme by choice. */
+:root {
+  --bg: #0b0a09;
+  --bg-2: #141210;
+  --bg-3: #1d1a17;
+  --line: #2c2823;
+  --fg: #ece6dc;
+  --fg-2: #a89f92;
+  --fg-3: #6f675d;
+  --accent: #ff6600;
+  --accent-2: #ffb380;
+  --crit: #ff4d4d;
+  --warn: #f2c14e;
+  --good: #5ad28c;
+  --blue: #5aa7ff;
+  --display: 'Orbitron', 'Barlow', sans-serif;
+  --body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 17px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 40px 80px; padding-inline: 20px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: 0.01em; }
+h1 { font-size: clamp(28px, 5vw, 48px); font-weight: 900; line-height: 1.05; }
+h1 .dot { color: var(--accent); }
+h2 { font-size: clamp(20px, 3vw, 28px); font-weight: 700; margin-block: 56px 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+h3 { font-size: 16px; font-weight: 700; color: var(--accent-2); margin-block: 24px 10px; }
+p { margin: 0 0 14px; max-width: 70ch; }
+.lede { font-size: 20px; color: var(--fg-2); max-width: 64ch; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+.meta { font-family: var(--mono); font-size: 13px; color: var(--fg-3); margin-top: 18px; }
+ul { padding-left: 22px; margin: 0 0 14px; max-width: 72ch; }
+li { margin-bottom: 7px; }
+li::marker { color: var(--accent); }
+code { font-family: var(--mono); font-size: 0.86em; color: var(--accent-2); background: var(--bg-3); padding: 1px 5px; border-radius: 3px; }
+strong { color: #fff; font-weight: 600; }
+/* scorecard */
+.score { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-block: 18px 6px; }
+.score div { background: var(--bg-2); border: 1px solid var(--line); padding: 14px 16px; min-width: 0; }
+.score .lens { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
+.score .grade { font-family: var(--display); font-size: 34px; font-weight: 900; line-height: 1.1; margin: 4px 0; }
+.score .why { font-size: 14px; color: var(--fg-2); }
+.g-a { color: var(--good); } .g-b { color: var(--accent-2); } .g-c { color: var(--warn); } .g-d { color: var(--crit); }
+/* alert list */
+.fix { border-left: 4px solid var(--crit); background: linear-gradient(90deg, rgba(255,77,77,0.08), transparent 60%); padding: 14px 18px; margin-block: 12px; }
+.fix ol { margin: 0; padding-left: 20px; max-width: none; }
+.fix li { margin-bottom: 9px; }
+/* phases */
+.phase { border: 1px solid var(--line); background: var(--bg-2); padding: 22px 22px 8px; margin-block: 18px; }
+.phase header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin-bottom: 8px; }
+.phase header .n { font-family: var(--display); font-weight: 900; font-size: 13px; letter-spacing: 0.1em; color: var(--accent); }
+.phase header h3 { margin: 0; color: #fff; font-size: 19px; }
+.phase header .when { font-family: var(--mono); font-size: 12px; color: var(--fg-3); margin-left: auto; }
+.phase .goal { color: var(--fg-2); font-size: 15px; margin-bottom: 14px; }
+.items { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.item { background: var(--bg-3); border: 1px solid var(--line); padding: 12px 14px; min-width: 0; font-size: 15px; }
+.item b { display: block; color: #fff; font-weight: 600; margin-bottom: 4px; }
+.item span { color: var(--fg-2); }
+.item .where { display: block; font-family: var(--mono); font-size: 12px; color: var(--fg-3); margin-top: 6px; overflow-wrap: anywhere; }
+.tag { display: inline-block; font-family: var(--mono); font-size: 11px; padding: 1px 7px; border-radius: 2px; border: 1px solid var(--line); color: var(--fg-2); margin-left: 6px; vertical-align: middle; }
+.tag.s { border-color: var(--good); color: var(--good); } .tag.m { border-color: var(--warn); color: var(--warn); } .tag.l { border-color: var(--crit); color: var(--crit); }
+/* tables */
+.tbl { overflow-x: auto; margin-block: 14px 22px; border: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 640px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); background: var(--bg-2); position: sticky; top: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.k { color: #fff; font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+/* showcase */
+.show { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-block: 16px; }
+.show article { background: var(--bg-2); border: 1px solid var(--line); border-top: 3px solid var(--accent); padding: 16px 18px; min-width: 0; }
+.show h4 { font-family: var(--display); font-size: 15px; margin: 0 0 8px; color: #fff; }
+.show p { font-size: 15px; color: var(--fg-2); margin: 0; max-width: none; }
+.show .ex { font-family: var(--mono); font-size: 13px; color: var(--accent-2); background: var(--bg); border: 1px dashed var(--line); padding: 8px 10px; margin-top: 10px; }
+.note { font-size: 14.5px; color: var(--fg-2); border: 1px solid var(--line); padding: 12px 16px; margin-block: 12px; max-width: none; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px 28px; }
+.cols ul { max-width: none; }
+@media (max-width: 480px) { body { font-size: 16px; } .wrap { padding-inline: 16px; } .phase { padding: 16px 14px 4px; } }
+@media (prefers-reduced-motion: no-preference) { a { transition: color .15s; } }
+a { color: var(--accent-2); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body class="dark">
+
+<div class="wrap">
+  <div class="eyebrow">overloadfight.club · full review and plan · 6 October 2026</div>
+  <h1>Overload Fight Club<span class="dot">.</span><br>The plan to make it the home of the game</h1>
+  <p class="lede">Four independent audits of the codebase (data, design, performance, features), one ranked plan. The site already has things nobody else in the Overload ecosystem has. The job is to fix what's quietly wrong, make it fast, give it one voice, and then build the moments players will screenshot and post in Discord.</p>
+  <p class="meta">Reviewed at commit 10223be · 24,800 lines · React 19 + Vite, Express + SQLite, Docker on a Synology NAS. Every finding cites a file and line in the source.</p>
+
+  <h2>Where it stands</h2>
+  <p>Honest grades per lens. The foundation is strong on ambition and feature breadth. It's weak on the plumbing underneath: the stats math has bugs that change who "wins", the bundle is one giant file, and nothing on the site can be shared into Discord properly.</p>
+  <div class="score">
+    <div><div class="lens">Features</div><div class="grade g-b">B+</div><div class="why">Live tracker, 8 years of games, fight-night recaps, a taunt DAW, and read/write access to the player's local game folder. Nobody else has that stack.</div></div>
+    <div><div class="lens">Data</div><div class="grade g-c">C</div><div class="why">Rich telemetry stored, but team wins are scored against a team that doesn't exist, durations are guessed, and kill logs mostly stop in 2022.</div></div>
+    <div><div class="lens">Design</div><div class="grade g-c">C+</div><div class="why">Strong identity, no system: 95 hex colors, two voices, a match page that never says who won, zero accessibility.</div></div>
+    <div><div class="lens">Efficiency</div><div class="grade g-d">D</div><div class="why">One 1.3 MB JS chunk, a 30 MB download on every Taunts visit, and a public URL that rebuilds all stats on the main thread.</div></div>
+    <div><div class="lens">Organization</div><div class="grade g-c">C−</div><div class="why">Seven files over 1,000 lines, React untyped (types package missing), no tests, 25 orphaned scripts, a password in git.</div></div>
+  </div>
+
+  <h2>Fix first, this week</h2>
+  <p>These are not polish. Each one is either a live risk or silently corrupts what the site tells players. All are small changes.</p>
+  <div class="fix">
+    <ol>
+      <li><strong>A NAS SSH password is committed in plain text</strong> in three scripts (<code>scripts/analyze_fight_nights.py:6</code>, <code>evaluate_thresholds.py:7</code>, <code>inspect_game_sample.py:6</code>). Rotate it today, then scrub git history. The admin password also defaults to <code>admin123</code> in both compose files and in <code>server/auth.js:5-6</code>, and the session secret falls back to a constant.</li>
+      <li><strong>Team wins are computed against <code>teamScore.RED</code>, but teams are BLUE and ORANGE.</strong> BLUE "wins" any game where it scored; ORANGE never wins (<code>server/db.js:712, 2047, 2422</code>). Every win rate, W/L record and rivalry record on the site is wrong for team modes. The fight-night service already does this correctly with <code>RED ?? ORANGE</code>.</li>
+      <li><strong>Anyone can freeze the site.</strong> A pilot stats cache miss runs the full stats rebuild synchronously inside the request (<code>server/routes.js:830-832</code>). It loads every game from both databases into memory at once (<code>db.js:2000-2004</code>), on a 2 GB NAS.</li>
+      <li><strong>Match durations are guessed.</strong> Live-era games have no start/end, so duration falls back to the time limit or 900 s (<code>db.js:672-681, 2025-2034</code>). Kills per minute, damage per minute and flight hours are all off. The real length is <code>date − settings.start</code>.</li>
+      <li><strong>Kill and damage logs are being thrown away.</strong> The hydrate job filters on fields the tracker never sends (<code>db.js:554-564</code>) so it does nothing, and the 60-second page-1 poll overwrites a hydrated game's details with the summary (<code>db.js:1777-1782</code>). Separately, backfill marks every game failed because <code>db.insertGame</code> calls <code>module.exports</code> inside an ES module (<code>db.js:1751-1757</code>).</li>
+      <li><strong>Two shipped features are dead.</strong> The events calendar never renders (COEP <code>require-corp</code> plus a CSP with no <code>frame-src</code>, <code>server/index.js:70-74</code>; the Google embed sends a same-site resource policy). The AI match analysis is pinned to <code>gemini-2.0-flash</code> (<code>routes.js:723</code>), which was retired, and the route has no auth, so the key is spendable by anyone.</li>
+    </ol>
+  </div>
+
+  <h2>The thesis: own pickup play</h2>
+  <p>The league (otl.gg) owns standings, brackets and scheduled team play. The tracker (tracker.otl.gg) owns the raw server list. overloadmaps.com owns the files. Discord owns the conversation. None of them does what this site can already do, and that's where the energy should go:</p>
+  <div class="cols">
+    <ul>
+      <li><strong>Read/write access to the player's own game folder.</strong> Pilot files, keybinds, autoselect order, XP, taunt slots, with backups. No other site touches the install.</li>
+      <li><strong>Eight years of kill-level history</strong> joined to a map catalog, with a threat ranking nobody else computes.</li>
+      <li><strong>Fight nights detected automatically</strong> from the data, with a generated seven-part recap.</li>
+    </ul>
+    <ul>
+      <li><strong>A taunt studio that installs straight into the game.</strong></li>
+      <li><strong>The only place the question "is anyone on tonight?" can be answered</strong> with history behind it.</li>
+    </ul>
+  </div>
+  <p>So the north star is one sentence: <strong>the place an Overload player opens at 7 pm to see who's on, where to join, and how they did last night.</strong> Everything below serves that.</p>
+
+  <h2>The plan in four phases</h2>
+
+  <div class="phase">
+    <header><span class="n">PHASE 1</span><h3>Make it fast and make it true</h3><span class="when">2–3 weeks</span></header>
+    <p class="goal">The dashboard loads in under a second, stats are correct, and no public URL can hurt the server. Players notice speed before anything else.</p>
+    <div class="items">
+      <div class="item"><b>Lazy-load every route<span class="tag s">S</span></b><span>All 14 views import up front. Recharts and its deps alone are 398 KB and only three views use charts. First-paint JS drops from 351 KB gzipped to roughly 100 KB.</span><span class="where">App.tsx:1-15 · GameList.tsx:533-552</span></div>
+      <div class="item"><b>Stop the 30 MB Taunts download<span class="tag s">S</span></b><span>The editor is mounted hidden on every tab, so the ffmpeg wasm (30.7 MiB) downloads on any visit. Mount it only on the editor tab. Delete the duplicate copy at the public root and precompress the real one.</span><span class="where">AudioTauntMaker.tsx:39-43 · AudioEditor.tsx:121-133 · public/ffmpeg-core.*</span></div>
+      <div class="item"><b>One shared live poll<span class="tag s">S</span></b><span>Today an idle tab sends about 7 server-browser requests a minute from three different places, plus a 404 every 30 s per live card for a health route that doesn't exist. One poll, paused when the tab is hidden.</span><span class="where">App.tsx:159-168 · Layout.tsx:17-40 · LiveMatchCard.tsx:60-70</span></div>
+      <div class="item"><b>Don't wait on the tracker to paint<span class="tag s">S</span></b><span>The games list awaits an upstream sync inside the request, up to 5 s. Serve what's cached, sync in the background.</span><span class="where">routes.js:33-52</span></div>
+      <div class="item"><b>Correct the stat math<span class="tag s">S</span></b><span>BLUE/ORANGE scoring, real durations, consistent net-kill clamping, one case-insensitive pilot key, escape LIKE wildcards in names, include cold storage in "first seen" so veterans stop showing as New Blood.</span><span class="where">db.js:712/2047/2422 · 672-681 · 2061 · 2856-2879</span></div>
+      <div class="item"><b>WAL + a players table<span class="tag m">M</span></b><span>Every pilot query is a LIKE scan of JSON blobs; the cold fallback reads 2.8 GB. Add <code>game_players(game_id, date, name, team, kills, deaths, assists, damage)</code> indexed on name and date, plus generated columns for map, mode, player count and duration. Pilot pages become indexed lookups and the 6-hourly rebuild processes only new games.</span><span class="where">db.js:24-25 · 1945-2352 · new migration</span></div>
+      <div class="item"><b>Stats rebuild off the main thread<span class="tag m">M</span></b><span>Remove the inline rebuild from the public route; iterate rows instead of loading them all; run remaining full passes in a worker thread on a read-only connection.</span><span class="where">routes.js:830-832 · db.js:2000-2004</span></div>
+      <div class="item"><b>Lock the doors<span class="tag s">S</span></b><span>Auth on the pilot-file, taunt, fight-night-check and analysis routes; validate pilot names used in file paths (path traversal today); rate-limit login and the yt-dlp import; secure cookies; env-only secrets with a <code>.env.example</code>.</span><span class="where">index.js:89 · overloadBridge.js:149+ · auth.js</span></div>
+      <div class="item"><b>Ops basics<span class="tag s">S</span></b><span>Nightly online backup of both databases with rotation (copying a live SQLite file without WAL can corrupt), log rotation, a healthcheck that queries the DB, SIGTERM handling, Node version pin, multi-stage image without build tools.</span><span class="where">Dockerfile · docker-compose*.yml · maintenance.js</span></div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <header><span class="n">PHASE 2</span><h3>One system, one voice</h3><span class="when">2 weeks</span></header>
+    <p class="goal">The site stops looking like six sites. Links work like links. Every page can be shared into Discord and unfurls with a real title.</p>
+    <div class="items">
+      <div class="item"><b>Design tokens<span class="tag l">L</span></b><span>95 distinct hex colors, the brand orange typed 612 times with 6 different hover variants, 34 near-blacks, two border systems, three tab styles, six spinners. Put the palette, radius and type scale in the Tailwind config and migrate page by page. Delete the classes that do nothing (<code>primary-*</code>, <code>animate-fade-in</code>).</span><span class="where">tailwind.config.js · index.css · all components</span></div>
+      <div class="item"><b>Real links, real titles, OG tags<span class="tag m">M</span></b><span>Zero internal <code>&lt;a href&gt;</code> today, so no new-tab, no copy-link, no keyboard. <code>document.title</code> is never set, so every Discord share shows the same text. Inject per-route title and <code>og:*</code> meta in the catch-all. This is the foundation for share cards.</span><span class="where">App.tsx:25-70 · Layout.tsx · server/index.js:188-196</span></div>
+      <div class="item"><b>Nav that matches how people think<span class="tag m">M</span></b><span>Fight Night is reachable only by typing the URL. "Pilot" means three things. Two pages are titled "Historical Archive". Proposed: Live · Fight Night · Pilots · Maps · Records · Tools ▾ (Pilot Config, Taunts) · Play ▾ (OLMod, Resources, Discord). Put a global pilot search in the header.</span><span class="where">Layout.tsx:75-191</span></div>
+      <div class="item"><b>State in the URL, back that goes back<span class="tag m">M</span></b><span>Tabs, filters, the map popup and the fight-night date aren't in the URL. Back buttons jump to fixed pages, so pilot → match → back loses the pilot. Match A flashes while match B loads.</span><span class="where">App.tsx:201-258 · GameList.tsx:26 · MapLibrary.tsx:35 · FightNightSection.tsx:103</span></div>
+      <div class="item"><b>Shared Loading / Empty / Error<span class="tag m">M</span></b><span>Several fetch failures currently read as "no results". One set of components with retry, a top-level error boundary, and empty states with attitude ("Ring's empty. Be first in. Busiest hour is usually 9 pm.").</span><span class="where">index.tsx · PilotsList.tsx:433-445 · MapLibrary.tsx:359-372</span></div>
+      <div class="item"><b>One glossary, one voice<span class="tag s">S</span></b><span>Match/game/bout/round/mission; pilot/player; frags/kills; map/arena/combat zone/sector/theater. "Combat Ratio" is K/D on the profile and KDA on the leaderboard; "Lethality" has two formulas. Pick fight-club as the voice and keep the telemetry jargon as visual texture only.</span><span class="where">PilotDetail.tsx:276-296, 486 · PilotPerformanceCard.tsx</span></div>
+      <div class="item"><b>Remove the fake numbers<span class="tag s">S</span></b><span>"75,820 Matches Indexed", "12 Stock", "7.2 yrs", "Peak 2020 (20,711)", "70,500+", the hard-coded "Global Mesh" regions, the always-on pulsing PILOT dot, the "Live Analytics" badge on historical data. Wire each to the API or delete it.</span><span class="where">MapLibrary.tsx:142,165 · ColdStorage.tsx:186,436,656 · ServerStats.tsx:148-158</span></div>
+      <div class="item"><b>Accessibility and mobile pass<span class="tag m">M</span></b><span>Zero ARIA, zero focus styles, 13 clickable divs, 7 of 13 tables without a scroll wrapper, 499 hover states and 0 active states. Buttons that are buttons, visible focus, Escape closes dialogs, scrollable tab bars, paginate the 4,500-row roster and 1,000-card map grid.</span><span class="where">Layout.tsx:54,67,130 · GameList.tsx:404,509,586 · ColdStorage.tsx:291-390</span></div>
+      <div class="item"><b>Split the giants, type the code<span class="tag m">M</span></b><span>db.js (2,977 lines), PilotSettingsPanel (2,115, 21 useStates), AudioEditor (1,353), WebImportModal (1,329), AdminPanel (1,025, 17 raw fetches). Install the React types (missing today, so all JSX is <code>any</code>), turn on strict gradually, add <code>tsc</code> and the build to CI, delete the 25 orphaned scripts and the leftover sample files.</span><span class="where">server/db.js · components/*.tsx · tsconfig.json · .github/workflows</span></div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <header><span class="n">PHASE 3</span><h3>Show the data like a fight</h3><span class="when">3–4 weeks</span></header>
+    <p class="goal">Every number on the site gets a picture, every picture tells a story a player can retell. All of this uses data already stored, once Phase 1 stops throwing it away.</p>
+    <div class="items">
+      <div class="item"><b>The match page becomes a fight card<span class="tag s">S</span></b><span>Today it shows no winner, no final score and the configured time limit instead of the real duration. Lead with "ORANGE 12–9 BLUE" or an FFA podium, the real length, and a result line: KO (blowout), decision, split decision, draw.</span><span class="where">GameDetail.tsx:118-151</span></div>
+      <div class="item"><b>Momentum chart<span class="tag m">M</span></b><span>Score margin over time with lead changes marked and each kill colored by weapon. Upgrades the existing cumulative-score chart, which already computes lead changes.</span><span class="where">ScoreChart.tsx:111 · GameDetail.tsx</span></div>
+      <div class="item"><b>Kill-feed scrubber<span class="tag m">M</span></b><span>Drag a slider through the match and watch the scoreboard, streaks and first blood replay from kill timestamps. The closest thing to a replay the data allows.</span><span class="where">GameDetail.tsx:56-80 · utils/statCalculators.ts</span></div>
+      <div class="item"><b>Rating with history (Elo or Glicko)<span class="tag m">M</span></b><span>The README promises ELO; there is none. A rating from placement and corrected team results, snapshotted nightly, gives a line chart per pilot, a real pre-match "upset" on fight night, and weekly power rankings with ▲▼ movement. Needs no kill logs.</span><span class="where">db.js:1945 · maintenance.js:73 · new PowerRankings.tsx</span></div>
+      <div class="item"><b>When people play, in your time zone<span class="tag s">S</span></b><span>The current hour-by-weekday chart is bucketed in UTC but labelled LOCAL, and it's buried in a History tab. A 7×24 heatmap on the dashboard, shifted to the viewer's clock, with "usually busiest: Sat 9 pm" as a line of copy. Fight-night day boundaries also move off UTC.</span><span class="where">ActivityGraph.tsx:8,60-66 · db.js:426, 2841</span></div>
+      <div class="item"><b>Career arc on every profile<span class="tag m">M</span></b><span>Monthly games, K/D, kills per minute and win rate as sparklines, plus a GitHub-style activity calendar. "Last time out" block summarising the most recent fight night.</span><span class="where">PilotDetail.tsx:356-372</span></div>
+      <div class="item"><b>Rivalry network and damage flow<span class="tag l">L</span></b><span>A force-directed graph of who kills whom from real kill logs (the current "threat" PageRank estimates its edges from scoreboards, not kills). A chord diagram of who damages whom, per match and per career. Dense for the 2019–22 archive, growing again once hydration works.</span><span class="where">db.js:2176-2263 · DamageMatrix.tsx</span></div>
+      <div class="item"><b>Weapon meta<span class="tag m">M</span></b><span>Weapon kill share per map as a heatmap; weapon meta by year across the archive; each pilot's weapon mix against the community average as a radar. "Arsenal entropy" is hard-coded to 0 today; this replaces it.</span><span class="where">db.js:768-791, 2335 · MapLibrary.tsx · PilotDetail.tsx:380-494</span></div>
+      <div class="item"><b>Specialist grids and ladders<span class="tag s">S</span></b><span>Pilot × map win-rate grid. A 1v1 duel ladder (11 of 25 sampled games were duels). CTF and Monsterball objective leaderboards from goals, captures, returns and carrier kills, which are stored and never shown.</span><span class="where">db.js:2373-2530 · PilotDetail.tsx:192 mode tabs</span></div>
+      <div class="item"><b>Clutch profile<span class="tag m">M</span></b><span>First-blood rate, share of kills in the final 60 seconds, share of kills while trailing, time-to-first-death survival curve. From kill timestamps; the field <code>assisted</code> also enables a wingman chart.</span><span class="where">types.ts:24-31 · new analytics module</span></div>
+      <div class="item"><b>Server and region history<span class="tag s">S</span></b><span>The server browser is proxied and never saved, so there is no occupancy history. Snapshot it every poll into a small table and get uptime, peak hours and average players per server, and regional share over time.</span><span class="where">routes.js:286-305 · ServerActivitySparkline.tsx</span></div>
+    </div>
+    <h3>Visualization backlog, ranked by wow × feasibility</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>#</th><th>Visualization</th><th>Needs kill logs?</th><th>Form</th><th>Lives in</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td class="k">Rating line with confidence band, ladder movement</td><td>No</td><td>Line + ▲▼ list</td><td>Profile, Pilots, Fight Night</td></tr>
+        <tr><td class="num">2</td><td class="k">Weekday × hour activity heatmap, local time</td><td>No</td><td>7×24 heatmap</td><td>Dashboard</td></tr>
+        <tr><td class="num">3</td><td class="k">Match momentum with weapon-colored kills</td><td>Yes</td><td>Margin area</td><td>Match page</td></tr>
+        <tr><td class="num">4</td><td class="k">Career arc + activity calendar</td><td>No</td><td>Sparklines, calendar grid</td><td>Profile header</td></tr>
+        <tr><td class="num">5</td><td class="k">1v1 duel ladder and matrix</td><td>No</td><td>Heatmap</td><td>Pilots tab</td></tr>
+        <tr><td class="num">6</td><td class="k">Rivalry network from real kills</td><td>Yes</td><td>Force graph</td><td>New page + profile widget</td></tr>
+        <tr><td class="num">7</td><td class="k">Damage flow per match and career</td><td>Yes</td><td>Chord / Sankey</td><td>Match damage tab, profile</td></tr>
+        <tr><td class="num">8</td><td class="k">Weapon meta by map and by year</td><td>Yes</td><td>Heatmap, stacked area</td><td>Maps, Records</td></tr>
+        <tr><td class="num">9</td><td class="k">Pilot weapon mix vs community</td><td>Partly</td><td>Radar</td><td>Profile arsenal</td></tr>
+        <tr><td class="num">10</td><td class="k">Clutch and first-blood profile</td><td>Yes</td><td>Percentile strip, histogram</td><td>Profile, Fight Night</td></tr>
+        <tr><td class="num">11</td><td class="k">Pilot × map specialist grid</td><td>No</td><td>Heatmap</td><td>Maps, profile</td></tr>
+        <tr><td class="num">12</td><td class="k">Retention cohorts, new pilots per month</td><td>No</td><td>Cohort triangle</td><td>Records</td></tr>
+        <tr><td class="num">13</td><td class="k">CTF / Monsterball objective leaderboards</td><td>No</td><td>Bars</td><td>Profile mode tabs, Maps</td></tr>
+        <tr><td class="num">14</td><td class="k">Regional activity, BLUE vs ORANGE win rate per map</td><td>No</td><td>Stacked area, diverging bar</td><td>Servers, Maps</td></tr>
+        <tr><td class="num">15</td><td class="k">Match pace by ruleset (respawn, powerups, loadouts)</td><td>No</td><td>Box plots</td><td>New "Meta" page</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Not possible with the data captured today: kill positions, accuracy, ping. Say so rather than fake it. Occupancy history becomes possible the day server-browser snapshots are stored.</p>
+  </div>
+
+  <div class="phase">
+    <header><span class="n">PHASE 4</span><h3>Into Discord, and a reason to come back weekly</h3><span class="when">4–6 weeks, then ongoing</span></header>
+    <p class="goal">The community lives in Discord and the site has no presence there. Fix that first, then give players recurring moments: rankings on Monday, a belt to defend, a season to look back on.</p>
+    <div class="items">
+      <div class="item"><b>Fight Night drops into Discord<span class="tag s">S</span></b><span>When a recap is saved, post a rich embed (headline bout, upset, top fragger, link) to a webhook set in the admin panel. Add an "it's on" ping once per evening when the browser shows N+ pilots across servers.</span><span class="where">fightNightService.js:407 · admin-routes.js:305 · ingest.js:89-96</span></div>
+      <div class="item"><b>Share cards that unfurl<span class="tag m">M</span></b><span>Pilot, match, fight night, map and Tale of the Tape URLs each render a PNG card (satori + resvg) served as <code>og:image</code>. The single highest-leverage growth feature: every link someone posts becomes an ad.</span><span class="where">server/index.js:188-196 · new ogImage.js</span></div>
+      <div class="item"><b>Tale of the Tape for any two pilots<span class="tag m">M</span></b><span>Today it only compares a pilot with their own top rivals. Make it <code>/tape/A/B</code> with a permalink: head-to-head bouts, kills exchanged, map splits, red corner / blue corner. Linked from upsets, the damage matrix and profiles. Settles arguments.</span><span class="where">db.js:2373-2525 · PilotDetail.tsx:548-624</span></div>
+      <div class="item"><b>Weekly power rankings<span class="tag m">M</span></b><span>Top 25 by rating with ▲▼ movement and NEW tags, posted to Discord every Monday. Needs the rating snapshots from Phase 3.</span><span class="where">new PowerRankings.tsx · maintenance.js</span></div>
+      <div class="item"><b>Belts and achievements<span class="tag m">M</span></b><span>One champion per mode with "held since" and defenses; a belt icon beside the holder's name; "NEW CHAMPION" on the recap. Achievements from data already in hand: Boss Slayer (killed the #1 threat), 10-streak, Century, First Blood specialist, anniversary.</span><span class="where">new achievements.js · PilotDetail.tsx:214 · FightNightRecapCard.tsx</span></div>
+      <div class="item"><b>Native fight-night schedule + iCal<span class="tag s">S</span></b><span>Replace the broken calendar embed with an events table, an <code>.ics</code> feed anyone can subscribe to, and a dashboard countdown: "Next fight: Sat 8 pm CT".</span><span class="where">CalendarWidget.tsx · db.js · AdminPanel.tsx</span></div>
+      <div class="item"><b>Season Wrapped<span class="tag l">L</span></b><span>A per-pilot yearly story: hours flown, nemesis, favorite victim, best map, longest streak, fight nights attended, rank change. Rendered as a share card. The feature people will post unprompted.</span><span class="where">new PilotWrapped.tsx · yearly aggregate in db</span></div>
+      <div class="item"><b>Map of the Week, author pages, host pages<span class="tag s">S</span></b><span><code>/author/:name</code> with plays, kills, trend and top pilots on their maps, plus a "being played right now" badge. <code>/server/:ip</code> with uptime, peak hours, olmod version. Schedule the map sync nightly so new uploads appear on their own.</span><span class="where">MapLibrary.tsx:476 · mapSyncService.js:198 · ServerStats.tsx</span></div>
+      <div class="item"><b>Loadout share codes<span class="tag m">M</span></b><span>Copy a pilot's autoselect order and binds as a code; paste to apply with an automatic backup. The serializers already exist in the pilot settings bridge. Pairs with a "get back in" checklist for returning players.</span><span class="where">utils/pilotSettingsBridge.ts:1000,1134 · PilotSettingsPanel.tsx:918+</span></div>
+      <div class="item"><b>AI ring announcer, done right<span class="tag s">S</span></b><span>Replace the dead per-match Gemini call with one grounded narration per fight night, generated from the recap JSON, cached, triggered by admin only. The existing recap already has the sentence templates to seed it.</span><span class="where">routes.js:672-745 · fightNightService.js:121-354</span></div>
+      <div class="item"><b>Identity: Discord login + pilot claim<span class="tag l">L</span></b><span>Sign in with Discord, claim pilot names (admin-approved), merge aliases into one career. This unlocks the next tier: a community taunt library with one-click equip, fight-night RSVP with a headcount posted to Discord, and "your nemesis just joined Overloader: Chicago" push alerts.</span><span class="where">server/auth.js · db.js · PilotDetail.tsx</span></div>
+    </div>
+    <p class="note">Deliberately out of scope: league standings and brackets (otl.gg owns them) and one-click join (olmod has no URL protocol handler; that's an upstream PR, not site work).</p>
+  </div>
+
+  <h2>Eight moments that will land</h2>
+  <p>If the phases are the work, these are the demos. Each is a specific screen a player would screenshot.</p>
+  <div class="show">
+    <article><h4>The 7 pm dashboard</h4><p>Open the site and the first thing on screen is tonight: who's online right now, which server, a countdown to the next fight night, and a heatmap that says "Saturdays at 9 pm is when it happens". The seven-panel recap poster moves below the fold with a one-line teaser.</p><div class="ex">4 PILOTS ON · Overloader: Dallas · SUB ROSA V4 · Anarchy · 6 min in · [copy IP]</div></article>
+    <article><h4>A match that reads like a fight card</h4><p>Final score up top, real duration, a result line, then the momentum chart with every lead change marked. Drag the scrubber and watch the scoreboard replay.</p><div class="ex">ORANGE 15 – 12 BLUE · DECISION · 11:42 · 4 lead changes · First blood: ZERGLING (Impulse, 0:14)</div></article>
+    <article><h4>The Tale of the Tape permalink</h4><p>Two names in a URL, red corner vs blue corner, career head-to-head, kills exchanged, where each one wins. Posted into Discord it unfurls as a card. Arguments end here.</p><div class="ex">overloadfight.club/tape/SOUP/RAPTOR</div></article>
+    <article><h4>Monday power rankings</h4><p>A Discord post every Monday: top 25, arrows, who's new, who fell. The site becomes a weekly habit instead of an occasional visit.</p><div class="ex">▲3  RAPTOR  1842  ·  ▼1  ZERGLING  1831  ·  NEW  LORD JOHN WARFIN</div></article>
+    <article><h4>The belt</h4><p>One champion per mode. Their name carries the belt icon everywhere on the site. The recap card says NEW CHAMPION when it changes hands. Everyone knows who they have to beat.</p><div class="ex">ANARCHY CHAMPION · held 23 days · 4 defenses</div></article>
+    <article><h4>Season Wrapped</h4><p>Hours flown, your nemesis, your favorite victim, your best map, your longest streak, the fight nights you made it to, where your rating went. One share card per pilot, once a year.</p><div class="ex">2026: 91 hrs · nemesis SOUP (−38) · favorite victim XB1 (+61) · best map SWAT</div></article>
+    <article><h4>The rivalry map</h4><p>A force graph of the whole community from eight years of kill logs. Clusters you didn't know existed. Click a node, the profile opens.</p><div class="ex">1,200 pilots · 310k kills · 14 clusters</div></article>
+    <article><h4>Fight Night in Discord before anyone asks</h4><p>The recap posts itself at 3 am. The "it's on" ping fires when six pilots show up on a Saturday. The site shows up where the players already are.</p><div class="ex">🥊 FIGHT NIGHT RECAP · Sat Oct 4 · 31 bouts · 18 pilots · Upset: XB1 over RAPTOR</div></article>
+  </div>
+
+  <h2>What the audits could not verify</h2>
+  <ul>
+    <li>No database file is in the worktree, so all data findings come from code and the committed sample JSON. The claim that damage rows are per-match totals rather than per-hit should be checked against a hydrated game.</li>
+    <li>Nav crowding between 768 px and about 1,150 px, and overflow of the hero and tab bars at 375 px, were inferred from the CSS and should be confirmed in a browser.</li>
+    <li>Whether the single-thread ffmpeg core still needs the cross-origin isolation headers. If not, dropping them also unblocks embeds.</li>
+    <li>The bundle was measured with a plain Vite build on Node 24; the Docker image uses Node 22. Numbers should be the same within a few KB.</li>
+  </ul>
+
+  <h2>Suggested first sprint</h2>
+  <p>If one sprint had to prove the direction, do these in order. Every item is small, and together they change how the site feels on day one.</p>
+  <ol>
+    <li>Rotate the SSH password, scrub history, set real admin and session secrets.</li>
+    <li>Fix BLUE/ORANGE scoring, real durations, the hydration filter and overwrite, and the backfill export bug.</li>
+    <li>Lazy-load routes and mount the audio editor on demand. Delete the duplicate wasm.</li>
+    <li>Remove the inline stats rebuild from the public route. Turn on WAL.</li>
+    <li>Put live data first on the dashboard, add Fight Night to the nav, add the IP and a copy button to the live match page.</li>
+    <li>Show the winner, score and real duration on the match page.</li>
+    <li>Per-route titles and OG tags, then the Discord recap webhook.</li>
+  </ol>
+  <p class="meta">Full audit notes with every file and line reference are in the session's scratchpad reports (data, UX, performance, features).</p>
+</div>
+</body>
+</html>

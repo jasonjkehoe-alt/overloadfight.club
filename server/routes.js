@@ -7,6 +7,7 @@ import scraperService from './services/scraperService.js';
 import ingest from './ingest.js';
 import cacheService from './services/cacheService.js';
 import fightNightService from './services/fightNightService.js';
+import { requireAuth } from './auth.js';
 import { GoogleGenAI } from "@google/genai";
 
 const router = express.Router();
@@ -669,7 +670,7 @@ router.get('/stats/activity-timeline', async (req, res) => {
 });
 
 // POST /api/analyze-match - Generate AI Analysis for a game
-router.post('/analyze-match', async (req, res) => {
+router.post('/analyze-match', requireAuth, async (req, res) => {
     let ai;
     try {
         const gameData = req.body;
@@ -958,7 +959,7 @@ router.get('/fight-nights/:date', async (req, res) => {
 });
 
 // POST /api/fight-nights/check - Trigger big night detector check manually
-router.post('/fight-nights/check', async (req, res) => {
+router.post('/fight-nights/check', requireAuth, async (req, res) => {
     try {
         await fightNightService.checkAndGenerateRecentFightNight();
         res.json({ success: true, message: 'Fight night detector check executed' });
