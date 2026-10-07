@@ -91,6 +91,16 @@ app.get('/api/stats', (req, res) => {
     }
 });
 
+// Docker healthcheck: 200 when both database files answer a query, 503 otherwise.
+app.get('/api/health', (req, res) => {
+    try {
+        db.checkHealth();
+        res.json({ status: 'ok' });
+    } catch (error) {
+        res.status(503).json({ status: 'error', error: error.message });
+    }
+});
+
 app.use('/api', routes);
 app.use('/api', bridgeRoutes);
 app.use('/api/admin', adminRoutes);
@@ -529,7 +539,7 @@ async function warmupStatsCache() {
 }
 
 // Start Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 
     // Start data ingestion and polling
@@ -556,3 +566,15 @@ app.listen(PORT, () => {
     // Pre-warm Audio Import Engine (yt-dlp & python)
     warmupEngine().catch(() => {});
 });
+
+// docker stop sends SIGTERM: stop taking requests, stop the stats worker and
+// close both databases, so nothing is left mid-write when the container exits.
+async function shutdown(signal) {
+    console.log(`[Shutdown] ${signal} received, closing databases...`);
+    server.close();
+    await db.close();
+    console.log('[Shutdown] Done.');
+    process.exit(0);
+}
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);

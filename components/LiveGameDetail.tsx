@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Clock, Users, Trophy, Activity, AlertCircle } from 'lucide-react';
-import { GameData } from '../types';
+import { GameData, GameEvent, GameSettings } from '../types';
 import { apiService } from '../services/apiService';
+
+// Fields this page reads from the live game that types.ts does not declare.
+type LiveGame = GameData & {
+    settings?: GameSettings & { respawnTimeSeconds?: number };
+    events?: (GameEvent & { source?: string; target?: string; weapon?: string; message?: string })[];
+};
 
 interface LiveGameDetailProps {
     ip?: string;
@@ -18,7 +24,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, ser
     const [healthHistory, setHealthHistory] = useState<any[]>([]);
 
     // Restore missing state variables that caused the blank screen/render failure
-    const [game, setGame] = useState<GameData | null>(null);
+    const [game, setGame] = useState<LiveGame | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());

@@ -40,6 +40,7 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+export const backupsDir = path.join(dataDir, 'backups');
 export const mapsDir = path.join(dataDir, 'maps');
 export const mapImagesDir = path.join(dataDir, 'map_images');
 if (!fs.existsSync(mapsDir)) fs.mkdirSync(mapsDir, { recursive: true });
@@ -47,6 +48,18 @@ if (!fs.existsSync(mapImagesDir)) fs.mkdirSync(mapImagesDir, { recursive: true }
 
 const dbPath = path.join(dataDir, 'tracker.db');
 const coldDbPath = path.join(dataDir, 'cold_storage.db');
+
+// The Docker image runs as uid 1000. Files left by an older image that ran as
+// root are read-only to it, and SQLite would fail later with a less clear error.
+for (const file of [dataDir, dbPath, coldDbPath]) {
+  try {
+    fs.accessSync(file, fs.constants.W_OK);
+  } catch (err) {
+    if (err.code === 'ENOENT') continue;
+    console.error(`Refusing to start: ${file} is not writable by uid ${process.getuid?.()}. On the host, chown the data folder to 1000:1000 (see DEPLOYMENT.md).`);
+    process.exit(1);
+  }
+}
 
 const hotDb = new Database(dbPath);
 const coldDb = new Database(coldDbPath);
@@ -1403,6 +1416,8 @@ const getGamesInDay = hotDb.prepare(`
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
 // the run in progress. Never rejects: a failure is logged and the old caches stay.
 let refreshing = null;
+// The stats worker while a refresh runs, so close() can stop it first.
+let statsWorker = null;
 const refreshPilotStats = () => {
   refreshing ??= refreshCaches().finally(() => {
     refreshing = null;
@@ -1418,9 +1433,13 @@ const runStatsWorker = () => new Promise((resolve, reject) => {
       thirtyDaysAgo: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     }
   });
+  statsWorker = worker;
   worker.once('message', resolve);
   worker.once('error', reject);
-  worker.once('exit', code => reject(new Error(`stats worker exited with code ${code}`)));
+  worker.once('exit', code => {
+    statsWorker = null;
+    reject(new Error(`stats worker exited with code ${code}`));
+  });
 });
 
 async function refreshCaches() {
@@ -1540,6 +1559,7 @@ const db = {
   // Copy and replace tracker.db through SQLite's backup API. Under WAL a raw file copy
   // can miss commits still in tracker.db-wal, or be replayed against that stale WAL.
   backupHot: destination => hotDb.backup(destination),
+  backupCold: destination => coldDb.backup(destination),
   restoreHot: async source => {
     const uploaded = new Database(source, { readonly: true, fileMustExist: true });
     try {
@@ -2456,7 +2476,15 @@ VALUES(?, ?, ?, ?, ?)
     }
   },
 
-  close: () => {
+  // For the healthcheck: throws unless both files answer a query.
+  checkHealth: () => {
+    hotDb.prepare('SELECT 1 FROM games LIMIT 1').get();
+    coldDb.prepare('SELECT 1 FROM games LIMIT 1').get();
+  },
+
+  // Stop a running stats worker, so no thread keeps the files open, then close both.
+  close: async () => {
+    await statsWorker?.terminate();
     try { hotDb.close(); } catch {}
     try { coldDb.close(); } catch {}
   },

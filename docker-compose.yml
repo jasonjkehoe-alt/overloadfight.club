@@ -16,9 +16,16 @@ services:
       - TZ=America/Chicago
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env next to this file}
       - SESSION_SECRET=${SESSION_SECRET:?set SESSION_SECRET in .env next to this file}
+    # Rotate the container log: at most 3 files of 10 MB (Synology defaults to its own "db" driver)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # /api/health queries both databases; the start period covers the one-time game_players backfill
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000" ]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 120s

@@ -13,3 +13,4 @@ dist
 server/tracker.db
 server/tracker.db-journal
 .DS_Store
+uploads

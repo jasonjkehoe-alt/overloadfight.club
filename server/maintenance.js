@@ -1,5 +1,16 @@
 import db from './db.js';
+import { backupDatabases } from './backup.js';
 import fightNightService from './services/fightNightService.js';
+
+async function runNightlyBackup() {
+    console.log('[Maintenance] Backing up databases...');
+    try {
+        const dir = await backupDatabases();
+        console.log(`[Maintenance] Databases backed up to ${dir}.`);
+    } catch (error) {
+        console.error('[Maintenance] Database backup failed:', error);
+    }
+}
 
 async function runDailyMaintenance() {
     console.log('[Maintenance] Starting daily maintenance...');
@@ -59,6 +70,8 @@ function scheduleMaintenance() {
         console.log(`[Maintenance] Nightly maintenance scheduled for ${nextNight.toISOString()} (in ${Math.round(msUntilNext / 60000)}m).`);
 
         setTimeout(async () => {
+            // Before the cold move, so the backup holds the files as they were before the night's writes.
+            await runNightlyBackup();
             await runDailyMaintenance();
             scheduleNextNightly();
         }, msUntilNext);

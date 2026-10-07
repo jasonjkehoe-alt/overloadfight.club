@@ -53,8 +53,10 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames, onS
                         isCreator: true
                     });
                 }
-                if (Array.isArray(server.game.players)) {
-                    server.game.players.forEach(p => {
+                // The browser API sends a player list that types.ts does not declare.
+                const players = (server.game as { players?: unknown[] }).players;
+                if (Array.isArray(players)) {
+                    players.forEach(p => {
                         const pName = typeof p === 'string' ? p : (p as any)?.name;
                         if (pName && !pilotsMap.has(pName)) {
                             pilotsMap.set(pName, {

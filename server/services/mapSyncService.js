@@ -66,7 +66,7 @@ function loadKnownMetadata() {
     const metadataMap = new Map();
 
     // 1. Try maps_export.csv
-    const csvPath = path.join(__dirname, '../../maps_export.csv');
+    const csvPath = path.join(__dirname, '../seed/maps_export.csv');
     if (fs.existsSync(csvPath)) {
         try {
             const csvContent = fs.readFileSync(csvPath, 'utf8');
