@@ -1,23 +1,12 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { day, detailSample, onDay, sample } from './testFixtures.js';
 
 vi.mock('axios', () => ({ default: { get: vi.fn() } }));
 
-const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
-const sample = readFixture('gamelist_sample.json').games;
-const detailSample = readFixture('game_detail_sample.json');
-
-// Same move as db.test.js: put the 2025-11-24 samples on a recent day so they
-// land in hot storage.
-const day = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
 const nextDay = new Date(Date.parse(`${day}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
-const shift = Date.parse(`${day}T00:00:00Z`) - Date.parse('2025-11-24T00:00:00Z');
-const moved = iso => new Date(Date.parse(iso) + shift).toISOString();
-const onDay = game => ({ ...game, date: moved(game.date), settings: { ...game.settings, start: moved(game.settings.start) } });
 
 // The gamelist sends every game with an empty kill log. A hydrated game is the
 // same game as /api/game/:id returns it, with kills (shaped like the detail sample's).
@@ -35,16 +24,15 @@ short.settings = { ...short.settings, start: new Date(Date.parse(short.date) - 3
 // Games either side of the day's end, for the UTC day bounds.
 const lastSecond = { ...summary(72090), id: 90021, date: `${day}T23:59:59.999Z` };
 const nextMidnight = { ...summary(72090), id: 90022, date: `${nextDay}T00:00:00.000Z` };
+// The gamelist games, saved once in beforeAll.
+const listed = [...summaries, lastSecond, nextMidnight];
 
 let dataDir;
 let db;
 let backfill;
 let axios;
 
-const storedKills = id => {
-    const row = db.getGamesForDate(day).find(r => r.id === id) ?? db.getGamesForDate(nextDay).find(r => r.id === id);
-    return JSON.parse(row.details).kills;
-};
+const storedKills = id => JSON.parse(db.getGameById.get(id).details).kills;
 
 beforeAll(async () => {
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ofc-backfill-'));
@@ -54,7 +42,7 @@ beforeAll(async () => {
     axios = (await import('axios')).default;
     // Yield a macrotask so a hydration loop that never ends hits the test timeout.
     backfill.sleep = () => new Promise(resolve => setImmediate(resolve));
-    db.saveGames([...summaries, short, lastSecond, nextMidnight]);
+    db.saveGames([...listed, short]);
 });
 
 afterAll(() => {
@@ -82,8 +70,7 @@ describe('saveGames upsert', () => {
         const old = { ...detailSample, id: 90030 };
         db.saveGames([old]);
         db.saveGames([{ ...old, kills: [] }]);
-        const stored = db.getColdGames(10, 0).map(r => JSON.parse(r.details)).find(g => g.id === 90030);
-        expect(stored.kills).toHaveLength(1);
+        expect(storedKills(90030)).toHaveLength(1);
     });
 });
 
@@ -113,15 +100,14 @@ describe('backfill', () => {
 
     it('finishes a hydration job when the tracker has no kill log for a game', async () => {
         const remaining = db.getSummaryGames.all(0, 1000).length;
-        const asListed = id => [...summaries, lastSecond, nextMidnight].find(g => g.id === id);
-        axios.get.mockImplementation(url => Promise.resolve({ data: asListed(Number(url.split('/').pop())) }));
+        axios.get.mockImplementation(url => Promise.resolve({ data: listed.find(g => g.id === Number(url.split('/').pop())) }));
         await backfill.processHydrationJob({ id: 1, rate_limit_ms: 0 });
         expect(axios.get).toHaveBeenCalledTimes(remaining);
     });
 
-    it('resumes a paused hydration job at the game it had not fetched', async () => {
+    it('resumes a paused hydration job after the last game it processed', async () => {
         axios.get.mockRejectedValue(new Error('timeout'));
-        await backfill.processHydrationJob({ id: 1, rate_limit_ms: 0, current_id: 72100 });
+        await backfill.processHydrationJob({ id: 1, rate_limit_ms: 0, current_id: 72099 });
         expect(axios.get.mock.calls[0][0]).toMatch(/\/game\/72100$/);
     });
 

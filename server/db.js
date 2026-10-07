@@ -10,8 +10,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // which can use idx_games_date where `date LIKE 'YYYY-MM-DD%'` cannot.
 // null when dateStr is not a calendar day.
 function utcDayBounds(dateStr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
   const start = Date.parse(`${dateStr}T00:00:00Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || Number.isNaN(start)) return null;
+  if (Number.isNaN(start)) return null;
   return [dateStr, new Date(start + 86400000).toISOString().slice(0, 10)];
 }
 
@@ -1582,6 +1583,15 @@ const upsertGameSql = `
     date = excluded.date,
     ip = excluded.ip
 `;
+const upsertGameHot = hotDb.prepare(upsertGameSql);
+const upsertGameCold = coldDb.prepare(upsertGameSql);
+
+// Hot games in one UTC day; bind utcDayBounds().
+const getGamesInDay = hotDb.prepare(`
+  SELECT id, date, details FROM games
+  WHERE date >= ? AND date < ?
+  ORDER BY date ASC
+`);
 
 const db = {
   getGames: (limit, offset, search, startDate) => {
@@ -1752,8 +1762,6 @@ COALESCE(json_extract(details, '$.server.ip'), ip) as ip,
     }
 
     // Transaction for Hot DB
-    const insertHot = hotDb.prepare(upsertGameSql);
-
     const insertMeta = hotDb.prepare(`
       INSERT OR REPLACE INTO game_metadata(game_id, fetch_status, fetch_attempts, last_fetch_at, error_message)
 VALUES(?, ?, ?, ?, ?)
@@ -1762,7 +1770,7 @@ VALUES(?, ?, ?, ?, ?)
     const transactionHot = hotDb.transaction((gamesList) => {
       let changes = 0;
       for (const game of gamesList) {
-        const result = insertHot.run({
+        const result = upsertGameHot.run({
           id: game.id,
           date: game.date || game.start || new Date().toISOString(),
           ip: game.server?.ip || game.ip || null,
@@ -1782,12 +1790,10 @@ VALUES(?, ?, ?, ?, ?)
     });
 
     // Transaction for Cold DB
-    const insertCold = coldDb.prepare(upsertGameSql);
-
     const transactionCold = coldDb.transaction((gamesList) => {
       let changes = 0;
       for (const game of gamesList) {
-        insertCold.run({
+        upsertGameCold.run({
           id: game.id,
           date: game.date || game.start || new Date().toISOString(),
           ip: game.server?.ip || game.ip || null,
@@ -2723,12 +2729,7 @@ VALUES(@id, @date, @ip, @details)
 
   getGamesForDate: (dateStr) => {
     const bounds = utcDayBounds(dateStr);
-    if (!bounds) return [];
-    return hotDb.prepare(`
-      SELECT id, date, details FROM games 
-      WHERE date >= ? AND date < ?
-      ORDER BY date ASC
-    `).all(...bounds);
+    return bounds ? getGamesInDay.all(...bounds) : [];
   },
 
   getAllCachedPilotStats: () => {
@@ -2790,9 +2791,7 @@ VALUES(@id, @date, @ip, @details)
 
     const qualifying = [];
     for (const row of dayRows) {
-      const dayMatches = hotDb.prepare(`
-        SELECT details FROM games WHERE date >= ? AND date < ?
-      `).all(...utcDayBounds(row.day));
+      const dayMatches = getGamesInDay.all(...utcDayBounds(row.day));
 
       const pilots = new Set();
       let frags = 0;

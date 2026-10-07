@@ -1,21 +1,10 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { day, detailSample, onDay, sample } from './testFixtures.js';
 
-const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
-const sample = readFixture('gamelist_sample.json').games;
-const detailSample = readFixture('game_detail_sample.json');
 const byId = id => structuredClone(sample.find(g => g.id === id));
-
-// The sample games were all played on 2025-11-24 (UTC). Move them to a recent
-// day so saveGames files them in hot storage whatever today's date is.
-const day = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
-const shift = Date.parse(`${day}T00:00:00Z`) - Date.parse('2025-11-24T00:00:00Z');
-const moved = iso => new Date(Date.parse(iso) + shift).toISOString();
-const onDay = game => ({ ...game, date: moved(game.date), settings: { ...game.settings, start: moved(game.settings.start) } });
 
 // Fixture games built from the samples:
 // 90001: game 72102 with the score flipped, an ORANGE win (STITCH, MAESTRO).
