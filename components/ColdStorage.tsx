@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Database, Calendar, Server, User, ArrowRight, Trophy, Map as MapIcon, 
-    Crosshair, Activity, Clock, Flame, Zap, Award, Skull, Moon, Shield, BarChart3, 
-    TrendingUp, HardDrive, Filter, X, ChevronRight, Hash, Eye, Sparkles
+    Crosshair, Clock, Zap, Award, Skull, Moon, BarChart3, 
+    X
 } from 'lucide-react';
 import { fetchColdGames } from '../services/apiService';
 import { getMapImage } from '../services/mapService';
@@ -14,11 +14,12 @@ interface ColdStorageProps {
 const DeepStatCard: React.FC<{
     title: string;
     value: React.ReactNode;
-    subtitle?: string;
+    subtitle?: React.ReactNode;
     icon: React.ReactNode;
     color?: string;
+    loading?: boolean;
     onClick?: () => void;
-}> = ({ title, value, subtitle, icon, color = 'text-blue-500', onClick }) => (
+}> = ({ title, value, subtitle, icon, color = 'text-blue-500', loading, onClick }) => (
     <div
         onClick={onClick}
         className={`bg-[#111] border border-gray-800 p-4 rounded-lg relative overflow-hidden group transition-all duration-200 ${
@@ -32,10 +33,55 @@ const DeepStatCard: React.FC<{
             <h3 className="text-gray-500 text-[11px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
                 {title}
             </h3>
-            <div className="text-xl md:text-2xl font-bold text-white font-mono mb-1 truncate">{value}</div>
-            {subtitle && <div className="text-[11px] text-gray-500 font-mono truncate">{subtitle}</div>}
+            {loading ? (
+                <div className="space-y-1.5 my-1">
+                    <div className="h-7 w-24 bg-gray-800/70 rounded animate-pulse" />
+                    <div className="h-3 w-32 bg-gray-800/40 rounded animate-pulse" />
+                </div>
+            ) : (
+                <>
+                    <div className="text-xl md:text-2xl font-bold text-white font-mono mb-1 truncate">{value ?? '-'}</div>
+                    {subtitle && <div className="text-[11px] text-gray-500 font-mono truncate">{subtitle}</div>}
+                </>
+            )}
         </div>
     </div>
+);
+
+const RecordCardSkeleton: React.FC = () => (
+    <div className="bg-[#121212] border border-gray-800 p-5 rounded-xl animate-pulse space-y-3">
+        <div className="h-4 w-28 bg-gray-800 rounded" />
+        <div className="h-5 w-36 bg-gray-700 rounded" />
+        <div className="h-8 w-24 bg-gray-800 rounded mt-2" />
+        <div className="h-3 w-32 bg-gray-800/60 rounded" />
+        <div className="h-3 w-20 bg-gray-800/40 rounded" />
+    </div>
+);
+
+const TimelineSkeleton: React.FC = () => (
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-32 bg-[#151515] border border-gray-800 rounded-lg p-3 animate-pulse flex flex-col justify-between">
+                <div className="h-4 w-10 bg-gray-800 rounded" />
+                <div className="h-6 w-16 bg-gray-800 rounded my-auto" />
+                <div className="h-1.5 w-full bg-gray-800 rounded" />
+            </div>
+        ))}
+    </div>
+);
+
+const TableSkeletonRows: React.FC<{ cols: number }> = ({ cols }) => (
+    <>
+        {Array.from({ length: 6 }).map((_, i) => (
+            <tr key={i} className="animate-pulse">
+                {Array.from({ length: cols }).map((_, j) => (
+                    <td key={j} className="p-3">
+                        <div className="h-4 bg-gray-800/60 rounded w-full" />
+                    </td>
+                ))}
+            </tr>
+        ))}
+    </>
 );
 
 const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
@@ -43,6 +89,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
     const [pilotRoster, setPilotRoster] = useState<any[]>([]);
     const [topMaps, setTopMaps] = useState<any[]>([]);
     const [loadingStats, setLoadingStats] = useState(true);
+    const [statsError, setStatsError] = useState(false);
 
     // Hall of Fame Category
     const [hallCategory, setHallCategory] = useState<'kills' | 'games' | 'kd' | 'damage' | 'win_rate'>('kills');
@@ -59,10 +106,14 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
     // Initial Load of Deep Stats, Pilots & Maps
     useEffect(() => {
         setLoadingStats(true);
+        setStatsError(false);
         Promise.all([
-            fetch('/api/stats/cold/deep').then(res => res.json()),
-            fetch('/api/stats/pilots?source=all').then(res => res.json()),
-            fetch('/api/stats/maps?source=all').then(res => res.json())
+            fetch('/api/stats/cold/deep').then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            }),
+            fetch('/api/stats/pilots?source=all').then(res => res.json()).catch(() => []),
+            fetch('/api/stats/maps?source=all').then(res => res.json()).catch(() => null)
         ]).then(([deepData, pilotsData, mapsData]) => {
             setDeepStats(deepData);
             if (Array.isArray(pilotsData)) {
@@ -76,6 +127,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
             setLoadingStats(false);
         }).catch(err => {
             console.error("Failed to load cold deep stats", err);
+            setStatsError(true);
             setLoadingStats(false);
         });
     }, []);
@@ -94,10 +146,12 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
             }
 
             const gamesData = await fetchColdGames(page, effectiveSearch);
-            setGames(gamesData.games || []);
-            setGamesTotalCount(gamesData.count || 0);
+            setGames(gamesData?.games || []);
+            setGamesTotalCount(gamesData?.count || 0);
         } catch (error) {
             console.error("Failed to load cold storage games", error);
+            setGames([]);
+            setGamesTotalCount(0);
         }
         setLoadingGames(false);
     };
@@ -151,11 +205,68 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
         return num.toLocaleString();
     };
 
+    // Computed date range subtitle: "Every match since [Month Year]"
+    const computedSubtitle = useMemo(() => {
+        if (!deepStats?.first_game) return null;
+        try {
+            const first = new Date(deepStats.first_game);
+            const month = first.toLocaleDateString('en-US', { month: 'long' });
+            const year = first.getFullYear();
+            return `Every match since ${month} ${year}`;
+        } catch {
+            return null;
+        }
+    }, [deepStats]);
+
+    // Computed date range badge in header
+    const computedDateRangeBadge = useMemo(() => {
+        if (!deepStats?.first_game) return null;
+        try {
+            const start = new Date(deepStats.first_game);
+            const month = start.toLocaleDateString('en-US', { month: 'short' });
+            const year = start.getFullYear();
+            const years = Math.max(0, (Date.now() - start.getTime()) / (365.25 * 24 * 3600 * 1000)).toFixed(1);
+            return `${month} ${year} – Present (${years} yrs)`;
+        } catch {
+            return null;
+        }
+    }, [deepStats]);
+
+    // Peak Year and Max Count derived dynamically from yearly data
+    const peakYearData = useMemo(() => {
+        if (!deepStats?.yearly || !Array.isArray(deepStats.yearly) || deepStats.yearly.length === 0) return null;
+        return deepStats.yearly.reduce((max: any, item: any) => {
+            return (item.count > (max?.count || 0)) ? item : max;
+        }, null);
+    }, [deepStats]);
+
+    // Title range for timeline
+    const timelineTitleRange = useMemo(() => {
+        if (!deepStats?.yearly || !Array.isArray(deepStats.yearly) || deepStats.yearly.length === 0) {
+            return 'Historical Activity Curve';
+        }
+        const first = deepStats.yearly[0]?.year;
+        const last = deepStats.yearly[deepStats.yearly.length - 1]?.year;
+        if (first && last && first !== last) {
+            return `Historical Activity Curve (${first} – ${last})`;
+        }
+        return 'Historical Activity Curve';
+    }, [deepStats]);
+
+    // Dynamic list of years for filter pills
+    const availableYears = useMemo(() => {
+        if (!deepStats?.yearly || !Array.isArray(deepStats.yearly) || deepStats.yearly.length === 0) {
+            return ['ALL', '2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019'];
+        }
+        const yrs = deepStats.yearly.map((y: any) => String(y.year)).sort().reverse();
+        return ['ALL', ...yrs];
+    }, [deepStats]);
+
     return (
         <div className="min-h-screen bg-[#050505] text-gray-300 font-sans selection:bg-[#ff6600] selection:text-white pb-24">
             <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
                 
-                {/* --- HEADER & ARCHIVE METADATA STRIP --- */}
+                {/* --- 1. HEADER & METADATA STRIP --- */}
                 <div className="border-b border-gray-800 pb-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                         <div className="flex items-center gap-3">
@@ -169,280 +280,90 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                         Active Archive
                                     </span>
                                 </div>
-                                <p className="text-gray-400 font-mono text-xs mt-0.5">
-                                    ARCHIVAL DEEP INTELLIGENCE & HISTORICAL COMBAT TELEMETRY
-                                </p>
+                                {loadingStats ? (
+                                    <div className="h-4 w-48 bg-gray-800/60 rounded animate-pulse mt-1" />
+                                ) : (
+                                    <p className="text-gray-400 font-mono text-xs mt-0.5">
+                                        {computedSubtitle || 'Archived historical combat matches'}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
-                        {/* Tactical Metadata Badges */}
+                        {/* Metadata Badges */}
                         <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-                            <div className="bg-[#111] border border-gray-800 px-3 py-1.5 rounded flex items-center gap-2 text-gray-300">
-                                <HardDrive size={13} className="text-blue-400" />
-                                <span>{deepStats?.storage?.total_gb ? `${deepStats.storage.total_gb} GB Telemetry` : '2.76 GB Archive'}</span>
-                            </div>
-                            <div className="bg-[#111] border border-gray-800 px-3 py-1.5 rounded flex items-center gap-2 text-gray-300">
-                                <Calendar size={13} className="text-emerald-400" />
-                                <span>Jul 2019 – Present (7.2 yrs)</span>
-                            </div>
-                            <div className="bg-[#111] border border-gray-800 px-3 py-1.5 rounded flex items-center gap-2 text-gray-300">
-                                <Server size={13} className="text-purple-400" />
-                                <span>{deepStats?.unique_servers || 294} Dedicated Nodes</span>
-                            </div>
+                            {loadingStats ? (
+                                <>
+                                    <div className="h-8 w-44 bg-[#111] border border-gray-800 rounded animate-pulse" />
+                                    <div className="h-8 w-36 bg-[#111] border border-gray-800 rounded animate-pulse" />
+                                </>
+                            ) : (
+                                <>
+                                    {computedDateRangeBadge && (
+                                        <div className="bg-[#111] border border-gray-800 px-3 py-1.5 rounded flex items-center gap-2 text-gray-300">
+                                            <Calendar size={13} className="text-emerald-400" />
+                                            <span>{computedDateRangeBadge}</span>
+                                        </div>
+                                    )}
+                                    {deepStats?.unique_servers ? (
+                                        <div className="bg-[#111] border border-gray-800 px-3 py-1.5 rounded flex items-center gap-2 text-gray-300">
+                                            <Server size={13} className="text-purple-400" />
+                                            <span>{deepStats.unique_servers.toLocaleString()} Servers</span>
+                                        </div>
+                                    ) : null}
+                                    {deepStats?.total_games ? (
+                                        <div className="bg-[#111] border border-gray-800 px-3 py-1.5 rounded flex items-center gap-2 text-gray-300">
+                                            <Database size={13} className="text-blue-400" />
+                                            <span>{deepStats.total_games.toLocaleString()} Matches</span>
+                                        </div>
+                                    ) : null}
+                                </>
+                            )}
                         </div>
                     </div>
+
+                    {statsError && !deepStats && (
+                        <div className="mt-3 p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-xs font-mono text-red-300 flex items-center justify-between">
+                            <span>Unable to load historical archive telemetry. Some statistics may be unavailable.</span>
+                            <button 
+                                onClick={() => window.location.reload()}
+                                className="underline hover:text-white font-bold ml-4"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    )}
                 </div>
 
-                {/* --- 1. CORE ARCHIVAL TELEMETRY GRID (10 WIDGETS) --- */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xs font-bold font-mono uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                            <BarChart3 size={14} className="text-blue-500" /> Global Archival Telemetry
-                        </h2>
-                        {deepStats?.last_calculated && (
-                            <span className="text-[10px] font-mono text-gray-600">
-                                Cache synced: {new Date(deepStats.last_calculated).toLocaleTimeString()}
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                        <DeepStatCard
-                            title="Total Matches"
-                            value={deepStats?.total_games ? deepStats.total_games.toLocaleString() : '75,820'}
-                            subtitle="Matched combat matches"
-                            icon={<Database size={28} />}
-                            color="text-blue-400"
-                        />
-                        <DeepStatCard
-                            title="Combat Flight Time"
-                            value={deepStats?.total_flight_hours ? `${Math.round(deepStats.total_flight_hours).toLocaleString()}h` : '84,636h'}
-                            subtitle="~9.66 continuous years"
-                            icon={<Clock size={28} />}
-                            color="text-emerald-400"
-                        />
-                        <DeepStatCard
-                            title="Confirmed Frags"
-                            value={deepStats?.total_kills ? formatLargeNumber(deepStats.total_kills) : '9.18M'}
-                            subtitle={deepStats?.total_kills ? `${deepStats.total_kills.toLocaleString()} kills` : 'All-time eliminations'}
-                            icon={<Skull size={28} />}
-                            color="text-red-400"
-                        />
-                        <DeepStatCard
-                            title="Total Damage"
-                            value={deepStats?.total_damage ? formatLargeNumber(deepStats.total_damage) : '1.21B'}
-                            subtitle="Kinetic & energy dealt"
-                            icon={<Zap size={28} />}
-                            color="text-[#ff6600]"
-                        />
-                        <DeepStatCard
-                            title="Combat Aviators"
-                            value={deepStats?.unique_pilots ? deepStats.unique_pilots.toLocaleString() : '4,510'}
-                            subtitle="Registered callsigns"
-                            icon={<User size={28} />}
-                            color="text-yellow-400"
-                        />
-                        <DeepStatCard
-                            title="Host Nodes"
-                            value={deepStats?.unique_servers ? deepStats.unique_servers.toLocaleString() : '294'}
-                            subtitle="Global community servers"
-                            icon={<Server size={28} />}
-                            color="text-purple-400"
-                        />
-                        <DeepStatCard
-                            title="Combat Arenas"
-                            value={deepStats?.unique_maps ? `${deepStats.unique_maps} Arenas` : '438 Maps'}
-                            subtitle="Custom maps cataloged"
-                            icon={<MapIcon size={28} />}
-                            color="text-cyan-400"
-                        />
-                        <DeepStatCard
-                            title="Dominant Mode"
-                            value={deepStats?.most_popular_mode?.mode || 'ANARCHY'}
-                            subtitle={deepStats?.most_popular_mode?.count ? `${deepStats.most_popular_mode.count.toLocaleString()} matches (81.3%)` : 'FFA dogfights'}
-                            icon={<Crosshair size={28} />}
-                            color="text-pink-400"
-                        />
-                        <DeepStatCard
-                            title="Graveyard Shift"
-                            value={deepStats?.graveyard_shift_count ? deepStats.graveyard_shift_count.toLocaleString() : '-'}
-                            subtitle="Matches fought 2AM–5AM"
-                            icon={<Moon size={28} />}
-                            color="text-indigo-400"
-                        />
-                        <DeepStatCard
-                            title="Physical Archive"
-                            value={deepStats?.storage?.total_gb ? `${deepStats.storage.total_gb} GB` : '2.76 GB'}
-                            subtitle={deepStats?.storage?.cold_db_mb ? `Cold: ${(deepStats.storage.cold_db_mb / 1024).toFixed(2)}GB` : 'High-density SQLite'}
-                            icon={<HardDrive size={28} />}
-                            color="text-gray-400"
-                        />
-                    </div>
-                </div>
-
-                {/* --- 2. HALL OF RECORDS (CLICKABLE RECORD-BREAKER MATCHES) --- */}
-                <div className="space-y-3">
-                    <h2 className="text-xs font-bold font-mono uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                        <Trophy size={14} className="text-yellow-500" /> Hall of Records & Extreme Matches
-                    </h2>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* 1. Bloodiest Battle */}
-                        <div 
-                            onClick={() => deepStats?.records?.bloodiest_match?.id && onNavigate('game-detail', deepStats.records.bloodiest_match.id.toString())}
-                            className="bg-gradient-to-br from-[#131111] to-[#1a1111] border border-red-900/40 hover:border-red-500/70 p-5 rounded-xl cursor-pointer transition-all group relative overflow-hidden shadow-lg"
-                        >
-                            <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity text-red-500">
-                                <Skull size={80} />
-                            </div>
-                            <div className="relative z-10">
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-400 bg-red-950/60 border border-red-800/40 px-2 py-0.5 rounded">
-                                    All-Time Frag Record
-                                </span>
-                                <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
-                                    Bloodiest Match
-                                </h3>
-                                <div className="text-2xl font-black font-mono text-red-400 mt-1">
-                                    {deepStats?.records?.bloodiest_match?.kills ? `${deepStats.records.bloodiest_match.kills.toLocaleString()} Frags` : '1,507 Frags'}
-                                </div>
-                                <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
-                                    <div className="text-gray-300 font-bold truncate">
-                                        {deepStats?.records?.bloodiest_match?.map || 'REVENGE OF THE GOBLINS'}
-                                    </div>
-                                    <div className="text-[11px] text-gray-500">
-                                        Match #{deepStats?.records?.bloodiest_match?.id || '49973'} • {deepStats?.records?.bloodiest_match?.players || 16} Pilots
-                                    </div>
-                                </div>
-                                <div className="mt-4 pt-3 border-t border-red-950/60 flex items-center justify-between text-xs font-mono text-red-300 group-hover:text-white transition-colors">
-                                    <span>Inspect Match</span>
-                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 2. Single-Pilot Frag Record */}
-                        <div 
-                            onClick={() => deepStats?.records?.max_single_pilot_frags?.id && onNavigate('game-detail', deepStats.records.max_single_pilot_frags.id.toString())}
-                            className="bg-gradient-to-br from-[#131311] to-[#1a1811] border border-amber-900/40 hover:border-amber-500/70 p-5 rounded-xl cursor-pointer transition-all group relative overflow-hidden shadow-lg"
-                        >
-                            <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity text-amber-500">
-                                <Award size={80} />
-                            </div>
-                            <div className="relative z-10">
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2 py-0.5 rounded">
-                                    Single-Pilot Record
-                                </span>
-                                <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
-                                    Ace Frag World Record
-                                </h3>
-                                <div className="text-2xl font-black font-mono text-amber-400 mt-1">
-                                    {deepStats?.records?.max_single_pilot_frags?.kills ? `${deepStats.records.max_single_pilot_frags.kills} Frags` : '399 Frags'}
-                                </div>
-                                <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
-                                    <div className="text-amber-300 font-bold truncate">
-                                        {deepStats?.records?.max_single_pilot_frags?.pilot || 'BEHEMOTH'}
-                                    </div>
-                                    <div className="text-[11px] text-gray-500 truncate">
-                                        {deepStats?.records?.max_single_pilot_frags?.map || 'SUB ROSA V4'} • Match #{deepStats?.records?.max_single_pilot_frags?.id || '69787'}
-                                    </div>
-                                </div>
-                                <div className="mt-4 pt-3 border-t border-amber-950/60 flex items-center justify-between text-xs font-mono text-amber-300 group-hover:text-white transition-colors">
-                                    <span>Inspect Match</span>
-                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 3. Endurance Marathon */}
-                        <div 
-                            onClick={() => deepStats?.records?.longest_match?.id && onNavigate('game-detail', deepStats.records.longest_match.id.toString())}
-                            className="bg-gradient-to-br from-[#111218] to-[#121622] border border-blue-900/40 hover:border-blue-500/70 p-5 rounded-xl cursor-pointer transition-all group relative overflow-hidden shadow-lg"
-                        >
-                            <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity text-blue-500">
-                                <Clock size={80} />
-                            </div>
-                            <div className="relative z-10">
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 bg-blue-950/60 border border-blue-800/40 px-2 py-0.5 rounded">
-                                    Longest Match
-                                </span>
-                                <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
-                                    Endurance Marathon
-                                </h3>
-                                <div className="text-2xl font-black font-mono text-blue-400 mt-1">
-                                    {deepStats?.records?.longest_match?.duration ? formatDuration(deepStats.records.longest_match.duration) : '16h 40m'}
-                                </div>
-                                <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
-                                    <div className="text-gray-300 font-bold truncate">
-                                        {deepStats?.records?.longest_match?.map || 'BLIZZARD'}
-                                    </div>
-                                    <div className="text-[11px] text-gray-500">
-                                        Match #{deepStats?.records?.longest_match?.id || '71163'} • Non-stop dogfight
-                                    </div>
-                                </div>
-                                <div className="mt-4 pt-3 border-t border-blue-950/60 flex items-center justify-between text-xs font-mono text-blue-300 group-hover:text-white transition-colors">
-                                    <span>Inspect Match</span>
-                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 4. Most Attended Match */}
-                        <div 
-                            onClick={() => deepStats?.records?.most_attended_match?.id && onNavigate('game-detail', deepStats.records.most_attended_match.id.toString())}
-                            className="bg-gradient-to-br from-[#121118] to-[#181224] border border-purple-900/40 hover:border-purple-500/70 p-5 rounded-xl cursor-pointer transition-all group relative overflow-hidden shadow-lg"
-                        >
-                            <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity text-purple-500">
-                                <User size={80} />
-                            </div>
-                            <div className="relative z-10">
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-400 bg-purple-950/60 border border-purple-800/40 px-2 py-0.5 rounded">
-                                    Peak Attendance
-                                </span>
-                                <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
-                                    Mass Anarchy Brawl
-                                </h3>
-                                <div className="text-2xl font-black font-mono text-purple-400 mt-1">
-                                    {deepStats?.records?.most_attended_match?.count ? `${deepStats.records.most_attended_match.count} Pilots` : '19 Pilots'}
-                                </div>
-                                <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
-                                    <div className="text-gray-300 font-bold truncate">
-                                        {deepStats?.records?.most_attended_match?.map || 'KRADENKO'}
-                                    </div>
-                                    <div className="text-[11px] text-gray-500">
-                                        Match #{deepStats?.records?.most_attended_match?.id || '11513'} • Anarchy chaos
-                                    </div>
-                                </div>
-                                <div className="mt-4 pt-3 border-t border-purple-950/60 flex items-center justify-between text-xs font-mono text-purple-300 group-hover:text-white transition-colors">
-                                    <span>Inspect Match</span>
-                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* --- 3. MULTI-YEAR TIMELINE & HISTORICAL EPOCHS --- */}
+                {/* --- 2. HISTORICAL ACTIVITY CURVE (HERO) --- */}
                 <div className="bg-[#111] border border-gray-800 rounded-xl p-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
                         <div>
                             <h2 className="text-base font-bold text-white flex items-center gap-2">
-                                <Calendar size={18} className="text-blue-400" /> Historical Activity Curve (2019 – 2026)
+                                <Calendar size={18} className="text-blue-400" /> {timelineTitleRange}
                             </h2>
                             <p className="text-xs text-gray-500 font-mono mt-0.5">
-                                Match distribution across all 7+ community eras. Click any year to filter the archive below.
+                                Match distribution across all community eras. Click any year to filter the archive below.
                             </p>
                         </div>
-                        <div className="text-xs font-mono text-gray-400 bg-gray-900 px-3 py-1 rounded border border-gray-800 self-start sm:self-auto">
-                            Peak Golden Era: <span className="text-[#ff6600] font-bold">2020 (20,711 Matches)</span>
-                        </div>
+                        {peakYearData && (
+                            <div className="text-xs font-mono text-gray-400 bg-gray-900 px-3 py-1 rounded border border-gray-800 self-start sm:self-auto">
+                                Peak Era: <span className="text-[#ff6600] font-bold">{peakYearData.year} ({peakYearData.count.toLocaleString()} Matches)</span>
+                            </div>
+                        )}
                     </div>
 
-                    {deepStats?.yearly && deepStats.yearly.length > 0 ? (
+                    {loadingStats ? (
+                        <TimelineSkeleton />
+                    ) : deepStats?.yearly && deepStats.yearly.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                             {deepStats.yearly.map((item: any) => {
-                                const maxCount = 20711;
+                                const maxCount = peakYearData ? peakYearData.count : 1;
                                 const pct = Math.max(8, Math.round((item.count / maxCount) * 100));
                                 const isSelected = selectedYear === item.year;
+                                const isPeak = peakYearData && item.year === peakYearData.year;
+                                const totalMatches = deepStats?.total_games || 0;
+                                const sharePct = totalMatches > 0 ? ((item.count / totalMatches) * 100).toFixed(1) : null;
 
                                 return (
                                     <button
@@ -458,7 +379,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                             <span className={`font-mono text-sm font-black ${isSelected ? 'text-blue-400' : 'text-white'}`}>
                                                 {item.year}
                                             </span>
-                                            {item.year === '2020' && (
+                                            {isPeak && (
                                                 <span className="text-[9px] bg-amber-950/80 text-amber-300 px-1.5 py-0.5 rounded border border-amber-800/40 font-bold">
                                                     Peak
                                                 </span>
@@ -469,16 +390,18 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                             <div className="text-base font-bold font-mono text-gray-200">
                                                 {item.count.toLocaleString()}
                                             </div>
-                                            <div className="text-[10px] text-gray-500 font-mono">
-                                                {((item.count / (deepStats?.total_games || 75820)) * 100).toFixed(1)}% of total
-                                            </div>
+                                            {sharePct !== null && (
+                                                <div className="text-[10px] text-gray-500 font-mono">
+                                                    {sharePct}% of total
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Activity Bar */}
                                         <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
                                             <div 
                                                 className={`h-full rounded-full transition-all ${
-                                                    isSelected ? 'bg-blue-400' : item.year === '2020' ? 'bg-[#ff6600]' : 'bg-gray-500 group-hover:bg-blue-400'
+                                                    isSelected ? 'bg-blue-400' : isPeak ? 'bg-[#ff6600]' : 'bg-gray-500 group-hover:bg-blue-400'
                                                 }`} 
                                                 style={{ width: `${pct}%` }}
                                             />
@@ -489,7 +412,197 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                         </div>
                     ) : (
                         <div className="h-24 flex items-center justify-center text-gray-600 font-mono text-xs">
-                            Loading timeline data...
+                            No historical timeline data available.
+                        </div>
+                    )}
+                </div>
+
+                {/* --- 3. ALL-TIME RECORDS (THE FOUR EXTREME-MATCH CARDS) --- */}
+                <div className="space-y-3">
+                    <h2 className="text-xs font-bold font-mono uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                        <Trophy size={14} className="text-yellow-500" /> All-Time Records
+                    </h2>
+
+                    {loadingStats ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <RecordCardSkeleton />
+                            <RecordCardSkeleton />
+                            <RecordCardSkeleton />
+                            <RecordCardSkeleton />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* 1. Bloodiest Battle */}
+                            {(() => {
+                                const rec = deepStats?.records?.bloodiest_match;
+                                const hasRecord = Boolean(rec && rec.id);
+                                return (
+                                    <div 
+                                        onClick={() => hasRecord && onNavigate('game-detail', rec.id.toString())}
+                                        className={`bg-gradient-to-br from-[#131111] to-[#1a1111] border border-red-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
+                                            hasRecord ? 'hover:border-red-500/70 cursor-pointer' : 'opacity-80'
+                                        }`}
+                                    >
+                                        <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity text-red-500">
+                                            <Skull size={80} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-400 bg-red-950/60 border border-red-800/40 px-2 py-0.5 rounded">
+                                                All-Time Frag Record
+                                            </span>
+                                            <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
+                                                Bloodiest Match
+                                            </h3>
+                                            <div className="text-2xl font-black font-mono text-red-400 mt-1">
+                                                {rec?.kills ? `${rec.kills.toLocaleString()} Frags` : '-'}
+                                            </div>
+                                            <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
+                                                <div className="text-gray-300 font-bold truncate">
+                                                    {rec?.map || 'Unknown Arena'}
+                                                </div>
+                                                <div className="text-[11px] text-gray-500">
+                                                    {hasRecord ? `Match #${rec.id} • ${rec.players || 0} Pilots` : 'No record established'}
+                                                </div>
+                                            </div>
+                                            {hasRecord && (
+                                                <div className="mt-4 pt-3 border-t border-red-950/60 flex items-center justify-between text-xs font-mono text-red-300 group-hover:text-white transition-colors">
+                                                    <span>Inspect Match</span>
+                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* 2. Single-Pilot Frag Record */}
+                            {(() => {
+                                const rec = deepStats?.records?.max_single_pilot_frags;
+                                const hasRecord = Boolean(rec && rec.id);
+                                return (
+                                    <div 
+                                        onClick={() => hasRecord && onNavigate('game-detail', rec.id.toString())}
+                                        className={`bg-gradient-to-br from-[#131311] to-[#1a1811] border border-amber-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
+                                            hasRecord ? 'hover:border-amber-500/70 cursor-pointer' : 'opacity-80'
+                                        }`}
+                                    >
+                                        <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity text-amber-500">
+                                            <Award size={80} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2 py-0.5 rounded">
+                                                Single-Pilot Record
+                                            </span>
+                                            <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
+                                                Ace Frag World Record
+                                            </h3>
+                                            <div className="text-2xl font-black font-mono text-amber-400 mt-1">
+                                                {rec?.kills ? `${rec.kills.toLocaleString()} Frags` : '-'}
+                                            </div>
+                                            <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
+                                                <div className="text-amber-300 font-bold truncate">
+                                                    {rec?.pilot || 'Unknown Pilot'}
+                                                </div>
+                                                <div className="text-[11px] text-gray-500 truncate">
+                                                    {hasRecord ? `${rec.map || 'Unknown Arena'} • Match #${rec.id}` : 'No record established'}
+                                                </div>
+                                            </div>
+                                            {hasRecord && (
+                                                <div className="mt-4 pt-3 border-t border-amber-950/60 flex items-center justify-between text-xs font-mono text-amber-300 group-hover:text-white transition-colors">
+                                                    <span>Inspect Match</span>
+                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* 3. Endurance Marathon */}
+                            {(() => {
+                                const rec = deepStats?.records?.longest_match;
+                                const hasRecord = Boolean(rec && rec.id);
+                                return (
+                                    <div 
+                                        onClick={() => hasRecord && onNavigate('game-detail', rec.id.toString())}
+                                        className={`bg-gradient-to-br from-[#111218] to-[#121622] border border-blue-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
+                                            hasRecord ? 'hover:border-blue-500/70 cursor-pointer' : 'opacity-80'
+                                        }`}
+                                    >
+                                        <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity text-blue-500">
+                                            <Clock size={80} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 bg-blue-950/60 border border-blue-800/40 px-2 py-0.5 rounded">
+                                                Longest Match
+                                            </span>
+                                            <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
+                                                Endurance Marathon
+                                            </h3>
+                                            <div className="text-2xl font-black font-mono text-blue-400 mt-1">
+                                                {rec?.duration ? formatDuration(rec.duration) : '-'}
+                                            </div>
+                                            <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
+                                                <div className="text-gray-300 font-bold truncate">
+                                                    {rec?.map || 'Unknown Arena'}
+                                                </div>
+                                                <div className="text-[11px] text-gray-500">
+                                                    {hasRecord ? `Match #${rec.id} • Non-stop dogfight` : 'No record established'}
+                                                </div>
+                                            </div>
+                                            {hasRecord && (
+                                                <div className="mt-4 pt-3 border-t border-blue-950/60 flex items-center justify-between text-xs font-mono text-blue-300 group-hover:text-white transition-colors">
+                                                    <span>Inspect Match</span>
+                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* 4. Most Attended Match */}
+                            {(() => {
+                                const rec = deepStats?.records?.most_attended_match;
+                                const hasRecord = Boolean(rec && rec.id);
+                                return (
+                                    <div 
+                                        onClick={() => hasRecord && onNavigate('game-detail', rec.id.toString())}
+                                        className={`bg-gradient-to-br from-[#121118] to-[#181224] border border-purple-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
+                                            hasRecord ? 'hover:border-purple-500/70 cursor-pointer' : 'opacity-80'
+                                        }`}
+                                    >
+                                        <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity text-purple-500">
+                                            <User size={80} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-400 bg-purple-950/60 border border-purple-800/40 px-2 py-0.5 rounded">
+                                                Peak Attendance
+                                            </span>
+                                            <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
+                                                Mass Anarchy Brawl
+                                            </h3>
+                                            <div className="text-2xl font-black font-mono text-purple-400 mt-1">
+                                                {rec?.count ? `${rec.count.toLocaleString()} Pilots` : '-'}
+                                            </div>
+                                            <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
+                                                <div className="text-gray-300 font-bold truncate">
+                                                    {rec?.map || 'Unknown Arena'}
+                                                </div>
+                                                <div className="text-[11px] text-gray-500">
+                                                    {hasRecord ? `Match #${rec.id} • Anarchy chaos` : 'No record established'}
+                                                </div>
+                                            </div>
+                                            {hasRecord && (
+                                                <div className="mt-4 pt-3 border-t border-purple-950/60 flex items-center justify-between text-xs font-mono text-purple-300 group-hover:text-white transition-colors">
+                                                    <span>Inspect Match</span>
+                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
@@ -548,43 +661,53 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-800">
-                                    {hallOfFamePilots.map((pilot, idx) => (
-                                        <tr 
-                                            key={pilot.name} 
-                                            onClick={() => onNavigate('pilot', pilot.name)}
-                                            className="hover:bg-[#181818] cursor-pointer group transition-colors"
-                                        >
-                                            <td className="p-3 text-center text-gray-600 font-bold">
-                                                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
-                                            </td>
-                                            <td className="p-3 font-bold text-white group-hover:text-[#ff6600] transition-colors">
-                                                {pilot.name}
-                                            </td>
-                                            <td className="p-3 text-right text-gray-400">
-                                                {pilot.games?.toLocaleString()}
-                                            </td>
-                                            <td className="p-3 text-right font-bold text-white">
-                                                {hallCategory === 'kills' && (
-                                                    <span className="text-red-400">{pilot.kills?.toLocaleString()}</span>
-                                                )}
-                                                {hallCategory === 'games' && (
-                                                    <span className="text-blue-400">{pilot.games?.toLocaleString()}</span>
-                                                )}
-                                                {hallCategory === 'kd' && (
-                                                    <span className="text-[#ff6600]">{(pilot.kd || (pilot.kills / Math.max(1, pilot.deaths))).toFixed(2)}</span>
-                                                )}
-                                                {hallCategory === 'damage' && (
-                                                    <span className="text-emerald-400">{formatLargeNumber(pilot.total_damage || 0)}</span>
-                                                )}
-                                                {hallCategory === 'win_rate' && (
-                                                    <span className="text-emerald-400">{(pilot.win_rate || 0).toFixed(1)}%</span>
-                                                )}
-                                            </td>
-                                            <td className="p-3 text-right text-gray-500 text-[11px]">
-                                                {pilot.wins !== undefined ? `${pilot.wins}W - ${pilot.losses}L` : `${pilot.kills}K / ${pilot.deaths}D`}
+                                    {loadingStats ? (
+                                        <TableSkeletonRows cols={5} />
+                                    ) : hallOfFamePilots.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="p-8 text-center text-gray-500 font-mono text-xs">
+                                                No pilots found with 50+ matches.
                                             </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        hallOfFamePilots.map((pilot, idx) => (
+                                            <tr 
+                                                key={pilot.name} 
+                                                onClick={() => onNavigate('pilot', pilot.name)}
+                                                className="hover:bg-[#181818] cursor-pointer group transition-colors"
+                                            >
+                                                <td className="p-3 text-center text-gray-600 font-bold">
+                                                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                                                </td>
+                                                <td className="p-3 font-bold text-white group-hover:text-[#ff6600] transition-colors">
+                                                    {pilot.name}
+                                                </td>
+                                                <td className="p-3 text-right text-gray-400">
+                                                    {pilot.games?.toLocaleString()}
+                                                </td>
+                                                <td className="p-3 text-right font-bold text-white">
+                                                    {hallCategory === 'kills' && (
+                                                        <span className="text-red-400">{pilot.kills?.toLocaleString()}</span>
+                                                    )}
+                                                    {hallCategory === 'games' && (
+                                                        <span className="text-blue-400">{pilot.games?.toLocaleString()}</span>
+                                                    )}
+                                                    {hallCategory === 'kd' && (
+                                                        <span className="text-[#ff6600]">{(pilot.kd || (pilot.kills / Math.max(1, pilot.deaths))).toFixed(2)}</span>
+                                                    )}
+                                                    {hallCategory === 'damage' && (
+                                                        <span className="text-emerald-400">{formatLargeNumber(pilot.total_damage || 0)}</span>
+                                                    )}
+                                                    {hallCategory === 'win_rate' && (
+                                                        <span className="text-emerald-400">{(pilot.win_rate || 0).toFixed(1)}%</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-3 text-right text-gray-500 text-[11px]">
+                                                    {pilot.wins !== undefined ? `${pilot.wins}W - ${pilot.losses}L` : `${pilot.kills}K / ${pilot.deaths}D`}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -598,7 +721,11 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                 <h3 className="text-white font-bold text-sm uppercase">Hall of Fame: Maps</h3>
                             </div>
                             <span className="text-[10px] text-gray-500 font-mono">
-                                438 total custom arenas
+                                {deepStats?.unique_maps 
+                                    ? `${deepStats.unique_maps.toLocaleString()} total arenas` 
+                                    : topMaps.length > 0 
+                                        ? `${topMaps.length} arenas` 
+                                        : 'Custom arenas'}
                             </span>
                         </div>
 
@@ -613,38 +740,160 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-800">
-                                    {topMaps.slice(0, 10).map((mapItem, idx) => {
-                                        const totalAll = deepStats?.total_games || 75820;
-                                        const share = ((mapItem.count / totalAll) * 100).toFixed(1);
+                                    {loadingStats ? (
+                                        <TableSkeletonRows cols={4} />
+                                    ) : topMaps.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="p-8 text-center text-gray-500 font-mono text-xs">
+                                                No arena records found.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        topMaps.slice(0, 10).map((mapItem, idx) => {
+                                            const totalMatches = deepStats?.total_games;
+                                            const share = totalMatches ? ((mapItem.count / totalMatches) * 100).toFixed(1) : null;
 
-                                        return (
-                                            <tr key={mapItem.map} className="hover:bg-[#181818] transition-colors">
-                                                <td className="p-3 text-center text-gray-600 font-bold">
-                                                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
-                                                </td>
-                                                <td className="p-3 font-bold text-white flex items-center gap-2.5">
-                                                    <div 
-                                                        className="w-7 h-7 bg-gray-800 rounded bg-cover bg-center border border-gray-700 shrink-0" 
-                                                        style={{ backgroundImage: `url(${getMapImage(mapItem.map)})` }}
-                                                    />
-                                                    <span className="truncate">{mapItem.map}</span>
-                                                </td>
-                                                <td className="p-3 text-right text-gray-300 font-bold">
-                                                    {mapItem.count?.toLocaleString()}
-                                                </td>
-                                                <td className="p-3 text-right text-gray-500 text-[11px]">
-                                                    {share}%
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                            return (
+                                                <tr key={mapItem.map} className="hover:bg-[#181818] transition-colors">
+                                                    <td className="p-3 text-center text-gray-600 font-bold">
+                                                        {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                                                    </td>
+                                                    <td className="p-3 font-bold text-white flex items-center gap-2.5">
+                                                        <div 
+                                                            className="w-7 h-7 bg-gray-800 rounded bg-cover bg-center border border-gray-700 shrink-0" 
+                                                            style={{ backgroundImage: `url(${getMapImage(mapItem.map)})` }}
+                                                        />
+                                                        <span className="truncate">{mapItem.map}</span>
+                                                    </td>
+                                                    <td className="p-3 text-right text-gray-300 font-bold">
+                                                        {mapItem.count?.toLocaleString()}
+                                                    </td>
+                                                    <td className="p-3 text-right text-gray-500 text-[11px]">
+                                                        {share !== null ? `${share}%` : '-'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
-                {/* --- 5. ARCHIVE BROWSER WITH QUICK FILTERS --- */}
+                {/* --- 5. ALL-TIME TOTALS (TELEMETRY GRID MINUS PHYSICAL ARCHIVE CARD) --- */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xs font-bold font-mono uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                            <BarChart3 size={14} className="text-blue-500" /> All-Time Totals
+                        </h2>
+                        {deepStats?.last_calculated && (
+                            <span className="text-[10px] font-mono text-gray-600">
+                                Cache synced: {new Date(deepStats.last_calculated).toLocaleTimeString()}
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {/* 1. Total Matches */}
+                        <DeepStatCard
+                            title="Total Matches"
+                            loading={loadingStats}
+                            value={deepStats?.total_games ? deepStats.total_games.toLocaleString() : null}
+                            subtitle="Matches"
+                            icon={<Database size={28} />}
+                            color="text-blue-400"
+                        />
+
+                        {/* 2. Flight Time */}
+                        <DeepStatCard
+                            title="Flight Time"
+                            loading={loadingStats}
+                            value={deepStats?.total_flight_hours ? `${Math.round(deepStats.total_flight_hours).toLocaleString()}h` : null}
+                            subtitle={deepStats?.total_flight_hours ? `~${(deepStats.total_flight_hours / (24 * 365.25)).toFixed(2)} continuous years` : 'Continuous flight'}
+                            icon={<Clock size={28} />}
+                            color="text-emerald-400"
+                        />
+
+                        {/* 3. Total Frags */}
+                        <DeepStatCard
+                            title="Total Frags"
+                            loading={loadingStats}
+                            value={deepStats?.total_kills ? formatLargeNumber(deepStats.total_kills) : null}
+                            subtitle={deepStats?.total_kills ? `${deepStats.total_kills.toLocaleString()} kills` : 'All-time eliminations'}
+                            icon={<Skull size={28} />}
+                            color="text-red-400"
+                        />
+
+                        {/* 4. Total Damage */}
+                        <DeepStatCard
+                            title="Total Damage"
+                            loading={loadingStats}
+                            value={deepStats?.total_damage ? formatLargeNumber(deepStats.total_damage) : null}
+                            subtitle="Kinetic & energy dealt"
+                            icon={<Zap size={28} />}
+                            color="text-[#ff6600]"
+                        />
+
+                        {/* 5. Pilots */}
+                        <DeepStatCard
+                            title="Pilots"
+                            loading={loadingStats}
+                            value={deepStats?.unique_pilots ? deepStats.unique_pilots.toLocaleString() : null}
+                            subtitle="Registered callsigns"
+                            icon={<User size={28} />}
+                            color="text-yellow-400"
+                        />
+
+                        {/* 6. Servers */}
+                        <DeepStatCard
+                            title="Servers"
+                            loading={loadingStats}
+                            value={deepStats?.unique_servers ? deepStats.unique_servers.toLocaleString() : null}
+                            subtitle="Global community servers"
+                            icon={<Server size={28} />}
+                            color="text-purple-400"
+                        />
+
+                        {/* 7. Combat Arenas */}
+                        <DeepStatCard
+                            title="Combat Arenas"
+                            loading={loadingStats}
+                            value={deepStats?.unique_maps ? `${deepStats.unique_maps.toLocaleString()} Arenas` : null}
+                            subtitle="Custom maps cataloged"
+                            icon={<MapIcon size={28} />}
+                            color="text-cyan-400"
+                        />
+
+                        {/* 8. Most Played Mode */}
+                        <DeepStatCard
+                            title="Most Played Mode"
+                            loading={loadingStats}
+                            value={deepStats?.most_popular_mode?.mode || null}
+                            subtitle={
+                                deepStats?.most_popular_mode?.count && deepStats?.total_games
+                                    ? `${deepStats.most_popular_mode.count.toLocaleString()} matches (${((deepStats.most_popular_mode.count / deepStats.total_games) * 100).toFixed(1)}%)`
+                                    : deepStats?.most_popular_mode?.mode 
+                                        ? 'Most played match type' 
+                                        : null
+                            }
+                            icon={<Crosshair size={28} />}
+                            color="text-pink-400"
+                        />
+
+                        {/* 9. Graveyard Shift */}
+                        <DeepStatCard
+                            title="Graveyard Shift"
+                            loading={loadingStats}
+                            value={deepStats?.graveyard_shift_count !== undefined ? deepStats.graveyard_shift_count.toLocaleString() : null}
+                            subtitle="Matches fought 2AM–5AM"
+                            icon={<Moon size={28} />}
+                            color="text-indigo-400"
+                        />
+                    </div>
+                </div>
+
+                {/* --- 6. ARCHIVAL MATCH BROWSER WITH QUICK FILTERS --- */}
                 <div className="bg-[#0e0e0e] border border-gray-800 rounded-xl p-6 space-y-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
@@ -653,7 +902,9 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                                 Archival Match Browser
                             </h2>
                             <p className="text-xs text-gray-500 font-mono mt-0.5">
-                                Search individual matches across all 70,500+ archived historical flight records.
+                                {gamesTotalCount > 0 
+                                    ? `Search individual matches across all ${gamesTotalCount.toLocaleString()} archived historical records.`
+                                    : 'Search individual matches across archived historical records.'}
                             </p>
                         </div>
 
@@ -682,9 +933,9 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                     {/* Filter Pills: Years */}
                     <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
                         <span className="text-[10px] uppercase font-bold text-gray-500 mr-1 flex items-center gap-1">
-                            <Calendar size={12} className="text-blue-400" /> Epoch:
+                            <Calendar size={12} className="text-blue-400" /> Year:
                         </span>
-                        {['ALL', '2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019'].map(yr => (
+                        {availableYears.map(yr => (
                             <button
                                 key={yr}
                                 onClick={() => handleYearFilter(yr)}
@@ -709,7 +960,7 @@ const ColdStorage: React.FC<ColdStorageProps> = ({ onNavigate }) => {
                         ) : games.length === 0 ? (
                             <div className="text-center py-16 text-gray-500 font-mono space-y-2 bg-[#111] rounded-lg border border-gray-800/60">
                                 <p className="text-gray-300 font-bold">No archived matches found matching criteria.</p>
-                                <p className="text-xs text-gray-600">Try adjusting your search terms or clearing the epoch filter.</p>
+                                <p className="text-xs text-gray-600">Try adjusting your search terms or clearing the year filter.</p>
                                 <button
                                     onClick={() => { setSearchInput(''); setSearch(''); setSelectedYear('ALL'); }}
                                     className="text-xs text-blue-400 underline font-bold mt-2 inline-block"
