@@ -41,14 +41,19 @@ On resume:
 ## Status
 
 S1, S2 and S3 are merged into `main` (PRs #1, #2 and #3, merged in that
-order on 2026-10-07 UTC; `main` is at `2b05787`, the PR #3 merge). Their
-branches stacked on each other, so `main`'s tree equals S3's tip
-`3c79f97`.
+order on 2026-10-07 UTC). After the PR #3 merge (`2b05787`) the owner
+pushed `44e4792` straight to `main` (`saveColdGamesBatch` keeps stored
+kill logs, `db.close()`, `scripts/rebuild_and_deploy_nas.py`, a
+`public/version.json` bump), so `main` is at `44e4792`.
 
-S4 is on branch `ofc/s04-bundle-polling`, based on `origin/main` at
-`2b05787`, PR #4 open and not merged, 2026-10-07 UTC. It started on S3's
-branch while PR #3 was open and was rebased onto `main` once the three PRs
-merged during the session.
+S4 is on branch `ofc/s04-bundle-polling` (tip `b3f3af4`), based on
+`2b05787`, PR #4 open and not merged. It still merges into `main`
+cleanly.
+
+S5 is on branch `ofc/s05-player-table`, based on S4's tip `b3f3af4`
+with `origin/main` (`44e4792`) merged in to settle a conflict in
+`saveColdGamesBatch`, PR #5 open against `main` and not merged,
+2026-10-07 UTC. PR #5 contains S4's commits; merge PR #4 first.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -59,10 +64,85 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 4 of 28 sessions done (S1 to S3 merged, S4's PR open). Phase 1: 4/6. Phase 2:
-0/5. Phase 3: 0/6. Phase 4: 0/11.
+Counts: 5 of 28 sessions done (S1 to S3 merged, PRs for S4 and S5
+open). Phase 1: 5/6. Phase 2: 0/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S3 merged into `main` at 2b05787, S4 on `ofc/s04-bundle-polling`)
+## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S3 merged into `main`, `main` at 44e4792, S4 on `ofc/s04-bundle-polling`, S5 on `ofc/s05-player-table`)
+
+- S5, first move on Node 22.17.0: `npx vitest run` passed 5 files, 57
+  tests (the Verification table said 56; the S4 Validated entry and the
+  repo say 57). `npx vite build` wrote the entry `index-CIgfw3Tc.js` at
+  232.15 KB raw / 72.84 KB gzip, unchanged from S4. The client is
+  untouched in S5 and the entry is the same file at the end.
+- S5, tests: `npx vitest run` passes 6 files, 76 tests (73 from S5, 2
+  from the owner's `44e4792`, 1 for the merge). The S2 expectations in
+  `server/db.test.js` (MAESTRO 7 games with 1 ORANGE win and 1 tie, XB1's
+  suicide, "JFTP"/"jftp" as one pilot with 10 games, SOUP a veteran
+  through cold storage, `J_TP` matched literally, the 1v1 Monsterball
+  result) now read `game_players` for the leaderboard, telemetry, the
+  breakdown, match history and first-seen, and the cache tests read the
+  worker's output. New in `server/gamePlayers.test.js`: the backfill of a
+  pre-S5 hot and cold pair, a second run adding nothing, a rebuild after
+  `user_version` is reset, the startup repair (orphaned rows removed, a
+  game without rows rebuilt), the cold move (rows moved, a hot copy
+  already in cold dropped, B2AF from 5 games to 4, a second run moving
+  0), the worker counting a game in both files once, `updateGameDetails`
+  and `saveColdGamesBatch` rows, a pre-S5 backup restored, and
+  `EXPLAIN QUERY PLAN` checks. `gameParse.playerRows` has 3 tests.
+- S5, mutation checks: building rows from the incoming summary instead
+  of the stored details fails "keeps the suicide from the stored kill
+  log". Deleting every old hot game instead of only those cold storage
+  holds fails the cold-move test (4 rows where 2 were expected). Without
+  the hot-id set in the worker, the archive count came out 29 instead of
+  28.
+- S5, `EXPLAIN QUERY PLAN` (from a script run by plain `node`, which also
+  shows the worker and `import.meta.url` work outside vitest): telemetry,
+  the breakdown, match history, its count and first-seen each show
+  `SEARCH ... game_players USING COVERING INDEX idx_game_players_name_date
+  (name=?)` (or `(name=? AND date>?)`) in hot and cold, then `SEARCH games
+  USING INTEGER PRIMARY KEY`. The leaderboard with a start date shows
+  `SEARCH game_players USING INDEX idx_game_players_date (date>?)` in
+  both files. The all-time leaderboard is `SCAN game_players` in both
+  files, which an aggregate over every row needs; it reads no JSON.
+- S5, synthetic copy (50,000 cold games from 2019 on, 8 players, 120-entry
+  kill logs, 300-entry damage logs, 1.6 GB; 5,000 hot games, 158 MB), S4's
+  code against S5's, each on its own copy: the all-time leaderboard 18.28
+  s to 0.34 s, match history 1.99 s to under 1 ms, its count 1.92 s to
+  0.003 s, first-seen 3.19 s to under 1 ms, telemetry 0.40 s to 0.26 s,
+  the breakdown 0.39 s to 0.23 s. The refresh took 18.07 s on S4's main
+  thread and 8.09 s in the worker. During it S4 served no other query for
+  19 s; S5 served 154 leaderboard reads, with event-loop delay at most 13
+  ms. The one-time backfill took 8.9 s (cold) and 0.8 s (hot); later
+  starts spend 0.07 to 0.11 s on the repair check, and 0.4 s when 2,000
+  games had lost their rows. Every number matched S4: the busiest pilot's
+  leaderboard row (19,300 games, 254,044 kills, 286,371 suicides),
+  telemetry (1,507 games, 19,906 kills, 698 wins, 27,032 suicides,
+  12,112 damage dealt) and match-history count (16,614), and the
+  `pilot_stats_cache`, `map_stats_cache` and archive stats rows were
+  byte-identical (storage sizes left out). The first comparison found the
+  suicide total off (375,606 against 286,371) where a pilot was listed
+  twice in one game; `playerRows` now gives the log counts to the first
+  row.
+- S5, WAL: with the main thread saving a game every 20 ms during a
+  refresh on the synthetic copy, 32 passive checkpoints from a third
+  connection all copied every frame back (none held back by the worker),
+  and `tracker.db-wal` ended at 873 KB.
+- S5, server (`PORT=3100 DATA_DIR=/tmp/ofc-data npm start`, dev mode, no
+  secrets, fresh data dir; run three times, before the review fixes, after
+  /simplify and after the merge, the later runs repeating the global,
+  leaderboard and pilot stats checks with the same answers): the log shows
+  both backfills (0 games), `[PPI] Successfully refreshed 23 pilots` and
+  `[StatsWorker] Full pass finished in 0.03s`, with no errors.
+  `/api/stats/global` returns `total_games: 25`, `?source=all` 25 games
+  and 2,201 kills. `/api/stats/pilots` returns 23 pilots (top LORD JOHN
+  WARFIN, 7 games), `?source=all` and `?startDate=2026-10-01` return
+  JSON. `/api/pilot/WD-40/stats` gives 7 games, 128 kills, 4 wins, 2
+  losses; `/games` 7 of 7, `/breakdown` 5 maps and 4 rivals; `/weapons`
+  and `/ppi` answered in the first run. `LORD%20JOHN%20WARFIN` and `wd-40%20` find the same
+  pilots. `/api/pilot/NOBODY/games` returns `{"count":0,"games":[]}`.
+  `/api/stats/cold/deep` returns 25 games. `tracker.db` holds 80
+  `game_players` rows for 25 games, `user_version` 1.
+- S5: `npx tsc --noEmit` exits 0 (JSX still untyped).
 
 - S4, first move on Node 22.17.0: `npx vitest run` passed 4 files, 50
   tests. `npx vite build` wrote one 1,291.78 KB chunk, 351.07 KB gzip.
@@ -222,6 +302,25 @@ Counts: 4 of 28 sessions done (S1 to S3 merged, S4's PR open). Phase 1: 4/6. Pha
 
 ## NOT validated, do not claim these work
 
+- S5 was proven on fixture games and a synthetic 1.6 GB copy, not on the
+  NAS. Nobody has run the backfill on the real 2.8 GB cold DB (it took
+  9.7 s for 55,000 synthetic games on a Mac; the NAS's game count and CPU
+  are unknown, and the server does not listen until it ends), timed the
+  worker or the pilot pages there,
+  or watched the worker's memory on the NAS's 2 GB (RSS 378 to 397 MB at
+  the end of a refresh on the synthetic copy, 304 MB on S4).
+- Whether real games list a pilot twice, or carry names that differ only
+  in non-ASCII case. The synthetic data had the first; the samples have
+  neither.
+- The cold move was tested with a crash simulated by a game already in
+  both files, not with a real crash between its two transactions. No
+  nightly run has happened on S5 code.
+- A database restored from a real pre-S5 backup through the admin page.
+  The test restored a file built with the old schema through
+  `db.restoreHot`.
+- The worker in the Docker image on the NAS. It ran under vitest, plain
+  `node` and `npm start` on macOS.
+
 - S2's fixes were proven on fixture games only. No production database
   exists locally, so nobody has compared old and new pilot numbers on real
   rows, or timed `refreshPilotStats` and the `getPilotStats` suicide pass
@@ -338,11 +437,12 @@ Counts: 4 of 28 sessions done (S1 to S3 merged, S4's PR open). Phase 1: 4/6. Pha
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 5 files, 56 tests pass (S4) | 2026-10-06 |
+| `npx vitest run` | all pass | 6 files, 76 tests pass (S5) | 2026-10-07 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | 46 chunks, entry `index-*.js` 232.15 KB raw / 72.84 KB gzip (S4; was one chunk, 351.07 KB gzip) | 2026-10-06 |
-| `npx tsc --noEmit` | 0 errors (meaningful only after S6 installs React types) | 0 errors, JSX untyped (S4) | 2026-10-06 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets (S4) | 2026-10-06 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry `index-CIgfw3Tc.js` 232.15 KB raw / 72.84 KB gzip, same as S4 (S5; was one chunk, 351.07 KB gzip before S4) | 2026-10-07 |
+| `npx tsc --noEmit` | 0 errors (meaningful only after S6 installs React types) | 0 errors, JSX untyped (S5) | 2026-10-07 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets; `/api/stats/pilots` 23 pilots, `/api/pilot/WD-40/stats` 7 games (S5) | 2026-10-07 |
+| `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
 | Same server, `curl -w "%{time_total}" "localhost:3100/api/games?page=1"` more than 30 s after the last sync | answers from the DB, sync logged after | 200 in 0.0019 s, `[Sync] Fetching page 1` logged after it (S4) | 2026-10-06 |
 | Same server, `curl -D - -H "Accept-Encoding: gzip, deflate, br" localhost:3100/ffmpeg/ffmpeg-core.wasm` | `Content-Encoding: br`, short cache | br, 8,367,469 bytes, `public, max-age=3600` (S4) | 2026-10-06 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
@@ -413,7 +513,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`;
       `refreshPilotStats` iterates rows. `npx vite build` shows the main chunk
       under 150 KB gzip.
-- [ ] **S5 Indexed player table** (L). Done when: a `game_players` table
+- [x] **S5 Indexed player table** (L). PR #5. Done when: a `game_players` table
       (`game_id, date, name COLLATE NOCASE, team, kills, deaths, assists,
       damage, mode, map`) with indexes on `(name, date)` and `(date)` is
       populated by `saveGames` and a one-time migration; `/api/pilot/:name/*`
@@ -644,6 +744,92 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   `/api/admin/restore` now go through SQLite's backup API (`db.backupHot`,
   `db.restoreHot`): the backup writes a consistent copy to `uploads/` and
   sends it, and the restore writes the upload into the live database.
+- 2026-10-07 (S5): `game_players` lives in each file beside its `games`
+  table, hot and cold, not in one table in `tracker.db`. Each writer then
+  writes a game and its rows in one transaction on one file, and the
+  hot/cold split stays as it is. Pilot queries read both files with
+  `UNION ALL`, each side through its own index.
+- 2026-10-07 (S5): The columns are the Done-when list plus `suicides`,
+  which is how the S2 suicide pass over every kill log goes away. There is
+  a third index, on `game_id`, so a writer can replace one game's rows.
+  `gameParse.playerRows` builds the rows: names trimmed, `team` from
+  `teamOf`, `kills` the raw score (queries sum `net_kills(kills)`),
+  suicides from the kill log and `damage` as damage dealt to other pilots
+  from the damage log (the telemetry rule, no self-damage). A pilot listed
+  twice in one game gets the log counts once, as the old SQL counted each
+  log entry once.
+- 2026-10-07 (S5): Migration. At startup `db.js` backfills each file from
+  its own `games` rows, 1,000 games per transaction in id order, then sets
+  that file's `PRAGMA user_version` to 1. A file at version 1 is skipped.
+  A run cut short leaves the version at 0, and the next start empties the
+  table and does it again from the first game. A missing table resets the
+  version to 0 first, so dropping the table also triggers a rebuild. To
+  re-run it on purpose, set `PRAGMA user_version = 0` on that file and
+  restart. A file already at version 1 gets a repair at each start
+  instead: rows whose game is gone are deleted, and games with no rows
+  get them. That covers writers that skip `game_players` (the old scripts,
+  an older image after a rollback); it costs 0.07 s on the synthetic copy
+  below and 0.4 s with 2,000 games to repair. It cannot see a game whose
+  details an outside writer changed in place. `restoreHot` runs the same
+  step after a restore, because a backup from before S5 has no
+  `game_players`. Cost on a synthetic copy (50,000 cold
+  games with 120-entry kill logs and 300-entry damage logs, 1.6 GB, plus
+  5,000 hot games): 9.0 s for cold and 0.9 s for hot, once, before the
+  server listens. Rollback: revert the merge, pull the old image, then
+  `DROP TABLE game_players;` in both files (or set `user_version` to 0).
+  The S4 code does not maintain the table; the repair would catch games
+  it added or deleted but not details it rewrote, so drop the table. No
+  data is lost either way, since the JSON blobs stay the source of
+  truth.
+- 2026-10-07 (S5): `saveGames` builds a game's rows from the details the
+  upsert kept, returned by `RETURNING details`. A summary that leaves a
+  hydrated game's details in place therefore keeps its suicides and
+  damage. `saveColdGamesBatch` does the same since the owner's `44e4792`
+  put it on the shared upsert, and `updateGameDetails` rebuilds rows from
+  the details it writes.
+- 2026-10-07 (S5): Pilot pages pick game ids from `game_players` and read
+  only those blobs by primary key. Telemetry and the breakdown still parse
+  the blobs, because weapons, durations and results are not columns. They
+  keep the old scope: telemetry with a start date reads hot only, and
+  both read cold games only when hot has fewer than 5 (S2 flag, audit
+  item 8). Match history picks its page of ids from the index before
+  reading any details. `isPilotFirstSeenOnDate` and the all-time kill
+  total (`/api/stats/global?source=all`) read `game_players` too, which
+  removes two more passes over every blob. The kill total now skips
+  players with blank names, as the leaderboard always has.
+- 2026-10-07 (S5): The leaderboard groups by `pilot_key(name)`, the S2
+  rule, and shows the spelling from the pilot's latest game. Name lookups
+  use `name = ?` on the NOCASE column with the name trimmed, which is what
+  the index can serve. NOCASE folds ASCII only, so two spellings that
+  differ in non-ASCII case are one pilot on the leaderboard and two on
+  the pilot page (flagged).
+- 2026-10-07 (S5): The three remaining full passes (the PPI cache, the
+  archive stats and the map stats) run in one `worker_threads` worker,
+  `server/statsWorker.js`, in a single scan instead of three. It opens
+  each file read-only and reads 500 games at a time by id, so no read
+  snapshot lasts the whole pass. The pass code moved unchanged into
+  `server/lib/statsPasses.js`. `db.js` writes the results on the main
+  thread. A pass that throws stops alone and the others still write, as
+  when each had its own scan. `refreshPilotStats` now returns a promise
+  that callers share while a run is in progress, and it never rejects.
+  `getColdStorageStats` waits for a refresh when the cache is empty
+  instead of scanning inline, and the map sync calls `refreshPilotStats`
+  instead of `buildMapStatsCache`, which is gone. The pages are separate
+  reads, so the worker remembers the ids it read from hot and skips them
+  in cold. A game moved mid-pass, or left in both files by a crash, is
+  counted once; the old single `UNION ALL` scan counted a duplicate
+  twice.
+- 2026-10-07 (S5): The cold move is two transactions run back to back
+  with no await between them. The first copies the old games and their
+  `game_players` rows into cold storage. The second deletes from hot only
+  the games cold storage now holds. A game cold storage already had keeps
+  its cold copy and rows, and its hot copy goes. Rejected: one
+  transaction across both files. SQLite makes a commit across attached
+  files atomic per file only under WAL, so a crash could commit the hot
+  delete and lose the cold insert. In this order a crash leaves a
+  duplicate at worst, and the next nightly run removes it. The old code
+  also deleted every hot game older than a year, including any saved
+  after the copy.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -693,14 +879,17 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S2) The `getPilotStats` suicide pass walks every kill log (2.9 s per 20k
   logged games against 0.37 s before, synthetic). No client page calls that
   path; `source=all` uses it only until `pilot_stats_cache` exists. S5's
-  `game_players` table or worker is the place to fix it.
+  `game_players` table or worker is the place to fix it. Fixed in S5
+  (`game_players.suicides`).
 - (S2) `isPilotFirstSeenOnDate` scans hot and cold storage for every pilot
-  who looks new, on every recap regeneration.
+  who looks new, on every recap regeneration. Fixed in S5 (index lookup).
 - (S2) The LIKE prefilter in `getPilotTelemetry`, `getPilotBreakdown` and
   `isPilotFirstSeenOnDate` misses names stored with surrounding spaces or
   differing only in non-ASCII case, which `pilotKey` would group.
   `getGamesByPilot` and `countGamesByPilot` still use an unescaped LIKE
-  with a NOCASE check. Cache lookups use `name = ? COLLATE NOCASE`.
+  with a NOCASE check. Cache lookups use `name = ? COLLATE NOCASE`. S5
+  replaced every LIKE with `game_players` lookups on the trimmed name; the
+  non-ASCII case gap remains (see the S5 entry below).
 - (S2) Fight-night Biggest Upset still treats the top fragger as the match
   winner, so in team games it can name a pilot whose team lost (audit item
   10). The kill-streak watch counts a suicide as a streak kill.
@@ -720,6 +909,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S3) `saveColdGamesBatch` (archive ingest) and `updateGameDetails` (the
   `/api/game/:id` refresh) still overwrite `details` unconditionally.
   Pointing them at `upsertGameSql` changes their behaviour, so it was left.
+  The owner's `44e4792` on `main` moved `saveColdGamesBatch` onto the
+  upsert; `updateGameDetails` still overwrites.
 - (S3) `saveGames` marks every hot game `fetched` in `game_metadata`,
   summaries included, so the table cannot say which games were hydrated.
   The cursor stops repeats within one job, but each new hydration job asks
@@ -754,7 +945,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   `.iterate()` pass, so WAL checkpoints cannot get past it and
   `tracker.db-wal` grows while ingest writes during a refresh. Paging by
   rowid with short `.all()` reads would bound both memory and the WAL;
-  S5's worker is the natural place.
+  S5's worker is the natural place. Fixed in S5 (500-game pages).
 - (S4) The restore only covers `tracker.db`, and the admin page still says
   to restart afterwards. Cold storage has no backup. S6 owns backups.
 - (S4) `App.tsx` now has three copies of the orange spinner markup. S9's
@@ -766,11 +957,49 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S4) `cacheService.js` (Redis on boot, no sweep) is still open; S6.
 - (S4) `/api/import/*` still has no rate limit; S6.
 
+- (S5) Name lookups on `game_players` fold ASCII case only (NOCASE), while
+  `pilotKey` lowercases all of Unicode. A pilot whose spellings differ in
+  non-ASCII case is one row on the leaderboard and only one spelling on
+  the pilot page. `pilot_stats_cache` lookups (`/ppi`, career numbers,
+  rival stats) also do not trim, so `/api/pilot/wd-40%20/ppi` returns `{}`
+  while `/stats` finds the pilot.
+- (S5) `getMapStatsAllTime` still scans every blob in hot and cold storage
+  when `cold_storage_stats_cache` is empty, which is until the first
+  refresh after a fresh start. `game_players.map` could answer it.
+- (S5) Hot-only JSON aggregates still parse every blob of the last year:
+  the game search, `getActivePilotCount`, `getDeadliestMaps`,
+  `getMarathonMaps`, and the global mode, map and activity charts. Each is
+  cached for 5 to 10 minutes. The first three could read `game_players`.
+- (S5) `/api/pilot/:name/games` with a mode filter still fetches the last
+  200 games and filters in JS (audit item 16). `game_players.mode` would
+  let SQL filter, but the route's mode normalisation has no SQL copy yet.
+- (S5) `scripts/migrate_cold_storage.js` and any hand edit with `sqlite3`
+  write `games` without `game_players`. The startup repair fixes added and
+  deleted games at the next start; details changed in place stay stale
+  until `user_version` is set to 0. S6 deletes the orphaned scripts.
+- (S5) `game_players.damage` excludes self-damage (the telemetry rule),
+  while `pilot_stats_cache.total_damage` includes it (audit item 13).
+  Nothing reads the column yet; whoever does should pick one rule.
+- (S5) Until the first refresh creates `pilot_stats_cache`,
+  `getPilotTelemetry` and `getPilotBreakdown` log "no such table:
+  pilot_stats_cache" and return null or empty lists. Seen in the
+  benchmark; it predates S5.
+- (S5) Telemetry keeps its own damage-dealt loop next to
+  `playerRows`, because it also splits damage by weapon. Both use the
+  same rule today.
+- (S5) The worker's heap adds to peak memory: RSS 378 MB at the end of a
+  refresh on the 1.6 GB synthetic copy, against 304 MB for S4's
+  main-thread pass. Not measured on the NAS's 2 GB.
+- (S5) `insertGameHot` and `insertGameCold` in `db.js` are prepared and
+  never used (dead before S5).
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
-by a NAS image pull. S5 adds a table and a migration; its rollback drops the
-table (the JSON blobs remain the source of truth, so no data is lost).
+by a NAS image pull. S5 adds `game_players` to both database files; after
+the revert and the pull, run `DROP TABLE game_players;` on `tracker.db` and
+on `cold_storage.db` (see the S5 migration decision). The JSON blobs remain
+the source of truth, so no data is lost.
 
 ## Open questions
 
@@ -924,12 +1153,47 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   (0.7 s) and paging the refresh query (S5). PR #4 opened against `main`,
   not merged.
 
+- 2026-10-07, S5 (Claude Opus 5.5): `game_players` in both database
+  files, maintained by every games writer and backfilled once at startup;
+  pilot routes, the leaderboard, first-seen and the all-time kill total
+  read it; the PPI, archive and map passes run in one worker on read-only
+  connections; the cold move can no longer lose a game. Status line
+  checked first: PR #4 open, S4's tip `b3f3af4`, `main` at `2b05787`,
+  `10223be` not an object here, so S5 stacks on
+  `origin/ofc/s04-bundle-polling`. First move: 5 files, 57 tests (the
+  Verification table's 56 was a typo); entry 72.84 KB gzip. Reading the
+  code turned up things the tracker did not list: `saveColdGamesBatch`
+  and `updateGameDetails` write games too, `restoreHot` can bring back a
+  file without the table, `getColdStorageStats` and the map sync ran full
+  passes inline, and the all-time kill total and first-seen were full
+  passes as well. The tests were written first and run red. On a
+  synthetic 1.6 GB copy every pilot number and all three caches match
+  S4's; the first comparison caught suicides counted twice for a pilot
+  listed twice in one game. /code-review found 10 issues: fixed a game
+  moved mid-refresh being counted twice (the worker skips hot ids in
+  cold), the refresh rejecting from `setInterval`, drift from writers
+  that bypass the table (startup repair) and an un-awaited script; kept
+  the NOCASE gap (flagged), the Done-when columns, rebuilding rows on
+  every upsert (skipping would let the date drift), the batch's parse and
+  the blank-name kill total (both documented). /simplify: one paged loop
+  for backfill and repair, `TRIM(@name)` in SQL instead of wrappers, a
+  covering `(name, date, game_id)` index, one column list and one
+  `OUTCOME_FIELD`, shared fixtures, plan tests on `stmt.database`;
+  skipped triggers (a JS function in a trigger breaks every other
+  writer), a build-then-rename table instead of `user_version`, rewiring
+  the passes onto `playerRows` (it changes PPI damage) and a `pilot_key`
+  column. Before opening the PR, `main` had moved: the owner pushed
+  `44e4792` (`saveColdGamesBatch` on the upsert) directly, which
+  conflicted with S5, so `origin/main` was merged into the branch and the
+  batch builds rows from the details the upsert kept. PR #5 opened
+  against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S5: indexed player table.
+Continue the overloadfight.club roadmap. This session is S6: ops and types.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -938,45 +1202,48 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  If the S4 PR (branch ofc/s04-bundle-polling) is merged:
-    git checkout -B ofc/s05-player-table origin/main
-  If it is still open:
-    git checkout -B ofc/s05-player-table origin/ofc/s04-bundle-polling
-    and open the S5 PR against main anyway; say in its description that it sits on S4 (PR #4).
-  Check again before opening the PR: if PR #4 merged during the session, rebase onto origin/main first.
+  S5 (branch ofc/s05-player-table, PR #5) sits on S4 (branch ofc/s04-bundle-polling, PR #4).
+  If both PRs are merged:
+    git checkout -B ofc/s06-ops-types origin/main
+  If PR #5 is still open:
+    git checkout -B ofc/s06-ops-types origin/ofc/s05-player-table
+    and open the S6 PR against main anyway; say in its description which open PRs it sits on.
+  Check again before opening the PR: if PRs merged during the session, rebase onto origin/main first.
+  The owner sometimes pushes straight to main (44e4792 during S5). If origin/main has commits the open PRs lack, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s04-bundle-polling has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s05-player-table has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S5 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S2 to S4 entries under "Decisions and deviations" and "Flagged, not fixed" (the S2 suicide pass, the LIKE prefilter gaps, the S4 refresh snapshot holding the WAL), and the Postmortems.
-- docs/audit/performance.md and docs/audit/data.md for the file:line evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; S1 to S4 moved lines in server/, so re-find them with grep -n).
-- server/db.js: the connection setup and pragmas, saveGames and upsertGameSql, moveGamesToColdStorage, refreshPilotStats, getPilotTelemetry, getPilotBreakdown, getPilotStats, getGamesByPilot, countGamesByPilot and the leaderboard queries (read in sections; a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp').
-- server/routes.js: the /api/pilot/:name/* routes and the leaderboard (/api/stats/pilots).
-- server/maintenance.js (the refresh schedule) and server/lib/gameParse.js.
+- docs/ROADMAP.md, the S6 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S4 and S5 entries under "Decisions and deviations", every "Flagged, not fixed" item that names S6 (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
+- docs/audit/performance.md (the Deploy and Dead lines) for the evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; S1 to S5 moved lines in server/, so re-find them with grep -n).
+- Dockerfile, docker-compose.yml, docker-compose.prod.yml, .github/workflows/, DEPLOYMENT.md, package.json scripts.
+- server/index.js (startup, listen, the warmup), server/db.js (the connection setup, backupHot / restoreHot, migrateGamePlayers, refreshPilotStats and its worker in server/statsWorker.js; read in sections, a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp'), server/maintenance.js (the nightly schedule).
+- scripts/ and the files at the repo root, before deleting anything.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
-- server/lib/gameParse.js owns the game rules (teamOf, winnerOf, durationOf, netKills, pilotKey, outcomeOf, pairOutcome). game_players rows must be built from it; do not add a second copy of a rule.
-- The games(id, date, ip, details) table and the hot/cold split stay. game_players is added beside games, not instead of it; the JSON blobs remain the source of truth. Do not change the public API paths (see "Canonical contract").
-- Both connections run journal_mode=WAL, synchronous=NORMAL, busy_timeout=5000 (S4). Backup and restore go through db.backupHot / db.restoreHot.
-- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json).
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so; if they move, testFixtures.js and server/lib/gameParse.test.js move with them.
+- server/lib/gameParse.js owns the game rules. The games(id, date, ip, details) table, the hot/cold split and game_players (one per file, maintained by every games writer, backfilled when a file's user_version is below 1) stay. Do not change the public API paths (see "Canonical contract").
+- Both connections run journal_mode=WAL, synchronous=NORMAL, busy_timeout=5000. A copy of a live database goes through SQLite's backup API (db.backupHot shows how), never a file copy. Backups of both files carry game_players and user_version with them.
+- refreshPilotStats is async and runs its pass in a worker_threads worker on read-only connections. A shutdown must not leave a worker holding the files.
+- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
 - Do not add a router library, state library or ORM.
 - No production database exists locally. Server changes are proven with tests on fixture games or by running `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` and curling. Wait for `Startup sync complete` in the log before checking.
 
 Rules for this session:
-- One PR, scope is the S5 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
-- Add a decision entry for the migration (how it backfills hot and cold games, how it is re-run safely, and its rollback).
+- One PR, scope is the S6 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the backup schedule and rotation (where the files go, how a restore uses them), the healthcheck endpoint, and how far `tsc --noEmit` is made to pass (measure the error count with the React types installed before deciding).
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S5 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S6 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S6.
+- Before ending: tick S6 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S7 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S7.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S4 left 5 files, 57 tests passing) and `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 72.84 KB gzip), and record both results.
-Done when: every item in the S5 Done-when list is true, `EXPLAIN QUERY PLAN` for the pilot and leaderboard queries shows the game_players indexes, `npx vitest run` passes with tests that compare game_players-backed pilot numbers against the S2 fixture expectations, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global`, `/api/stats/pilots` and `/api/pilot/:name/stats`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S5 left 6 files, 76 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 72.84 KB gzip) and `npx tsc --noEmit` (0 errors, JSX untyped), and record the results.
+Done when: every item in the S6 Done-when list is true, the image builds and its container runs as a non-root user with the healthcheck passing (`docker build` and `docker run` locally if Docker is available; say so if it is not), the CI workflow runs tsc, the vite build and vitest on the S6 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global`, `/api/stats/pilots` and `/api/pilot/:name/stats`, and the PR is open with the tracker updated.
 ```
