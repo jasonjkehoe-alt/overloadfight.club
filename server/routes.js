@@ -24,8 +24,8 @@ router.get('/games', async (req, res) => {
 
     try {
         // 1. Query Local DB First
-        const games = db.getGames(limit, offset, search, startDate).map(row => JSON.parse(row.details));
-        const countResult = db.countGames(search, startDate);
+        let games = db.getGames(limit, offset, search, startDate).map(row => JSON.parse(row.details));
+        let countResult = db.countGames(search, startDate);
 
         // 2. Smart Sync (Read-Through)
         // Only sync if:
@@ -42,13 +42,8 @@ router.get('/games', async (req, res) => {
             } else {
                 try {
                     await sync;
-                    const freshGames = db.getGames(limit, offset, search, startDate).map(row => JSON.parse(row.details));
-                    const freshCount = db.countGames(search, startDate);
-
-                    return res.json({
-                        count: freshCount.count,
-                        games: freshGames
-                    });
+                    games = db.getGames(limit, offset, search, startDate).map(row => JSON.parse(row.details));
+                    countResult = db.countGames(search, startDate);
                 } catch (syncError) {
                     console.warn(`[Route] Failed to sync page ${page}, serving cached data. Error: ${syncError.message}`);
                 }

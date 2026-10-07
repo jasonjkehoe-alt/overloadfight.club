@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import Layout from './components/Layout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useServerBrowser } from './hooks/useServerBrowser';
+import { OverloadFsProvider } from './context/OverloadFsContext';
+import { fetchArchivedGames, fetchGameDetail, getGlobalStats, fetchConfig } from './services/apiService';
+import { BrowserApiResponse, GameData, AdminSettings } from './types';
 
 // Every view loads on demand, so the first page fetches only its own code.
 const GameList = lazy(() => import('./components/GameList'));
@@ -16,9 +20,6 @@ const Resources = lazy(() => import('./components/Resources'));
 const AudioTauntMaker = lazy(() => import('./components/AudioTauntMaker'));
 const PilotManager = lazy(() => import('./components/PilotManager'));
 const FightNightSection = lazy(() => import('./components/FightNightSection'));
-import { OverloadFsProvider } from './context/OverloadFsContext';
-import { fetchArchivedGames, fetchGameDetail, getGlobalStats, fetchConfig } from './services/apiService';
-import { BrowserApiResponse, GameData, AdminSettings } from './types';
 
 interface RouteState {
   view: string;
@@ -269,6 +270,8 @@ const App: React.FC = () => {
   return (
     <OverloadFsProvider>
       <Layout currentView={currentView} onNavigate={handleNavigate} showColdStorage={showColdStorage}>
+      {/* a failed chunk load (see index.tsx) lands here instead of blanking the page */}
+      <ErrorBoundary>
       <Suspense fallback={
         <div className="flex justify-center py-24">
           <div className="w-12 h-12 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin"></div>
@@ -467,6 +470,7 @@ const App: React.FC = () => {
         <AudioTauntMaker onNavigate={handleNavigate} />
       )}
       </Suspense>
+      </ErrorBoundary>
     </Layout>
   </OverloadFsProvider>
   );

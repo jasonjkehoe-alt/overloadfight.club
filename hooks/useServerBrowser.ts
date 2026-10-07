@@ -14,8 +14,8 @@ export interface ServerBrowserSnapshot {
 
 // One /api/browser poll for the whole page, shared by every component that
 // calls useServerBrowser(). It runs while at least one component is
-// subscribed and the tab is visible, and refetches as soon as the tab
-// becomes visible again.
+// subscribed and the tab is visible, and refetches when the tab becomes
+// visible again with an answer older than POLL_MS.
 let snapshot: ServerBrowserSnapshot = { games: null, updatedAt: null, settled: false };
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -34,7 +34,7 @@ async function poll() {
 
 function start() {
   if (timer !== undefined || document.hidden) return;
-  poll();
+  if (!snapshot.updatedAt || Date.now() - snapshot.updatedAt.getTime() >= POLL_MS) poll();
   timer = setInterval(poll, POLL_MS);
 }
 

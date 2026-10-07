@@ -25,7 +25,6 @@ router.use(requireAuth);
 router.get('/backup', async (req, res) => {
     const copyPath = path.join('uploads', `tracker_backup_${Date.now()}.db`);
     try {
-        fs.mkdirSync('uploads', { recursive: true });
         await db.backupHot(copyPath);
         res.download(copyPath, `tracker_backup_${new Date().toISOString().split('T')[0]}.db`, () => fs.rmSync(copyPath, { force: true }));
     } catch (e) {
