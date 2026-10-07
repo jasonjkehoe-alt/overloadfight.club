@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MapData, MapIntelData } from '../types';
+import { getMapData } from '../services/mapService';
 import { 
     Trophy, TrendingUp, Users, Map as MapIcon, Skull, Timer, Info, 
     Download, Search, X, Shield, Crosshair, Award, Flame, Calendar, 
@@ -81,10 +82,10 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ initialSearch, onNavigate }) =>
             .then(res => (res.ok ? res.json() : null))
             .then(data => setTotalMatches(data?.total_games ?? null))
             .catch(err => console.error("Failed to load match count", err));
-        fetch('/api/maps?type=stock&limit=1')
-            .then(res => (res.ok ? res.json() : null))
-            .then(data => setStockCount(data?.count ?? null))
-            .catch(err => console.error("Failed to load stock map count", err));
+        // the shared map list (cached in mapService) holds stock and custom maps alike
+        getMapData().then(list => {
+            if (list.length > 0) setStockCount(list.filter(m => !m.isCustom).length);
+        });
     }, []);
 
     useEffect(() => {

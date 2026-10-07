@@ -32,19 +32,30 @@ function secondsBetween(from, to) {
     return diff > 0 && diff < MAX_DURATION_SEC ? diff : 0;
 }
 
-// Match length in seconds, 0 when nothing in the game says how long it ran.
-// Archive games carry start/end. Live-era games carry only settings.start
-// (the StartGame event) and date (when the tracker closed the game).
-// settings.timeLimit is the cap, not the length, so it comes last.
-export function durationOf(game) {
+function plausibleSeconds(value) {
+    const n = Number(value);
+    return n > 0 && n < MAX_DURATION_SEC ? n : 0;
+}
+
+// How long the match actually ran, in seconds, or 0 when the game does not
+// record it. Archive games carry start/end. Live-era games carry only
+// settings.start (the StartGame event) and date (when the tracker closed it).
+export function measuredDurationOf(game) {
     if (!game) return 0;
     const fromTimestamps = secondsBetween(game.start || game.settings?.start, game.end || game.date);
     if (fromTimestamps) return fromTimestamps;
-    for (const field of [game.timeElapsed, game.elapsed, game.duration, game.settings?.timeLimit]) {
-        const n = Number(field);
-        if (n > 0 && n < MAX_DURATION_SEC) return n;
+    for (const field of [game.timeElapsed, game.elapsed, game.duration]) {
+        const n = plausibleSeconds(field);
+        if (n) return n;
     }
     return 0;
+}
+
+// Match length in seconds for stats, 0 when nothing in the game says how long
+// it ran. settings.timeLimit is the cap, not the length, so it is used only
+// when measuredDurationOf() finds nothing.
+export function durationOf(game) {
+    return measuredDurationOf(game) || plausibleSeconds(game?.settings?.timeLimit);
 }
 
 // Who won. Team games rank teams by teamScore (any number of teams; teams
@@ -53,6 +64,7 @@ export function durationOf(game) {
 // `side` is the team or the pilotKey(), `name` is what to display.
 // `winners` holds every side sharing the top score: one entry is an outright
 // win, more than one is a tie, none means the game has no result to read.
+/** @returns {{ team: boolean, ranking: { side: string, name: string, score: number }[], winners: string[] }} */
 export function winnerOf(game) {
     const players = Array.isArray(game?.players) ? game.players : [];
     const teamScore = game?.teamScore && typeof game.teamScore === 'object' ? game.teamScore : {};

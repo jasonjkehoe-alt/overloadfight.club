@@ -1,10 +1,7 @@
 // The match page's wording for a winnerOf() result (server/lib/gameParse.js).
+import { winnerOf } from '../server/lib/gameParse.js';
 
-export interface MatchResult {
-    team: boolean;
-    ranking: { side: string; name: string; score: number }[];
-    winners: string[];
-}
+export type MatchResult = ReturnType<typeof winnerOf>;
 
 // "A", "A and B", "A, B and C"
 const listNames = (names: string[]) =>

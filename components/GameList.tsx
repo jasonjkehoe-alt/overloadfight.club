@@ -344,9 +344,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                 <div className="flex items-center justify-center gap-2 text-xs font-mono text-gray-400">
                                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                                     <span className="font-bold text-gray-200 uppercase tracking-wider">
-                                        {activeGames && activeGames.length > liveMatches.length
-                                            ? `All ${activeGames.length - liveMatches.length} ${liveMatches.length > 0 ? 'Other ' : ''}Servers Standing By`
-                                            : 'No Servers Listed'}
+                                        {idleCount > 0 ? `All ${idleCount} Idle Servers Standing By` : 'No Idle Servers'}
                                     </span>
                                 </div>
                                 <p className="text-xs text-gray-500 font-mono max-w-md mx-auto">

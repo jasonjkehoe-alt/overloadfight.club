@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
-import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
+import { durationOf, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
@@ -99,12 +99,14 @@ describe('durationOf', () => {
 
     it('prefers start/end when the game has them', () => {
         expect(durationOf(detailSample)).toBeCloseTo(64.729, 3);
+        expect(measuredDurationOf(detailSample)).toBeCloseTo(64.729, 3);
     });
 
     it('falls back to timeLimit only when no timestamps are usable', () => {
         const game = byId(72108);
         delete game.settings.start;
         expect(durationOf(game)).toBe(900);
+        expect(measuredDurationOf(game)).toBe(0);
         delete game.settings.timeLimit;
         expect(durationOf(game)).toBe(0);
     });

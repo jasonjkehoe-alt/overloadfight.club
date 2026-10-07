@@ -54,7 +54,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
             </div>
 
             {/* Desktop Nav */}
-            <div className="hidden md:flex items-center gap-6">
+            <div className="hidden xl:flex items-center gap-6">
               <div
                 onClick={() => handleNavClick('pilots')}
                 className="flex items-center gap-2 text-xs font-mono bg-[#1a1a1a] border border-gray-800 px-3 py-1 rounded-full cursor-pointer hover:border-[#ff6600] hover:text-white transition-colors group"
@@ -123,7 +123,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
             </div>
 
             {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center">
+            <div className="xl:hidden flex items-center">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="text-gray-300 hover:text-white p-2"
@@ -136,7 +136,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigate, show
 
         {/* Mobile Menu Dropdown */}
         {isMobileMenuOpen && (
-          <div className="md:hidden bg-[#111] border-b border-gray-800">
+          <div className="xl:hidden bg-[#111] border-b border-gray-800">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               <button
                 onClick={() => handleNavClick('dashboard')}

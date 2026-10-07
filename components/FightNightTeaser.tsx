@@ -5,6 +5,10 @@ interface FightNightTeaserProps {
     onNavigate: (view: string, param?: string) => void;
 }
 
+// One request per page load: switching tabs or coming back to the dashboard
+// reuses it. A failed request is dropped so the next mount tries again.
+let latest: ReturnType<typeof fetchFightNights> | undefined;
+
 // One line on the dashboard pointing at the latest fight-night card. Renders
 // nothing until a recap exists; the full card lives on the Fight Night page.
 const FightNightTeaser: React.FC<FightNightTeaserProps> = ({ onNavigate }) => {
@@ -12,7 +16,9 @@ const FightNightTeaser: React.FC<FightNightTeaserProps> = ({ onNavigate }) => {
 
     useEffect(() => {
         let isCurrent = true;
-        fetchFightNights(1).then(res => {
+        latest ??= fetchFightNights(1);
+        latest.then(res => {
+            if (!res) latest = undefined;
             if (isCurrent) setRecap(res?.recaps?.[0] ?? null);
         });
         return () => { isCurrent = false; };

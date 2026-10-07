@@ -7,11 +7,13 @@ import Analysis from './Analysis';
 import MatchAnalysis from './MatchAnalysis';
 import { getMapImage } from '../services/mapService';
 // The server's rules, so this page shows the result and length the stats count.
-import { winnerOf, durationOf } from '../server/lib/gameParse.js';
-import { MatchResult, resultLine } from '../utils/matchResult';
+import { winnerOf, durationOf, measuredDurationOf } from '../server/lib/gameParse.js';
+import { resultLine } from '../utils/matchResult';
 
 const teamColor = (team?: string | null) =>
     team === 'BLUE' ? 'text-blue-400' : team === 'ORANGE' ? 'text-orange-400' : 'text-white';
+
+const PODIUM = [['1st', 'text-yellow-400'], ['2nd', 'text-gray-300'], ['3rd', 'text-amber-600']];
 
 interface GameDetailProps {
     game: GameData;
@@ -29,10 +31,11 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
     };
 
     const mapImage = getMapImage(game.settings?.level);
-    const result: MatchResult = useMemo(() => winnerOf(game), [game]);
-    const durationSec: number = useMemo(() => durationOf(game), [game]);
-    // durationOf falls back to the time limit when the game has no timestamps.
-    const durationIsLimit = durationSec > 0 && durationSec === Number(game.settings?.timeLimit);
+    const result = useMemo(() => winnerOf(game), [game]);
+    // durationOf is what the stats count; it falls back to the time limit
+    // when the game does not record how long it ran.
+    const durationSec = useMemo(() => durationOf(game), [game]);
+    const durationIsLimit = durationSec > 0 && !measuredDurationOf(game);
 
     // Calculate derived stats
     const processedPlayers = useMemo(() => {
@@ -166,7 +169,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
             <div className="bg-[#111] border border-gray-800 rounded-sm p-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono">
                 <div>
                     <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">
-                        {result.winners.length === 1 ? 'Winner' : result.winners.length > 1 ? 'Draw' : 'Result'}
+                        {result.winners.length === 1 ? 'Winner' : 'Result'}
                     </div>
                     {result.winners.length === 1 && (
                         <div className={`text-2xl font-bold brand-font ${result.team ? teamColor(result.ranking[0].side) : 'text-[#ff6600]'}`}>
@@ -192,7 +195,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack, onNavigate }) => 
                         <ol className="flex gap-4 text-sm">
                             {result.ranking.slice(0, 3).map((r, i) => (
                                 <li key={r.side} className="flex flex-col items-center min-w-[72px]">
-                                    <span className={`text-xs font-bold ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : 'text-amber-600'}`}>{['1st', '2nd', '3rd'][i]}</span>
+                                    <span className={`text-xs font-bold ${PODIUM[i][1]}`}>{PODIUM[i][0]}</span>
                                     <button
                                         onClick={() => onNavigate && onNavigate('pilot', r.name)}
                                         className="text-white font-bold hover:text-[#ff6600] hover:underline truncate max-w-[140px]"
