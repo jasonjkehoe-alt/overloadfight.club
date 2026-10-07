@@ -222,22 +222,24 @@ class BackfillManager {
 
     // Process Hydration Job (Upgrade Summaries to Full)
     async processHydrationJob(job) {
-        // Query for summary games (limit to 1000 per batch to prevent long running query issues, loop handles it)
-        // Note: The job definition might have start/end IDs, but for hydration we mainly care about "incomplete" status.
-        // We can respect start/end filter if we want, but simple "get next 1000 summaries" is easier.
-        // Let's use getSummaryGames(limit) from db.js
+        // Query for summary games in batches of 50 with getSummaryGames(afterId, limit) from db.js.
 
         let totalFetched = job.total_fetched || 0;
         let totalFailed = job.total_failed || 0;
 
         console.log(`Starting Hydration Job ${job.id}...`);
 
+        // Walk summaries in id order. A game the tracker returns without kills,
+        // or that fails, stays a summary, so never ask for it again in this pass.
+        // current_id is the last game processed, so a resumed job starts after it.
+        let lastId = job.current_id || 0;
+
         while (true) {
             // Check cancel/pause
             if (this.cancelRequested || this.pauseRequested) break;
 
             const batchLimit = 50;
-            const summaries = db.getSummaryGames.all(batchLimit);
+            const summaries = db.getSummaryGames.all(lastId, batchLimit);
 
             if (summaries.length === 0) {
                 console.log("No more summary games found to hydrate.");
@@ -261,7 +263,7 @@ class BackfillManager {
                     console.log('Hydration job paused');
                     db.updateBackfillJob.run(
                         'paused',
-                        gameId,
+                        lastId,
                         totalFetched,
                         totalFailed,
                         job.started_at,
@@ -272,6 +274,7 @@ class BackfillManager {
                 }
 
                 const result = await this.fetchGame(gameId);
+                lastId = gameId;
 
                 if (result.success) {
                     totalFetched++;
