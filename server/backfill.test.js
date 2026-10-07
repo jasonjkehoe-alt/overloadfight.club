@@ -46,6 +46,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+    await new Promise(resolve => setTimeout(resolve, 60));
     await db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
@@ -170,6 +171,50 @@ describe('backfill', () => {
         axios.get.mockRejectedValue(new Error('timeout'));
         await backfill.processHydrationJob({ id: 1, rate_limit_ms: 0 });
         expect(axios.get).toHaveBeenCalledTimes(remaining);
+    });
+
+    it('hydrating a game with suicides refreshes stats cache without waiting for interval', async () => {
+        const testId = 88888;
+        const summaryGame = {
+            id: testId,
+            date: '2024-01-01T12:00:00.000Z',
+            settings: { matchMode: 'ANARCHY', level: 'TITAN', timeLimit: 300 },
+            players: [
+                { name: 'SUICIDE_PILOT', kills: 0, deaths: 1 },
+                { name: 'OTHER_PILOT', kills: 1, deaths: 0 }
+            ],
+            kills: []
+        };
+        db.saveGames([summaryGame]);
+        await db.refreshPilotStats();
+
+        // Initially 0 suicides in cache
+        const ppiBefore = db.getPilotPPI('SUICIDE_PILOT');
+        expect(ppiBefore?.suicides || 0).toBe(0);
+
+        // Spy on triggerStatsRefresh
+        const refreshSpy = vi.spyOn(backfill, 'triggerStatsRefresh');
+
+        // Hydrate the game with 1 suicide
+        const hydratedGame = {
+            ...summaryGame,
+            kills: [
+                { attacker: 'SUICIDE_PILOT', defender: 'SUICIDE_PILOT', weapon: 'Suicide', time: 70 }
+            ]
+        };
+        axios.get.mockResolvedValueOnce({ data: hydratedGame });
+
+        await backfill.processHydrationJob({ id: 99, rate_limit_ms: 0, current_id: testId - 1 });
+
+        expect(refreshSpy).toHaveBeenCalled();
+        refreshSpy.mockRestore();
+
+        // Run the refresh directly to simulate setImmediate completion in sync test
+        await db.refreshPilotStats();
+
+        const ppiAfter = db.getPilotPPI('SUICIDE_PILOT');
+        expect(ppiAfter).toBeDefined();
+        expect(ppiAfter.suicides).toBe(1);
     });
 });
 

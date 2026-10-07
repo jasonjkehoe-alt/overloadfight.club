@@ -30,9 +30,19 @@ async function runDailyMaintenance() {
 }
 
 async function refreshPilotStats() {
-    console.log('[Maintenance] Refreshing pilot stats cache...');
-    await db.refreshPilotStats();
-    console.log('[Maintenance] Pilot stats cache refresh finished.');
+    console.log('[Maintenance] Refreshing stats caches...');
+    try {
+        await db.refreshPilotStats();
+        if (typeof db.buildColdStorageStatsCache === 'function') {
+            await db.buildColdStorageStatsCache();
+        }
+        if (typeof db.buildMapStatsCache === 'function') {
+            await db.buildMapStatsCache();
+        }
+        console.log('[Maintenance] Stats caches refreshed successfully.');
+    } catch (error) {
+        console.error('[Maintenance] Error refreshing stats caches:', error);
+    }
 }
 
 function scheduleMaintenance() {
@@ -44,7 +54,14 @@ function scheduleMaintenance() {
                 await runDailyMaintenance();
                 await refreshPilotStats();
             } else {
-                console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');
+                const maxGameDate = db.getMaxGameDate ? db.getMaxGameDate() : null;
+                const maxCacheDate = db.getMaxPilotStatsLastUpdated ? db.getMaxPilotStatsLastUpdated() : null;
+                if (maxGameDate && (!maxCacheDate || maxGameDate > maxCacheDate)) {
+                    console.log(`[Maintenance] Data is newer than cache on startup (${maxGameDate} > ${maxCacheDate}), refreshing stats...`);
+                    await refreshPilotStats();
+                } else {
+                    console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');
+                }
             }
         } catch (e) {
             console.error('[Maintenance] Error checking initial cache:', e);

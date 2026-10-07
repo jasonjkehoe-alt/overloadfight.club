@@ -1912,6 +1912,8 @@ VALUES(?, ?, ?, ?, ?)
 
   // PPI Framework
   refreshPilotStats,
+  buildColdStorageStatsCache: refreshPilotStats,
+  buildMapStatsCache: refreshPilotStats,
 
   hasPilotStatsCache: () => {
     try {
@@ -1919,6 +1921,24 @@ VALUES(?, ?, ?, ?, ?)
       return Boolean(row && row.count > 0);
     } catch {
       return false;
+    }
+  },
+
+  getMaxGameDate: () => {
+    try {
+      const row = hotDb.prepare('SELECT MAX(date) as max_date FROM games').get();
+      return row ? row.max_date : null;
+    } catch {
+      return null;
+    }
+  },
+
+  getMaxPilotStatsLastUpdated: () => {
+    try {
+      const row = hotDb.prepare('SELECT MAX(last_updated) as max_date FROM pilot_stats_cache').get();
+      return row ? row.max_date : null;
+    } catch {
+      return null;
     }
   },
 

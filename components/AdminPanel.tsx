@@ -37,9 +37,11 @@ interface AdminStats {
         earliestDate: string;
         latestDate: string;
         coveragePercent?: number;
+        lastStatsRefresh?: string | null;
     };
     history: { month: string; count: number }[];
     activeJob: any;
+    lastRefreshed?: string | null;
 }
 
 interface VersionInfo {
@@ -100,6 +102,10 @@ const AdminPanel: React.FC = () => {
 
     // Historical Archive Sync state
     const [archiveStatus, setArchiveStatus] = useState<ArchiveStatus | null>(null);
+
+    // Stats Cache Refresh state
+    const [refreshingStats, setRefreshingStats] = useState(false);
+    const [refreshStatsMessage, setRefreshStatsMessage] = useState<string | null>(null);
 
     useEffect(() => {
         checkAuth();
@@ -313,6 +319,34 @@ const AdminPanel: React.FC = () => {
             fetchArchiveStatus();
         } catch (e: any) {
             alert(e.response?.data?.error || 'Failed to cancel archive sync');
+        }
+    };
+
+    const handleRefreshStats = async () => {
+        try {
+            setRefreshingStats(true);
+            setRefreshStatsMessage(null);
+            await axios.post('/api/admin/maintenance/refresh-stats');
+            setRefreshStatsMessage('Refresh started in background.');
+            setTimeout(() => {
+                fetchStats();
+                setRefreshingStats(false);
+            }, 1200);
+        } catch (e: any) {
+            console.error("Failed to trigger stats refresh", e);
+            setRefreshStatsMessage(e.response?.data?.error || 'Failed to trigger refresh');
+            setRefreshingStats(false);
+        }
+    };
+
+    const formatLastRefreshed = (val?: string | null) => {
+        if (!val) return 'Never / Not yet run';
+        try {
+            const d = new Date(val);
+            if (isNaN(d.getTime())) return val;
+            return d.toLocaleString();
+        } catch {
+            return val;
         }
     };
 
@@ -569,6 +603,39 @@ const AdminPanel: React.FC = () => {
                             </div>
                         </div>
                     )}
+
+                    <div className="border-t border-gray-700 my-6"></div>
+
+                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <RefreshCw className={`w-4 h-4 text-emerald-400 ${refreshingStats ? 'animate-spin' : ''}`} />
+                                    <span className="font-semibold text-white text-sm">Stats Cache Freshness</span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Last refreshed:{' '}
+                                    <span className="text-emerald-300 font-mono font-medium">
+                                        {formatLastRefreshed(stats?.overview?.lastStatsRefresh || stats?.lastRefreshed)}
+                                    </span>
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleRefreshStats}
+                                disabled={refreshingStats}
+                                className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition whitespace-nowrap"
+                            >
+                                <RefreshCw className={`w-4 h-4 ${refreshingStats ? 'animate-spin' : ''}`} />
+                                {refreshingStats ? 'Refreshing...' : 'Refresh stats now'}
+                            </button>
+                        </div>
+                        {refreshStatsMessage && (
+                            <p className="text-xs text-emerald-400 font-medium">{refreshStatsMessage}</p>
+                        )}
+                        <p className="text-xs text-gray-400">
+                            Rebuilds pilot, cold storage, and map telemetry caches from current match &amp; kill data.
+                        </p>
+                    </div>
                 </div>
             </div>
 

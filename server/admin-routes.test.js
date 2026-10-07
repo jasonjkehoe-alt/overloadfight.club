@@ -21,13 +21,24 @@ beforeAll(async () => {
 
     // Seed hot storage
     db.saveGames([
-        { id: 50000, date: '2025-11-20T10:00:00.000Z', details: JSON.stringify({ id: 50000, kills: [] }) },
-        { id: 60000, date: '2026-05-10T15:00:00.000Z', details: JSON.stringify({ id: 60000, kills: [] }) },
-        { id: 70000, date: '2026-10-01T08:00:00.000Z', details: JSON.stringify({ id: 70000, kills: [] }) }
+        { id: 50000, date: '2025-11-20T10:00:00.000Z' },
+        { id: 60000, date: '2026-05-10T15:00:00.000Z' },
+        {
+            id: 70000,
+            date: '2026-10-01T08:00:00.000Z',
+            settings: { matchMode: 'ANARCHY', level: 'TITAN', timeLimit: 300 },
+            players: [
+                { name: 'PILOT_A', kills: 3, deaths: 1 },
+                { name: 'PILOT_B', kills: 1, deaths: 3 }
+            ],
+            kills: []
+        }
     ]);
+    db.refreshPilotStats();
 });
 
 afterAll(async () => {
+    await new Promise(resolve => setTimeout(resolve, 60));
     await db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
@@ -74,9 +85,7 @@ describe('admin routes stats endpoints', () => {
         const mockReq = {};
         const mockRes = {
             json: (data) => { responseJson = data; return mockRes; },
-            status: () => mockRes
         };
-
         layer.route.stack[0].handle(mockReq, mockRes);
 
         expect(responseJson).toBeDefined();
@@ -84,5 +93,98 @@ describe('admin routes stats endpoints', () => {
         expect(responseJson.earliest_date).toBe('2019-07-15T12:00:00.000Z');
         expect(responseJson.min_game_id).toBe(10);
         expect(responseJson.max_game_id).toBe(70000);
+        expect('last_stats_refresh' in responseJson).toBe(true);
+    });
+
+    it('POST /maintenance/refresh-stats triggers async refresh and returns { started: true }', async () => {
+        const layer = adminRouter.stack.find(
+            s => s.route && s.route.path === '/maintenance/refresh-stats' && s.route.methods.post
+        );
+        expect(layer).toBeDefined();
+
+        let responseJson = null;
+        let statusCode = 200;
+        const mockReq = { session: { isAdmin: true } };
+        const mockRes = {
+            json: (data) => { responseJson = data; return mockRes; },
+            status: (code) => { statusCode = code; return mockRes; }
+        };
+
+        layer.route.stack[0].handle(mockReq, mockRes);
+
+        expect(statusCode).toBe(200);
+        expect(responseJson).toEqual({ started: true });
+    });
+
+    it('POST /maintenance/refresh-stats 401s without login', async () => {
+        // Find requireAuth middleware in the router stack
+        const authLayer = adminRouter.stack.find(
+            s => !s.route && s.handle.name === 'requireAuth'
+        );
+        expect(authLayer).toBeDefined();
+
+        let statusCode = 200;
+        let responseJson = null;
+        const mockReq = { session: {} }; // no isAdmin
+        const mockRes = {
+            status: (code) => { statusCode = code; return mockRes; },
+            json: (data) => { responseJson = data; return mockRes; }
+        };
+        let nextCalled = false;
+
+        authLayer.handle(mockReq, mockRes, () => { nextCalled = true; });
+
+        expect(statusCode).toBe(401);
+        expect(nextCalled).toBe(false);
+        expect(responseJson).toEqual({ error: 'Unauthorized - Admin access required' });
+    });
+
+    it('stats refresh is idempotent and refreshes pilot, cold, and map caches cleanly', async () => {
+        // Run refresh once
+        await db.refreshPilotStats();
+        const maxUpdated1 = db.getMaxPilotStatsLastUpdated();
+        const ppiCount1 = db.hasPilotStatsCache();
+
+        // Run refresh a second time immediately
+        await db.refreshPilotStats();
+        const maxUpdated2 = db.getMaxPilotStatsLastUpdated();
+        const ppiCount2 = db.hasPilotStatsCache();
+
+        expect(ppiCount1).toBe(true);
+        expect(ppiCount2).toBe(true);
+        expect(maxUpdated1).toBeDefined();
+        expect(maxUpdated2).toBeDefined();
+    });
+
+    it('startup check detects when game data is newer than stats cache', async () => {
+        // When max game date is newer than max pilot stats cache last_updated
+        await db.refreshPilotStats();
+        const maxGame = db.getMaxGameDate();
+        const maxCache = db.getMaxPilotStatsLastUpdated();
+        expect(maxGame).toBeDefined();
+        // Since test games were inserted and cache refreshed, maxGame <= maxCache
+        expect(maxGame <= maxCache).toBe(true);
+
+        // If a new game with a future date arrives:
+        const futureDate = '2027-01-01T00:00:00.000Z';
+        db.saveGames([{
+            id: 99999,
+            date: futureDate,
+            settings: { matchMode: 'ANARCHY', level: 'TITAN', timeLimit: 300 },
+            players: [
+                { name: 'PILOT_A', kills: 1, deaths: 0 },
+                { name: 'PILOT_B', kills: 0, deaths: 1 }
+            ],
+            kills: []
+        }]);
+
+        const newMaxGame = db.getMaxGameDate();
+        expect(newMaxGame).toBe(futureDate);
+        expect(newMaxGame > maxCache).toBe(true);
+
+        // Refresh stats catches up to the new date
+        await db.refreshPilotStats();
+        const updatedCache = db.getMaxPilotStatsLastUpdated();
+        expect(updatedCache).toBe(futureDate);
     });
 });

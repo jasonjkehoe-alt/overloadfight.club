@@ -43,8 +43,8 @@ beforeAll(async () => {
     db.saveGames([testGame]);
 });
 
-afterAll(() => {
-    db.close?.();
+afterAll(async () => {
+    await db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 

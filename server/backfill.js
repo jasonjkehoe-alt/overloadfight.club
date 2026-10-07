@@ -218,6 +218,7 @@ class BackfillManager {
             new Date().toISOString(),
             job.id
         );
+        this.triggerStatsRefresh();
     }
 
     // Process Hydration Job (Upgrade Summaries to Full)
@@ -312,6 +313,7 @@ class BackfillManager {
             new Date().toISOString(),
             job.id
         );
+        this.triggerStatsRefresh();
     }
 
     // Process the backfill job (Legacy ID Range)
@@ -387,6 +389,29 @@ class BackfillManager {
             new Date().toISOString(),
             job.id
         );
+        this.triggerStatsRefresh();
+    }
+
+    // Trigger asynchronous stats cache refresh on job completion
+    triggerStatsRefresh() {
+        console.log('[Backfill] Triggering post-job stats cache refresh...');
+        setImmediate(() => {
+            console.log('[Backfill] Stats cache refresh started.');
+            try {
+                if (typeof db.refreshPilotStats === 'function') {
+                    db.refreshPilotStats();
+                }
+                if (typeof db.buildColdStorageStatsCache === 'function') {
+                    db.buildColdStorageStatsCache();
+                }
+                if (typeof db.buildMapStatsCache === 'function') {
+                    db.buildMapStatsCache();
+                }
+                console.log('[Backfill] Stats cache refresh finished.');
+            } catch (err) {
+                console.error('[Backfill] Error during post-job stats cache refresh:', err);
+            }
+        });
     }
 
     // Pause the currently running job

@@ -60,6 +60,7 @@ router.get('/stats', (req, res) => {
         const stats = db.getDatabaseStats.get();
         const coldStats = db.getColdDatabaseStats ? db.getColdDatabaseStats.get() : null;
         const activeJob = backfillManager.getActiveJob();
+        const lastRefreshed = db.getMaxPilotStatsLastUpdated ? db.getMaxPilotStatsLastUpdated() : null;
 
         const totalGames = (stats?.total_games || 0) + (coldStats?.total_games || 0);
         const earliestDate = [stats?.earliest_date, coldStats?.earliest_date].filter(Boolean).sort()[0] || null;
@@ -74,6 +75,7 @@ router.get('/stats', (req, res) => {
             latest_date: latestDate,
             min_game_id: minId,
             max_game_id: maxId,
+            last_stats_refresh: lastRefreshed,
             activeJob: activeJob ? backfillManager.getJobStatus(activeJob.id) : null
         });
     } catch (error) {
@@ -88,6 +90,7 @@ router.get('/stats/extended', (req, res) => {
         const coldStats = db.getColdDatabaseStats ? db.getColdDatabaseStats.get() : null;
         const monthly = db.getMonthlyGameCounts.all();
         const activeJob = backfillManager.getActiveJob();
+        const lastRefreshed = db.getMaxPilotStatsLastUpdated ? db.getMaxPilotStatsLastUpdated() : null;
 
         const totalGames = (stats?.total_games || 0) + (coldStats?.total_games || 0);
         const earliestDate = [stats?.earliest_date, coldStats?.earliest_date].filter(Boolean).sort()[0] || null;
@@ -101,11 +104,50 @@ router.get('/stats/extended', (req, res) => {
                 maxId,
                 minId,
                 earliestDate,
-                latestDate
+                latestDate,
+                lastStatsRefresh: lastRefreshed
             },
+            lastRefreshed,
             history: monthly,
             activeJob: activeJob ? backfillManager.getJobStatus(activeJob.id) : null
         });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/admin/maintenance/refresh-stats - Manually trigger stats cache refresh
+router.post('/maintenance/refresh-stats', (req, res) => {
+    try {
+        console.log('[Admin] Manual stats cache refresh requested.');
+        setImmediate(() => {
+            console.log('[Admin] Stats cache refresh started.');
+            try {
+                if (typeof db.refreshPilotStats === 'function') {
+                    db.refreshPilotStats();
+                }
+                if (typeof db.buildColdStorageStatsCache === 'function') {
+                    db.buildColdStorageStatsCache();
+                }
+                if (typeof db.buildMapStatsCache === 'function') {
+                    db.buildMapStatsCache();
+                }
+                console.log('[Admin] Stats cache refresh finished.');
+            } catch (err) {
+                console.error('[Admin] Error refreshing stats caches:', err);
+            }
+        });
+        res.json({ started: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/admin/maintenance/refresh-stats - Get last stats refresh timestamp
+router.get('/maintenance/refresh-stats', (req, res) => {
+    try {
+        const lastRefreshed = db.getMaxPilotStatsLastUpdated ? db.getMaxPilotStatsLastUpdated() : null;
+        res.json({ last_refreshed: lastRefreshed });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -55,7 +55,8 @@ beforeAll(async () => {
     ({ default: db, pilotStatements } = await import('./db.js'));
 });
 
-afterAll(() => {
+afterAll(async () => {
+    await db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 

@@ -33,8 +33,9 @@ beforeAll(async () => {
     baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
-afterAll(() => {
+afterAll(async () => {
     server?.close();
+    await db?.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
