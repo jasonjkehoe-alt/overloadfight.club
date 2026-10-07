@@ -44,7 +44,11 @@ S1, S2 and S3 are merged into `main` (PRs #1, #2 and #3, merged in that
 order on 2026-10-07 UTC). After the PR #3 merge (`2b05787`) the owner
 pushed `44e4792` straight to `main` (`saveColdGamesBatch` keeps stored
 kill logs, `db.close()`, `scripts/rebuild_and_deploy_nas.py`, a
-`public/version.json` bump), so `main` is at `44e4792`.
+`public/version.json` bump). On 2026-10-07 the owner pushed three more
+commits straight to `main` (`ebe30dd`, `35cddfd`, `fb4064a`: an archive
+page refresh, `updateGameDetails` keeping stored kill logs, admin stats
+across both files, archive ingest retired from the admin page), so `main`
+is at `fb4064a`.
 
 S4 is on branch `ofc/s04-bundle-polling` (tip `b3f3af4`), based on
 `2b05787`, PR #4 open and not merged. It still merges into `main`
@@ -55,6 +59,13 @@ with `origin/main` (`44e4792`) merged in to settle a conflict in
 `saveColdGamesBatch`, PR #5 open against `main` and not merged,
 2026-10-07 UTC. PR #5 contains S4's commits; merge PR #4 first.
 
+S6 is on branch `ofc/s06-ops-types`, based on S5's tip `2f9737c` with
+`origin/main` (`fb4064a`) merged in to settle a conflict in
+`updateGameDetails`, PR #6 open against `main` and not merged,
+2026-10-07 UTC. PR #6 contains S4's and S5's commits; merge PRs #4 and
+#5 first. Before the S6 image starts on the NAS, `data/` must belong to
+uid 1000 (see [HUMAN] tasks).
+
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
 now `2c4f174`, with identical code apart from the redacted password, so the
@@ -64,10 +75,75 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 5 of 28 sessions done (S1 to S3 merged, PRs for S4 and S5
-open). Phase 1: 5/6. Phase 2: 0/5. Phase 3: 0/6. Phase 4: 0/11.
+Counts: 6 of 28 sessions done (S1 to S3 merged, PRs for S4, S5 and S6
+open). Phase 1: 6/6. Phase 2: 0/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S3 merged into `main`, `main` at 44e4792, S4 on `ofc/s04-bundle-polling`, S5 on `ofc/s05-player-table`)
+## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S3 merged into `main`, `main` at fb4064a, S4 on `ofc/s04-bundle-polling`, S5 on `ofc/s05-player-table`, S6 on `ofc/s06-ops-types`)
+
+- S6, first move on Node 22.17.0, on S5's tip `2f9737c`: `npx vitest
+  run` passed 6 files, 76 tests. `npx vite build` wrote the entry
+  `index-CIgfw3Tc.js` at 232.15 KB raw / 72.84 KB gzip. `npx tsc
+  --noEmit` exited 0 (JSX untyped). After merging `origin/main`
+  (`fb4064a`): 8 files, 88 tests (the owner's commits add two test files
+  and backfill tests; one test is S6's for the merge), entry 232.11 KB /
+  72.80 KB gzip (the owner's archive page changes).
+- S6, merge: `updateGameDetails` with the owner's `CASE` and S5's row
+  rebuild built `game_players` from the incoming game. The new test
+  (`updateGameDetails` sends a stored game again without its kill log,
+  expects its suicide row to stay) fails when the rows come from the
+  incoming game and passes with `RETURNING details`.
+- S6, tests: `npx vitest run` passes 9 files, 92 tests. New in
+  `server/ops.test.js`: a backup holds both files with the same games,
+  `game_players` rows and `user_version` 1 as the live files; eleven runs
+  over ten days leave exactly the 7 newest day folders, replace the same
+  day, and delete a stale `.partial`; `checkHealth` passes while open and
+  throws after `close()`; `close()` during a refresh stops the worker (the
+  refresh logs "stats worker exited"). Without the `terminate()` in
+  `close()` that test fails: the worker finishes and its writes hit the
+  closed database ("The database connection is not open").
+- S6, types: with `@types/react` and `@types/react-dom` 19.3.0, `npx tsc
+  --noEmit` reported 8 errors, all `TS2339` in `LiveGameDetail.tsx` (6)
+  and `PilotsList.tsx` (2); `--strict` reported 19. After the local type
+  widening it exits 0. A probe file with `<div onClick={42} notAProp />`
+  fails with `TS2322`, so JSX is type-checked now.
+- S6, image (Docker Desktop 29.2.1 on macOS): `docker build` succeeds;
+  567 MB against 1.03 GB for S5's single-stage image. In the container
+  `id` is uid 1000 (`node`); `g++`, `gcc`, `make`, `git` and `pip` are
+  absent; `python -m yt_dlp --version` prints 2026.08.19, `ffmpeg` is
+  present, Node is 22.23.3. With a fresh volume and the two secrets set
+  the container reports `healthy` within about 9 s and `/api/health`
+  returns `{"status":"ok"}`. `docker stop` returns in under a second with
+  exit code 0, the log ends with `[Shutdown] SIGTERM received, closing
+  databases...` and `[Shutdown] Done.`, and no `-wal` or `-shm` file is
+  left in the volume. `docker compose up` with `docker-compose.yml` (built
+  image, bind-mounted `./data`) went healthy with `json-file` logging at
+  `max-size 10m`, `max-file 3` and user `node`.
+- S6, ownership: a volume written by the image running as root, then
+  opened by the uid 1000 image, crashed (before the startup check existed)
+  with
+  `SqliteError: attempt to write a readonly database`; with the check it
+  exits 1 with `Refusing to start: /app/data/tracker.db is not writable by
+  uid 1000`. A root-owned `tracker.db-wal` beside chowned databases is
+  caught too. After `chown -R 1000:1000` the container goes healthy.
+- S6, backup and restore in the container: `backupDatabases()` run as uid
+  1000 wrote `backups/2026-10-07/tracker.db` and `cold_storage.db`. After
+  deleting 10 games, `docker kill` (leaving a `-wal`), the documented
+  restore (delete the four `-wal`/`-shm` files, copy the pair in, chown)
+  and a restart, the container went healthy and served pilot stats with
+  no `game_players` rebuild in the log.
+- S6, server (`PORT=3100 DATA_DIR=/tmp/ofc-data npm start`, dev mode, no
+  secrets, fresh data dir; run before the review and again after
+  /simplify, same answers): `/api/health` returns `{"status":"ok"}`,
+  `/api/stats/global` `total_games: 25`, `/api/stats/pilots` 15 pilots
+  (top WD-40, 20 games) and `?source=all` JSON, `/api/pilot/WD-40/stats`
+  20 games and 325 kills, `/games` 20. The tracker's live games have
+  moved since S5, hence other pilots and counts. The log shows `[PPI]
+  Successfully refreshed 14 pilots` and `[StatsWorker] Full pass
+  finished in 0.03s`. SIGTERM logs both shutdown lines and leaves no
+  `-wal` or `-shm`. The only error is the yt-dlp pre-warm (not installed
+  on this Mac).
+- S6: `npx vite build` entry `index-BQwIagdR.js` 232.11 KB raw / 72.81 KB
+  gzip.
 
 - S5, first move on Node 22.17.0: `npx vitest run` passed 5 files, 57
   tests (the Verification table said 56; the S4 Validated entry and the
@@ -302,6 +378,27 @@ open). Phase 1: 5/6. Phase 2: 0/5. Phase 3: 0/6. Phase 4: 0/11.
 
 ## NOT validated, do not claim these work
 
+- S6, on the NAS: the chown, the 03:00 backup of the real 2.8 GB cold
+  file (time, disk, whether the backup API's copy slows requests), the
+  rotation over 8 real nights, and a restore from a real backup. The
+  backup and restore were run in a local container on 25 games.
+- Whether DSM's ACLs on `/volume1/docker` let uid 1000 write after a plain
+  `chown`, and whether the NAS's `/usr/local/bin/docker-compose` honours
+  `logging` and the `start_period` in a `version: '3.8'` file. Checked with
+  Docker Desktop 29.2 and Compose v5.1 only.
+- The first start of the S6 image over the NAS's real data: how long the
+  S5 backfill and the repair take there, and whether 120 s of start period
+  covers them. Health stays "starting" meanwhile and nothing restarts on
+  it.
+- The image on the DS1515+ (x86-64 Atom): built and run on Docker Desktop
+  for Mac only. A yt-dlp search or extract was not run in it; `python -m
+  yt_dlp --version` answered (2026.08.19) and the server logged the
+  pre-warm.
+- The CI workflow on GitHub before this PR opened; see the PR's checks.
+- The UI after the type changes in `LiveGameDetail` and `PilotsList` was not
+  opened in a browser. Both changes are type-only; the build output is the
+  same size.
+
 - S5 was proven on fixture games and a synthetic 1.6 GB copy, not on the
   NAS. Nobody has run the backfill on the real 2.8 GB cold DB (it took
   9.7 s for 55,000 synthetic games on a Mac; the NAS's game count and CPU
@@ -375,7 +472,10 @@ open). Phase 1: 5/6. Phase 2: 0/5. Phase 3: 0/6. Phase 4: 0/11.
   not opened in a browser. `/api/overload/status` now returns 401 for them;
   `OverloadFsContext` reads that as "no server access" and falls back to the
   browser folder picker, which is what the code says should happen.
-- The Docker image was not built or run with the new compose files.
+- The Docker image was not built or run with the new compose files. S6
+  built and ran the image with `docker run`, ran `docker-compose.yml` with
+  `docker compose up` (Docker Desktop), and rendered the prod compose file
+  with `docker compose config`. Not on the NAS.
 
 ## Ground rules
 
@@ -437,11 +537,13 @@ open). Phase 1: 5/6. Phase 2: 0/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 6 files, 76 tests pass (S5) | 2026-10-07 |
+| `npx vitest run` | all pass | 9 files, 92 tests pass (S6) | 2026-10-07 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry `index-CIgfw3Tc.js` 232.15 KB raw / 72.84 KB gzip, same as S4 (S5; was one chunk, 351.07 KB gzip before S4) | 2026-10-07 |
-| `npx tsc --noEmit` | 0 errors (meaningful only after S6 installs React types) | 0 errors, JSX untyped (S5) | 2026-10-07 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets; `/api/stats/pilots` 23 pilots, `/api/pilot/WD-40/stats` 7 games (S5) | 2026-10-07 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry `index-BQwIagdR.js` 232.11 KB raw / 72.81 KB gzip (S6, after the owner's `fb4064a`; was 72.84 KB in S5 and one 351.07 KB chunk before S4) | 2026-10-07 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S6; 8 before the call-site types, 19 with `--strict`) | 2026-10-07 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets; `/api/stats/pilots` 15 pilots, `/api/pilot/WD-40/stats` 20 games, `/api/health` ok (S6) | 2026-10-07 |
+| `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | healthy in about 9 s, uid 1000, 567 MB (S6) | 2026-10-07 |
+| Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | under 1 s, exit 0, no `-wal` left (S6) | 2026-10-07 |
 | `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
 | Same server, `curl -w "%{time_total}" "localhost:3100/api/games?page=1"` more than 30 s after the last sync | answers from the DB, sync logged after | 200 in 0.0019 s, `[Sync] Fetching page 1` logged after it (S4) | 2026-10-06 |
 | Same server, `curl -D - -H "Accept-Encoding: gzip, deflate, br" localhost:3100/ffmpeg/ffmpeg-core.wasm` | `Content-Encoding: br`, short cache | br, 8,367,469 bytes, `public, max-age=3600` (S4) | 2026-10-06 |
@@ -467,6 +569,16 @@ open). Phase 1: 5/6. Phase 2: 0/5. Phase 3: 0/6. Phase 4: 0/11.
 - [ ] [HUMAN] Create a Discord webhook URL for the fight-night channel (needed
       by S18).
 - [x] [HUMAN] Add GitHub user `kehoej` as a collaborator. Done 2026-10-06.
+- [ ] [HUMAN] Before the first start of the S6 image on the NAS, stop the
+      container and run `sudo chown -R 1000:1000
+      /volume1/docker/overloadfight.club/data` (`rebuild_and_deploy_nas.py`
+      now does this itself; a pull of the GHCR image does not). The image now runs as uid
+      1000; without the chown it exits with `Refusing to start: ... is not
+      writable by uid 1000` and `restart: unless-stopped` restarts it in a
+      loop. Commands in `DEPLOYMENT.md`, "File ownership".
+- [ ] [HUMAN] Check the NAS volume has about 20 GB free for 7 days of
+      nightly backups, and add `data/backups/` to the NAS's own backup job if
+      a copy off the box is wanted.
 - [ ] [HUMAN] Merge each PR. Pull the new image on the NAS.
 
 ## Session queue
@@ -520,7 +632,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       and the leaderboard read from it; `EXPLAIN QUERY PLAN` shows index use;
       the remaining full passes run in a `worker_threads` worker on a
       read-only connection; the cold-storage move is atomic.
-- [ ] **S6 Ops and types** (M). Done when: a nightly `db.backup()` of both
+- [x] **S6 Ops and types** (M). PR #6. Done when: a nightly `db.backup()` of both
       databases with 7-day rotation; compose has log rotation and a healthcheck
       that hits an endpoint that queries the DB; `SIGTERM` closes the DB; the
       Dockerfile is multi-stage, non-root, `npm ci`, no build tools in the final
@@ -830,6 +942,108 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   duplicate at worst, and the next nightly run removes it. The old code
   also deleted every hot game older than a year, including any saved
   after the copy.
+- 2026-10-07 (S6): Backups. At 03:00 container time (`TZ=America/Chicago`)
+  `server/backup.js` copies `tracker.db` and `cold_storage.db` through the
+  backup API into `data/backups/YYYY-MM-DD/`, then the cold move runs. The
+  backup goes first so it holds the files as they were before the night's
+  biggest write. Both files land in `YYYY-MM-DD.partial/` and the folder is
+  renamed once both are done, so a dated folder always holds a matching
+  pair. A second run on the same day replaces that day. After a successful
+  run every dated folder past the 7 newest is deleted, so a failed night
+  never leaves fewer than 7 good days; leftover `.partial` folders are
+  deleted at the start of a run. The folder name is the local day because
+  the schedule is local. The backups sit in the data volume, which on the
+  NAS is the same disk as the live files: they cover a bad write or a bad
+  deploy, not a dead disk, and they cost about 7 times the two databases
+  (the cold file alone is about 2.8 GB, so roughly 20 GB). Rejected: a
+  separate `BACKUP_DIR` setting (nobody asked for one; the NAS's own backup
+  job can copy `data/backups/` off the box). Restore: `tracker.db` alone
+  goes through the admin page's upload (`db.restoreHot`, no restart). Both
+  files, or cold alone: stop the container, delete the four `-wal`/`-shm`
+  files, copy the pair in, `chown 1000:1000`, start. A stopped database is
+  not live, so a file copy is fine there; the stale `-wal` must go because
+  SQLite would replay it onto the restored file. `DEPLOYMENT.md` has the
+  commands. The backup carries `game_players` and `user_version`, so a
+  restored pair needs no rebuild.
+- 2026-10-07 (S6): The healthcheck is `GET /api/health`. It runs `SELECT 1
+  FROM games LIMIT 1` on the hot and the cold connection and answers
+  `{"status":"ok"}`, or 503 if either throws (a closed or unreadable
+  file). The error goes to the log, not to the public response. It reads no rows of note, so a 30 s interval costs
+  nothing. The check lives in the Dockerfile (`HEALTHCHECK`, so a plain
+  `docker run` reports health) and in both compose files, with a 120 s
+  start period because the server does not listen until the one-time S5
+  backfill ends (9 s on the synthetic copy, unknown on the NAS). Docker
+  only reports unhealthy; nothing restarts the container on it.
+- 2026-10-07 (S6): Types. With `@types/react` and `@types/react-dom`
+  installed, `tsc --noEmit` with the existing `tsconfig.json` reports 8
+  errors and `--strict` 19 (it was 6,135 before, nearly all untyped JSX).
+  All 8 are UI code reading fields `types.ts` does not declare
+  (`settings.respawnTimeSeconds`, live event `source`, `target`, `weapon`
+  and `message`, the browser API's `game.players`). `types.ts` is
+  canonical contract, so the two components widen the type where they read
+  it instead, and `tsc --noEmit` now exits 0 and runs in CI. Strict stays
+  off: its 11 extra errors are component code outside this session's list
+  (flagged). Server JS stays unchecked (`allowJs` without `checkJs`).
+- 2026-10-07 (S6): The image runs as the `node` user from `node:22-alpine`
+  (uid 1000). The old image ran as root, so the NAS's `data/` belongs to
+  root and the new image cannot write to it. `db.js` now checks that the
+  data folder and everything directly in it (the databases, their `-wal`
+  and `-shm`, `maps/`, `map_images/`, `backups/`) are writable before it
+  creates or opens anything, and exits with a message naming the path and
+  the `chown` instead of SQLite's "attempt to write a readonly
+  database". The owner's `rebuild_and_deploy_nas.py` now stops the
+  container and runs `chown -R 1000:1000 data` before recreating it, so
+  that deploy path needs no manual step; a pull of the GHCR image through
+  `docker-compose.prod.yml` does (a [HUMAN] task). Rejected: an entrypoint
+  that starts as root, chowns and drops to `node` (the container would
+  still start as root).
+- 2026-10-07 (S6): Dockerfile. The build stage has python3, make and g++
+  (no git: `.dockerignore` leaves `.git` out of the context, so
+  `generate-version.js` keeps the hash already in `public/version.json`),
+  runs `npm ci`, `npm run build` (inside the image the version
+  rewrite is wanted) and `npm prune --omit=dev`. The runtime stage copies
+  `package.json`, `node_modules`, `dist` and `server` only. It keeps
+  python3 because yt-dlp is a Python program the server runs as `python -m
+  yt_dlp`; pip installs yt-dlp and is removed in the same layer. `CMD` is
+  `node server/index.js`, not `npm start`, so SIGTERM from `docker stop`
+  reaches node. `terser`, `concurrently` and `@types/jszip` moved to
+  `devDependencies`: they are build and dev tools, and the Done-when list
+  says none go into the final image. The client libraries (React,
+  recharts, lucide, ffmpeg) are still in `dependencies` (flagged).
+- 2026-10-07 (S6): Shutdown. SIGTERM and SIGINT stop the HTTP server from
+  taking connections and give requests in flight up to 5 s (`docker stop`
+  kills at 10 s). Then `db.close()` terminates a running stats worker and
+  waits for it before closing both connections, and the process exits 0.
+  Closing both connections checkpoints the WAL and deletes the `-wal` and
+  `-shm` files. A backup cut off mid-run leaves a `.partial` folder that
+  the next run deletes.
+- 2026-10-07 (S6): CI is a new `.github/workflows/ci.yml` on every pull
+  request, whatever its base branch, and on pushes to `main`, so a merge
+  result is checked too: Node 22 from `actions/setup-node`, `npm ci`, `npx tsc
+  --noEmit`, `npx vite build` (not `npm run build`, which rewrites a
+  tracked file), `npx vitest run`. `docker-publish.yml` already builds the
+  image on pull requests without pushing, and the Dockerfile pins
+  `node:22-alpine`, so both workflows run on Node 22.
+- 2026-10-07 (S6): Scripts. Of 28 scripts, `generate-version.js` stays
+  (`prebuild` runs it), and so do the owner's two deploy scripts:
+  `rebuild_and_deploy_nas.py` (added in `44e4792`, after the audit) and
+  `deploy-synology.ps1` (edited in `1203619`). The other 25 are deleted:
+  one-off checks and debug scripts against the DB, two with a hard-coded
+  `d:\` path, `migrate_cold_storage.js` (writes `games` without
+  `game_players`), the SSH inspection scripts, the two map-data rewriters
+  for `services/mapService.ts`, `ingest-log-archive.js` (the owner retired
+  archive ingest in `fb4064a`) and `docker_build_synology.py`, which does
+  what `rebuild_and_deploy_nas.py` does. Git history keeps them.
+  `browser_sample.json` and `metadata.json` (AI Studio) are deleted;
+  `new_map_data.json` and `maps_export.csv` moved to `server/seed/` and
+  `mapSyncService.js` reads the CSV from there (nothing reads the JSON).
+  The two test fixtures stay at the root (binding decision).
+- 2026-10-07 (S6): The owner's `fb4064a` on `main` gave
+  `updateGameDetails` the keep-the-kill-log `CASE`. Merged into S6 with
+  `RETURNING details`, so its `game_players` rows come from the details
+  the update kept, as `saveGames` and `saveColdGamesBatch` already do. A
+  test sends a stored game again without its kill log and checks its
+  suicide row; building rows from the incoming game fails it.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -842,9 +1056,10 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - `services/mockDataService.ts` (empty), `utils/audio-tool/*`,
   `utils/testPresets.ts`, four unused `apiService` exports,
   `server/debug_stats.js`, dead second attach at `db.js:962-969`. Removed in
-  S6.
+  S6. Not done in S6: the Done-when list names `scripts/` and the root
+  files only. S11 (split the giants) is the natural place.
 - `cacheService.js` tries Redis on every boot and never sweeps expired keys.
-  S4 left it; S6.
+  S4 left it; S6 left it too (not on its Done-when list).
 - The README promises ELO; none exists. Satisfied by S13.
 - (S1) `/api/import/*` (yt-dlp search, extract, stream, archive.org proxy)
   has no auth and no rate limit. The public taunt maker needs it, so locking
@@ -947,7 +1162,10 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   rowid with short `.all()` reads would bound both memory and the WAL;
   S5's worker is the natural place. Fixed in S5 (500-game pages).
 - (S4) The restore only covers `tracker.db`, and the admin page still says
-  to restart afterwards. Cold storage has no backup. S6 owns backups.
+  to restart afterwards. Cold storage has no backup. S6 owns backups. S6
+  backs up both files nightly and `DEPLOYMENT.md` documents restoring cold
+  storage by hand; the admin page's restore and its restart text are
+  unchanged.
 - (S4) `App.tsx` now has three copies of the orange spinner markup. S9's
   `Loading` component replaces them.
 - (S4) `/api/games` pages past the stored count: the read-through sync
@@ -955,7 +1173,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   offset, so a page beyond what is stored comes back with `games: []`
   even after a sync. This was the same before S4.
 - (S4) `cacheService.js` (Redis on boot, no sweep) is still open; S6.
-- (S4) `/api/import/*` still has no rate limit; S6.
+  Still open after S6.
+- (S4) `/api/import/*` still has no rate limit; S6. Still open after S6.
 
 - (S5) Name lookups on `game_players` fold ASCII case only (NOCASE), while
   `pilotKey` lowercases all of Unicode. A pilot whose spellings differ in
@@ -977,6 +1196,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   write `games` without `game_players`. The startup repair fixes added and
   deleted games at the next start; details changed in place stay stale
   until `user_version` is set to 0. S6 deletes the orphaned scripts.
+  `migrate_cold_storage.js` is gone in S6; a hand edit is still a gap.
 - (S5) `game_players.damage` excludes self-damage (the telemetry rule),
   while `pilot_stats_cache.total_damage` includes it (audit item 13).
   Nothing reads the column yet; whoever does should pick one rule.
@@ -993,10 +1213,52 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S5) `insertGameHot` and `insertGameCold` in `db.js` are prepared and
   never used (dead before S5).
 
+- (S6) The client libraries are still in `dependencies`, so the image
+  carries them: `node_modules` is 206 MB in the 567 MB image, with
+  `@ffmpeg` at 62 MB and `lucide-react` at 44 MB, none of which the server
+  imports. Moving React, recharts, lucide, wavesurfer, idb,
+  clsx, tailwind-merge and the ffmpeg packages to `devDependencies`
+  would drop them from the image; the server needs only express and its
+  middleware, better-sqlite3, axios, jszip, multer, ioredis and
+  `@google/genai`.
+- (S6) `tsc --noEmit --strict` reports 19 errors (`PilotsList` 7,
+  `LiveGameDetail` 6, `GameDetail` 3, `App.tsx` 2, `apiService.ts` 1).
+- (S6) `types.ts` lacks fields the UI reads: `settings.respawnTimeSeconds`
+  (in the samples), live event `source`, `target`, `weapon` and `message`
+  (the samples have no events), and the browser API's `game.players`.
+  `LiveGameDetail` and `PilotsList` widen the types where they read them.
+  Adding the fields to `types.ts` is a contract change and needs the
+  owner's say-so.
+- (S6) `SYNOLOGY_GUIDE.md` describes a different setup from
+  `DEPLOYMENT.md` (an `overload-data` folder, a `/healthz` check on port
+  5173) and `synology-update.sh` rebuilds the image on the NAS. Neither was
+  touched; one deploy guide should go.
+- (S6) `server/debug_stats.js` is an orphaned script outside `scripts/`.
+- (S6) Nightly backups take about 20 GB on the data volume and cover a bad
+  write, not a dead disk. A copy off the NAS depends on the owner's backup
+  job. Cold storage changes only at the nightly move, so keeping fewer cold
+  copies (or copying it weekly) would save most of the 20 GB and 2.8 GB of
+  writes a night; the Done-when list asked for both files nightly.
+- (S6) The image ships `server/*.test.js` (copied with `server/`). Harmless,
+  a few KB.
+- (S6) Node is PID 1 and does not reap orphans. When an `execFile` timeout
+  kills yt-dlp, an ffmpeg it started can be left as a zombie. `init: true`
+  in both compose files (or tini in the image) would reap them. npm was
+  PID 1 before, with the same gap.
+- (S6) The image's `version.json` hash is whatever `public/version.json`
+  held when it was last committed: `.git` is not in the Docker build
+  context. Passing the commit as a build argument and not tracking the
+  file would fix it.
+- (S6) `/simplify` suggested sharing `gamePlayers.test.js`'s `rowCount` and
+  `userVersion` with `ops.test.js` through `testFixtures.js`; left as two
+  small copies.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
-by a NAS image pull. S5 adds `game_players` to both database files; after
+by a NAS image pull. After S6 the files in `data/` belong to uid 1000; an
+older image runs as root and can still write them, so no chown back is
+needed. `data/backups/` can stay or be deleted. S5 adds `game_players` to both database files; after
 the revert and the pull, run `DROP TABLE game_players;` on `tracker.db` and
 on `cold_storage.db` (see the S5 migration decision). The JSON blobs remain
 the source of truth, so no data is lost.
@@ -1188,12 +1450,43 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   batch builds rows from the details the upsert kept. PR #5 opened
   against `main`, not merged.
 
+- 2026-10-07, S6 (Claude Opus 5.5): nightly backups of both databases
+  with 7-day rotation, `/api/health`, SIGTERM shutdown that stops the
+  stats worker, a multi-stage Dockerfile running as uid 1000, compose log
+  rotation and healthcheck, React types with `tsc --noEmit` at 0, a CI
+  workflow, and 25 scripts and two root leftovers removed. Status line
+  checked first: PRs #4 and #5 open, S5's tip `2f9737c`, `10223be` not an
+  object here, so S6 stacks on `origin/ofc/s05-player-table`. `main` had
+  moved to `fb4064a` with three owner commits; merging it conflicted in
+  `db.js` (`utcMonthBounds` beside S5's imports, `getColdStorageStats`)
+  and left `updateGameDetails` building rows from the incoming game while
+  keeping the stored kill log, fixed with `RETURNING details` and a test.
+  First move: 6 files, 76 tests; entry 72.84 KB gzip; tsc 0. With the
+  React types the error count was 8, not thousands, so `tsc` is clean
+  without touching `types.ts`. Reading the code turned up things the
+  tracker did not list: the owner deploys by building on the NAS with
+  `rebuild_and_deploy_nas.py`, the NAS's data belongs to root, so a
+  non-root image crash-loops there (reproduced in Docker), and multer
+  creates `uploads/` at import. /code-review found 10 issues: fixed
+  un-awaited `close()` in three test teardowns, a writability check that
+  missed `-wal`/`-shm` and ran after the mkdirs, a worker exit clearing a
+  newer worker's reference, a shutdown that did not wait for requests,
+  the health route returning error text, CI only on PRs to `main`, a
+  re-parse in `updateGameDetails` and git in the build stage; kept
+  `new_map_data.json` (Done-when list) and the healthcheck in both the
+  Dockerfile and compose. /simplify: health statements prepared once, no
+  redundant `closeIdleConnections`, a named type in `PilotsList`, a chown
+  step in the owner's NAS deploy script, a tighter backup test; skipped
+  the unconditional worker reset (the race is real), fewer cold backups
+  (Done-when list), moving the client libraries out of `dependencies`,
+  and `init: true` (flagged). PR #6 opened against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S6: ops and types.
+Continue the overloadfight.club roadmap. This session is S7: live-first dashboard and match result.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -1202,48 +1495,48 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S5 (branch ofc/s05-player-table, PR #5) sits on S4 (branch ofc/s04-bundle-polling, PR #4).
-  If both PRs are merged:
-    git checkout -B ofc/s06-ops-types origin/main
-  If PR #5 is still open:
-    git checkout -B ofc/s06-ops-types origin/ofc/s05-player-table
-    and open the S6 PR against main anyway; say in its description which open PRs it sits on.
+  S6 (branch ofc/s06-ops-types, PR #6) sits on S5 (ofc/s05-player-table, PR #5), which sits on S4 (ofc/s04-bundle-polling, PR #4).
+  If PRs #4, #5 and #6 are all merged:
+    git checkout -B ofc/s07-live-dashboard origin/main
+  If PR #6 is still open:
+    git checkout -B ofc/s07-live-dashboard origin/ofc/s06-ops-types
+    and open the S7 PR against main anyway; say in its description which open PRs it sits on.
   Check again before opening the PR: if PRs merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5). If origin/main has commits the open PRs lack, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6). If origin/main has commits the open PRs lack, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s05-player-table has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s06-ops-types has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S6 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S4 and S5 entries under "Decisions and deviations", every "Flagged, not fixed" item that names S6 (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
-- docs/audit/performance.md (the Deploy and Dead lines) for the evidence (refs are as of 10223be, which is 2c4f174 after the rewrite; S1 to S5 moved lines in server/, so re-find them with grep -n).
-- Dockerfile, docker-compose.yml, docker-compose.prod.yml, .github/workflows/, DEPLOYMENT.md, package.json scripts.
-- server/index.js (startup, listen, the warmup), server/db.js (the connection setup, backupHot / restoreHot, migrateGamePlayers, refreshPilotStats and its worker in server/statsWorker.js; read in sections, a hook blocks whole-file reads over 350 lines, use sed -n 'START,ENDp'), server/maintenance.js (the nightly schedule).
-- scripts/ and the files at the repo root, before deleting anything.
+- docs/ROADMAP.md, the S7 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S4 and S6 entries under "Decisions and deviations" (the dashboard spinner and GameList's tab choice; the types decision), every "Flagged, not fixed" item that names S7 (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
+- docs/audit/ux.md, the hard-coded numbers line and the top-20 list (refs are as of 10223be, which is 2c4f174 after the rewrite; the owner's ebe30dd reworked ColdStorage.tsx, so re-find every number with grep -n before touching it).
+- App.tsx (views, the dashboard, the shared poll from hooks/useServerBrowser.ts), components/Layout.tsx (nav), GameList.tsx, FightNightSection.tsx, LiveMatchCard.tsx, LiveGameDetail.tsx, GameDetail.tsx, MatchAnalysis.tsx, ServerStats.tsx, MapLibrary.tsx, ColdStorage.tsx, services/apiService.ts, types.ts.
+- server/lib/gameParse.js (winnerOf, outcomeOf, durationOf) and how the API exposes them; the match page must show the same result and duration the server counts.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
-- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so; if they move, testFixtures.js and server/lib/gameParse.test.js move with them.
-- server/lib/gameParse.js owns the game rules. The games(id, date, ip, details) table, the hot/cold split and game_players (one per file, maintained by every games writer, backfilled when a file's user_version is below 1) stay. Do not change the public API paths (see "Canonical contract").
-- Both connections run journal_mode=WAL, synchronous=NORMAL, busy_timeout=5000. A copy of a live database goes through SQLite's backup API (db.backupHot shows how), never a file copy. Backups of both files carry game_players and user_version with them.
-- refreshPilotStats is async and runs its pass in a worker_threads worker on read-only connections. A shutdown must not leave a worker holding the files.
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so.
+- types.ts is canonical contract: widen a type locally where a component reads a field it lacks (as LiveGameDetail and PilotsList do since S6) and flag the gap; do not edit types.ts without my say-so.
+- server/lib/gameParse.js owns the game rules. If the client needs a winner or a duration, get it from the server or from the same rule, not a third copy. Do not change the public API paths (add endpoints if needed).
+- `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts and pauses while the tab is hidden. Keep both.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
-- Do not add a router library, state library or ORM.
-- No production database exists locally. Server changes are proven with tests on fixture games or by running `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` and curling. Wait for `Startup sync complete` in the log before checking.
+- Do not add a router library, state library or ORM. Tailwind utility classes, functional React.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with `npx vite dev` (or a built dist) and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4 did; never use the claude-in-chrome tools.
 
 Rules for this session:
-- One PR, scope is the S6 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the backup schedule and rotation (where the files go, how a restore uses them), the healthcheck endpoint, and how far `tsc --noEmit` is made to pass (measure the error count with the React types installed before deciding).
+- One PR, scope is the S7 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for how the dashboard is ordered, where favorites live in localStorage (key and shape), where the match result and duration come from, and each hard-coded number you wire or remove.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S6 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S7 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S7.
+- Before ending: tick S7 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S8 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S8.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S5 left 6 files, 76 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 72.84 KB gzip) and `npx tsc --noEmit` (0 errors, JSX untyped), and record the results.
-Done when: every item in the S6 Done-when list is true, the image builds and its container runs as a non-root user with the healthcheck passing (`docker build` and `docker run` locally if Docker is available; say so if it is not), the CI workflow runs tsc, the vite build and vitest on the S6 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` (dev mode, no secrets needed) still serves `/api/stats/global`, `/api/stats/pilots` and `/api/pilot/:name/stats`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S6 left 9 files, 92 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 72.81 KB gzip) and `npx tsc --noEmit` (0 errors, JSX typed), and record the results.
+Done when: every item in the S7 Done-when list is true and seen in headless Chrome (dashboard order, Fight Night in the nav, the copy button's confirmation, a finished match's score or podium, winner, duration and result line, favorites surviving a reload), `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S7 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```
