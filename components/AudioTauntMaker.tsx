@@ -8,11 +8,10 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { useQueryParam } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
 
-type TauntTab = 'editor' | 'vault' | 'loadout' | 'manual';
+const TAUNT_TABS = ['editor', 'vault', 'loadout', 'manual'] as const;
 
 export const AudioTauntMaker: React.FC = () => {
-    const [tabParam, setActiveTab] = useQueryParam('tab', 'vault');
-    const activeTab = (['editor', 'vault', 'loadout', 'manual'].includes(tabParam) ? tabParam : 'vault') as TauntTab;
+    const [activeTab, setActiveTab] = useQueryParam('tab', 'vault', TAUNT_TABS);
     const [editorFile, setEditorFile] = useState<File | null>(null);
     const [pendingSlotAssignment, setPendingSlotAssignment] = useState<PendingSlotAssignment | null>(null);
     // The editor loads the 30 MB ffmpeg core on mount, so mount it the first time its

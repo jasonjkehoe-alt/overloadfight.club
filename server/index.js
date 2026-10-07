@@ -223,15 +223,15 @@ if ((isProduction || true) && fs.existsSync(path.join(distPath, 'index.html'))) 
         }
     }));
     // Every page is index.html with its own <title> and og: tags (server/pageMeta.js).
-    // The file changes only with a deploy, which restarts the server.
-    const indexHtml = fs.readFileSync(path.join(distPath, 'index.html'), 'utf8');
-    app.get('*', (req, res) => {
+    // Read per request (a 2 KB file), so a rebuild under a running server is picked up.
+    app.get('*', async (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
         }
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
+        const indexHtml = await fs.promises.readFile(path.join(distPath, 'index.html'), 'utf8');
         res.type('html').send(withPageMeta(indexHtml, `${req.protocol}://${req.get('host')}`, req.originalUrl));
     });
 } else {

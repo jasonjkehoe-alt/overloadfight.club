@@ -1,4 +1,4 @@
-import React, { useCallback, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 // The address bar is the app's navigation state. App.tsx picks the view from
 // the path, and components keep tabs and filters in the query string, so a
@@ -51,15 +51,18 @@ export function rowLink(url: string) {
 
 export const useUrl = () => useSyncExternalStore(subscribe, currentUrl);
 
-export const usePathname = () => useUrl().split('?')[0];
+// Its own snapshot, so a query-string change does not re-render App.
+export const usePathname = () => useSyncExternalStore(subscribe, () => window.location.pathname);
 
 // One query-string value. Setting it replaces the current entry rather than
 // adding one, so back leaves the page instead of undoing each filter; the
-// default value is left out of the URL.
-export function useQueryParam(key: string, fallback = ''): [string, (value: string) => void] {
+// default value is left out of the URL. With `allowed`, anything else in the
+// URL reads as the default.
+export function useQueryParam<T extends string = string>(key: string, fallback = '' as NoInfer<T>, allowed?: readonly T[]): [T, (value: T) => void] {
     const url = useUrl();
-    const value = new URLSearchParams(url.split('?')[1]).get(key) ?? fallback;
-    const setValue = useCallback((next: string) => {
+    const raw = new URLSearchParams(url.split('?')[1]).get(key);
+    const value = raw !== null && (!allowed || allowed.includes(raw as T)) ? raw as T : fallback;
+    const setValue = useCallback((next: T) => {
         const params = new URLSearchParams(window.location.search);
         if (next === fallback || next === '') params.delete(key);
         else params.set(key, next);
@@ -67,4 +70,28 @@ export function useQueryParam(key: string, fallback = ''): [string, (value: stri
         navigate(window.location.pathname + (query ? `?${query}` : ''), { replace: true });
     }, [key, fallback]);
     return [value, setValue];
+}
+
+// A query-string value typed into a box: the box follows every keystroke, the
+// URL catches up after a pause (browsers throttle rapid history writes), and a
+// URL change from elsewhere (a reset, a redirect) refills the box.
+export function useQueryText(key: string): [string, (value: string) => void] {
+    const [value, setValue] = useQueryParam(key);
+    const [text, setText] = useState(value);
+    const written = useRef(value);
+    useEffect(() => {
+        if (value !== written.current) {
+            written.current = value;
+            setText(value);
+        }
+    }, [value]);
+    useEffect(() => {
+        if (text === written.current) return;
+        const timer = setTimeout(() => {
+            written.current = text;
+            setValue(text);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [text, setValue]);
+    return [text, setText];
 }

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
 import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X } from 'lucide-react';
 import Link from './Link';
-import { useQueryParam, rowLink } from '../hooks/useLocation';
+import { useQueryParam, useQueryText, rowLink } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
 
 // The browser API also sends a player list, which types.ts does not declare.
@@ -35,9 +35,8 @@ interface PilotStats {
 
 const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) => {
     // The tab and the filters live in the URL: ?tab=online, ?q=, ?min=, ?active=1
-    const [tabParam, setActiveTab] = useQueryParam('tab', 'roster');
-    const activeTab = tabParam === 'online' ? 'online' : 'roster';
-    const [searchTerm, setSearchTerm] = useQueryParam('q');
+    const [activeTab, setActiveTab] = useQueryParam('tab', 'roster', ['roster', 'online'] as const);
+    const [searchTerm, setSearchTerm] = useQueryText('q');
     const [sortConfig, setSortConfig] = useState<{ key: keyof PilotStats; direction: 'asc' | 'desc' }>({ key: 'games', direction: 'desc' });
     const [activeParam, setActiveParam] = useQueryParam('active');
     const activeOnly = activeParam === '1';

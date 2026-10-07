@@ -13,7 +13,7 @@ import Link from './Link';
 import { useQueryParam } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
 
-const TABS = ['overview', 'deep-dive', 'damage', 'timeline', 'analysis'];
+const TABS = ['overview', 'deep-dive', 'damage', 'timeline', 'analysis'] as const;
 
 const teamColor = (team?: string | null) =>
     team === 'BLUE' ? 'text-blue-400' : team === 'ORANGE' ? 'text-orange-400' : 'text-white';
@@ -26,8 +26,7 @@ interface GameDetailProps {
 }
 
 const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
-    const [tabParam, setActiveTab] = useQueryParam('tab', 'overview');
-    const activeTab = TABS.includes(tabParam) ? tabParam : 'overview';
+    const [activeTab, setActiveTab] = useQueryParam('tab', 'overview', TABS);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(Math.abs(seconds) / 60);

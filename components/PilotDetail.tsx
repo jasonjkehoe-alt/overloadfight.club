@@ -124,8 +124,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     const [loading, setLoading] = useState(true);
     // ?mode= filters the stats and match list; ?weapons=defense picks the weapon tab
     const [selectedMode, setSelectedMode] = useQueryParam('mode', 'ALL');
-    const [weaponParam, setWeaponView] = useQueryParam('weapons', 'offense');
-    const weaponView = weaponParam === 'defense' ? 'defense' : 'offense';
+    const [weaponView, setWeaponView] = useQueryParam('weapons', 'offense', ['offense', 'defense'] as const);
 
     useEffect(() => {
         const loadData = async () => {

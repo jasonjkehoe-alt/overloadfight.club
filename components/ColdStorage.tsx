@@ -91,8 +91,7 @@ const ColdStorage: React.FC = () => {
     const [statsError, setStatsError] = useState(false);
 
     // Hall of Fame Category
-    const [hallParam, setHallCategory] = useQueryParam('hall', 'kills');
-    const hallCategory = (['kills', 'games', 'kd', 'damage', 'win_rate'].includes(hallParam) ? hallParam : 'kills') as 'kills' | 'games' | 'kd' | 'damage' | 'win_rate';
+    const [hallCategory, setHallCategory] = useQueryParam('hall', 'kills', ['kills', 'games', 'kd', 'damage', 'win_rate'] as const);
 
     // Archive Browser State
     const [games, setGames] = useState<any[]>([]);
@@ -958,7 +957,7 @@ const ColdStorage: React.FC = () => {
                                 <p className="text-gray-300 font-bold">No archived matches found matching criteria.</p>
                                 <p className="text-xs text-gray-600">Try adjusting your search terms or clearing the year filter.</p>
                                 <button
-                                    onClick={() => { setSearchInput(''); setSearch(''); setSelectedYear('ALL'); }}
+                                    onClick={() => { setSearchInput(''); setSearch(''); setSelectedYear('ALL'); setPage(1); }}
                                     className="text-xs text-blue-400 underline font-bold mt-2 inline-block"
                                 >
                                     Reset Filters

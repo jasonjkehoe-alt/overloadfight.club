@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
 import ActivityGraph from './ActivityGraph';
 import GlobalActivityChart from './GlobalActivityChart';
@@ -39,8 +39,7 @@ const loadFavorites = (): string[] => {
 
 const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initialArchivedGames, globalStats, startDate, showColdStorage, initialTab = 'servers', afterLive }) => {
     // ?tab=, ?idle=1 and ?q= (the submitted history search) keep the list's state in the URL
-    const [tabParam, setActiveTab] = useQueryParam('tab', initialTab);
-    const activeTab = tabParam === 'history' ? 'history' : 'servers';
+    const [activeTab, setActiveTab] = useQueryParam('tab', initialTab, ['servers', 'history'] as const);
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'activity', direction: 'desc' });
     const [favorites, setFavorites] = useState<string[]>(loadFavorites);
     const [idleParam, setIdleParam] = useQueryParam('idle');
@@ -73,6 +72,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     // ... (useEffect hooks unchanged)
 
     useEffect(() => {
+        // a search in the URL fills the list itself (below)
+        if (query) return;
         if (initialArchivedGames) {
             setHistoryGames(initialArchivedGames);
         } else if (!initialArchivedGames && !historyGames && !activeGames) {
@@ -115,19 +116,16 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     };
 
     // Run the search in the URL when the page opens with one, and whenever it changes.
-    const skipEmptyFirstSearch = useRef(true);
     useEffect(() => {
-        const first = skipEmptyFirstSearch.current;
-        skipEmptyFirstSearch.current = false;
-        if (first && !query) return;
-        runSearch(query);
+        if (query) runSearch(query);
     }, [query]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         const term = searchId.trim();
-        if (term === query) runSearch(term);
-        else setQuery(term);
+        // the effect runs a new search; an empty or repeated one runs here
+        if (!term || term === query) runSearch(term);
+        setQuery(term);
     };
 
     const toggleFavorite = (ip: string, e: React.MouseEvent) => {

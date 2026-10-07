@@ -7,10 +7,8 @@ import {
     ExternalLink, ChevronRight, Activity
 } from 'lucide-react';
 import Link from './Link';
-import { navigate, goBack, useUrl, useQueryParam } from '../hooks/useLocation';
+import { navigate, goBack, useUrl, useQueryParam, useQueryText } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
-
-type MapSort = 'popularity' | 'deadliest' | 'recent' | 'name' | 'downloads';
 
 interface MapLibraryProps {
     // From /maps/:name: the map whose popup is open
@@ -35,19 +33,18 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
     const [stockCount, setStockCount] = useState<number | null>(null);
 
     // Filter and Sort states, in the URL: ?q=, ?size=, ?origin=, ?sort=
-    const [search, setSearch] = useQueryParam('q');
+    const [search, setSearch] = useQueryText('q');
     const [filterSize, setFilterSize] = useQueryParam('size', 'all');
-    const [originParam, setFilterOrigin] = useQueryParam('origin', 'all');
-    const filterOrigin = originParam === 'stock' || originParam === 'custom' ? originParam : 'all';
-    const [sortParam, setSortBy] = useQueryParam('sort', 'popularity');
-    const sortBy = (['popularity', 'deadliest', 'recent', 'name', 'downloads'].includes(sortParam) ? sortParam : 'popularity') as MapSort;
+    const [filterOrigin, setFilterOrigin] = useQueryParam('origin', 'all', ['all', 'stock', 'custom'] as const);
+    const [sortBy, setSortBy] = useQueryParam('sort', 'popularity', ['popularity', 'deadliest', 'recent', 'name', 'downloads'] as const);
     // The popup's URL keeps the list's filters, so closing it or reloading shows the same list.
     const listQuery = useUrl().split('?')[1];
     const withListQuery = (path: string) => (listQuery ? `${path}?${listQuery}` : path);
     const dossierUrl = (name: string) => withListQuery(urlFor('maps', name));
     
-    // Tactical Dossier Modal State: the intel last fetched, with the map name it is for
-    const [intel, setIntel] = useState<{ name: string; data: MapIntelData | null } | null>(null);
+    // Tactical Dossier Modal State: the intel last fetched, with the map name it is
+    // for; missing when the server has no such map (a 404, not a failed request)
+    const [intel, setIntel] = useState<{ name: string; data: MapIntelData | null; missing: boolean } | null>(null);
     const intelData = mapName && intel?.name === mapName ? intel.data : null;
     const loadingIntel = !!mapName && intel?.name !== mapName;
 
@@ -122,27 +119,32 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
     const listedMap = mapName ? maps.find(m => m.name.toLowerCase() === mapName.toLowerCase()) : undefined;
     const selectedMapForIntel: MapData | null = listedMap ?? intelData;
 
+    // Ask by id once the list has loaded (the server reads an all-digit name as an id).
+    const intelKey = listedMap?.id ?? mapName;
     useEffect(() => {
-        if (!mapName) return;
+        if (!mapName || loading) return;
         let isCurrent = true;
-        fetch(`/api/maps/${encodeURIComponent(mapName)}/intel`)
-            .then(res => (res.ok ? res.json() : null))
+        fetch(`/api/maps/${encodeURIComponent(String(intelKey))}/intel`)
+            .then(async res => ({ data: res.ok ? await res.json() : null, missing: res.status === 404 }))
             .catch(err => {
                 console.error('Failed to load map intel:', err);
-                return null;
+                return { data: null, missing: false };
             })
-            .then(data => {
-                if (isCurrent) setIntel({ name: mapName, data });
+            .then(({ data, missing }) => {
+                if (isCurrent) setIntel({ name: mapName, data, missing });
             });
         return () => { isCurrent = false; };
-    }, [mapName]);
+    }, [mapName, intelKey, loading]);
 
-    // /maps/<text> that names no map (an old search link, a renamed map) becomes a search for it.
+    // /maps/<text> that names no map (an old search link, a renamed map) becomes
+    // a search for it, keeping the other filters.
+    const notAMap = !!mapName && !listedMap && intel?.name === mapName && intel.missing;
     useEffect(() => {
-        if (mapName && !loading && !loadingIntel && !selectedMapForIntel) {
-            navigate(`${urlFor('maps')}?q=${encodeURIComponent(mapName)}`, { replace: true });
-        }
-    }, [mapName, loading, loadingIntel, selectedMapForIntel]);
+        if (!notAMap) return;
+        const params = new URLSearchParams(listQuery);
+        params.set('q', mapName!);
+        navigate(`${urlFor('maps')}?${params}`, { replace: true });
+    }, [notAMap]);
 
     const handleCloseDossier = () => goBack(withListQuery(urlFor('maps')));
 
@@ -344,7 +346,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                     <select
                         className="bg-[#0a0a0c] border border-gray-800 text-gray-300 px-3 py-2.5 rounded-lg outline-none font-mono text-xs hover:border-gray-700 cursor-pointer"
                         value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as any)}
+                        onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                     >
                         <option value="popularity">Sort: Most Played (Matches)</option>
                         <option value="deadliest">Sort: Deadliest (Frags)</option>

@@ -4,11 +4,7 @@ import { useOverloadFs } from '../context/OverloadFsContext';
 import { PilotSettingsPanel } from './PilotSettingsPanel';
 import { ErrorBoundary } from './ErrorBoundary';
 
-interface PilotManagerProps {
-    onNavigate?: (view: string, param?: any) => void;
-}
-
-export const PilotManager: React.FC<PilotManagerProps> = ({ onNavigate }) => {
+export const PilotManager: React.FC = () => {
     const {
         isSupported,
         isServerNative,
