@@ -149,7 +149,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
 
                 {/* Team Synergy or Playstyles List */}
                 <div className="bg-surface-card border border-line p-4 rounded-card h-64 overflow-y-auto">
-                    <h3 className="text-white font-bold mb-4 text-sm uppercase">Player Badges</h3>
+                    <h3 className="text-white font-bold mb-4 text-sm uppercase">Pilot Badges</h3>
                     <div className="space-y-2">
                         {notableStyles.length === 0 ? (
                             <EmptyState compact title="No distinct playstyles detected." message="Everyone played balanced." />

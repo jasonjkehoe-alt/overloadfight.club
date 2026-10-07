@@ -43,7 +43,7 @@ export const FightNightSection: React.FC<FightNightSectionProps> = ({ date }) =>
                 card
                 icon={Flame}
                 title="No fight nights yet"
-                message="Check back after the next big one. When the arena erupts with heavy traffic and high frags, the official fight card will auto-generate here."
+                message="Check back after the next big one. When the servers fill up and the kills pile up, the official fight card will auto-generate here."
             />
         );
     }

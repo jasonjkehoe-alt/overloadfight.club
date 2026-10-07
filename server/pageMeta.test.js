@@ -61,7 +61,7 @@ describe('withPageMeta', () => {
     });
 
     it('describes a fight night from its saved card, and the latest card on /fight-night', () => {
-        const expected = `${recap.formattedDate}: ${recap.totalMatches} matches, ${recap.totalPilots} pilots, top fragger ${recap.topFragger.name} (${recap.topFragger.kills}).`;
+        const expected = `${recap.formattedDate}: ${recap.totalMatches} matches, ${recap.totalPilots} pilots, most kills ${recap.topFragger.name} (${recap.topFragger.kills}).`;
         const tags = tagsFor(`/fight-night/${day}`);
         expect(tags.title).toBe(`Fight Night ${day} | overloadfight.club`);
         expect(tags.description).toBe(expected);

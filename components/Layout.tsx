@@ -12,7 +12,7 @@ const NAV = [
   { view: 'pilots', label: 'Leaderboards' },
   { view: 'maps', label: 'Maps' },
   { view: 'taunts', label: 'Taunts' },
-  { view: 'pilot-manager', label: 'Pilot' },
+  { view: 'pilot-manager', label: 'Settings' },
   { view: 'olmod', label: 'OLMod' },
   { view: 'resources', label: 'Resources' },
   { view: 'cold-storage', label: 'Archive' }
@@ -77,7 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
                 <span className="text-white font-bold group-hover:text-brand transition-colors">{activePilotCount}</span>
                 <span className="text-gray-500 group-hover:text-gray-300 transition-colors">ACTIVE PILOTS</span>
               </Link>
-              <nav className="flex space-x-4">
+              <nav aria-label="Main" className="flex space-x-4">
                 {NAV.map(({ view, label }) => (
                   <Link
                     key={view}
@@ -95,6 +95,9 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
             <div className="xl:hidden flex items-center">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                aria-label="Menu"
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-menu"
                 className="text-gray-300 hover:text-white p-2"
               >
                 {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -105,7 +108,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
 
         {/* Mobile Menu Dropdown */}
         {isMobileMenuOpen && (
-          <div className="xl:hidden bg-surface-card border-b border-line">
+          <nav id="mobile-menu" aria-label="Main" className="xl:hidden bg-surface-card border-b border-line">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               {NAV.map(({ view, label }) => (
                 <Link
@@ -117,7 +120,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
                 </Link>
               ))}
             </div>
-          </div>
+          </nav>
         )}
       </header>
 

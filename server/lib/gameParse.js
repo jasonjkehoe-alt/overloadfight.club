@@ -26,6 +26,24 @@ export function netKills(player) {
     return Math.max(0, Number(player?.kills) || 0);
 }
 
+const round2 = n => Math.round(n * 100) / 100;
+
+// "Combat Ratio": (kills + 0.5 × assists) ÷ deaths, the kills alone with no
+// deaths, to two decimals. Kills are netKills() totals.
+export function combatRatio(kills, assists, deaths) {
+    return deaths > 0 ? round2((kills + assists * 0.5) / deaths) : kills;
+}
+
+// "Lethality": kills per minute of match time (durationOf() summed over the
+// pilot's matches, not the pilot's own time in them), to two decimals.
+export function lethality(kills, seconds) {
+    return seconds > 0 ? round2(kills / (seconds / 60)) : 0;
+}
+
+// The pages' tooltips for the two, so the words match the formulas above.
+export const COMBAT_RATIO_HINT = 'Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths, or Kills with no deaths. Assists count half.';
+export const LETHALITY_HINT = 'Lethality: Kills per minute of match time, counting the whole length of each match, not only the time the pilot was in it.';
+
 function secondsBetween(from, to) {
     if (!from || !to) return 0;
     const diff = (new Date(to).getTime() - new Date(from).getTime()) / 1000;

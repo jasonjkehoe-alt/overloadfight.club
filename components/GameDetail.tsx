@@ -9,7 +9,7 @@ import { EmptyState } from './States';
 import MatchReplay from './MatchReplay';
 import { getMapImage } from '../services/mapService';
 // The server's rules, so this page shows the result and length the stats count.
-import { winnerOf, durationOf, measuredDurationOf } from '../server/lib/gameParse.js';
+import { winnerOf, durationOf, measuredDurationOf, combatRatio, netKills, COMBAT_RATIO_HINT } from '../server/lib/gameParse.js';
 import { resultLine } from '../server/lib/matchResult.js';
 import Link from './Link';
 import { useQueryParam } from '../hooks/useLocation';
@@ -59,7 +59,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
             }
 
             const dpm = durationMinutes > 0 ? totalDamage / durationMinutes : null;
-            const kda = (p.kills + p.assists * 0.5) / Math.max(1, p.deaths);
+            const kda = combatRatio(netKills(p), p.assists, p.deaths);
 
             return {
                 ...p,
@@ -86,7 +86,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
         timelineEvents.sort((a, b) => a.time - b.time);
 
         return (
-            <div className="bg-surface-card border border-line rounded-card font-mono text-sm h-[600px] overflow-y-auto">
+            <div className="bg-surface-card border border-line rounded-card font-mono text-sm h-[600px] overflow-auto">
                 <table className="w-full text-left">
                     <thead className="bg-surface-raised text-gray-500 sticky top-0 z-10">
                         <tr>
@@ -241,13 +241,13 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
                             <table className="w-full text-left font-mono text-sm min-w-[800px]">
                                 <thead className="bg-surface-raised text-gray-400 text-xs uppercase font-bold">
                                     <tr>
-                                        <th className="p-4">Player</th>
+                                        <th className="p-4">Pilot</th>
                                         <th className="p-4 text-right">Kills</th>
                                         <th className="p-4 text-right">Assists</th>
                                         <th className="p-4 text-right">Deaths</th>
                                         <th className="p-4 text-right">Damage</th>
                                         <th className="p-4 text-right">DPM</th>
-                                        <th className="p-4 text-right cursor-help" title="Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths">KDA Ratio</th>
+                                        <th className="p-4 text-right cursor-help" title={COMBAT_RATIO_HINT}>Combat Ratio</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-line">
@@ -274,7 +274,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
                                              </td>
                                              <td className="p-4 text-right">
                                                  <div className="flex flex-col items-end">
-                                                     <span className="text-brand font-bold text-base">{p.kda.toFixed(3)}</span>
+                                                     <span className="text-brand font-bold text-base">{p.kda.toFixed(2)}</span>
                                                      <span className="text-2xs text-gray-500">
                                                          ({p.kills} K, {p.assists} A, {p.deaths} D)
                                                      </span>

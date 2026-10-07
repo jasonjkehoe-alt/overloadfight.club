@@ -131,28 +131,28 @@ const App: React.FC = () => {
       <Suspense fallback={<Loading />}>
       {currentView === 'dashboard' && (
         <div className="space-y-8">
-          <div className="bg-gradient-to-r from-surface-raised to-black p-8 rounded-card border border-line mb-8 flex justify-between items-end">
+          <div className="bg-gradient-to-r from-surface-raised to-black p-5 sm:p-8 rounded-card border border-line mb-8 flex justify-between items-end">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-1 brand-font">
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-1 brand-font">
                 overloadfight<span className="text-brand">.club</span>
               </h1>
               <p className="text-brand font-mono text-xs font-semibold uppercase tracking-wider mb-2">
                 First rule of Overload Fight Club: tell everyone.
               </p>
               <p className="text-gray-400 max-w-2xl text-xs font-mono">
-                Monitoring live server telemetry and historical combat logs (Last 365 Days).
+                Monitoring live server telemetry and match logs (Last 365 Days).
               </p>
             </div>
             <div className="text-xs font-mono text-gray-600 text-right hidden md:block">
               LAST UPDATE: <span className="text-gray-400">{lastRefreshed ? lastRefreshed.toLocaleTimeString() : '...'}</span>
               <br />
-              TOTAL GAMES TRACKED (365 Days): <span className="text-gray-400">{stats?.total_games || '...'}</span>
+              TOTAL MATCHES TRACKED (365 Days): <span className="text-gray-400">{stats?.total_games || '...'}</span>
             </div>
           </div>
 
           {/* Live first: wait for the first poll rather than flash "Connection Failed" */}
           {!browserSettled || (loading && archivedGames === null) ? (
-            <Loading label="Establishing uplink..." />
+            <Loading label="Connecting to servers..." />
           ) : (
             <GameList
               activeGames={activeGames}
@@ -168,8 +168,8 @@ const App: React.FC = () => {
 
       {currentView === 'fight-night' && (
         <div className="space-y-8">
-          <div className="bg-gradient-to-r from-surface-raised to-black p-8 rounded-card border border-line mb-8">
-            <h1 className="text-4xl font-bold text-white mb-1 brand-font">Fight Night Recaps</h1>
+          <div className="bg-gradient-to-r from-surface-raised to-black p-5 sm:p-8 rounded-card border border-line mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-1 brand-font">Fight Night Recaps</h1>
             <p className="text-brand font-mono text-xs font-semibold uppercase tracking-wider mb-2">
               First rule of Overload Fight Club: tell everyone.
             </p>
@@ -183,10 +183,10 @@ const App: React.FC = () => {
 
       {currentView === 'history' && (
         <div className="space-y-8">
-          <div className="bg-gradient-to-r from-surface-raised to-black p-8 rounded-card border border-line mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2 brand-font">Historical Archive</h1>
+          <div className="bg-gradient-to-r from-surface-raised to-black p-5 sm:p-8 rounded-card border border-line mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 brand-font">Match History</h1>
             <p className="text-gray-400 max-w-2xl text-sm font-mono">
-              Full access to the complete game history database.
+              Every match from the last 365 days.
             </p>
           </div>
           <GameList
@@ -215,7 +215,7 @@ const App: React.FC = () => {
         ) : gameDetailError ? (
           <ErrorState
             title="Combat telemetry unavailable"
-            message={`Could not retrieve match details for log #${selectedGameId}. The upstream telemetry provider (tracker.otl.gg) may be offline or experiencing connection timeouts.`}
+            message={`Could not retrieve match details for match #${selectedGameId}. The upstream telemetry provider (tracker.otl.gg) may be offline or experiencing connection timeouts.`}
             action={
               <button onClick={() => goBack(urlFor('history'))} className={secondaryButtonClass}>
                 Back
@@ -228,7 +228,7 @@ const App: React.FC = () => {
             retryLabel="Retry Telemetry"
           />
         ) : (
-          <Loading label={`Retrieving combat log #${selectedGameId}...`} />
+          <Loading label={`Loading match #${selectedGameId}...`} />
         )
       )}
 

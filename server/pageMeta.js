@@ -34,7 +34,7 @@ function matchMeta(id) {
 function fightNightMeta(date) {
     const recap = date ? db.getFightNightRecapByDate(date) : db.getFightNightRecaps(1)[0];
     if (!recap) return {};
-    const top = recap.topFragger?.name ? `, top fragger ${recap.topFragger.name} (${count(recap.topFragger.kills)})` : '';
+    const top = recap.topFragger?.name ? `, most kills ${recap.topFragger.name} (${count(recap.topFragger.kills)})` : '';
     return { description: `${recap.formattedDate}: ${count(recap.totalMatches)} matches, ${count(recap.totalPilots)} pilots${top}.` };
 }
 

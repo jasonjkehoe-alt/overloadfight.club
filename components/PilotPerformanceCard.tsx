@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, Crosshair, TrendingUp, Users, Target, Zap, Info } from 'lucide-react';
+import { LETHALITY_HINT } from '../server/lib/gameParse.js';
 
 interface PPIStats {
     akdr: number;
@@ -89,7 +90,7 @@ const PilotPerformanceCard = ({ pilotName }: { pilotName: string }) => {
                     label="Combat Impact (ACI)"
                     value={stats.aci !== undefined ? (stats.aci > 0 ? `+${stats.aci.toFixed(2)}` : stats.aci.toFixed(2)) : stats.tce.toFixed(1)}
                     unit="/ match"
-                    tooltip="Average Combat Impact (ACI): (Kills + 0.5*Assists - Deaths) / Matches. Normalizes net combat contribution per match without favoring total games played."
+                    tooltip="Average Combat Impact (ACI): (Kills + 0.5*Assists - Deaths) / Matches. Normalizes net combat contribution per match without favoring total matches played."
                     color="text-cyan-400"
                 />
 
@@ -98,7 +99,7 @@ const PilotPerformanceCard = ({ pilotName }: { pilotName: string }) => {
                     label="Lethality"
                     value={stats.kpm.toFixed(2)}
                     unit="KPM"
-                    tooltip="Per-minute rates use total match duration, not your individual time in-game."
+                    tooltip={LETHALITY_HINT}
                     color="text-white"
                 />
 

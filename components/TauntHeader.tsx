@@ -28,7 +28,7 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
 
     return (
         <header className="border-b border-gray-800 bg-[#0d0d0f]/90 backdrop-blur-md sticky top-16 z-30 font-mono rounded-t-xl mb-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 py-2 flex flex-wrap items-center justify-between gap-2">
                 {/* Logo & Brand */}
                 <div className="flex items-center space-x-3">
                     <div className="w-9 h-9 rounded-xl bg-[#ff6600]/10 border border-[#ff6600]/40 flex items-center justify-center text-[#ff6600] shadow-[0_0_15px_rgba(255,102,0,0.2)]">
@@ -45,7 +45,7 @@ export const TauntHeader: React.FC<TauntHeaderProps> = ({ activeTab, onSelectTab
                 </div>
 
                 {/* Navigation Tabs */}
-                <nav className="flex items-center space-x-1 sm:space-x-2 bg-black/60 p-1 rounded-xl border border-gray-800 text-xs">
+                <nav className="flex items-center space-x-1 sm:space-x-2 bg-black/60 p-1 rounded-xl border border-gray-800 text-xs max-w-full overflow-x-auto">
                     <button
                         onClick={() => onSelectTab('editor')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${

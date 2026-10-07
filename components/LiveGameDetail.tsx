@@ -46,11 +46,11 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     setLastUpdated(new Date());
                     setError(null);
                 } else {
-                    throw new Error("No game data");
+                    throw new Error("No match data");
                 }
             } catch (err) {
                 // If live game fails, just generic error - we removed health check probing
-                setError('Server unreachable or game not found.');
+                setError('Server unreachable or match not found.');
             } finally {
                 setLoading(false);
             }
@@ -78,6 +78,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     <div className="flex items-center gap-4">
                         <button
                             onClick={onBack}
+                            aria-label="Back"
                             className="p-2 hover:bg-white/5 rounded-control transition-colors text-gray-400 hover:text-white"
                         >
                             <ArrowLeft className="w-5 h-5" />
@@ -105,10 +106,10 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                             Server Health History
                         </h3>
                         <p className="text-gray-400 text-sm mb-6">
-                            This server is currently not hosting a game. Below is the recent reachability and latency history.
+                            This server is currently not hosting a match. Below is the recent reachability and latency history.
                         </p>
                         <p className="text-gray-400 text-sm mb-6">
-                            This server is currently not hosting a game.
+                            This server is currently not hosting a match.
                         </p>
                     </div>
                 </div>
@@ -119,9 +120,9 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
     if (error || !game) {
         return (
             <ErrorState
-                title="Unable to load game"
+                title="Unable to load match"
                 message={<>
-                    <p>{error || "Game not found"}</p>
+                    <p>{error || "Match not found"}</p>
                     {ip && <div className="flex justify-center mt-4"><JoinIp ip={ip} /></div>}
                 </>}
                 action={
@@ -143,17 +144,18 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
                     <button
                         onClick={onBack}
+                        aria-label="Back"
                         className="p-2 hover:bg-white/5 rounded-control transition-colors text-gray-400 hover:text-white"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <div>
+                    <div className="min-w-0">
                         <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-white tracking-tight">
+                            <h1 className="text-2xl font-bold text-white tracking-tight break-words">
                                 {game.server?.name || game.ip}
                             </h1>
                             <span className="px-2 py-0.5 rounded-control text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 animate-pulse">
@@ -172,7 +174,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     </div>
                 </div>
 
-                <div className="flex items-center gap-6 bg-surface-card px-6 py-3 rounded-card border border-line backdrop-blur-sm">
+                <div className="flex items-center justify-center gap-6 bg-surface-card px-6 py-3 rounded-card border border-line backdrop-blur-sm">
                     <div className="text-center">
                         <div className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-0.5">Time Remaining</div>
                         <div className="text-xl font-mono font-bold text-white tabular-nums flex items-center justify-center gap-2">
@@ -182,7 +184,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="text-center">
-                        <div className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-0.5">Players</div>
+                        <div className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-0.5">Pilots</div>
                         <div className="text-xl font-bold text-white tabular-nums flex items-center justify-center gap-2">
                             <Users className="w-4 h-4 text-blue-400" />
                             {game.players?.length || 0} / {game.settings?.maxPlayers || 16}
@@ -192,11 +194,11 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
             </div>
 
             {/* Scoreboard */}
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
                 {/* Main Scoreboard */}
                 <div className="lg:col-span-2 space-y-4">
                     <div className="bg-surface-card rounded-card border border-line overflow-hidden backdrop-blur-sm">
-                        <div className="px-6 py-4 border-b border-line flex items-center justify-between bg-surface-raised">
+                        <div className="px-4 sm:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2 bg-surface-raised">
                             <h3 className="font-semibold text-white flex items-center gap-2">
                                 <Trophy className="w-4 h-4 text-yellow-500" />
                                 Live Standings
@@ -210,9 +212,9 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                             {game.players?.sort((a, b) => (b.kills || 0) - (a.kills || 0)).map((player, index) => (
                                 <div
                                     key={player.name}
-                                    className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors group"
+                                    className="px-4 sm:px-6 py-4 flex items-center justify-between gap-3 hover:bg-white/5 transition-colors group"
                                 >
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                                         <div className={`
                       w-8 h-8 rounded-card flex items-center justify-center font-bold text-sm
                       ${index === 0 ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
@@ -222,10 +224,10 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     `}>
                                             {index + 1}
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <Link
                                                 to={urlFor('pilot', player.name)}
-                                                className="font-medium text-white hover:text-brand hover:underline transition-colors text-left"
+                                                className="font-medium text-white hover:text-brand hover:underline transition-colors text-left break-all"
                                                 title={`View ${player.name}'s pilot dossier`}
                                             >
                                                 {player.name}
@@ -241,16 +243,16 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-8 text-sm">
-                                        <div className="text-center w-16">
+                                    <div className="flex items-center gap-2 sm:gap-8 text-sm shrink-0">
+                                        <div className="text-center w-12 sm:w-16">
                                             <div className="text-gray-500 text-xs uppercase mb-0.5">Kills</div>
                                             <div className="font-bold text-white text-lg">{player.kills}</div>
                                         </div>
-                                        <div className="text-center w-16">
+                                        <div className="text-center w-12 sm:w-16">
                                             <div className="text-gray-500 text-xs uppercase mb-0.5">Deaths</div>
                                             <div className="font-bold text-gray-400 text-lg">{player.deaths}</div>
                                         </div>
-                                        <div className="text-center w-16">
+                                        <div className="text-center w-12 sm:w-16">
                                             <div className="text-gray-500 text-xs uppercase mb-0.5">Assists</div>
                                             <div className="font-bold text-gray-400 text-lg">{player.assists}</div>
                                         </div>
@@ -259,7 +261,7 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                             ))}
 
                             {(!game.players || game.players.length === 0) && (
-                                <EmptyState icon={Users} title="No players currently connected" />
+                                <EmptyState icon={Users} title="No pilots currently connected" />
                             )}
                         </div>
                     </div>

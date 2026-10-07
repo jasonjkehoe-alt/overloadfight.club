@@ -60,7 +60,7 @@ const Analysis: React.FC<AnalysisProps> = ({ game }) => {
       
       {!analysis && !loading && (
           <p className="text-gray-500 text-sm">
-              Click the button above to use Google Gemini AI to analyze the kill feed, damage matrix, and player performance to generate a post-match summary.
+              Click the button above to use Google Gemini AI to analyze the kill feed, damage matrix, and pilot performance to generate a post-match summary.
           </p>
       )}
     </div>

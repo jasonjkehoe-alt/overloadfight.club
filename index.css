@@ -1,6 +1,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Variant classes (hover:, focus:) here rather than at the end of the file, so
+   the focus and tap rules below can override focus:outline-none. */
+@tailwind variants;
 
 @layer base {
     body {
@@ -25,4 +28,46 @@
     ::-webkit-scrollbar-thumb:hover {
         background: theme('colors.brand.hover');
     }
+}
+
+/* Keyboard focus: one brand ring on whatever has it, controls and the
+   scrolling boxes Chrome lets Tab reach. As specific as Tailwind's
+   focus:outline-none (which inputs use for their border cue) and later in the
+   file, so it wins there too. Elements focused only by script
+   (tabindex="-1", such as a dialog panel) get none. */
+:focus-visible:not([tabindex="-1"]) {
+    outline: 2px solid theme('colors.brand.DEFAULT');
+    outline-offset: 2px;
+}
+[tabindex="-1"]:focus {
+    outline: none;
+}
+
+/* Tap feedback: hover never fires on a touch screen, so every tap target dims
+   while it is pressed. */
+:where(a[href], button:not(:disabled), summary, select, label[for]):active {
+    opacity: 0.7;
+}
+
+/* A card whose title link covers the whole card. The card is `relative`; its
+   other buttons and links sit above the cover with `relative z-10`. The ring
+   and the press show on the cover, so they outline the card. Not for table
+   rows: Safari does not position against a <tr>. */
+.stretched-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+}
+.stretched-link:focus-visible {
+    outline: none;
+}
+.stretched-link:focus-visible::after {
+    outline: 2px solid theme('colors.brand.DEFAULT');
+    outline-offset: 2px;
+}
+.stretched-link:active {
+    opacity: 1;
+}
+.stretched-link:active::after {
+    background-color: theme('colors.brand.DEFAULT / 10%');
 }

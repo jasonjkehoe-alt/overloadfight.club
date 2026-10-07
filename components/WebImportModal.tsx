@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { FFmpegService } from '../utils/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
+import { useDialog } from '../hooks/useDialog';
 
 const YouTubeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -79,6 +80,7 @@ const ARCHIVE_PRESETS = [
 ];
 
 export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose, onAudioReady }) => {
+    const dialog = useDialog(isOpen, onClose);
     const [activeTab, setActiveTab] = useState<TabType>('youtube');
 
     // 1. YouTube state
@@ -537,7 +539,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
 
     return (
         <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 font-mono ${isOpen ? 'block' : 'hidden'}`}>
-            <div className="bg-[#141414] border border-[#ff6600]/40 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+            <div {...dialog.props} className="bg-[#141414] border border-[#ff6600]/40 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-black/80 to-[#1a0e05]/80">
                     <div className="flex items-center gap-3">
@@ -545,7 +547,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
                             <Globe className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white brand-font tracking-tight flex items-center gap-2">
+                            <h2 id={dialog.titleId} className="text-xl font-bold text-white brand-font tracking-tight flex items-center gap-2">
                                 IMPORT AUDIO FROM WEB & MEDIA
                                 <span className="px-2 py-0.5 text-[9px] uppercase font-bold tracking-widest bg-[#ff6600]/10 border border-[#ff6600]/40 text-[#ff6600] rounded">
                                     Universal Grabber
@@ -558,6 +560,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label="Close"
                         className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
                     >
                         <X className="w-5 h-5" />

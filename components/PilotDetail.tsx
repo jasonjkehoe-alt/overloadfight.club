@@ -4,9 +4,10 @@ import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink,
 import PilotPerformanceCard from './PilotPerformanceCard';
 import { colors } from '../designTokens.js';
 import { Loading, EmptyState, ErrorState } from './States';
-import Link from './Link';
-import { useQueryParam, rowLink } from '../hooks/useLocation';
+import Link, { LinkCell } from './Link';
+import { useQueryParam } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
+import { combatRatio, COMBAT_RATIO_HINT, LETHALITY_HINT } from '../server/lib/gameParse.js';
 
 interface PilotStats {
     games: number;
@@ -176,7 +177,10 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
 
     // Real Stats Only - No "Fluff"
     const pureKd = stats?.pure_kd !== undefined ? stats.pure_kd : (stats ? stats.kills / Math.max(1, stats.deaths) : 0);
-    const kda = stats?.kda !== undefined ? stats.kda : (stats ? (stats.kills + stats.assists * 0.5) / Math.max(1, stats.deaths) : 0);
+    const kda = stats?.kda !== undefined ? stats.kda : (stats ? combatRatio(stats.kills, stats.assists, stats.deaths) : 0);
+    // Career numbers, the ones the leaderboard shows
+    const careerKd = stats?.career_kd ?? pureKd;
+    const careerKda = stats?.career_kda ?? kda;
     const eff = stats ? stats.kills / Math.max(1, stats.games) : 0; // Kills per game
     const survival = stats ? stats.deaths / Math.max(1, stats.games) : 0; // Deaths per game
     const lastActiveDate = stats ? new Date(stats.last_seen).toLocaleDateString() : 'Unknown';
@@ -280,19 +284,17 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                 )}
                                 <div
                                     className="bg-surface-card p-3 rounded-card border border-line flex justify-between items-center cursor-help"
-                                    title="Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths. Assists receive a 0.5 weighting to reflect combat contribution without inflating scores."
+                                    title={COMBAT_RATIO_HINT}
                                 >
                                     <div>
                                         <span className="text-gray-500 text-xs uppercase block">Combat Ratio</span>
-                                        {stats.career_kd !== undefined && stats.career_games && stats.career_games > stats.games && (
-                                            <span className="text-2xs text-gray-500 font-mono">Recent: {pureKd.toFixed(2)}</span>
+                                        {stats.career_kda !== undefined && stats.career_games && stats.career_games > stats.games && (
+                                            <span className="text-2xs text-gray-500 font-mono">Recent: {kda.toFixed(2)}</span>
                                         )}
                                     </div>
                                     <div className="text-right">
-                                        <span className="text-lg font-bold text-brand">
-                                            {(stats.career_kd ?? pureKd).toFixed(2)} <span className="text-xs text-gray-500 font-normal">K/D</span>
-                                        </span>
-                                        <div className="text-2xs font-mono text-gray-400">{(stats.career_kda ?? kda).toFixed(2)} KDA</div>
+                                        <span className="text-lg font-bold text-brand">{careerKda.toFixed(2)}</span>
+                                        <div className="text-2xs font-mono text-gray-400">{careerKd.toFixed(2)} K/D</div>
                                     </div>
                                 </div>
                                 <div className="bg-surface-card p-3 rounded-card border border-line flex justify-between items-center">
@@ -313,7 +315,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                 </div>
                                 <div
                                     className="bg-surface-card p-3 rounded-card border border-line flex justify-between items-center cursor-help"
-                                    title="The game subtracts 1 frag per suicide (game rule); tracked separately here."
+                                    title="The game subtracts 1 kill per suicide (game rule); tracked separately here."
                                 >
                                     <div>
                                         <span className="text-gray-500 text-xs uppercase block">Suicides</span>
@@ -497,7 +499,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                     <StatCard icon={<Skull size={16} />} label="Efficiency" value={eff.toFixed(1)} sub="Kills/Match" />
                                     <StatCard icon={<Shield size={16} />} label="Survival" value={survival.toFixed(1)} sub="Deaths/Match" />
                                     <StatCard icon={<Zap size={16} />} label="Damage Rate" value={stats.dpm ? `${stats.dpm}` : "N/A"} sub="Damage / Min" tooltip="Per-minute rates use total match duration, not your individual time in-game." />
-                                    <StatCard icon={<Crosshair size={16} />} label="Lethality" value={stats.kpm ? `${stats.kpm}` : "N/A"} sub="Kills / Min" tooltip="Per-minute rates use total match duration, not your individual time in-game." />
+                                    <StatCard icon={<Crosshair size={16} />} label="Lethality" value={stats.kpm ? `${stats.kpm}` : "N/A"} sub={`Kills / Min, ${stats.scope === 'all' ? 'all time' : 'last 365 days'}, ${selectedMode === 'ALL' ? 'all modes' : selectedMode}`} tooltip={`${LETHALITY_HINT} This card counts the matches on this page (its time span and mode); the Lethality card at the top is the whole career.`} />
                                     <StatCard icon={<Shield size={16} />} label="Dmg / Death" value={stats.damage_taken_per_death ? `${stats.damage_taken_per_death.toLocaleString()}` : "N/A"} sub="Punishment Absorbed" tooltip="Damage Taken ÷ Deaths. How much punishment the pilot absorbs before dying." />
                                     <StatCard
                                         icon={<Flame size={16} />}
@@ -556,7 +558,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                                 <Swords size={16} className="text-brand" />
                                                 Frequent Adversaries & Combat Rivalries
                                             </span>
-                                            <span className="text-2xs text-gray-600 font-normal">HISTORICAL ENCOUNTERS</span>
+                                            <span className="text-2xs text-gray-600 font-normal">PAST ENCOUNTERS</span>
                                         </h3>
 
                                         {/* Tale of the Tape Boxing Card */}
@@ -575,7 +577,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                                         </div>
                                                     </div>
                                                     <span className="text-xs bg-black text-brand border border-brand/40 px-2.5 py-1 rounded-control font-bold uppercase tracking-wider">
-                                                        {activeRival.encounters} {activeRival.encounters === 1 ? 'Bout' : 'Bouts'} Logged
+                                                        {activeRival.encounters} {activeRival.encounters === 1 ? 'Match' : 'Matches'} Logged
                                                     </span>
                                                 </div>
 
@@ -602,8 +604,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
 
                                                 {/* Metric Rows */}
                                                 <div className="space-y-2 mb-4">
-                                                    {renderTapeRow('Kill / Death (KD)', pureKd, activeRival.kd ?? activeRival.their_kd ?? 1.0)}
-                                                    {renderTapeRow('Combat Ratio (KDA)', kda, activeRival.kda ?? activeRival.kd ?? 1.0)}
+                                                    {renderTapeRow('Kill / Death (KD)', careerKd, activeRival.kd ?? activeRival.their_kd ?? 1.0)}
+                                                    {renderTapeRow('Combat Ratio', careerKda, activeRival.kda ?? activeRival.kd ?? 1.0)}
                                                     {renderTapeRow('Win Rate', stats?.win_rate ?? stats?.career_win_rate ?? 0, activeRival.win_rate ?? 0, (v) => `${v.toFixed(1)}%`)}
                                                     {renderTapeRow('Flight Hours', stats?.flight_hours ?? stats?.career_flight_hours ?? 0, activeRival.flight_hours ?? 0, (v) => `${v.toFixed(1)}h`)}
                                                     {renderTapeRow('Threat Centrality', pilotPpi?.threat_centrality ?? 0, activeRival.threat_centrality ?? 0, (v) => v.toFixed(0))}
@@ -619,7 +621,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                                         </strong>
                                                     </span>
                                                     <span className="text-gray-400">
-                                                        Direct Frags Exchanged:{' '}
+                                                        Direct Kills Exchanged:{' '}
                                                         <strong className={(activeRival.your_kills ?? 0) >= (activeRival.their_kills ?? 0) ? 'text-brand' : 'text-gray-300'}>
                                                             {activeRival.your_kills ?? 0} K
                                                         </strong>{' '}
@@ -642,8 +644,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                                 return (
                                                     <div
                                                         key={rival.name}
-                                                        onClick={() => setSelectedRivalName(rival.name)}
-                                                        className={`bg-surface-card border p-4 rounded-card transition-all group relative overflow-hidden cursor-pointer ${
+                                                        className={`bg-surface-card border p-4 rounded-card transition-all group relative overflow-hidden ${
                                                             isSelected
                                                                 ? 'border-brand ring-1 ring-brand/50 bg-brand/5'
                                                                 : 'border-line hover:border-gray-700'
@@ -651,16 +652,20 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                                     >
                                                         <div className="flex justify-between items-start mb-2">
                                                             <div className="flex items-center gap-1.5 truncate max-w-[160px]">
-                                                                <span className="font-bold text-white group-hover:text-brand transition-colors truncate">
+                                                                <button
+                                                                    onClick={() => setSelectedRivalName(rival.name)}
+                                                                    aria-pressed={isSelected}
+                                                                    className="stretched-link font-bold text-white group-hover:text-brand transition-colors truncate"
+                                                                >
                                                                     {rival.name}
-                                                                </span>
+                                                                </button>
                                                                 <Link
                                                                     to={urlFor('pilot', rival.name)}
-                                                                    onClick={(e) => e.stopPropagation()}
                                                                     title={`View ${rival.name}'s dossier`}
-                                                                    className="text-gray-500 hover:text-white shrink-0"
+                                                                    aria-label={`Open ${rival.name}'s page`}
+                                                                    className="relative z-10 text-gray-500 hover:text-white shrink-0"
                                                                 >
-                                                                    <ExternalLink size={12} />
+                                                                    <ExternalLink size={12} aria-hidden />
                                                                 </Link>
                                                             </div>
                                                             <span className={`text-2xs font-mono px-2 py-0.5 rounded-control border ${
@@ -702,15 +707,15 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                     <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-line pb-2 flex items-center justify-between">
                                         <span className="flex items-center gap-2">
                                             <MapIcon size={16} className="text-cyan-400" />
-                                            Theater of Operations (Map Combat Breakdown)
+                                            Map Breakdown
                                         </span>
-                                        <span className="text-2xs text-gray-600 font-normal">TOP ENGAGEMENTS</span>
+                                        <span className="text-2xs text-gray-600 font-normal">TOP MAPS</span>
                                     </h3>
-                                    <div className="bg-surface-page border border-line rounded-card overflow-hidden">
+                                    <div className="bg-surface-page border border-line rounded-card overflow-x-auto">
                                         <table className="w-full text-left text-sm font-mono">
                                             <thead className="bg-surface-card text-gray-500 text-xs uppercase">
                                                 <tr>
-                                                    <th className="p-3">Sector / Map</th>
+                                                    <th className="p-3">Map</th>
                                                     <th className="p-3 text-center">Matches</th>
                                                     <th className="p-3 text-center">Kills</th>
                                                     <th className="p-3 text-center">Deaths</th>
@@ -743,15 +748,15 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                             {/* Match History Table */}
                             <div>
                                 <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-line pb-2 flex items-center justify-between">
-                                    <span>Recent Bouts</span>
-                                    <span className="text-2xs text-gray-600 font-normal">BOUT ARCHIVE</span>
+                                    <span>Recent Matches</span>
+                                    <span className="text-2xs text-gray-600 font-normal">MATCH HISTORY</span>
                                 </h3>
-                                <div className="bg-surface-page border border-line rounded-card overflow-hidden">
+                                <div className="bg-surface-page border border-line rounded-card overflow-x-auto">
                                     <table className="w-full text-left text-sm font-mono">
                                         <thead className="bg-surface-card text-gray-500 text-xs uppercase">
                                             <tr>
                                                 <th className="p-4">Date</th>
-                                                <th className="p-4">Mission Info</th>
+                                                <th className="p-4">Map / Mode</th>
                                                 <th className="p-4 text-center">Outcome</th>
                                                 <th className="p-4 text-right">K / A / D</th>
                                             </tr>
@@ -762,29 +767,26 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                                 if (!pStats) return null;
 
                                                 const isGoodGame = pStats.kills >= pStats.deaths;
+                                                const url = urlFor('game-detail', game.id);
 
                                                 return (
-                                                    <tr
-                                                        key={game.id}
-                                                        className="hover:bg-surface-card transition-colors cursor-pointer group"
-                                                        {...rowLink(urlFor('game-detail', game.id))}
-                                                    >
-                                                        <td className="p-4 text-gray-500">
+                                                    <tr key={game.id} className="hover:bg-surface-card transition-colors group">
+                                                        <LinkCell to={url} className="p-4 text-gray-500">
                                                             {new Date(game.date || '').toLocaleDateString()}
                                                             <div className="text-2xs text-gray-700">{new Date(game.date || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <Link to={urlFor('game-detail', game.id)} className="block text-white font-bold group-hover:text-brand transition-colors">{game.settings?.level}</Link>
-                                                            <div className="text-2xs text-gray-600">{game.settings?.matchMode}</div>
-                                                        </td>
-                                                        <td className="p-4 text-center">
+                                                        </LinkCell>
+                                                        <LinkCell main to={url} className="p-4">
+                                                            <span className="block text-white font-bold group-hover:text-brand transition-colors">{game.settings?.level}</span>
+                                                            <span className="block text-2xs text-gray-600">{game.settings?.matchMode}</span>
+                                                        </LinkCell>
+                                                        <LinkCell to={url} className="p-4 text-center">
                                                             <span className={`text-xs px-2 py-1 rounded-control border ${isGoodGame ? 'border-green-900/50 text-green-500' : 'border-red-900/50 text-red-500'}`}>
                                                                 {isGoodGame ? 'POSITIVE' : 'NEGATIVE'}
                                                             </span>
-                                                        </td>
-                                                        <td className="p-4 text-right">
+                                                        </LinkCell>
+                                                        <LinkCell to={url} className="p-4 text-right">
                                                             <div className="font-bold text-white text-lg">{pStats.kills} <span className="text-gray-600 text-sm font-normal">/ {pStats.assists} / {pStats.deaths}</span></div>
-                                                        </td>
+                                                        </LinkCell>
                                                     </tr>
                                                 );
                                             })}

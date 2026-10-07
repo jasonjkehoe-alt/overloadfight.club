@@ -34,7 +34,7 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                     <div className="flex items-center gap-3 bg-black/60 border border-gray-800 px-4 py-2 rounded-lg text-xs">
                         <div className="text-center">
                             <div className="text-[#ff6600] font-black text-base leading-none">{recap.totalMatches}</div>
-                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Bouts</div>
+                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Matches</div>
                         </div>
                         <div className="h-6 w-px bg-gray-800" />
                         <div className="text-center">
@@ -44,7 +44,7 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                         <div className="h-6 w-px bg-gray-800" />
                         <div className="text-center">
                             <div className="text-yellow-400 font-black text-base leading-none">{recap.totalFrags.toLocaleString()}</div>
-                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Total Frags</div>
+                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Total Kills</div>
                         </div>
                     </div>
                 </div>
@@ -53,7 +53,7 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                 <div className="mt-3 pt-3 border-t border-gray-800/80 flex flex-wrap items-center gap-4 text-xs text-gray-400">
                     <div className="flex items-center gap-1.5">
                         <Award size={13} className="text-yellow-400" />
-                        <span>Top Fragger:</span>
+                        <span>Most Kills:</span>
                         <Link
                             to={urlFor('pilot', recap.topFragger.name)}
                             className="font-bold text-white hover:text-[#ff6600] underline decoration-[#ff6600]/40 transition-colors"
@@ -71,7 +71,7 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                         >
                             {recap.mostActivePilot.name}
                         </Link>
-                        <span className="text-gray-500">({recap.mostActivePilot.matches} Bouts)</span>
+                        <span className="text-gray-500">({recap.mostActivePilot.matches} Matches)</span>
                     </div>
                 </div>
             </div>
@@ -110,7 +110,7 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                                 <Users size={12} className="text-[#ff6600]" /> {recap.headlineBout.pilotCount} Pilots in Ring
                             </span>
                             <span className="flex items-center gap-1">
-                                <Crosshair size={12} className="text-yellow-400" /> {recap.headlineBout.totalFrags} Frags
+                                <Crosshair size={12} className="text-yellow-400" /> {recap.headlineBout.totalFrags} Kills
                             </span>
                             <span className="text-gray-500">
                                 Match Victor / MVP:{' '}
@@ -189,7 +189,7 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                             </div>
                             <div className="mt-2.5 pt-2 border-t border-gray-800/80 flex items-center justify-between text-[11px]">
                                 <span className="text-gray-400">
-                                    Margin: <strong className="text-red-400 font-mono">+{recap.biggestBlowout.differential} Frags</strong>
+                                    Margin: <strong className="text-red-400 font-mono">+{recap.biggestBlowout.differential} Kills</strong>
                                 </span>
                                 <span className="text-gray-500 font-mono">{recap.biggestBlowout.score}</span>
                             </div>
@@ -219,7 +219,7 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                                 <span className="text-gray-400">
                                     Margin:{' '}
                                     <strong className="text-emerald-400 font-mono">
-                                        {recap.closestFinish.margin === 0 ? 'Dead Draw (0)' : `${recap.closestFinish.margin} Frag`}
+                                        {recap.closestFinish.margin === 0 ? 'Dead Draw (0)' : `${recap.closestFinish.margin} ${recap.closestFinish.margin === 1 ? 'Kill' : 'Kills'}`}
                                     </strong>
                                 </span>
                                 <span className="text-gray-500 font-mono">{recap.closestFinish.score}</span>
@@ -227,19 +227,19 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                         </div>
                     )}
 
-                    {/* 5. HOTTEST ARENA */}
+                    {/* 5. HOTTEST MAP */}
                     {recap.hottestArena && (
                         <div className="bg-[#121216] border border-gray-800 hover:border-orange-500/50 transition-colors rounded-lg p-3.5 flex flex-col justify-between">
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 flex items-center gap-1">
-                                        <Flame size={11} /> HOTTEST ARENA
+                                        <Flame size={11} /> HOTTEST MAP
                                     </span>
                                     <Link
                                         to={urlFor('maps', recap.hottestArena.name)}
                                         className="text-[11px] text-[#ff6600] hover:text-white flex items-center gap-0.5"
                                     >
-                                        Arena Intel <ChevronRight size={10} />
+                                        Map Intel <ChevronRight size={10} />
                                     </Link>
                                 </div>
                                 <p className="text-xs text-gray-300 leading-relaxed">
@@ -248,11 +248,11 @@ export const FightNightRecapCard: React.FC<FightNightRecapCardProps> = ({ recap 
                             </div>
                             <div className="mt-2.5 pt-2 border-t border-gray-800/80 flex items-center justify-between text-[11px]">
                                 <span className="text-gray-400">
-                                    Activity: <strong className="text-white">{recap.hottestArena.matches} Bouts</strong> ({recap.hottestArena.frags} K)
+                                    Activity: <strong className="text-white">{recap.hottestArena.matches} Matches</strong> ({recap.hottestArena.frags} K)
                                 </span>
                                 {recap.hottestArena.topPilot && (
                                     <span className="text-gray-400">
-                                        Sector King:{' '}
+                                        Map King:{' '}
                                         <Link
                                             to={urlFor('pilot', recap.hottestArena.topPilot)}
                                             className="font-bold text-[#ff6600] hover:underline"

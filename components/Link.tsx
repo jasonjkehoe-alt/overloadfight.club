@@ -20,4 +20,16 @@ const Link: React.FC<LinkProps> = ({ to, onClick, ...rest }) => (
     />
 );
 
+// A table row's cells link to the row's page, so a click on any of them opens
+// it. A <tr> cannot be a link, and Safari does not position a covering link
+// against one. Only the `main` cell's link takes focus; Tab skips the others.
+export const CellLink: React.FC<LinkProps> = ({ className = '', ...rest }) => (
+    <Link tabIndex={-1} className={`block ${className}`} {...rest} />
+);
+
+// A <td> holding a CellLink; the padding goes on the link so all of it is clickable.
+export const LinkCell: React.FC<LinkProps & { main?: boolean }> = ({ main, ...rest }) => (
+    <td className="p-0">{main ? <Link {...rest} className={`block ${rest.className ?? ''}`} /> : <CellLink {...rest} />}</td>
+);
+
 export default Link;

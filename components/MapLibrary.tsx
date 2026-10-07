@@ -7,9 +7,15 @@ import {
     ExternalLink, ChevronRight, Activity
 } from 'lucide-react';
 import Link from './Link';
+import Pager, { usePage } from './Pager';
 import { navigate, goBack, useUrl, useQueryParam, useQueryText } from '../hooks/useLocation';
+import { useDialog } from '../hooks/useDialog';
 import { urlFor } from '../server/lib/siteRoutes.js';
 import { EmptyState, ErrorState } from './States';
+
+// Map cards per page of the grid, kept in ?page=
+const MAP_PAGE_SIZE = 24;
+const FIRST_PAGE = { page: null };
 
 interface MapLibraryProps {
     // From /maps/:name: the map whose popup is open
@@ -121,6 +127,13 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
         return result;
     }, [maps, search, filterSize]);
 
+    // One page of the grid; a new search, filter or sort starts at page 1.
+    const paging = usePage(filteredMaps, MAP_PAGE_SIZE);
+    const searchFor = (text: string) => {
+        setSearch(text);
+        paging.setPage(1);
+    };
+
     // Tactical Dossier Modal: open while the URL names a map
     const listedMap = mapName ? maps.find(m => m.name.toLowerCase() === mapName.toLowerCase()) : undefined;
     const selectedMapForIntel: MapData | null = listedMap ?? intelData;
@@ -151,10 +164,12 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
         if (!notAMap) return;
         const params = new URLSearchParams(listQuery);
         params.set('q', mapName!);
+        params.delete('page');
         navigate(`${urlFor('maps')}?${params}`, { replace: true });
     }, [notAMap]);
 
     const handleCloseDossier = () => goBack(withListQuery(urlFor('maps')));
+    const dossier = useDialog(!!selectedMapForIntel, handleCloseDossier);
 
     const formatNumber = (num?: number) => {
         if (!num) return '0';
@@ -173,7 +188,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <span className="px-2 py-0.5 bg-[#ff6600]/10 border border-[#ff6600]/30 text-[#ff6600] text-[10px] font-bold uppercase tracking-wider rounded">
-                                Combat Zone Intelligence
+                                Map Intelligence
                             </span>
                             {totalMatches !== null && (
                                 <span className="text-gray-500 font-mono text-xs">• {totalMatches.toLocaleString()} Matches Indexed</span>
@@ -183,13 +198,13 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                             Overload Map Database
                         </h1>
                         <p className="text-gray-400 font-mono text-xs md:text-sm mt-1 max-w-2xl">
-                            Tactical schematics, historical engagement volume, arena records, and combat statistics for all official Revival Productions stock zones and community custom arenas.
+                            Layouts, match counts, records and stats for every Revival Productions stock map and every community custom map.
                         </p>
                     </div>
 
                     <div className="flex gap-4 items-center">
                         <div className="bg-[#111] border border-gray-800 px-4 py-3 rounded-lg text-center font-mono">
-                            <div className="text-[10px] uppercase font-bold text-gray-500">Catalogued Arenas</div>
+                            <div className="text-[10px] uppercase font-bold text-gray-500">Catalogued Maps</div>
                             <div className="text-xl md:text-2xl font-bold text-white">
                                 {loading && maps.length === 0 ? (
                                     <span className="text-sm font-normal text-gray-500 animate-pulse">Scanning...</span>
@@ -237,13 +252,13 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                         </ul>
                     </div>
 
-                    {/* Deadliest Arenas */}
+                    {/* Deadliest Maps */}
                     <div className="bg-[#101012] border border-gray-800/80 p-5 rounded-xl shadow-md relative overflow-hidden">
                         <div className="flex items-center justify-between mb-4 border-b border-gray-800/60 pb-3">
                             <h3 className="text-red-400 font-bold uppercase text-xs flex items-center gap-2 tracking-wider">
-                                <Skull className="w-4 h-4" /> Deadliest Arenas
+                                <Skull className="w-4 h-4" /> Deadliest Maps
                             </h3>
-                            <span className="text-[10px] text-gray-500 font-mono">TOTAL FRAGS</span>
+                            <span className="text-[10px] text-gray-500 font-mono">TOTAL KILLS</span>
                         </div>
                         <ul className="space-y-2.5">
                             {stats.deadliest?.slice(0, 5).map((m, i) => (
@@ -256,7 +271,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                         <span className="w-4 text-center font-mono font-bold text-red-500/80">{i + 1}.</span>
                                         <span className="text-gray-200 font-bold truncate hover:text-red-400">{m.map}</span>
                                     </div>
-                                    <span className="text-red-400 font-mono font-bold">{formatNumber(m.total_kills)} <span className="text-gray-600 text-[10px]">frags</span></span>
+                                    <span className="text-red-400 font-mono font-bold">{formatNumber(m.total_kills)} <span className="text-gray-600 text-[10px]">kills</span></span>
                                     </Link>
                                 </li>
                             ))}
@@ -299,14 +314,16 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                     <input
                         type="text"
-                        placeholder="Search arena name, author, or code..."
+                        placeholder="Search map name, author, or code..."
+                        aria-label="Search maps"
                         className="w-full bg-[#0a0a0c] border border-gray-800 text-white pl-10 pr-10 py-2.5 rounded-lg focus:border-[#ff6600] outline-none font-mono text-xs transition-colors"
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => searchFor(e.target.value)}
                     />
                     {search && (
                         <button
-                            onClick={() => setSearch('')}
+                            onClick={() => searchFor('')}
+                            aria-label="Clear search"
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
                         >
                             <X className="w-3.5 h-3.5" />
@@ -317,19 +334,19 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                 {/* Origin Quick Toggles */}
                 <div className="flex items-center gap-1 bg-[#0a0a0c] p-1 border border-gray-800 rounded-lg">
                     <button
-                        onClick={() => setFilterOrigin('all')}
+                        onClick={() => setFilterOrigin('all', FIRST_PAGE)}
                         className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${filterOrigin === 'all' ? 'bg-[#ff6600] text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
                     >
-                        ALL ARENAS
+                        ALL MAPS
                     </button>
                     <button
-                        onClick={() => setFilterOrigin('stock')}
+                        onClick={() => setFilterOrigin('stock', FIRST_PAGE)}
                         className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center gap-1 transition-colors ${filterOrigin === 'stock' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
                     >
                         <Shield className="w-3 h-3" /> BASE GAME (12)
                     </button>
                     <button
-                        onClick={() => setFilterOrigin('custom')}
+                        onClick={() => setFilterOrigin('custom', FIRST_PAGE)}
                         className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${filterOrigin === 'custom' ? 'bg-[#ff6600] text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
                     >
                         COMMUNITY CUSTOM
@@ -341,7 +358,8 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                     <select
                         className="bg-[#0a0a0c] border border-gray-800 text-gray-300 px-3 py-2.5 rounded-lg outline-none font-mono text-xs hover:border-gray-700 cursor-pointer"
                         value={filterSize}
-                        onChange={(e) => setFilterSize(e.target.value)}
+                        onChange={(e) => setFilterSize(e.target.value, FIRST_PAGE)}
+                        aria-label="Map size"
                     >
                         <option value="all">All Sizes</option>
                         <option value="tiny">Tiny (1v1)</option>
@@ -354,10 +372,11 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                     <select
                         className="bg-[#0a0a0c] border border-gray-800 text-gray-300 px-3 py-2.5 rounded-lg outline-none font-mono text-xs hover:border-gray-700 cursor-pointer"
                         value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                        onChange={(e) => setSortBy(e.target.value as typeof sortBy, FIRST_PAGE)}
+                        aria-label="Sort maps"
                     >
                         <option value="popularity">Sort: Most Played (Matches)</option>
-                        <option value="deadliest">Sort: Deadliest (Frags)</option>
+                        <option value="deadliest">Sort: Deadliest (Kills)</option>
                         <option value="recent">Sort: Recently Active</option>
                         <option value="name">Sort: Alphabetical (A-Z)</option>
                         <option value="downloads">Sort: Most Downloaded</option>
@@ -366,12 +385,12 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
             </div>
 
             {/* Results Count Summary */}
-            <div className="flex justify-between items-center text-xs font-mono text-gray-500 px-1">
+            <div id="map-grid" className="flex justify-between items-center text-xs font-mono text-gray-500 px-1 scroll-mt-20">
                 {loading && maps.length === 0 ? (
-                    <span className="text-brand">LOADING ARENA REGISTRY ARCHIVES...</span>
+                    <span className="text-brand">LOADING MAPS...</span>
                 ) : (
                     <span>
-                        DISPLAYING <span className="text-white font-bold">{filteredMaps.length}</span> OF <span className="text-gray-400">{maps.length}</span> ARENAS
+                        DISPLAYING <span className="text-white font-bold">{filteredMaps.length}</span> OF <span className="text-gray-400">{maps.length}</span> MAPS
                     </span>
                 )}
                 {filterOrigin !== 'all' && (
@@ -381,7 +400,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                 )}
             </div>
 
-            {/* Arena Cards Grid */}
+            {/* Map Cards Grid */}
             {loading && maps.length === 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {Array.from({ length: 8 }).map((_, i) => (
@@ -392,17 +411,19 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                     ))}
                 </div>
             ) : mapsError && maps.length === 0 ? (
-                <ErrorState title="Arena registry unavailable" message="Could not load the map list." onRetry={loadMaps} />
+                <ErrorState title="Map list unavailable" message="Could not load the map list." onRetry={loadMaps} />
             ) : filteredMaps.length === 0 ? (
                 <EmptyState
                     card
                     icon={MapIcon}
-                    title="No combat zones match your filters"
+                    title="No maps match your filters"
                     message="Try resetting the search terms or origin filter."
                 />
             ) : (
+                <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                    {filteredMaps.map((map, index) => {
+                    {paging.items.map((map, i) => {
+                        const index = paging.start + i;
                         const isStock = map.isStock || (!map.isCustom && map.author?.toLowerCase().includes('revival'));
                         const hasTelemetry = (map.sorties || 0) > 0;
 
@@ -466,7 +487,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                                 index === 2 ? 'bg-amber-700 text-white border-amber-500' :
                                                 'bg-black/80 text-gray-300 border-gray-700'
                                             }`}>
-                                                #{index + 1} ARENA
+                                                #{index + 1} MAP
                                             </span>
                                         </div>
                                     )}
@@ -519,7 +540,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
 
                                             <div className="flex justify-between items-center text-[11px]">
                                                 <span className="text-gray-500 flex items-center gap-1">
-                                                    <Skull className="w-3 h-3 text-red-500" /> FRAGS:
+                                                    <Skull className="w-3 h-3 text-red-500" /> KILLS:
                                                 </span>
                                                 <span className="text-red-400 font-bold">
                                                     {map.totalKills ? formatNumber(map.totalKills) : '0'}
@@ -535,7 +556,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                                 </span>
                                             </div>
 
-                                            {/* Arena Ace Pilot */}
+                                            {/* Map Ace Pilot */}
                                             {map.topPilot && (
                                                 <div className="pt-1 border-t border-gray-800/60 flex justify-between items-center text-[10px]">
                                                     <span className="text-amber-500 font-bold flex items-center gap-1">
@@ -579,12 +600,14 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                         );
                     })}
                 </div>
+                <Pager paging={paging} listId="map-grid" />
+                </>
             )}
 
             {/* Tactical Dossier Modal */}
             {selectedMapForIntel && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-                    <div className="bg-[#0e0e10] border border-gray-800 w-full max-w-3xl max-h-[90vh] rounded-2xl overflow-y-auto shadow-2xl flex flex-col">
+                    <div {...dossier.props} className="bg-[#0e0e10] border border-gray-800 w-full max-w-3xl max-h-[90vh] rounded-2xl overflow-y-auto shadow-2xl flex flex-col">
                         
                         {/* Modal Header */}
                         <div className="relative h-52 sm:h-64 overflow-hidden bg-gray-950 shrink-0 border-b border-gray-800">
@@ -597,7 +620,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                 onError={(e) => {
                                     const target = e.currentTarget;
                                     target.onerror = null;
-                                    target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300" fill="%23111"><rect width="600" height="300" fill="%23141416"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23444" font-family="monospace" font-size="16">TACTICAL COMBAT ZONE</text></svg>';
+                                    target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300" fill="%23111"><rect width="600" height="300" fill="%23141416"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23444" font-family="monospace" font-size="16">MAP</text></svg>';
                                 }}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-[#0e0e10] via-[#0e0e10]/40 to-transparent"></div>
@@ -609,7 +632,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                         href={selectedMapForIntel.downloadLink}
                                         download
                                         className="bg-black/70 hover:bg-[#ff6600] text-white hover:text-black px-3 py-1.5 rounded-full backdrop-blur transition-all flex items-center gap-1.5 text-xs font-mono font-bold border border-white/20 hover:border-[#ff6600] shadow-lg"
-                                        title={`Download Arena File (${selectedMapForIntel.fileSize ? (selectedMapForIntel.fileSize / 1024 / 1024).toFixed(1) + ' MB' : 'Map file'})`}
+                                        title={`Download Map File (${selectedMapForIntel.fileSize ? (selectedMapForIntel.fileSize / 1024 / 1024).toFixed(1) + ' MB' : 'Map file'})`}
                                     >
                                         <Download className="w-3.5 h-3.5" />
                                         <span>DOWNLOAD</span>
@@ -617,6 +640,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                 )}
                                 <button
                                     onClick={handleCloseDossier}
+                                    aria-label="Close"
                                     className="bg-black/60 hover:bg-[#ff6600] text-white p-2 rounded-full backdrop-blur transition-colors"
                                 >
                                     <X className="w-5 h-5" />
@@ -632,14 +656,14 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                         </span>
                                     ) : (
                                         <span className="bg-orange-950 text-orange-300 text-[10px] px-2 py-0.5 rounded font-bold border border-orange-700">
-                                            CUSTOM ARENA
+                                            CUSTOM MAP
                                         </span>
                                     )}
                                     <span className="bg-gray-800 text-gray-300 text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase">
                                         STYLE: {selectedMapForIntel.style || 'mixed'}
                                     </span>
                                 </div>
-                                <h2 className="text-2xl sm:text-3xl font-extrabold text-white brand-font tracking-tight">
+                                <h2 id={dossier.titleId} className="text-2xl sm:text-3xl font-extrabold text-white brand-font tracking-tight">
                                     {selectedMapForIntel.name}
                                 </h2>
                                 <p className="text-gray-400 font-mono text-xs">
@@ -665,7 +689,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                         </div>
                                     </div>
                                     <div className="bg-[#151518] border border-gray-800 p-3 rounded-lg">
-                                        <div className="text-[10px] text-gray-500 uppercase font-bold">Total Frags</div>
+                                        <div className="text-[10px] text-gray-500 uppercase font-bold">Total Kills</div>
                                         <div className="text-lg font-bold text-red-400">
                                             {intelData?.totalKills ? intelData.totalKills.toLocaleString() : (selectedMapForIntel.totalKills?.toLocaleString() || '0')}
                                         </div>
@@ -689,7 +713,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                         </div>
                                     </div>
                                     <div className="bg-[#151518] border border-gray-800 p-3 rounded-lg">
-                                        <div className="text-[10px] text-gray-500 uppercase font-bold">Last Engagement</div>
+                                        <div className="text-[10px] text-gray-500 uppercase font-bold">Last Match</div>
                                         <div className="text-xs font-bold text-emerald-400 truncate">
                                             {intelData?.lastPlayed ? intelData.lastPlayed.substring(0, 10) : (selectedMapForIntel.lastPlayed?.substring(0, 10) || 'N/A')}
                                         </div>
@@ -728,7 +752,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                             {intelData?.recordMatch && (
                                 <div>
                                     <h3 className="text-xs uppercase font-bold text-gray-400 font-mono tracking-wider mb-3 flex items-center gap-1.5">
-                                        <Flame className="w-4 h-4 text-[#ff6600]" /> Arena World Record Match
+                                        <Flame className="w-4 h-4 text-[#ff6600]" /> Map Record Match
                                     </h3>
                                     <div className="bg-[#151518] border border-orange-900/30 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono">
                                         <div>
@@ -736,9 +760,9 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                                 Match #{intelData.recordMatch.id} • {intelData.recordMatch.date ? intelData.recordMatch.date.substring(0, 10) : ''}
                                             </div>
                                             <div className="text-base font-bold text-white flex items-center gap-2">
-                                                <span className="text-red-400">{intelData.recordMatch.kills} Frags Logged</span>
+                                                <span className="text-red-400">{intelData.recordMatch.kills} Kills Logged</span>
                                                 <span className="text-gray-500">•</span>
-                                                <span className="text-cyan-400">{intelData.recordMatch.players} Pilots in Arena</span>
+                                                <span className="text-cyan-400">{intelData.recordMatch.players} Pilots in Match</span>
                                             </div>
                                         </div>
                                         <Link
@@ -751,21 +775,21 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                 </div>
                             )}
 
-                            {/* Top 5 Arena Aces Table */}
+                            {/* Top 5 Map Aces Table */}
                             {intelData?.topPilots && intelData.topPilots.length > 0 && (
                                 <div>
                                     <h3 className="text-xs uppercase font-bold text-gray-400 font-mono tracking-wider mb-3 flex items-center gap-1.5">
                                         <Award className="w-4 h-4 text-amber-500" /> Top 5 Combat Aces of {selectedMapForIntel.name}
                                     </h3>
-                                    <div className="bg-[#151518] border border-gray-800 rounded-lg overflow-hidden font-mono text-xs">
+                                    <div className="bg-[#151518] border border-gray-800 rounded-lg overflow-x-auto font-mono text-xs">
                                         <table className="w-full text-left">
                                             <thead className="bg-[#1c1c20] text-gray-500 border-b border-gray-800 text-[10px] uppercase">
                                                 <tr>
                                                     <th className="p-2.5 pl-4">Rank</th>
-                                                    <th className="p-2.5">Callsign</th>
+                                                    <th className="p-2.5">Pilot</th>
                                                     <th className="p-2.5 text-right">Matches</th>
-                                                    <th className="p-2.5 text-right">Frags</th>
-                                                    <th className="p-2.5 text-right pr-4">Combat K/D</th>
+                                                    <th className="p-2.5 text-right">Kills</th>
+                                                    <th className="p-2.5 text-right pr-4">K/D</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-800/60">
@@ -798,7 +822,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                         {/* Modal Footer */}
                         <div className="p-4 bg-[#121215] border-t border-gray-800 flex justify-between items-center text-xs font-mono">
                             <span className="text-gray-500">
-                                OVERLOAD ARENA TELEMETRY ARCHIVE
+                                OVERLOAD MAP DATABASE
                             </span>
                             <div className="flex gap-2">
                                 {selectedMapForIntel.downloadLink && (

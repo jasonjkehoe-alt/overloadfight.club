@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { fetchColdGames } from '../services/apiService';
 import { getMapImage } from '../services/mapService';
-import Link from './Link';
-import { useQueryParam, setQueryParams, rowLink } from '../hooks/useLocation';
+import Link, { LinkCell } from './Link';
+import { useQueryParam, setQueryParams } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
 import { Loading, EmptyState, ErrorState } from './States';
 
@@ -22,14 +22,8 @@ const DeepStatCard: React.FC<{
     icon: React.ReactNode;
     color?: string;
     loading?: boolean;
-    onClick?: () => void;
-}> = ({ title, value, subtitle, icon, color = 'text-blue-500', loading, onClick }) => (
-    <div
-        onClick={onClick}
-        className={`bg-[#111] border border-gray-800 p-4 rounded-lg relative overflow-hidden group transition-all duration-200 ${
-            onClick ? 'cursor-pointer hover:border-blue-500/60 hover:bg-[#151515] hover:shadow-lg' : ''
-        }`}
-    >
+}> = ({ title, value, subtitle, icon, color = 'text-blue-500', loading }) => (
+    <div className="bg-[#111] border border-gray-800 p-4 rounded-lg relative overflow-hidden group transition-all duration-200">
         <div className={`absolute top-3 right-3 opacity-15 ${color} group-hover:opacity-35 transition-opacity`}>
             {icon}
         </div>
@@ -282,7 +276,7 @@ const ColdStorage: React.FC = () => {
                             </div>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h1 className="text-3xl font-black text-white tracking-tight">Historical Archive</h1>
+                                    <h1 className="text-3xl font-black text-white tracking-tight">Archive</h1>
                                     <span className="text-[10px] font-mono font-bold bg-blue-900/40 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded uppercase">
                                         Active Archive
                                     </span>
@@ -291,7 +285,7 @@ const ColdStorage: React.FC = () => {
                                     <div className="h-4 w-48 bg-gray-800/60 rounded animate-pulse mt-1" />
                                 ) : (
                                     <p className="text-gray-400 font-mono text-xs mt-0.5">
-                                        {computedSubtitle || 'Archived historical combat matches'}
+                                        {computedSubtitle || 'Every stored match, all years'}
                                     </p>
                                 )}
                             </div>
@@ -334,7 +328,7 @@ const ColdStorage: React.FC = () => {
                             <ErrorState
                                 compact
                                 title="Archive telemetry unavailable"
-                                message="Unable to load historical archive telemetry. Some statistics may be unavailable."
+                                message="Unable to load the archive's stats. Some numbers may be missing."
                                 onRetry={loadStats}
                             />
                         </div>
@@ -454,17 +448,17 @@ const ColdStorage: React.FC = () => {
                                         </div>
                                         <div className="relative z-10">
                                             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-400 bg-red-950/60 border border-red-800/40 px-2 py-0.5 rounded">
-                                                All-Time Frag Record
+                                                All-Time Kill Record
                                             </span>
                                             <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
                                                 Bloodiest Match
                                             </h3>
                                             <div className="text-2xl font-black font-mono text-red-400 mt-1">
-                                                {rec?.kills ? `${rec.kills.toLocaleString()} Frags` : '-'}
+                                                {rec?.kills ? `${rec.kills.toLocaleString()} Kills` : '-'}
                                             </div>
                                             <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
                                                 <div className="text-gray-300 font-bold truncate">
-                                                    {rec?.map || 'Unknown Arena'}
+                                                    {rec?.map || 'Unknown Map'}
                                                 </div>
                                                 <div className="text-[11px] text-gray-500">
                                                     {hasRecord ? `Match #${rec.id} • ${rec.players || 0} Pilots` : 'No record established'}
@@ -500,17 +494,17 @@ const ColdStorage: React.FC = () => {
                                                 Single-Pilot Record
                                             </span>
                                             <h3 className="text-white font-bold text-base mt-2 flex items-center gap-1.5">
-                                                Ace Frag World Record
+                                                Ace Kill World Record
                                             </h3>
                                             <div className="text-2xl font-black font-mono text-amber-400 mt-1">
-                                                {rec?.kills ? `${rec.kills.toLocaleString()} Frags` : '-'}
+                                                {rec?.kills ? `${rec.kills.toLocaleString()} Kills` : '-'}
                                             </div>
                                             <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
                                                 <div className="text-amber-300 font-bold truncate">
                                                     {rec?.pilot || 'Unknown Pilot'}
                                                 </div>
                                                 <div className="text-[11px] text-gray-500 truncate">
-                                                    {hasRecord ? `${rec.map || 'Unknown Arena'} • Match #${rec.id}` : 'No record established'}
+                                                    {hasRecord ? `${rec.map || 'Unknown Map'} • Match #${rec.id}` : 'No record established'}
                                                 </div>
                                             </div>
                                             {hasRecord && (
@@ -550,7 +544,7 @@ const ColdStorage: React.FC = () => {
                                             </div>
                                             <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
                                                 <div className="text-gray-300 font-bold truncate">
-                                                    {rec?.map || 'Unknown Arena'}
+                                                    {rec?.map || 'Unknown Map'}
                                                 </div>
                                                 <div className="text-[11px] text-gray-500">
                                                     {hasRecord ? `Match #${rec.id} • Non-stop dogfight` : 'No record established'}
@@ -593,7 +587,7 @@ const ColdStorage: React.FC = () => {
                                             </div>
                                             <div className="text-xs font-mono text-gray-400 mt-2 space-y-0.5">
                                                 <div className="text-gray-300 font-bold truncate">
-                                                    {rec?.map || 'Unknown Arena'}
+                                                    {rec?.map || 'Unknown Map'}
                                                 </div>
                                                 <div className="text-[11px] text-gray-500">
                                                     {hasRecord ? `Match #${rec.id} • Anarchy chaos` : 'No record established'}
@@ -628,7 +622,7 @@ const ColdStorage: React.FC = () => {
                             {/* Category Selector Pills */}
                             <div className="flex items-center gap-1 bg-[#0a0a0a] border border-gray-800 rounded p-1 text-[11px] font-mono">
                                 {[
-                                    { key: 'kills', label: 'FRAGS' },
+                                    { key: 'kills', label: 'KILLS' },
                                     { key: 'games', label: 'MATCHES' },
                                     { key: 'kd', label: 'K/D' },
                                     { key: 'damage', label: 'DAMAGE' },
@@ -649,7 +643,7 @@ const ColdStorage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="overflow-y-auto flex-1">
+                        <div className="overflow-auto flex-1">
                             <table className="w-full text-left text-xs font-mono">
                                 <thead className="bg-[#1a1a1a] text-gray-500 uppercase sticky top-0 z-10 text-[10px]">
                                     <tr>
@@ -657,9 +651,9 @@ const ColdStorage: React.FC = () => {
                                         <th className="p-3">Pilot</th>
                                         <th className="p-3 text-right">Matches</th>
                                         <th className="p-3 text-right">
-                                            {hallCategory === 'kills' && 'Total Frags'}
+                                            {hallCategory === 'kills' && 'Total Kills'}
                                             {hallCategory === 'games' && 'Matches Played'}
-                                            {hallCategory === 'kd' && 'Combat Ratio (K/D)'}
+                                            {hallCategory === 'kd' && 'K/D'}
                                             {hallCategory === 'damage' && 'Total Damage'}
                                             {hallCategory === 'win_rate' && 'Win Rate'}
                                         </th>
@@ -680,22 +674,21 @@ const ColdStorage: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        hallOfFamePilots.map((pilot, idx) => (
+                                        hallOfFamePilots.map((pilot, idx) => {
+                                            const url = urlFor('pilot', pilot.name);
+                                            return (
                                             <tr 
                                                 key={pilot.name} 
-                                                {...rowLink(urlFor('pilot', pilot.name))}
-                                                className="hover:bg-[#181818] cursor-pointer group transition-colors"
+                                                className="hover:bg-[#181818] group transition-colors"
                                             >
-                                                <td className="p-3 text-center text-gray-600 font-bold">
+                                                <LinkCell to={url} className="p-3 text-center text-gray-600 font-bold">
                                                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
-                                                </td>
-                                                <td className="p-3 font-bold text-white group-hover:text-[#ff6600] transition-colors">
-                                                    <Link to={urlFor('pilot', pilot.name)}>{pilot.name}</Link>
-                                                </td>
-                                                <td className="p-3 text-right text-gray-400">
+                                                </LinkCell>
+                                                <LinkCell main to={url} className="p-3 font-bold text-white group-hover:text-[#ff6600] transition-colors">{pilot.name}</LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right text-gray-400">
                                                     {pilot.games?.toLocaleString()}
-                                                </td>
-                                                <td className="p-3 text-right font-bold text-white">
+                                                </LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right font-bold text-white">
                                                     {hallCategory === 'kills' && (
                                                         <span className="text-red-400">{pilot.kills?.toLocaleString()}</span>
                                                     )}
@@ -711,12 +704,13 @@ const ColdStorage: React.FC = () => {
                                                     {hallCategory === 'win_rate' && (
                                                         <span className="text-emerald-400">{(pilot.win_rate || 0).toFixed(1)}%</span>
                                                     )}
-                                                </td>
-                                                <td className="p-3 text-right text-gray-500 text-[11px]">
+                                                </LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right text-gray-500 text-[11px]">
                                                     {pilot.wins !== undefined ? `${pilot.wins}W - ${pilot.losses}L` : `${pilot.kills}K / ${pilot.deaths}D`}
-                                                </td>
+                                                </LinkCell>
                                             </tr>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </tbody>
                             </table>
@@ -732,19 +726,19 @@ const ColdStorage: React.FC = () => {
                             </div>
                             <span className="text-[10px] text-gray-500 font-mono">
                                 {deepStats?.unique_maps 
-                                    ? `${deepStats.unique_maps.toLocaleString()} total arenas` 
+                                    ? `${deepStats.unique_maps.toLocaleString()} total maps` 
                                     : topMaps.length > 0 
-                                        ? `${topMaps.length} arenas` 
-                                        : 'Custom arenas'}
+                                        ? `${topMaps.length} maps` 
+                                        : 'Custom maps'}
                             </span>
                         </div>
 
-                        <div className="overflow-y-auto flex-1">
+                        <div className="overflow-auto flex-1">
                             <table className="w-full text-left text-xs font-mono">
                                 <thead className="bg-[#1a1a1a] text-gray-500 uppercase sticky top-0 z-10 text-[10px]">
                                     <tr>
                                         <th className="p-3 w-10 text-center">#</th>
-                                        <th className="p-3">Arena Level</th>
+                                        <th className="p-3">Map</th>
                                         <th className="p-3 text-right">Matches</th>
                                         <th className="p-3 text-right">Share</th>
                                     </tr>
@@ -755,7 +749,7 @@ const ColdStorage: React.FC = () => {
                                     ) : topMaps.length === 0 ? (
                                         <tr>
                                             <td colSpan={4}>
-                                                <EmptyState compact title="No arena records found." />
+                                                <EmptyState compact title="No map records found." />
                                             </td>
                                         </tr>
                                     ) : (
@@ -825,12 +819,12 @@ const ColdStorage: React.FC = () => {
                             color="text-emerald-400"
                         />
 
-                        {/* 3. Total Frags */}
+                        {/* 3. Total Kills */}
                         <DeepStatCard
-                            title="Total Frags"
+                            title="Total Kills"
                             loading={loadingStats}
                             value={deepStats?.total_kills ? formatLargeNumber(deepStats.total_kills) : null}
-                            subtitle={deepStats?.total_kills ? `${deepStats.total_kills.toLocaleString()} kills` : 'All-time eliminations'}
+                            subtitle={deepStats?.total_kills ? `${deepStats.total_kills.toLocaleString()} kills` : 'All-time kills'}
                             icon={<Skull size={28} />}
                             color="text-red-400"
                         />
@@ -850,7 +844,7 @@ const ColdStorage: React.FC = () => {
                             title="Pilots"
                             loading={loadingStats}
                             value={deepStats?.unique_pilots ? deepStats.unique_pilots.toLocaleString() : null}
-                            subtitle="Registered callsigns"
+                            subtitle="Registered pilots"
                             icon={<User size={28} />}
                             color="text-yellow-400"
                         />
@@ -865,11 +859,11 @@ const ColdStorage: React.FC = () => {
                             color="text-purple-400"
                         />
 
-                        {/* 7. Combat Arenas */}
+                        {/* 7. Maps */}
                         <DeepStatCard
-                            title="Combat Arenas"
+                            title="Maps"
                             loading={loadingStats}
-                            value={deepStats?.unique_maps ? `${deepStats.unique_maps.toLocaleString()} Arenas` : null}
+                            value={deepStats?.unique_maps ? `${deepStats.unique_maps.toLocaleString()} Maps` : null}
                             subtitle="Custom maps cataloged"
                             icon={<MapIcon size={28} />}
                             color="text-cyan-400"
@@ -909,12 +903,12 @@ const ColdStorage: React.FC = () => {
                         <div>
                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                 <Database className="text-blue-400" />
-                                Archival Match Browser
+                                Match Browser
                             </h2>
                             <p className="text-xs text-gray-500 font-mono mt-0.5">
                                 {gamesTotalCount > 0 
-                                    ? `Search individual matches across all ${gamesTotalCount.toLocaleString()} archived historical records.`
-                                    : 'Search individual matches across archived historical records.'}
+                                    ? `Search all ${gamesTotalCount.toLocaleString()} archived matches.`
+                                    : 'Search the archived matches.'}
                             </p>
                         </div>
 
@@ -1012,11 +1006,11 @@ const ColdStorage: React.FC = () => {
                                         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3 w-full font-mono">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-gray-200 font-bold text-sm truncate group-hover:text-blue-400 transition-colors">
-                                                    {game.settings?.level || game.Level || 'Unknown Arena'}
+                                                    {game.settings?.level || game.Level || 'Unknown Map'}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-gray-400 truncate">
-                                                <span className="truncate">{game.server?.name || 'Dedicated Node'}</span>
+                                                <span className="truncate">{game.server?.name || 'Dedicated Server'}</span>
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-gray-400">
                                                 <User size={12} className="text-gray-500 shrink-0" />

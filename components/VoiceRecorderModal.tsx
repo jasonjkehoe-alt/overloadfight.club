@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Play, Pause, Check, X, Radio, AlertCircle } from 'lucide-react';
+import { useDialog } from '../hooks/useDialog';
 
 interface VoiceRecorderModalProps {
     isOpen: boolean;
@@ -8,6 +9,7 @@ interface VoiceRecorderModalProps {
 }
 
 export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, onClose, onAudioReady }) => {
+    const dialog = useDialog(isOpen, onClose);
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -147,9 +149,10 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-mono">
-            <div className="bg-[#121212] border border-[#ff6600]/40 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <div {...dialog.props} className="bg-[#121212] border border-[#ff6600]/40 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
                 <button 
                     onClick={onClose}
+                    aria-label="Close"
                     className="absolute top-4 right-4 text-gray-500 hover:text-white p-1"
                 >
                     <X className="w-5 h-5" />
@@ -159,7 +162,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
                     <div className="w-12 h-12 rounded-full bg-[#ff6600]/10 border border-[#ff6600]/30 flex items-center justify-center mx-auto mb-3 text-[#ff6600]">
                         <Mic className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-bold text-white brand-font tracking-wide">
+                    <h3 id={dialog.titleId} className="text-xl font-bold text-white brand-font tracking-wide">
                         HEADSET VOICE RECORDER
                     </h3>
                     <p className="text-xs text-gray-400 mt-1">

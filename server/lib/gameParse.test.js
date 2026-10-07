@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
-import { durationOf, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
+import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
@@ -167,5 +167,19 @@ describe('playerRows', () => {
     it('gives a pilot listed twice the log counts once', () => {
         const game = { ...detailSample, players: [...detailSample.players, ...detailSample.players] };
         expect(playerRows(game).map(r => r.suicides)).toEqual([1, 0]);
+    });
+});
+
+describe('combatRatio and lethality', () => {
+    it('reads one pilot in game 72102 the way the leaderboard and the profile do', () => {
+        const game = byId(72102); // 910 s, BLUE 42, ORANGE 35
+        const me = player(game, 'INSANER'); // 19 kills, 11 assists, 12 deaths
+        expect(combatRatio(netKills(me), me.assists, me.deaths)).toBe(2.04); // (19 + 5.5) / 12
+        expect(lethality(netKills(me), durationOf(game))).toBe(1.25); // 19 / 15.17 min
+    });
+
+    it('gives the kills with no deaths and 0 per minute with no match time', () => {
+        expect(combatRatio(7, 4, 0)).toBe(7);
+        expect(lethality(7, 0)).toBe(0);
     });
 });

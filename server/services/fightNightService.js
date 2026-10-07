@@ -111,7 +111,7 @@ export async function generateRecapForDate(targetDate, force = false) {
             const sortedP = players.slice().sort((a, b) => (Number(b.kills) || 0) - (Number(a.kills) || 0));
             const topPilot = sortedP[0]?.name || 'Unknown';
             const topKills = netKills(sortedP[0]);
-            const arena = m.settings?.level || 'Unknown Arena';
+            const arena = m.settings?.level || 'Unknown Map';
             const mode = m.settings?.matchMode || 'ANARCHY';
 
             headlineBout = {
@@ -122,7 +122,7 @@ export async function generateRecapForDate(targetDate, force = false) {
                 totalFrags: boutFrags,
                 topPilot,
                 topKills,
-                copy: `In the headline bout on ${arena}, ${pCount} pilots traded fire in a ${mode} slugfest with ${boutFrags} total frags.`
+                copy: `In the headline match on ${arena}, ${pCount} pilots traded fire in a ${mode} slugfest with ${boutFrags} total kills.`
             };
         }
     }
@@ -149,7 +149,7 @@ export async function generateRecapForDate(targetDate, force = false) {
         const winner = players[0];
         const winnerName = winner.name;
         const winnerStats = pilotStatsMap.get(pilotKey(winnerName)) || { kd: 1.0, threat_centrality: 0 };
-        const arena = m.settings?.level || 'Unknown Arena';
+        const arena = m.settings?.level || 'Unknown Map';
 
         for (let i = 1; i < players.length; i++) {
             const opp = players[i];
@@ -183,8 +183,8 @@ export async function generateRecapForDate(targetDate, force = false) {
     if (!biggestUpset) {
         biggestUpset = {
             gameId: headlineBout?.gameId || matches[0].id,
-            map: headlineBout?.map || matches[0].settings?.level || 'Unknown Arena',
-            copy: `The heavyweights held serve — ranked favorites controlled the arena with no major upsets recorded.`
+            map: headlineBout?.map || matches[0].settings?.level || 'Unknown Map',
+            copy: `The heavyweights held serve — ranked favorites held their ground with no major upsets recorded.`
         };
     }
 
@@ -201,7 +201,7 @@ export async function generateRecapForDate(targetDate, force = false) {
         const [first, second] = result.ranking;
         if (!first || !second) continue;
 
-        const arena = m.settings?.level || 'Unknown Arena';
+        const arena = m.settings?.level || 'Unknown Map';
         // A tie lists the tied sides in score-table order; margin 0 makes the copy a draw.
         const margin = first.score - second.score;
         const winnerName = sideLabel(result, first);
@@ -220,7 +220,7 @@ export async function generateRecapForDate(targetDate, force = false) {
                 winner: winnerName,
                 runnerUp: runnerUpName,
                 score: scoreStr,
-                copy: `Total domination on ${arena}: ${winnerName} blew past ${runnerUpName} with a +${margin} frag differential (${scoreStr}).`
+                copy: `Total domination on ${arena}: ${winnerName} blew past ${runnerUpName} with a +${margin} kill differential (${scoreStr}).`
             };
         }
 
@@ -237,7 +237,7 @@ export async function generateRecapForDate(targetDate, force = false) {
                 score: scoreStr,
                 copy: margin === 0
                     ? `Dead heat on ${arena}: ${winnerName} and ${runnerUpName} battled to an exact draw (${scoreStr}).`
-                    : `Down to the wire on ${arena}: ${winnerName} edged out ${runnerUpName} by just ${margin} frag (${scoreStr}).`
+                    : `Down to the wire on ${arena}: ${winnerName} edged out ${runnerUpName} by just ${margin} ${margin === 1 ? 'kill' : 'kills'} (${scoreStr}).`
             };
         }
     }
@@ -245,7 +245,7 @@ export async function generateRecapForDate(targetDate, force = false) {
     // 5. Hottest Arena: most matches that night (tiebreak: most frags)
     const arenaMap = new Map();
     for (const m of matches) {
-        const arena = m.settings?.level || 'Unknown Arena';
+        const arena = m.settings?.level || 'Unknown Map';
         if (!arenaMap.has(arena)) {
             arenaMap.set(arena, { count: 0, frags: 0, topPilot: null, pilotKills: new Map() });
         }
@@ -284,7 +284,7 @@ export async function generateRecapForDate(targetDate, force = false) {
             matches: aData.count,
             frags: aData.frags,
             topPilot: aTopPilot,
-            copy: `Battleground of choice: ${aName} led the night with ${aData.count} bouts and ${aData.frags} frags scored.`
+            copy: `Battleground of choice: ${aName} led the night with ${aData.count} matches and ${aData.frags} kills scored.`
         };
     }
 
@@ -302,7 +302,7 @@ export async function generateRecapForDate(targetDate, force = false) {
         count: newBloodPilots.length,
         copy: newBloodPilots.length > 0
             ? `${newBloodPilots.slice(0, 3).join(', ')}${newBloodPilots.length > 3 ? ` and ${newBloodPilots.length - 3} others` : ''} entered the ring for their first-ever tracked matches.`
-            : `All veterans in the combat zone — zero uninitiated recruits appeared tonight.`
+            : `All veterans tonight — zero uninitiated recruits appeared.`
     };
 
     // 7. Streak Watch: longest single-match kill streak of the night
@@ -310,7 +310,7 @@ export async function generateRecapForDate(targetDate, force = false) {
     let maxStreakVal = 0;
 
     for (const m of matches) {
-        const arena = m.settings?.level || 'Unknown Arena';
+        const arena = m.settings?.level || 'Unknown Map';
         const kills = Array.isArray(m.kills) ? m.kills : [];
 
         if (kills.length > 0) {
@@ -336,7 +336,7 @@ export async function generateRecapForDate(targetDate, force = false) {
                         streak: val,
                         gameId: m.id,
                         map: arena,
-                        copy: `Unstoppable rampage: ${pilot} recorded a ${val}-frag kill streak on ${arena}.`
+                        copy: `Unstoppable rampage: ${pilot} recorded a ${val}-kill streak on ${arena}.`
                     };
                 }
             }
@@ -353,7 +353,7 @@ export async function generateRecapForDate(targetDate, force = false) {
                         streak: estStreak,
                         gameId: m.id,
                         map: arena,
-                        copy: `Unstoppable rampage: ${p.name} strung together a ${estStreak}-frag kill streak on ${arena}.`
+                        copy: `Unstoppable rampage: ${p.name} strung together a ${estStreak}-kill streak on ${arena}.`
                     };
                 }
             }
@@ -366,8 +366,8 @@ export async function generateRecapForDate(targetDate, force = false) {
             pilot: topP,
             streak: 3,
             gameId: matches[0].id,
-            map: matches[0].settings?.level || 'Unknown Arena',
-            copy: `High-tempo engagement: ${topP} led the kill feed on ${matches[0].settings?.level || 'Unknown Arena'}.`
+            map: matches[0].settings?.level || 'Unknown Map',
+            copy: `High-tempo match: ${topP} led the kill feed on ${matches[0].settings?.level || 'Unknown Map'}.`
         };
     }
 
