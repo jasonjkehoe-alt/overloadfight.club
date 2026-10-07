@@ -307,7 +307,7 @@ router.get('/stats/cold/deep', async (req, res) => {
         if (cached) {
             return res.json(cached);
         }
-        const stats = db.getColdStorageStats();
+        const stats = await db.getColdStorageStats();
         await cacheService.set(cacheKey, stats, 600);
         res.json(stats);
     } catch (err) {

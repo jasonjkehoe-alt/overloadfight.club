@@ -213,7 +213,7 @@ export async function ensureMapsPopulated() {
     const cachedStatsCount = db.countMapStatsCache();
     if (cachedStatsCount === 0) {
         console.log('[MapSync] Map stats cache is empty. Building map telemetry cache...');
-        db.buildMapStatsCache();
+        await db.refreshPilotStats();
     }
 }
 

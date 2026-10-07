@@ -187,12 +187,8 @@ class ArchiveIngestService {
                     this.state.status = 'completed';
                     this.log(`All ${monthsToProcess.length} months ingested successfully! Total games inserted: ${this.state.totalGamesInserted}.`);
                     this.log('Refreshing pilot performance cache across all historical matches...');
-                    try {
-                        db.refreshPilotStats();
-                        this.log('Pilot performance intelligence cache updated successfully.');
-                    } catch (cacheErr) {
-                        this.log(`Warning: Cache refresh encountered: ${cacheErr.message}`);
-                    }
+                    await db.refreshPilotStats();
+                    this.log('Pilot performance intelligence cache refresh finished.');
                 }
             } catch (err) {
                 this.state.status = 'error';

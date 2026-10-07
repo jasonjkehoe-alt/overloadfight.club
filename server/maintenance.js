@@ -18,14 +18,10 @@ async function runDailyMaintenance() {
     }
 }
 
-function refreshPilotStats() {
+async function refreshPilotStats() {
     console.log('[Maintenance] Refreshing pilot stats cache...');
-    try {
-        db.refreshPilotStats();
-        console.log('[Maintenance] Pilot stats cache refreshed successfully.');
-    } catch (error) {
-        console.error('[Maintenance] Error refreshing pilot stats cache:', error);
-    }
+    await db.refreshPilotStats();
+    console.log('[Maintenance] Pilot stats cache refresh finished.');
 }
 
 function scheduleMaintenance() {
@@ -35,7 +31,7 @@ function scheduleMaintenance() {
             if (db.hasPilotStatsCache && !db.hasPilotStatsCache()) {
                 console.log('[Maintenance] Cache empty on startup, initializing...');
                 await runDailyMaintenance();
-                refreshPilotStats();
+                await refreshPilotStats();
             } else {
                 console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');
             }

@@ -10,15 +10,6 @@ export function pilotKey(name) {
     return String(name ?? '').trim().toLowerCase();
 }
 
-// LIKE pattern matching `name` as a whole JSON string in a details blob, with
-// LIKE wildcards escaped. Use with `LIKE ? ESCAPE '\'`. SQLite's LIKE already
-// ignores ASCII case, so the name is not lowercased here. It is a prefilter:
-// confirm the match with pilotKey() on the parsed players.
-export function pilotLikePattern(name) {
-    const json = JSON.stringify(String(name ?? '').trim());
-    return `%${json.replace(/[\\%_]/g, '\\$&')}%`;
-}
-
 // Team of a player in upper case ('BLUE', 'ORANGE', ...), or null in FFA.
 export function teamOf(player) {
     const team = String(player?.team ?? '').trim().toUpperCase();
@@ -108,4 +99,49 @@ export function pairOutcome(game, a, b, result = winnerOf(game)) {
     if (!scoreA || !scoreB || scoreA === scoreB) return null;
     if (scoreA.score === scoreB.score) return 'tie';
     return scoreA.score > scoreB.score ? 'win' : 'loss';
+}
+
+// One row per named player for the game_players table in server/db.js. `kills`
+// is the raw in-game score (pass it through netKills for totals). Suicides come
+// from the kill log and `damage` is damage dealt to other pilots from the damage
+// log, so both are 0 for a game stored without its logs. A pilot listed twice
+// in one game gets those log counts once, on the first row.
+export function playerRows(game) {
+    const suicides = new Map();
+    for (const k of Array.isArray(game?.kills) ? game.kills : []) {
+        const key = pilotKey(k?.defender);
+        if (key && pilotKey(k.attacker) === key) suicides.set(key, (suicides.get(key) || 0) + 1);
+    }
+    const dealt = new Map();
+    for (const d of Array.isArray(game?.damage) ? game.damage : []) {
+        const key = pilotKey(d?.attacker);
+        if (key && pilotKey(d.defender) !== key) dealt.set(key, (dealt.get(key) || 0) + (Number(d.damage) || 0));
+    }
+
+    const take = (counts, key) => {
+        const n = counts.get(key) || 0;
+        counts.delete(key);
+        return n;
+    };
+
+    const mode = game?.settings?.matchMode ?? null;
+    const map = game?.settings?.level ?? null;
+    const rows = [];
+    for (const p of Array.isArray(game?.players) ? game.players : []) {
+        const name = String(p?.name ?? '').trim();
+        if (!name) continue;
+        const key = pilotKey(name);
+        rows.push({
+            name,
+            team: teamOf(p),
+            kills: Number(p.kills) || 0,
+            deaths: Number(p.deaths) || 0,
+            assists: Number(p.assists) || 0,
+            suicides: take(suicides, key),
+            damage: take(dealt, key),
+            mode,
+            map
+        });
+    }
+    return rows;
 }

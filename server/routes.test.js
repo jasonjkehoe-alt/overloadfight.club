@@ -25,7 +25,7 @@ beforeAll(async () => {
     db = (await import('./db.js')).default;
     const routes = (await import('./routes.js')).default;
     db.saveGames(hotGames);
-    db.refreshPilotStats();
+    await db.refreshPilotStats();
 
     const app = express();
     app.use('/api', routes);

@@ -2,7 +2,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, pilotLikePattern, winnerOf } from './lib/gameParse.js';
+import { Worker } from 'worker_threads';
+import { durationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, winnerOf } from './lib/gameParse.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -138,6 +139,93 @@ hotDb.exec(`
   CREATE INDEX IF NOT EXISTS idx_games_ip ON games(ip);
   CREATE INDEX IF NOT EXISTS idx_metadata_status ON game_metadata(fetch_status);
 `);
+
+// game_players: one row per pilot per game, kept beside games in the same file
+// (hot and cold), so pilot pages and the leaderboard search an index instead of
+// every JSON blob. games.details stays the source of truth: every writer below
+// rebuilds a game's rows from it, in the transaction that writes the game.
+const GAME_PLAYERS_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS game_players (
+    game_id INTEGER NOT NULL,
+    date TEXT,
+    name TEXT NOT NULL COLLATE NOCASE,
+    team TEXT,
+    kills INTEGER,
+    deaths INTEGER,
+    assists INTEGER,
+    suicides INTEGER,
+    damage REAL,
+    mode TEXT,
+    map TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_game_players_name_date ON game_players(name, date);
+  CREATE INDEX IF NOT EXISTS idx_game_players_date ON game_players(date);
+  CREATE INDEX IF NOT EXISTS idx_game_players_game ON game_players(game_id);
+`;
+// PRAGMA user_version once a file's game_players has been backfilled.
+const GAME_PLAYERS_VERSION = 1;
+
+// Create game_players if it is missing. A missing table needs a backfill
+// whatever user_version says: dropping the table is how S5 is rolled back.
+function ensureGamePlayersTable(conn) {
+  const exists = conn.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'game_players'").get();
+  if (!exists) conn.pragma('user_version = 0');
+  conn.exec(GAME_PLAYERS_SCHEMA);
+}
+
+function gamePlayersWriter(conn) {
+  ensureGamePlayersTable(conn);
+  const remove = conn.prepare('DELETE FROM game_players WHERE game_id = ?');
+  const insert = conn.prepare(`
+    INSERT INTO game_players (game_id, date, name, team, kills, deaths, assists, suicides, damage, mode, map)
+    VALUES (@game_id, @date, @name, @team, @kills, @deaths, @assists, @suicides, @damage, @mode, @map)
+  `);
+  // Replace one game's rows. Call inside the transaction that writes the game.
+  return (gameId, date, game) => {
+    remove.run(gameId);
+    for (const row of playerRows(game)) insert.run({ game_id: gameId, date, ...row });
+  };
+}
+const writeHotPlayers = gamePlayersWriter(hotDb);
+const writeColdPlayers = gamePlayersWriter(coldDb);
+
+// Backfill game_players from every games row in one file, 1,000 games per
+// transaction. Runs when the file's user_version is below GAME_PLAYERS_VERSION;
+// it starts from an empty table each time, so a run cut short is redone whole.
+function backfillGamePlayers(conn, writePlayers, label) {
+  if (conn.pragma('user_version', { simple: true }) >= GAME_PLAYERS_VERSION) return;
+  const started = performance.now();
+  const page = conn.prepare('SELECT id, date, details FROM games WHERE id > ? ORDER BY id LIMIT 1000');
+  const writePage = conn.transaction(rows => {
+    for (const row of rows) {
+      let game;
+      try {
+        game = JSON.parse(row.details);
+      } catch {
+        continue;
+      }
+      writePlayers(row.id, row.date, game);
+    }
+  });
+  conn.exec('DELETE FROM game_players');
+  let games = 0;
+  let afterId = Number.MIN_SAFE_INTEGER;
+  for (let rows = page.all(afterId); rows.length > 0; rows = page.all(afterId)) {
+    writePage(rows);
+    games += rows.length;
+    afterId = rows[rows.length - 1].id;
+  }
+  conn.pragma(`user_version = ${GAME_PLAYERS_VERSION}`);
+  console.log(`[game_players] Backfilled ${label} storage: ${games} games in ${((performance.now() - started) / 1000).toFixed(1)}s.`);
+}
+
+function migrateGamePlayers() {
+  ensureGamePlayersTable(coldDb);
+  ensureGamePlayersTable(hotDb);
+  backfillGamePlayers(coldDb, writeColdPlayers, 'cold');
+  backfillGamePlayers(hotDb, writeHotPlayers, 'hot');
+}
+migrateGamePlayers();
 
 // Admin Settings Table
 hotDb.exec(`
@@ -472,39 +560,28 @@ const getGlobalActivityStatsFiltered = hotDb.prepare(`
     ORDER BY day ASC, hour ASC
 `);
 
-// Per-pilot totals over hot and cold games, optionally from a start date.
-// Suicides come from the kill logs in one grouped pass; games without a kill
-// log contribute 0.
+// Per-pilot totals over hot and cold game_players rows, optionally from a start
+// date (idx_game_players_date). Spellings group by pilot_key; the name shown is
+// the one from the pilot's latest game.
 const pilotTotalsSql = (where = '') => `
-    WITH all_g AS (
-        SELECT details, date FROM games ${where}
+    WITH gp AS (
+        SELECT name, date, kills, deaths, assists, suicides FROM game_players ${where}
         UNION ALL
-        SELECT details, date FROM cold.games ${where}
-    ),
-    suicides AS (
-        SELECT pilot_key(json_extract(k.value, '$.defender')) AS pk, COUNT(*) AS n
-        FROM all_g, json_each(all_g.details, '$.kills') k
-        WHERE pilot_key(json_extract(k.value, '$.attacker')) = pilot_key(json_extract(k.value, '$.defender'))
-        GROUP BY pk
-    ),
-    totals AS (
-        SELECT
-            pilot_key(json_extract(value, '$.name')) AS pk,
-            TRIM(json_extract(value, '$.name')) as name,
-            COUNT(*) as games,
-            COALESCE(SUM(net_kills(json_extract(value, '$.kills'))), 0) as kills,
-            COALESCE(SUM(json_extract(value, '$.deaths')), 0) as deaths,
-            COALESCE(SUM(json_extract(value, '$.assists')), 0) as assists,
-            MAX(all_g.date) as lastSeen,
-            MAX(all_g.date) as last_updated
-        FROM all_g, json_each(all_g.details, '$.players')
-        WHERE json_extract(value, '$.name') IS NOT NULL
-          AND TRIM(json_extract(value, '$.name')) != ''
-        GROUP BY pk
+        SELECT name, date, kills, deaths, assists, suicides FROM cold.game_players ${where}
     )
-    SELECT t.name, t.games, t.kills, t.deaths, t.assists, COALESCE(s.n, 0) as suicides, t.lastSeen, t.last_updated
-    FROM totals t LEFT JOIN suicides s ON s.pk = t.pk
-    ORDER BY t.games DESC
+    SELECT *, lastSeen as last_updated FROM (
+        SELECT
+            name,
+            COUNT(*) as games,
+            COALESCE(SUM(net_kills(kills)), 0) as kills,
+            COALESCE(SUM(deaths), 0) as deaths,
+            COALESCE(SUM(assists), 0) as assists,
+            COALESCE(SUM(suicides), 0) as suicides,
+            MAX(date) as lastSeen
+        FROM gp
+        GROUP BY pilot_key(name)
+    )
+    ORDER BY games DESC
 `;
 
 const getPilotStats = hotDb.prepare(pilotTotalsSql());
@@ -635,36 +712,32 @@ function normalizeWeaponName(raw) {
     return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
+// A pilot's games in one file: the ids from game_players through
+// idx_game_players_name_date, then the details by primary key. Bind the trimmed
+// name; the NOCASE column ignores ASCII case.
+const pilotGamesSql = (schema, since = '') => `
+    SELECT details, date FROM ${schema}.games
+    WHERE id IN (SELECT game_id FROM ${schema}.game_players WHERE name = @name ${since})
+    ORDER BY date DESC
+`;
+const pilotGamesHot = hotDb.prepare(pilotGamesSql('main'));
+const pilotGamesHotSince = hotDb.prepare(pilotGamesSql('main', 'AND date >= @startDate'));
+const pilotGamesCold = hotDb.prepare(pilotGamesSql('cold'));
+
+// Hot games for a pilot, plus cold ones when hot holds fewer than 5.
+function pilotGamesHotFirst(name) {
+    const hotAll = pilotGamesHot.all({ name });
+    return hotAll.length >= 5 ? hotAll : hotAll.concat(pilotGamesCold.all({ name }));
+}
+
 function getPilotTelemetry(name, startDate, matchMode) {
     try {
         const cached = hotDb.prepare('SELECT * FROM pilot_stats_cache WHERE name = ? COLLATE NOCASE').get(name);
 
-        const pattern = pilotLikePattern(name);
         const key = pilotKey(name);
-        let gameRows;
-        if (startDate) {
-            gameRows = hotDb.prepare(`
-                SELECT details, date FROM games
-                WHERE date >= @startDate AND details LIKE @pattern ESCAPE '\\'
-                ORDER BY date DESC
-            `).all({ startDate, pattern });
-        } else {
-            const hotAll = hotDb.prepare(`
-                SELECT details, date FROM games
-                WHERE details LIKE @pattern ESCAPE '\\'
-                ORDER BY date DESC
-            `).all({ pattern });
-            if (hotAll && hotAll.length >= 5) {
-                gameRows = hotAll;
-            } else {
-                const coldAll = hotDb.prepare(`
-                    SELECT details, date FROM cold.games
-                    WHERE details LIKE @pattern ESCAPE '\\'
-                    ORDER BY date DESC
-                `).all({ pattern });
-                gameRows = (hotAll || []).concat(coldAll);
-            }
-        }
+        const gameRows = startDate
+            ? pilotGamesHotSince.all({ name: name.trim(), startDate })
+            : pilotGamesHotFirst(name.trim());
 
         if (!gameRows || gameRows.length === 0) {
             return startDate ? null : (cached || null);
@@ -919,33 +992,30 @@ const getPilotDetailedStats = {
     get: ({ name, startDate, mode }) => getPilotTelemetry(name, startDate, mode)
 };
 
-const getGamesByPilot = hotDb.prepare(`
-    SELECT details 
-    FROM (
-        SELECT details, date FROM games WHERE (@startDate IS NULL OR date >= @startDate) AND details LIKE ('%' || @name || '%')
-        UNION ALL
-        SELECT details, date FROM cold.games WHERE (@startDate IS NULL OR date >= @startDate) AND details LIKE ('%' || @name || '%')
-    )
-    WHERE EXISTS (
-        SELECT 1 FROM json_each(details, '$.players') 
-        WHERE json_extract(value, '$.name') = @name COLLATE NOCASE
-    )
-    ORDER BY date DESC
-    LIMIT @limit OFFSET @offset
+// A pilot's match history, newest first, from game_players in both files: the
+// page of ids is picked from the index, then only those games' details are read.
+// `cold` says which file a game id belongs to.
+const pilotGameIdsSql = `
+    SELECT DISTINCT game_id, date, 0 AS cold FROM game_players
+    WHERE name = @name AND (@startDate IS NULL OR date >= @startDate)
+    UNION ALL
+    SELECT DISTINCT game_id, date, 1 AS cold FROM cold.game_players
+    WHERE name = @name AND (@startDate IS NULL OR date >= @startDate)
+`;
+
+const getGamesByPilotStmt = hotDb.prepare(`
+    SELECT CASE WHEN p.cold THEN c.details ELSE h.details END AS details
+    FROM (${pilotGameIdsSql} ORDER BY date DESC LIMIT @limit OFFSET @offset) p
+    LEFT JOIN games h ON NOT p.cold AND h.id = p.game_id
+    LEFT JOIN cold.games c ON p.cold AND c.id = p.game_id
+    ORDER BY p.date DESC
 `);
 
-const countGamesByPilot = hotDb.prepare(`
-    SELECT COUNT(*) as count
-    FROM (
-        SELECT details, date FROM games WHERE (@startDate IS NULL OR date >= @startDate) AND details LIKE ('%' || @name || '%')
-        UNION ALL
-        SELECT details, date FROM cold.games WHERE (@startDate IS NULL OR date >= @startDate) AND details LIKE ('%' || @name || '%')
-    )
-    WHERE EXISTS (
-        SELECT 1 FROM json_each(details, '$.players') 
-        WHERE json_extract(value, '$.name') = @name COLLATE NOCASE
-    )
-`);
+const countGamesByPilotStmt = hotDb.prepare(`SELECT COUNT(*) as count FROM (${pilotGameIdsSql})`);
+
+// Bind the trimmed name, as game_players stores it.
+const getGamesByPilot = { all: params => getGamesByPilotStmt.all({ ...params, name: params.name.trim() }) };
+const countGamesByPilot = { get: params => countGamesByPilotStmt.get({ ...params, name: params.name.trim() }) };
 
 // Server Health Queries
 
@@ -1062,161 +1132,15 @@ FROM(
 const getGlobalKillsAllTime = () => {
   if (!getAllTimeGlobalKillsStmt) {
     getAllTimeGlobalKillsStmt = hotDb.prepare(`
-            SELECT SUM(net_kills(json_extract(value, '$.kills'))) as total_kills
-FROM(
-  SELECT details FROM games
+            SELECT SUM(net_kills(kills)) as total_kills
+            FROM (
+                SELECT kills FROM game_players
                 UNION ALL
-                SELECT details FROM cold.games
-), json_each(details, '$.players')
+                SELECT kills FROM cold.game_players
+            )
     `);
   }
   return getAllTimeGlobalKillsStmt;
-};
-
-const buildColdStorageStatsCache = () => {
-  try {
-    const hotDbSize = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
-    const coldDbSize = fs.existsSync(coldDbPath) ? fs.statSync(coldDbPath).size : 0;
-    const totalStorageBytes = hotDbSize + coldDbSize;
-
-    // Ensure Cold DB is attached
-    try {
-      hotDb.prepare('SELECT 1 FROM cold.games LIMIT 1').get();
-    } catch (e) {
-      hotDb.exec(`ATTACH DATABASE '${coldDbPath}' AS cold`);
-    }
-
-    const pilotSummary = hotDb.prepare(`
-      SELECT 
-        COUNT(*) as total_pilots,
-        COALESCE(SUM(kills), 0) as total_kills,
-        COALESCE(SUM(deaths), 0) as total_deaths,
-        COALESCE(SUM(assists), 0) as total_assists,
-        COALESCE(SUM(total_damage), 0) as total_damage,
-        COALESCE(SUM(flight_hours), 0) as total_flight_hours
-      FROM pilot_stats_cache
-    `).get() || {};
-
-    const yearlyMap = {};
-    const modesMap = {};
-    const mapsMap = {};
-    const serverSet = new Set();
-    let totalGames = 0;
-    let firstGameDate = null;
-    let lastGameDate = null;
-    let graveyardShiftCount = 0;
-    let totalMatchPlaytimeSec = 0;
-
-    let bloodiestMatch = { id: null, kills: 0, map: '', date: '', players: 0, mode: '' };
-    let longestMatch = { id: null, duration: 0, map: '', date: '', players: 0, mode: '' };
-    let maxSinglePilotFrags = { id: null, pilot: '', kills: 0, map: '', date: '', mode: '' };
-    let mostAttendedMatch = { id: null, count: 0, map: '', date: '', mode: '' };
-
-    const stmt = hotDb.prepare('SELECT id, date, ip, details FROM games UNION ALL SELECT id, date, ip, details FROM cold.games');
-    for (const row of stmt.iterate()) {
-      totalGames++;
-      if (row.ip) serverSet.add(row.ip.trim());
-      if (row.date) {
-        if (!firstGameDate || row.date < firstGameDate) firstGameDate = row.date;
-        if (!lastGameDate || row.date > lastGameDate) lastGameDate = row.date;
-        const yr = row.date.substring(0, 4);
-        if (yr >= '2019' && yr <= '2030') yearlyMap[yr] = (yearlyMap[yr] || 0) + 1;
-        const hr = new Date(row.date).getUTCHours();
-        if (hr >= 2 && hr <= 5) graveyardShiftCount++;
-      }
-
-      try {
-        const g = JSON.parse(row.details);
-        const modeRaw = (g.settings?.matchMode || g.MatchMode || g.game?.mode || 'ANARCHY').toUpperCase().trim();
-        modesMap[modeRaw] = (modesMap[modeRaw] || 0) + 1;
-
-        const mapRaw = (g.settings?.level || g.Level || g.game?.mapName || 'UNKNOWN').trim();
-        if (mapRaw && mapRaw !== 'UNKNOWN') mapsMap[mapRaw] = (mapsMap[mapRaw] || 0) + 1;
-
-        const dur = Math.round(durationOf(g));
-
-        totalMatchPlaytimeSec += dur;
-        if (dur > longestMatch.duration) {
-          longestMatch = { id: row.id, duration: dur, map: mapRaw, date: row.date, players: (g.players || []).length, mode: modeRaw };
-        }
-
-        const players = g.players || [];
-        if (players.length > mostAttendedMatch.count) {
-          mostAttendedMatch = { id: row.id, count: players.length, map: mapRaw, date: row.date, mode: modeRaw };
-        }
-
-        let matchFrags = 0;
-        for (let i = 0; i < players.length; i++) {
-          const p = players[i];
-          const k = netKills(p);
-          matchFrags += k;
-          if (k > maxSinglePilotFrags.kills && p?.name) {
-            maxSinglePilotFrags = { id: row.id, pilot: p.name.trim(), kills: k, map: mapRaw, date: row.date, mode: modeRaw };
-          }
-        }
-
-        if (matchFrags > bloodiestMatch.kills) {
-          bloodiestMatch = { id: row.id, kills: matchFrags, map: mapRaw, date: row.date, players: players.length, mode: modeRaw };
-        }
-      } catch (e) {}
-    }
-
-    const sortedMaps = Object.entries(mapsMap)
-      .map(([map, count]) => ({ map, count, lastPlayed: null }))
-      .sort((a, b) => b.count - a.count);
-
-    const sortedModes = Object.entries(modesMap)
-      .map(([mode, count]) => ({ mode, count }))
-      .sort((a, b) => b.count - a.count);
-
-    const yearlyList = Object.entries(yearlyMap)
-      .map(([year, count]) => ({ year, count }))
-      .sort((a, b) => a.year.localeCompare(b.year));
-
-    const payload = {
-      total_games: totalGames,
-      first_game: firstGameDate,
-      last_game: lastGameDate,
-      total_playtime_seconds: Math.round((pilotSummary.total_flight_hours || (totalMatchPlaytimeSec / 3600)) * 3600),
-      total_flight_hours: Math.round(pilotSummary.total_flight_hours || (totalMatchPlaytimeSec / 3600)),
-      total_kills: pilotSummary.total_kills || 0,
-      total_deaths: pilotSummary.total_deaths || 0,
-      total_assists: pilotSummary.total_assists || 0,
-      total_damage: Math.round(pilotSummary.total_damage || 0),
-      unique_pilots: pilotSummary.total_pilots || 0,
-      unique_servers: serverSet.size,
-      unique_maps: sortedMaps.length,
-      most_popular_mode: sortedModes[0] || { mode: 'ANARCHY', count: 0 },
-      most_popular_map: sortedMaps[0] || { map: 'VAULT', count: 0 },
-      modes: sortedModes,
-      top_maps: sortedMaps.slice(0, 20),
-      yearly: yearlyList,
-      records: {
-        bloodiest_match: bloodiestMatch,
-        longest_match: longestMatch,
-        max_single_pilot_frags: maxSinglePilotFrags,
-        most_attended_match: mostAttendedMatch
-      },
-      graveyard_shift_count: graveyardShiftCount,
-      storage: {
-        hot_db_bytes: hotDbSize,
-        cold_db_bytes: coldDbSize,
-        total_bytes: totalStorageBytes,
-        hot_db_mb: Math.round((hotDbSize / (1024 * 1024)) * 10) / 10,
-        cold_db_mb: Math.round((coldDbSize / (1024 * 1024)) * 10) / 10,
-        total_mb: Math.round((totalStorageBytes / (1024 * 1024)) * 10) / 10,
-        total_gb: Math.round((totalStorageBytes / (1024 * 1024 * 1024)) * 100) / 100
-      },
-      last_calculated: new Date().toISOString()
-    };
-
-    hotDb.prepare('INSERT OR REPLACE INTO cold_storage_stats_cache (id, data, last_updated) VALUES (1, ?, CURRENT_TIMESTAMP)').run(JSON.stringify(payload));
-    console.log('[ColdStorage] Successfully built archival deep stats cache.');
-    return payload;
-  } catch (err) {
-    console.error('Failed to build cold storage stats cache:', err);
-    return null;
-  }
 };
 
 const STOCK_MAPS = [
@@ -1407,177 +1331,9 @@ const seedStockMaps = () => {
   }
 };
 
-const buildMapStatsCache = () => {
-  try {
-    console.log('[MapStats] Starting streaming map telemetry aggregation...');
-    const start = performance.now();
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    const mapStatsMap = new Map();
-
-    function getOrInit(name) {
-      const key = name.toLowerCase().trim();
-      let entry = mapStatsMap.get(key);
-      if (!entry) {
-        entry = {
-          name: name.trim(),
-          total_matches: 0,
-          total_kills: 0,
-          total_deaths: 0,
-          total_damage: 0,
-          total_pilot_slots: 0,
-          recent_30d_matches: 0,
-          first_played: null,
-          last_played: null,
-          modes: {},
-          pilots: new Map(),
-          record_match: { id: null, kills: 0, date: null, players: 0 }
-        };
-        mapStatsMap.set(key, entry);
-      }
-      return entry;
-    }
-
-    const query = hotDb.prepare(`
-      SELECT id, details, date
-      FROM (
-        SELECT id, details, date FROM games
-        UNION ALL
-        SELECT id, details, date FROM cold.games
-      )
-      WHERE details IS NOT NULL
-    `);
-
-    for (const row of query.iterate()) {
-      let details;
-      try {
-        details = typeof row.details === 'string' ? JSON.parse(row.details) : row.details;
-      } catch {
-        continue;
-      }
-
-      const levelRaw = details?.settings?.level;
-      if (!levelRaw || typeof levelRaw !== 'string') continue;
-
-      const entry = getOrInit(levelRaw);
-      entry.total_matches++;
-
-      const date = row.date;
-      if (date) {
-        if (!entry.first_played || date < entry.first_played) entry.first_played = date;
-        if (!entry.last_played || date > entry.last_played) entry.last_played = date;
-        if (date >= thirtyDaysAgo) entry.recent_30d_matches++;
-      }
-
-      const mode = details?.settings?.matchMode || 'ANARCHY';
-      entry.modes[mode] = (entry.modes[mode] || 0) + 1;
-
-      const players = Array.isArray(details?.players) ? details.players : [];
-      entry.total_pilot_slots += players.length;
-
-      let matchKills = 0;
-      for (const p of players) {
-        const pName = p.name ? p.name.trim() : null;
-        const kills = netKills(p);
-        const deaths = Number(p.deaths) || 0;
-
-        matchKills += kills;
-        entry.total_kills += kills;
-        entry.total_deaths += deaths;
-
-        if (pName) {
-          const pKey = pilotKey(pName);
-          let pEntry = entry.pilots.get(pKey);
-          if (!pEntry) {
-            pEntry = { name: pName, sorties: 0, kills: 0, deaths: 0 };
-            entry.pilots.set(pKey, pEntry);
-          }
-          pEntry.sorties++;
-          pEntry.kills += kills;
-          pEntry.deaths += deaths;
-        }
-      }
-
-      // Aggregate combat damage from match telemetry (prefer pre-aggregated player damage, fallback to raw damage array)
-      let matchDamage = 0;
-      if (Array.isArray(details?.players) && details.players.length > 0) {
-        for (let j = 0; j < details.players.length; j++) {
-          const p = details.players[j];
-          matchDamage += Number(p?.damage_dealt || p?.damage || p?.total_damage || 0);
-        }
-      } else if (Array.isArray(details?.damage)) {
-        for (let j = 0; j < details.damage.length; j++) {
-          const d = details.damage[j];
-          if (d && typeof d.damage === 'number') {
-            matchDamage += d.damage;
-          }
-        }
-      }
-      entry.total_damage += Math.round(matchDamage);
-
-      if (matchKills > entry.record_match.kills) {
-        entry.record_match = {
-          id: row.id,
-          kills: matchKills,
-          date: row.date,
-          players: players.length
-        };
-      }
-    }
-
-    const insertStmt = hotDb.prepare(`
-      INSERT OR REPLACE INTO map_stats_cache (
-        map_name, total_matches, total_kills, total_deaths, total_damage,
-        avg_players, first_played, last_played, recent_30d_matches,
-        modes, top_pilot, top_pilots, record_match, last_updated
-      ) VALUES (
-        @map_name, @total_matches, @total_kills, @total_deaths, @total_damage,
-        @avg_players, @first_played, @last_played, @recent_30d_matches,
-        @modes, @top_pilot, @top_pilots, @record_match, CURRENT_TIMESTAMP
-      )
-    `);
-
-    hotDb.transaction(() => {
-      for (const [, entry] of mapStatsMap) {
-        const topPilots = Array.from(entry.pilots.values())
-          .sort((a, b) => b.kills - a.kills)
-          .slice(0, 5)
-          .map(p => ({
-            ...p,
-            kd: Number((p.kills / Math.max(1, p.deaths)).toFixed(2))
-          }));
-
-        const topAce = topPilots[0] || null;
-
-        insertStmt.run({
-          map_name: entry.name,
-          total_matches: entry.total_matches,
-          total_kills: entry.total_kills,
-          total_deaths: entry.total_deaths,
-          total_damage: entry.total_damage,
-          avg_players: Number((entry.total_pilot_slots / Math.max(1, entry.total_matches)).toFixed(1)),
-          first_played: entry.first_played,
-          last_played: entry.last_played,
-          recent_30d_matches: entry.recent_30d_matches,
-          modes: JSON.stringify(entry.modes),
-          top_pilot: topAce ? JSON.stringify(topAce) : null,
-          top_pilots: JSON.stringify(topPilots),
-          record_match: JSON.stringify(entry.record_match)
-        });
-      }
-    })();
-
-    const duration = ((performance.now() - start) / 1000).toFixed(2);
-    console.log(`[MapStats] Built map_stats_cache for ${mapStatsMap.size} maps in ${duration}s.`);
-    return true;
-  } catch (err) {
-    console.error('Failed to build map stats cache:', err);
-    return false;
-  }
-};
-
 // saveGames upsert. A gamelist summary carries an empty kill log, so it does not
-// replace stored details that have one (a hydrated or archive game).
+// replace stored details that have one (a hydrated or archive game). Returns the
+// details now stored, which game_players is built from.
 const upsertGameSql = `
   INSERT INTO games(id, date, ip, details)
   VALUES(@id, @date, @ip, @details)
@@ -1590,9 +1346,19 @@ const upsertGameSql = `
     END,
     date = excluded.date,
     ip = excluded.ip
+  RETURNING details
 `;
 const upsertGameHot = hotDb.prepare(upsertGameSql);
 const upsertGameCold = coldDb.prepare(upsertGameSql);
+
+// A pilot's first game in either file, read from idx_game_players_name_date.
+const getPilotFirstSeen = hotDb.prepare(`
+  SELECT MIN(first_seen) as first_seen FROM (
+    SELECT MIN(date) as first_seen FROM game_players WHERE name = @name
+    UNION ALL
+    SELECT MIN(date) as first_seen FROM cold.game_players WHERE name = @name
+  )
+`);
 
 // Hot games in one UTC day; bind utcDayBounds().
 const getGamesInDay = hotDb.prepare(`
@@ -1600,6 +1366,144 @@ const getGamesInDay = hotDb.prepare(`
   WHERE date >= ? AND date < ?
   ORDER BY date ASC
 `);
+
+// Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
+// pass over every stored game in server/statsWorker.js. Concurrent calls share
+// the run in progress. Never rejects: a failure is logged and the old caches stay.
+let refreshing = null;
+const refreshPilotStats = () => {
+  refreshing ??= refreshCaches().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+};
+
+const runStatsWorker = () => new Promise((resolve, reject) => {
+  const worker = new Worker(new URL('./statsWorker.js', import.meta.url), {
+    workerData: {
+      hotPath: dbPath,
+      coldPath: coldDbPath,
+      thirtyDaysAgo: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    }
+  });
+  worker.once('message', resolve);
+  worker.once('error', reject);
+  worker.once('exit', code => reject(new Error(`stats worker exited with code ${code}`)));
+});
+
+async function refreshCaches() {
+  // 1. Create Cache Table if not exists
+  hotDb.exec(`
+    CREATE TABLE IF NOT EXISTS pilot_stats_cache (
+      name TEXT PRIMARY KEY,
+      kills INTEGER,
+      deaths INTEGER,
+      assists INTEGER,
+      suicides INTEGER DEFAULT 0,
+      games INTEGER,
+      time_played_seconds INTEGER,
+      kd REAL,
+      kda REAL,
+      akdr REAL,
+      kpm REAL,
+      tce REAL,
+      aci REAL,
+      wins INTEGER DEFAULT 0,
+      losses INTEGER DEFAULT 0,
+      ties INTEGER DEFAULT 0,
+      win_rate REAL DEFAULT 0,
+      total_damage REAL DEFAULT 0,
+      dpm REAL DEFAULT 0,
+      flight_hours REAL DEFAULT 0,
+      finisher_rating REAL,
+      arsenal_entropy REAL,
+      threat_centrality REAL DEFAULT 0,
+      dominance_index REAL DEFAULT 0,
+      last_updated TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Ensure columns exist on older tables
+  const extraCols = [
+    'kd REAL',
+    'kda REAL',
+    'aci REAL',
+    'suicides INTEGER DEFAULT 0',
+    'wins INTEGER DEFAULT 0',
+    'losses INTEGER DEFAULT 0',
+    'ties INTEGER DEFAULT 0',
+    'win_rate REAL DEFAULT 0',
+    'total_damage REAL DEFAULT 0',
+    'dpm REAL DEFAULT 0',
+    'flight_hours REAL DEFAULT 0'
+  ];
+  for (const col of extraCols) {
+    try {
+      hotDb.exec(`ALTER TABLE pilot_stats_cache ADD COLUMN ${col}`);
+    } catch (e) {
+      // already exists
+    }
+  }
+
+
+  try {
+    const started = performance.now();
+    const { errors, pilots, archive, maps } = await runStatsWorker();
+    for (const [pass, message] of Object.entries(errors)) console.error(`[StatsWorker] ${pass} pass failed: ${message}`);
+
+    if (!errors.pilots) {
+      const insertStmt = hotDb.prepare(`
+        INSERT OR REPLACE INTO pilot_stats_cache (
+          name, kills, deaths, assists, suicides, games, time_played_seconds,
+          kd, kda, akdr, kpm, tce, aci,
+          wins, losses, ties, win_rate,
+          total_damage, dpm, flight_hours,
+          finisher_rating, arsenal_entropy,
+          threat_centrality, dominance_index, last_updated
+        ) VALUES (
+          @name, @kills, @deaths, @assists, @suicides, @games, @time_played_seconds,
+          @kd, @kda, @akdr, @kpm, @tce, @aci,
+          @wins, @losses, @ties, @win_rate,
+          @total_damage, @dpm, @flight_hours,
+          @finisher_rating, @arsenal_entropy,
+          @threat_centrality, @dominance_index, @last_updated
+        )
+      `);
+      // Rebuild from scratch so rows for spellings merged under one pilotKey go away.
+      hotDb.transaction((rows) => {
+        hotDb.prepare('DELETE FROM pilot_stats_cache').run();
+        for (const row of rows) insertStmt.run(row);
+      })(pilots);
+      console.log(`[PPI] Successfully refreshed ${pilots.length} pilots with full telemetry & graph metrics.`);
+    }
+
+    if (archive) {
+      hotDb.prepare('INSERT OR REPLACE INTO cold_storage_stats_cache (id, data, last_updated) VALUES (1, ?, CURRENT_TIMESTAMP)').run(JSON.stringify(archive));
+      console.log('[ColdStorage] Successfully built archival deep stats cache.');
+    }
+
+    if (maps) {
+      const insertStmt = hotDb.prepare(`
+        INSERT OR REPLACE INTO map_stats_cache (
+          map_name, total_matches, total_kills, total_deaths, total_damage,
+          avg_players, first_played, last_played, recent_30d_matches,
+          modes, top_pilot, top_pilots, record_match, last_updated
+        ) VALUES (
+          @map_name, @total_matches, @total_kills, @total_deaths, @total_damage,
+          @avg_players, @first_played, @last_played, @recent_30d_matches,
+          @modes, @top_pilot, @top_pilots, @record_match, CURRENT_TIMESTAMP
+        )
+      `);
+      hotDb.transaction(() => {
+        for (const row of maps) insertStmt.run(row);
+      })();
+      console.log(`[MapStats] Built map_stats_cache for ${maps.length} maps.`);
+    }
+    console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);
+  } catch (err) {
+    console.error("Failed to refresh PPI stats", err);
+  }
+}
 
 const db = {
   // Copy and replace tracker.db through SQLite's backup API. Under WAL a raw file copy
@@ -1612,7 +1516,10 @@ const db = {
     } finally {
       uploaded.close();
     }
+    // A backup from before S5 has no game_players; build it for the restored games.
+    migrateGamePlayers();
   },
+  migrateGamePlayers,
 
   getGames: (limit, offset, search, startDate) => {
     if (search) {
@@ -1650,18 +1557,16 @@ const db = {
     }
     return countColdGamesStmt.get();
   },
-  buildColdStorageStatsCache,
-  getColdStorageStats: () => {
-    try {
+  // Built by refreshPilotStats; the first call before any refresh waits for one.
+  getColdStorageStats: async () => {
+    const read = () => {
       const row = hotDb.prepare('SELECT data FROM cold_storage_stats_cache WHERE id = 1').get();
-      if (row && row.data) {
-        return JSON.parse(row.data);
-      }
-      return buildColdStorageStatsCache();
-    } catch (err) {
-      console.error("Deep stats error:", err);
-      return buildColdStorageStatsCache();
-    }
+      return row?.data ? JSON.parse(row.data) : null;
+    };
+    const cached = read();
+    if (cached) return cached;
+    await refreshPilotStats();
+    return read();
   },
   getGameById: {
     get: (id) => {
@@ -1787,16 +1692,23 @@ COALESCE(json_extract(details, '$.server.ip'), ip) as ip,
 VALUES(?, ?, ?, ?, ?)
   `);
 
+    // Upsert one game and rebuild its game_players rows from the details kept.
+    const saveOne = (upsert, writePlayers, game) => {
+      const row = {
+        id: game.id,
+        date: game.date || game.start || new Date().toISOString(),
+        ip: game.server?.ip || game.ip || null,
+        details: JSON.stringify(game)
+      };
+      const stored = upsert.get(row).details;
+      writePlayers(row.id, row.date, stored === row.details ? game : JSON.parse(stored));
+    };
+
     const transactionHot = hotDb.transaction((gamesList) => {
       let changes = 0;
       for (const game of gamesList) {
-        const result = upsertGameHot.run({
-          id: game.id,
-          date: game.date || game.start || new Date().toISOString(),
-          ip: game.server?.ip || game.ip || null,
-          details: JSON.stringify(game)
-        });
-        changes += result.changes;
+        saveOne(upsertGameHot, writeHotPlayers, game);
+        changes++;
 
         insertMeta.run(
           game.id,
@@ -1813,12 +1725,7 @@ VALUES(?, ?, ?, ?, ?)
     const transactionCold = coldDb.transaction((gamesList) => {
       let changes = 0;
       for (const game of gamesList) {
-        upsertGameCold.run({
-          id: game.id,
-          date: game.date || game.start || new Date().toISOString(),
-          ip: game.server?.ip || game.ip || null,
-          details: JSON.stringify(game)
-        });
+        saveOne(upsertGameCold, writeColdPlayers, game);
         changes++;
       }
       return changes;
@@ -1844,12 +1751,14 @@ VALUES(?, ?, ?, ?, ?)
     const transaction = coldDb.transaction((list) => {
       let changes = 0;
       for (const game of list) {
+        const date = game.date || game.start || new Date().toISOString();
         insertCold.run({
           id: game.id,
-          date: game.date || game.start || new Date().toISOString(),
+          date,
           ip: game.ip || game.server?.ip || null,
           details: typeof game.details === 'string' ? game.details : JSON.stringify(game)
         });
+        writeColdPlayers(game.id, date, typeof game.details === 'string' ? JSON.parse(game.details) : game);
         changes++;
       }
       return changes;
@@ -1863,7 +1772,9 @@ VALUES(?, ?, ?, ?, ?)
     const gameDate = game.date || game.start || new Date().toISOString();
 
     // Determine target DB
-    const targetDb = gameDate >= ONE_YEAR_AGO ? hotDb : coldDb;
+    const isHot = gameDate >= ONE_YEAR_AGO;
+    const targetDb = isHot ? hotDb : coldDb;
+    const writePlayers = isHot ? writeHotPlayers : writeColdPlayers;
 
     const update = targetDb.prepare(`
       UPDATE games 
@@ -1885,6 +1796,7 @@ VALUES(?, ?, ?, ?, ?)
         ip: game.server?.ip || game.ip || null,
         details: JSON.stringify(game)
       });
+      if (result.changes > 0) writePlayers(game.id, gameDate, game);
 
       // Only update metadata if it's in Hot DB or we want to track it globally
       // For simplicity, we update metadata in Hot DB
@@ -1905,387 +1817,38 @@ VALUES(?, ?, ?, ?, ?)
   },
 
   // Maintenance: Move old games to cold storage
+  // Two transactions, in this order, run back to back with nothing in between on
+  // this connection: copy the games and their game_players rows into cold storage,
+  // then delete from hot only the games cold storage now holds. Under WAL a commit
+  // that spans both files is atomic per file only, so a crash could keep one
+  // half; this order leaves a duplicate at worst, which the next run removes, and
+  // never a game in neither file.
   moveGamesToColdStorage: () => {
     const ONE_YEAR_AGO = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+    const columns = 'game_id, date, name, team, kills, deaths, assists, suicides, damage, mode, map';
 
-    // 1. Find old games in Hot DB
-    const oldGames = hotDb.prepare('SELECT * FROM games WHERE date < ?').all(ONE_YEAR_AGO);
+    hotDb.transaction(() => {
+      // A game cold storage already has keeps its cold copy and rows.
+      hotDb.prepare(`
+        INSERT INTO cold.game_players (${columns})
+        SELECT ${columns} FROM main.game_players
+        WHERE game_id IN (SELECT id FROM main.games WHERE date < ? AND id NOT IN (SELECT id FROM cold.games))
+      `).run(ONE_YEAR_AGO);
+      hotDb.prepare(`
+        INSERT OR IGNORE INTO cold.games (id, date, ip, details)
+        SELECT id, date, ip, details FROM main.games WHERE date < ?
+      `).run(ONE_YEAR_AGO);
+    })();
 
-
-    if (oldGames.length === 0) return 0;
-
-    // 2. Insert into Cold DB
-    const insertCold = coldDb.prepare(`
-        INSERT OR IGNORE INTO games(id, date, ip, details)
-VALUES(@id, @date, @ip, @details)
-  `);
-
-    const transactionCold = coldDb.transaction((games) => {
-      for (const game of games) insertCold.run(game);
-    });
-    transactionCold(oldGames);
-
-    // 3. Delete from Hot DB
-    const deleteHot = hotDb.prepare('DELETE FROM games WHERE date < ?');
-    const result = deleteHot.run(ONE_YEAR_AGO);
-
-    return result.changes;
+    return hotDb.transaction(() => {
+      const moved = 'SELECT id FROM main.games WHERE date < ? AND id IN (SELECT id FROM cold.games)';
+      hotDb.prepare(`DELETE FROM main.game_players WHERE game_id IN (${moved})`).run(ONE_YEAR_AGO);
+      return hotDb.prepare(`DELETE FROM main.games WHERE id IN (${moved})`).run(ONE_YEAR_AGO).changes;
+    })();
   },
 
   // PPI Framework
-  refreshPilotStats: () => {
-    // 1. Create Cache Table if not exists
-    hotDb.exec(`
-      CREATE TABLE IF NOT EXISTS pilot_stats_cache (
-        name TEXT PRIMARY KEY,
-        kills INTEGER,
-        deaths INTEGER,
-        assists INTEGER,
-        suicides INTEGER DEFAULT 0,
-        games INTEGER,
-        time_played_seconds INTEGER,
-        kd REAL,
-        kda REAL,
-        akdr REAL,
-        kpm REAL,
-        tce REAL,
-        aci REAL,
-        wins INTEGER DEFAULT 0,
-        losses INTEGER DEFAULT 0,
-        ties INTEGER DEFAULT 0,
-        win_rate REAL DEFAULT 0,
-        total_damage REAL DEFAULT 0,
-        dpm REAL DEFAULT 0,
-        flight_hours REAL DEFAULT 0,
-        finisher_rating REAL,
-        arsenal_entropy REAL,
-        threat_centrality REAL DEFAULT 0,
-        dominance_index REAL DEFAULT 0,
-        last_updated TEXT DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Ensure columns exist on older tables
-    const extraCols = [
-      'kd REAL',
-      'kda REAL',
-      'aci REAL',
-      'suicides INTEGER DEFAULT 0',
-      'wins INTEGER DEFAULT 0',
-      'losses INTEGER DEFAULT 0',
-      'ties INTEGER DEFAULT 0',
-      'win_rate REAL DEFAULT 0',
-      'total_damage REAL DEFAULT 0',
-      'dpm REAL DEFAULT 0',
-      'flight_hours REAL DEFAULT 0'
-    ];
-    for (const col of extraCols) {
-      try {
-        hotDb.exec(`ALTER TABLE pilot_stats_cache ADD COLUMN ${col}`);
-      } catch (e) {
-        // already exists
-      }
-    }
-
-    try {
-      // One row at a time: .all() would hold every hot and cold game in memory at once.
-      const rows = hotDb.prepare(`
-        SELECT details, date FROM games
-        UNION ALL
-        SELECT details, date FROM cold.games
-      `).iterate();
-
-      const pilotMap = {};
-      const killGraph = {};
-      const h2h = {};
-
-      for (const row of rows) {
-        if (!row.details) continue;
-        let g;
-        try {
-          g = typeof row.details === 'string' ? JSON.parse(row.details) : row.details;
-        } catch {
-          continue;
-        }
-
-        const players = g.players || [];
-        if (!Array.isArray(players) || players.length === 0) continue;
-
-        const durationSec = durationOf(g);
-
-        // Ranked filter: exclude <2 players and games under 60s or of unknown length
-        if (players.length < 2 || durationSec < 60) continue;
-
-        const result = winnerOf(g);
-
-        for (let j = 0; j < players.length; j++) {
-          const p = players[j];
-          const key = pilotKey(p?.name);
-          if (!key) continue;
-
-          let pilot = pilotMap[key];
-          if (!pilot) {
-            pilot = pilotMap[key] = {
-              name: p.name.trim(),
-              games: 0,
-              kills: 0,
-              deaths: 0,
-              assists: 0,
-              suicides: 0,
-              wins: 0,
-              losses: 0,
-              ties: 0,
-              totalDamage: 0,
-              playtimeSec: 0,
-              lastSeen: row.date || g.end || g.date || null
-            };
-          }
-
-          pilot.games++;
-          pilot.kills += netKills(p);
-          pilot.deaths += (p.deaths || 0);
-          pilot.assists += (p.assists || 0);
-          pilot.playtimeSec += durationSec;
-          if (row.date && (!pilot.lastSeen || row.date > pilot.lastSeen)) {
-            pilot.lastSeen = row.date;
-            pilot.name = p.name.trim();
-          }
-
-          const outcome = outcomeOf(g, p, result);
-          if (outcome) pilot[OUTCOME_FIELD[outcome]]++;
-        }
-
-        // Suicides from g.kills
-        if (Array.isArray(g.kills)) {
-          for (let j = 0; j < g.kills.length; j++) {
-            const k = g.kills[j];
-            const victim = pilotKey(k?.defender);
-            if (victim && pilotKey(k.attacker) === victim && pilotMap[victim]) {
-              pilotMap[victim].suicides++;
-            }
-          }
-        }
-
-        // Threat & Dominance Graph
-        if (players.length === 2) {
-          const [p1, p2] = players;
-          const n1 = pilotKey(p1?.name);
-          const n2 = pilotKey(p2?.name);
-          if (n1 && n2) {
-            // Victim transfers prestige to Killer (p2 was killed by p1; p1 was killed by p2)
-            killGraph[n2] = killGraph[n2] || {};
-            killGraph[n2][n1] = (killGraph[n2][n1] || 0) + netKills(p1);
-
-            killGraph[n1] = killGraph[n1] || {};
-            killGraph[n1][n2] = (killGraph[n1][n2] || 0) + netKills(p2);
-
-            h2h[n1] = h2h[n1] || {};
-            h2h[n1][n2] = h2h[n1][n2] || { wins: 0, losses: 0, ties: 0 };
-            h2h[n2] = h2h[n2] || {};
-            h2h[n2][n1] = h2h[n2][n1] || { wins: 0, losses: 0, ties: 0 };
-
-            const outcome = pairOutcome(g, p1, p2, result);
-            if (outcome) {
-              h2h[n1][n2][OUTCOME_FIELD[outcome]]++;
-              h2h[n2][n1][OUTCOME_FIELD[pairOutcome(g, p2, p1, result)]]++;
-            }
-          }
-        } else if (players.length > 2) {
-          const keys = players.map(p => pilotKey(p?.name));
-          const totalDeathsOthers = {};
-          keys.forEach(n => {
-            if (!n) return;
-            totalDeathsOthers[n] = players.reduce((sum, o, i) => (keys[i] && keys[i] !== n ? sum + (o.deaths || 0) : sum), 0);
-          });
-          for (let a = 0; a < players.length; a++) {
-            const killer = players[a];
-            const kName = keys[a];
-            if (!kName) continue;
-            for (let b = 0; b < players.length; b++) {
-              const victim = players[b];
-              const vName = keys[b];
-              if (!vName) continue;
-              if (kName === vName) continue;
-
-              const killsWeight = totalDeathsOthers[kName] > 0
-                ? netKills(killer) * ((victim.deaths || 0) / totalDeathsOthers[kName])
-                : netKills(killer) / (players.length - 1);
-
-              // Victim transfers prestige to Killer
-              killGraph[vName] = killGraph[vName] || {};
-              killGraph[vName][kName] = (killGraph[vName][kName] || 0) + killsWeight;
-
-              h2h[kName] = h2h[kName] || {};
-              h2h[kName][vName] = h2h[kName][vName] || { wins: 0, losses: 0, ties: 0 };
-              if ((killer.kills || 0) > (victim.kills || 0)) h2h[kName][vName].wins++;
-              else if ((victim.kills || 0) > (killer.kills || 0)) h2h[kName][vName].losses++;
-              else h2h[kName][vName].ties = (h2h[kName][vName].ties || 0) + 1;
-            }
-          }
-        }
-
-        // Damage
-        if (Array.isArray(g.damage)) {
-          for (let j = 0; j < g.damage.length; j++) {
-            const d = g.damage[j];
-            if (!d || !d.damage || !d.attacker) continue;
-            const aName = pilotKey(d.attacker);
-            if (pilotMap[aName]) {
-              pilotMap[aName].totalDamage += d.damage;
-            }
-          }
-        }
-      }
-
-      // Dominance Index (opponents with >= 3 shared matches)
-      const dominance = {};
-      const pilotList = Object.keys(pilotMap);
-      for (const p of pilotList) {
-        const allOpponents = h2h[p] ? Object.keys(h2h[p]) : [];
-        const qualifiedOpponents = allOpponents.filter(opp => {
-          const rec = h2h[p][opp];
-          const shared = (rec.wins || 0) + (rec.losses || 0) + (rec.ties || 0);
-          return shared >= 3;
-        });
-
-        if (qualifiedOpponents.length === 0) {
-          dominance[p] = 50.0;
-        } else {
-          let wonMatchups = 0;
-          for (const opp of qualifiedOpponents) {
-            const rec = h2h[p][opp];
-            if (rec.wins > rec.losses) wonMatchups++;
-            else if (rec.wins === rec.losses) wonMatchups += 0.5;
-          }
-          dominance[p] = Math.round((wonMatchups / qualifiedOpponents.length) * 1000) / 10;
-        }
-      }
-
-      // Threat Centrality (Power Iteration PageRank: Slaying High-Threat Targets Transfers Prestige)
-      const N = pilotList.length || 1;
-      let scores = {};
-      pilotList.forEach(p => scores[p] = 1 / N);
-      const d = 0.85;
-
-      for (let iter = 0; iter < 25; iter++) {
-        let danglingWeight = 0;
-        const nextScores = {};
-        for (let i = 0; i < N; i++) {
-          nextScores[pilotList[i]] = 0;
-        }
-
-        for (const victim of pilotList) {
-          const killers = killGraph[victim];
-          const totalDeaths = killers ? Object.values(killers).reduce((a, b) => a + b, 0) : 0;
-          if (totalDeaths > 0) {
-            const factor = (d * scores[victim]) / totalDeaths;
-            for (const [killer, weight] of Object.entries(killers)) {
-              nextScores[killer] += weight * factor;
-            }
-          } else {
-            danglingWeight += scores[victim];
-          }
-        }
-
-        const baseScore = ((1 - d) + d * danglingWeight) / N;
-        for (let i = 0; i < N; i++) {
-          nextScores[pilotList[i]] += baseScore;
-        }
-        scores = nextScores;
-      }
-
-      const maxScore = Math.max(...Object.values(scores), 0.0001);
-
-      const insertStmt = hotDb.prepare(`
-        INSERT OR REPLACE INTO pilot_stats_cache (
-          name, kills, deaths, assists, suicides, games, time_played_seconds,
-          kd, kda, akdr, kpm, tce, aci,
-          wins, losses, ties, win_rate,
-          total_damage, dpm, flight_hours,
-          finisher_rating, arsenal_entropy,
-          threat_centrality, dominance_index, last_updated
-        ) VALUES (
-          @name, @kills, @deaths, @assists, @suicides, @games, @time_played_seconds,
-          @kd, @kda, @akdr, @kpm, @tce, @aci,
-          @wins, @losses, @ties, @win_rate,
-          @total_damage, @dpm, @flight_hours,
-          @finisher_rating, @arsenal_entropy,
-          @threat_centrality, @dominance_index, @last_updated
-        )
-      `);
-
-      const insertRows = pilotList.map(key => {
-        const p = pilotMap[key];
-        const kills = p.kills;
-        const deaths = p.deaths || 0;
-        const assists = p.assists || 0;
-        const suicides = p.suicides || 0;
-        const games = p.games || 1;
-        const timeSec = p.playtimeSec || 0;
-        const flightMinutes = timeSec > 0 ? timeSec / 60 : 0;
-
-        const kd = deaths > 0 ? Math.round((kills / deaths) * 100) / 100 : kills;
-        const kda = deaths > 0 ? Math.round(((kills + assists * 0.5) / deaths) * 100) / 100 : kills;
-        const akdr = deaths > 0 ? Math.round(((kills + assists * 0.33) / deaths) * 100) / 100 : kills;
-        const kpm = flightMinutes > 0 ? Math.round((kills / flightMinutes) * 100) / 100 : 0;
-        const tce = Math.round(((kills * 1.0) + (assists * 0.4) - (deaths * 1.0)) * 10) / 10;
-        const aci = Math.round(((kills + assists * 0.5 - deaths) / games) * 100) / 100;
-
-        const wins = p.wins || 0;
-        const losses = p.losses || 0;
-        const ties = p.ties || 0;
-        const winRate = Math.round((wins / games) * 1000) / 10;
-
-        const totalDamage = Math.round(p.totalDamage || 0);
-        const dpm = flightMinutes > 0 ? Math.round(totalDamage / flightMinutes) : 0;
-        const flightHours = Math.round((timeSec / 3600) * 10) / 10;
-
-        const finisherRating = (kills + assists) > 0 ? Math.round((kills / (kills + assists)) * 100) / 100 : 0;
-        const centrality = Math.round((scores[key] / maxScore) * 1000) / 10;
-        const dom = dominance[key] !== undefined ? dominance[key] : 50.0;
-
-        return {
-          name: p.name,
-          kills,
-          deaths,
-          assists,
-          suicides,
-          games,
-          time_played_seconds: Math.round(timeSec),
-          kd,
-          kda,
-          akdr,
-          kpm,
-          tce,
-          aci,
-          wins,
-          losses,
-          ties,
-          win_rate: winRate,
-          total_damage: totalDamage,
-          dpm,
-          flight_hours: flightHours,
-          finisher_rating: finisherRating,
-          arsenal_entropy: 0,
-          threat_centrality: centrality,
-          dominance_index: dom,
-          last_updated: p.lastSeen || new Date().toISOString()
-        };
-      });
-
-      // Rebuild from scratch so rows for spellings merged under one pilotKey go away.
-      hotDb.transaction((rows) => {
-        hotDb.prepare('DELETE FROM pilot_stats_cache').run();
-        for (const row of rows) insertStmt.run(row);
-      })(insertRows);
-
-      console.log(`[PPI] Successfully refreshed ${insertRows.length} pilots with full telemetry & graph metrics.`);
-      buildColdStorageStatsCache();
-      buildMapStatsCache();
-    } catch (err) {
-      console.error("Failed to refresh PPI stats", err);
-    }
-  },
+  refreshPilotStats,
 
   hasPilotStatsCache: () => {
     try {
@@ -2308,20 +1871,9 @@ VALUES(@id, @date, @ip, @details)
 
   getPilotBreakdown: (name) => {
     try {
-      const pattern = pilotLikePattern(name);
       const key = pilotKey(name);
-      // Query hot games (instant)
-      let allRows = hotDb.prepare(`
-        SELECT details FROM games WHERE details LIKE @pattern ESCAPE '\\'
-      `).all({ pattern });
-
-      // Fallback to cold games only if hot games have very few matches (e.g. historical pilot)
-      if (!allRows || allRows.length < 5) {
-        const coldRows = hotDb.prepare(`
-          SELECT details FROM cold.games WHERE details LIKE @pattern ESCAPE '\\'
-        `).all({ pattern });
-        allRows = (allRows || []).concat(coldRows);
-      }
+      // Cold games only if hot games have very few matches (e.g. historical pilot)
+      const allRows = pilotGamesHotFirst(name.trim());
 
       const mapMap = new Map();
       const rivalMap = new Map();
@@ -2459,10 +2011,6 @@ VALUES(@id, @date, @ip, @details)
 
   seedStockMaps: () => {
     seedStockMaps();
-  },
-
-  buildMapStatsCache: () => {
-    return buildMapStatsCache();
   },
 
   countMapStatsCache: () => {
@@ -2770,17 +2318,7 @@ VALUES(@id, @date, @ip, @details)
         return false;
       }
 
-      const minRow = hotDb.prepare(`
-        SELECT MIN(date) as first_seen FROM (
-          SELECT date, details FROM games WHERE details LIKE @pattern ESCAPE '\\'
-          UNION ALL
-          SELECT date, details FROM cold.games WHERE details LIKE @pattern ESCAPE '\\'
-        )
-        WHERE EXISTS (
-          SELECT 1 FROM json_each(details, '$.players')
-          WHERE pilot_key(json_extract(value, '$.name')) = @key
-        )
-      `).get({ pattern: pilotLikePattern(pilotName), key: pilotKey(pilotName) });
+      const minRow = getPilotFirstSeen.get({ name: pilotName.trim() });
 
       if (minRow && minRow.first_seen) {
         hotDb.prepare(`
@@ -2889,6 +2427,18 @@ VALUES(@id, @date, @ip, @details)
   normalizeWeaponName,
   PRIMARY_WEAPONS,
   SECONDARY_WEAPONS
+};
+
+// The pilot and leaderboard statements, for the EXPLAIN QUERY PLAN tests.
+export const pilotStatements = {
+  pilotGamesHot,
+  pilotGamesHotSince,
+  pilotGamesCold,
+  gamesByPilot: getGamesByPilotStmt,
+  countGamesByPilot: countGamesByPilotStmt,
+  firstSeen: getPilotFirstSeen,
+  leaderboard: getPilotStats,
+  leaderboardSince: getPilotStatsFiltered
 };
 
 export default db;
