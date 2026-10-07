@@ -27,6 +27,7 @@ import {
     Award
 } from 'lucide-react';
 import Link from './Link';
+import { Loading, EmptyState } from './States';
 import { clsx } from 'clsx';
 import { useOverloadFs } from '../context/OverloadFsContext';
 import { getPilotDataClient } from '../utils/overloadFsBridge';
@@ -553,27 +554,27 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                 {/* Taunt List */}
                 <div className="space-y-2 pt-2">
                     {processedTaunts.length === 0 ? (
-                        <div className="py-12 text-center text-gray-500 text-sm flex flex-col items-center justify-center gap-3 font-mono">
-                            <FolderOpen className="w-10 h-10 text-gray-600 mb-1" />
-                            {!isClientConnected && !isServerNative ? (
-                                <>
-                                    <p className="text-gray-300 font-bold">Your PC Overload folder is not connected.</p>
-                                    <p className="text-xs text-gray-400 max-w-md">
-                                        Connect your local game directory (<code className="text-[#ff6600] bg-black/40 px-1 py-0.5 rounded">AppData\LocalLow\Revival\Overload</code>) to index your custom taunts and opponent audio in your Library.
-                                    </p>
+                        !isClientConnected && !isServerNative ? (
+                            <EmptyState
+                                icon={FolderOpen}
+                                title="Your PC Overload folder is not connected."
+                                message={<>Connect your local game directory (<code className="text-brand bg-black/40 px-1 py-0.5 rounded-control">AppData\LocalLow\Revival\Overload</code>) to index your custom taunts and opponent audio in your Library.</>}
+                                action={
                                     <button
                                         onClick={connectLocalFolder}
                                         disabled={isConnecting}
-                                        className="mt-2 flex items-center gap-2 px-5 py-2.5 bg-[#ff6600] text-black font-bold text-xs rounded-xl shadow-lg hover:bg-[#ff8533] transition-all uppercase tracking-wider"
+                                        className="flex items-center gap-2 px-5 py-2.5 bg-brand text-black font-bold text-xs rounded-xl shadow-lg hover:bg-brand-hover transition-all uppercase tracking-wider"
                                     >
                                         {isConnecting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />}
                                         <span>{isConnecting ? 'Connecting...' : 'Connect Overload Folder'}</span>
                                     </button>
-                                </>
-                            ) : (
-                                <p>{loading ? 'Scanning game files...' : 'No matching audio taunts found in Overload folder.'}</p>
-                            )}
-                        </div>
+                                }
+                            />
+                        ) : loading ? (
+                            <Loading compact label="Scanning game files..." />
+                        ) : (
+                            <EmptyState icon={FolderOpen} title="No matching audio taunts found in Overload folder." />
+                        )
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[600px] overflow-y-auto pr-1">
                             {processedTaunts.map((item) => {
@@ -612,7 +613,7 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                                                         {item.cleanName}
                                                     </span>
                                                     {isEquipped && (
-                                                        <span className="px-1.5 py-0.2 bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/40 text-[9px] rounded uppercase font-bold flex-shrink-0">
+                                                        <span className="px-1.5 bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/40 text-[9px] rounded uppercase font-bold flex-shrink-0">
                                                             Equipped
                                                         </span>
                                                     )}
@@ -694,8 +695,8 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
 
             {/* Pilot Management Modal (Clone, Rename, Delete, XP) */}
             {pilotModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-[#121214] border border-white/15 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-up">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-[#121214] border border-white/15 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
                         {/* Header */}
                         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-black/40">
                             <div className="flex items-center gap-2.5">

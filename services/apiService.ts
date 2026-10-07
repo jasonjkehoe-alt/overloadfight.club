@@ -366,7 +366,7 @@ export const getGlobalStats = async (startDate?: string, source?: string): Promi
     return null;
 };
 
-export const fetchColdGames = async (page: number = 1, search: string = ''): Promise<{ games: any[], count: number }> => {
+export const fetchColdGames = async (page: number = 1, search: string = ''): Promise<{ games: any[], count: number } | null> => {
     try {
         let url = `${API_BASE}/cold/games?page=${page}`;
         if (search) {
@@ -379,7 +379,7 @@ export const fetchColdGames = async (page: number = 1, search: string = ''): Pro
     } catch (e) {
         console.error('Failed to fetch cold games', e);
     }
-    return { games: [], count: 0 };
+    return null;
 };
 
 export const fetchColdStats = async (): Promise<any> => {

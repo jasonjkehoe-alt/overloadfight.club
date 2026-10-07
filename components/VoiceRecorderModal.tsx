@@ -146,7 +146,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in font-mono">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-mono">
             <div className="bg-[#121212] border border-[#ff6600]/40 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
                 <button 
                     onClick={onClose}

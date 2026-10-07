@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GameData } from '../types';
 import { analyzeGameMatch } from '../services/geminiService';
+import { Loading } from './States';
 
 interface AnalysisProps {
   game: GameData;
@@ -18,16 +19,16 @@ const Analysis: React.FC<AnalysisProps> = ({ game }) => {
   };
 
   return (
-    <div className="bg-[#111] border border-gray-800 p-6 rounded mt-4">
+    <div className="bg-surface-card border border-line p-6 rounded-card mt-4">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-bold text-white flex items-center gap-2">
             AI Match Analysis
-            <span className="text-xs font-normal text-[#ff6600] border border-[#ff6600] px-1 rounded">BETA</span>
+            <span className="text-xs font-normal text-brand border border-brand px-1 rounded-control">BETA</span>
         </h3>
         {!analysis && !loading && (
             <button 
                 onClick={handleAnalyze}
-                className="bg-[#ff6600] hover:bg-[#e65c00] text-white px-4 py-2 rounded text-sm font-bold transition-colors flex items-center gap-2"
+                className="bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-control text-sm font-bold transition-colors flex items-center gap-2"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -37,16 +38,11 @@ const Analysis: React.FC<AnalysisProps> = ({ game }) => {
         )}
       </div>
 
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-8 space-y-4">
-            <div className="w-8 h-8 border-4 border-[#ff6600] border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-400 animate-pulse">Processing match telemetry...</p>
-        </div>
-      )}
+      {loading && <Loading compact label="Processing match telemetry..." />}
 
       {analysis && (
-        <div className="prose prose-invert max-w-none">
-            <div className="p-4 bg-[#1a1a1a] border-l-4 border-[#ff6600] rounded-r">
+        <div className="max-w-none">
+            <div className="p-4 bg-surface-raised border-l-4 border-brand rounded-r-card">
                 <p className="text-gray-200 whitespace-pre-line leading-relaxed font-mono text-sm">
                     {analysis}
                 </p>

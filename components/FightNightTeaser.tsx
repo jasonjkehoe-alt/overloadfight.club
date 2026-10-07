@@ -27,7 +27,7 @@ const FightNightTeaser: React.FC = () => {
     return (
         <Link
             to={urlFor('fight-night', recap.date)}
-            className="w-full flex items-center gap-3 bg-[#111114] border border-gray-800 hover:border-[#ff6600] px-4 py-3 rounded-lg text-left font-mono text-xs transition-colors group"
+            className="w-full flex items-center gap-3 bg-surface-card border border-line hover:border-brand px-4 py-3 rounded-card text-left font-mono text-xs transition-colors group"
         >
             <span className="text-base">🥊</span>
             <span className="font-bold text-white uppercase tracking-wide whitespace-nowrap">Fight Night</span>
@@ -35,7 +35,7 @@ const FightNightTeaser: React.FC = () => {
                 {recap.formattedDate}: {recap.totalMatches} matches, {recap.totalPilots} pilots
                 {recap.topFragger?.name && <>, top fragger {recap.topFragger.name} ({recap.topFragger.kills})</>}
             </span>
-            <span className="ml-auto text-[#ff6600] whitespace-nowrap group-hover:underline">Full card &rarr;</span>
+            <span className="ml-auto text-brand whitespace-nowrap group-hover:underline">Full card &rarr;</span>
         </Link>
     );
 };

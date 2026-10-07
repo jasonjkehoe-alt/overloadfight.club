@@ -815,7 +815,7 @@ export const AudioEditor: React.FC<AudioEditorProps> = ({ initialFile }) => {
 
                 {/* Keyboard Shortcut Cheat Sheet */}
                 {showShortcuts && (
-                    <div className="mt-4 p-4 rounded-xl bg-black/70 border border-white/10 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in text-gray-300">
+                    <div className="mt-4 p-4 rounded-xl bg-black/70 border border-white/10 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3 text-gray-300">
                         <div><kbd className="px-1.5 py-0.5 bg-white/10 rounded border border-white/20 text-[#ff6600]">Space</kbd> Audition Cut</div>
                         <div><kbd className="px-1.5 py-0.5 bg-white/10 rounded border border-white/20 text-[#ff6600]">Shift+Space</kbd> Play Full Track</div>
                         <div><kbd className="px-1.5 py-0.5 bg-white/10 rounded border border-white/20 text-[#ff6600]">C</kbd> Move Cut to Cursor</div>
@@ -1248,7 +1248,7 @@ export const AudioEditor: React.FC<AudioEditorProps> = ({ initialFile }) => {
                                                             {item.name}
                                                         </span>
                                                         {isCorrupt && (
-                                                            <span className="px-1.5 py-0.2 rounded text-[9px] bg-red-500/20 text-red-400 font-bold border border-red-500/30">
+                                                            <span className="px-1.5 rounded text-[9px] bg-red-500/20 text-red-400 font-bold border border-red-500/30">
                                                                 Empty / 0 samples
                                                             </span>
                                                         )}

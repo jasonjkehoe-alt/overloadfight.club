@@ -1288,7 +1288,7 @@ export const PilotSettingsPanel: React.FC = () => {
                                                                     {weapon.name}
                                                                 </span>
                                                                 {isHighest && (
-                                                                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/30">
+                                                                    <span className="text-[9px] uppercase font-bold px-1.5 rounded bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/30">
                                                                         Top Pick
                                                                     </span>
                                                                 )}
@@ -1412,7 +1412,7 @@ export const PilotSettingsPanel: React.FC = () => {
                                                                     {missile.name}
                                                                 </span>
                                                                 {isHighest && (
-                                                                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                                                    <span className="text-[9px] uppercase font-bold px-1.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                                                                         Top Pick
                                                                     </span>
                                                                 )}
@@ -2084,7 +2084,7 @@ export const PilotSettingsPanel: React.FC = () => {
             {/* Key Rebind Listener Modal */}
             {rebindAction && (
                 <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#16161a] border border-[#ff6600]/60 rounded-2xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl shadow-[#ff6600]/10 animate-scale-up">
+                    <div className="bg-[#16161a] border border-[#ff6600]/60 rounded-2xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl shadow-[#ff6600]/10">
                         <div className="w-12 h-12 mx-auto rounded-full bg-[#ff6600]/10 border border-[#ff6600]/40 flex items-center justify-center text-[#ff6600] animate-pulse">
                             <Keyboard className="w-6 h-6" />
                         </div>

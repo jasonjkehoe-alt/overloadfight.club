@@ -9,6 +9,7 @@ import {
 import Link from './Link';
 import { navigate, goBack, useUrl, useQueryParam, useQueryText } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
+import { EmptyState, ErrorState } from './States';
 
 interface MapLibraryProps {
     // From /maps/:name: the map whose popup is open
@@ -26,6 +27,7 @@ interface MapStats {
 const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
     const [maps, setMaps] = useState<MapData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [mapsError, setMapsError] = useState(false);
     const [stats, setStats] = useState<MapStats | null>(null);
     // All-time match count (the archive stats, hot and cold) and the number of
     // maps the Stock filter shows; both null until they load.
@@ -56,6 +58,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
 
     const loadMaps = async () => {
         setLoading(true);
+        setMapsError(false);
         try {
             const query = new URLSearchParams();
             query.append('limit', '1000');
@@ -69,9 +72,12 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                 if (Array.isArray(data.maps)) {
                     setMaps(data.maps);
                 }
+            } else {
+                setMapsError(true);
             }
         } catch (err) {
             console.error('Failed to load map data from /api/maps:', err);
+            setMapsError(true);
         } finally {
             setLoading(false);
         }
@@ -158,7 +164,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
     };
 
     return (
-        <div className="animate-fade-in space-y-8 pb-16">
+        <div className="space-y-8 pb-16">
             
             {/* Header */}
             <div className="bg-gradient-to-r from-[#141414] via-[#0d0d0d] to-black p-8 rounded-xl border border-gray-800 shadow-xl relative overflow-hidden">
@@ -362,10 +368,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
             {/* Results Count Summary */}
             <div className="flex justify-between items-center text-xs font-mono text-gray-500 px-1">
                 {loading && maps.length === 0 ? (
-                    <span className="flex items-center gap-2 text-[#ff6600]">
-                        <span className="w-2.5 h-2.5 border-2 border-[#ff6600] border-t-transparent rounded-full animate-spin"></span>
-                        LOADING ARENA REGISTRY ARCHIVES...
-                    </span>
+                    <span className="text-brand">LOADING ARENA REGISTRY ARCHIVES...</span>
                 ) : (
                     <span>
                         DISPLAYING <span className="text-white font-bold">{filteredMaps.length}</span> OF <span className="text-gray-400">{maps.length}</span> ARENAS
@@ -388,12 +391,15 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                         </div>
                     ))}
                 </div>
+            ) : mapsError && maps.length === 0 ? (
+                <ErrorState title="Arena registry unavailable" message="Could not load the map list." onRetry={loadMaps} />
             ) : filteredMaps.length === 0 ? (
-                <div className="bg-[#111] border border-gray-800 rounded-xl p-12 text-center text-gray-500 font-mono">
-                    <MapIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <div className="text-base font-bold text-gray-400">No combat zones match your filters</div>
-                    <div className="text-xs mt-1">Try resetting the search terms or origin filter.</div>
-                </div>
+                <EmptyState
+                    card
+                    icon={MapIcon}
+                    title="No combat zones match your filters"
+                    message="Try resetting the search terms or origin filter."
+                />
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {filteredMaps.map((map, index) => {
@@ -501,7 +507,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                                         </div>
 
                                         {/* Combat Telemetry HUD */}
-                                        <div className="bg-[#0b0b0d] border border-gray-855 p-2.5 rounded-lg font-mono space-y-1.5 mb-3">
+                                        <div className="bg-[#0b0b0d] border border-gray-800 p-2.5 rounded-lg font-mono space-y-1.5 mb-3">
                                             <div className="flex justify-between items-center text-[11px]">
                                                 <span className="text-gray-500 flex items-center gap-1">
                                                     <Crosshair className="w-3 h-3 text-[#ff6600]" /> MATCHES:
@@ -577,7 +583,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
 
             {/* Tactical Dossier Modal */}
             {selectedMapForIntel && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
                     <div className="bg-[#0e0e10] border border-gray-800 w-full max-w-3xl max-h-[90vh] rounded-2xl overflow-y-auto shadow-2xl flex flex-col">
                         
                         {/* Modal Header */}

@@ -47,34 +47,15 @@ kill logs, `db.close()`, `scripts/rebuild_and_deploy_nas.py`, a
 `public/version.json` bump). On 2026-10-07 the owner pushed three more
 commits straight to `main` (`ebe30dd`, `35cddfd`, `fb4064a`: an archive
 page refresh, `updateGameDetails` keeping stored kill logs, admin stats
-across both files, archive ingest retired from the admin page), so `main`
-is at `fb4064a`.
+across both files, archive ingest retired from the admin page), which
+put `main` at `fb4064a` before the S4 merge.
 
-S4 is on branch `ofc/s04-bundle-polling` (tip `b3f3af4`), based on
-`2b05787`, PR #4 open and not merged. It still merges into `main`
-cleanly.
+S4 to S8 are merged into `main` (PRs #4 to #8, merged in order on
+2026-10-07 UTC); `main` is at `6bc5857`, the PR #8 merge, with no owner
+commits after it.
 
-S5 is on branch `ofc/s05-player-table`, based on S4's tip `b3f3af4`
-with `origin/main` (`44e4792`) merged in to settle a conflict in
-`saveColdGamesBatch`, PR #5 open against `main` and not merged,
-2026-10-07 UTC. PR #5 contains S4's commits; merge PR #4 first.
-
-S6 is on branch `ofc/s06-ops-types`, based on S5's tip `2f9737c` with
-`origin/main` (`fb4064a`) merged in to settle a conflict in
-`updateGameDetails`, PR #6 open against `main` and not merged,
-2026-10-07 UTC. PR #6 contains S4's and S5's commits; merge PRs #4 and
-#5 first. Before the S6 image starts on the NAS, `data/` must belong to
-uid 1000 (see [HUMAN] tasks).
-
-S7 is on branch `ofc/s07-live-dashboard`, based on S6's tip `7c09011`
-(`main` had not moved since `fb4064a`), PR #7 open against `main` and
-not merged, 2026-10-07 UTC. PR #7 contains S4's, S5's and S6's commits;
-merge PRs #4, #5 and #6 first.
-
-S8 is on branch `ofc/s08-links-urls`, based on S7's tip `a9a1699`
-(`main` had not moved since `fb4064a`), PR #8 open against `main` and not
-merged, 2026-10-07 UTC. PR #8 contains S4's to S7's commits; merge
-PRs #4 to #7 first.
+S9 is on branch `ofc/s09-design-tokens`, based on `6bc5857`, PR #9 open
+against `main` and not merged, 2026-10-07 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -85,10 +66,90 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 8 of 28 sessions done (S1 to S3 merged, PRs for S4 to S8
-open). Phase 1: 6/6. Phase 2: 2/5. Phase 3: 0/6. Phase 4: 0/11.
+Counts: 9 of 28 sessions done (S1 to S8 merged, PR for S9 open).
+Phase 1: 6/6. Phase 2: 3/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S3 merged into `main`, `main` at fb4064a, S4 on `ofc/s04-bundle-polling`, S5 on `ofc/s05-player-table`, S6 on `ofc/s06-ops-types`, S7 on `ofc/s07-live-dashboard`, S8 on `ofc/s08-links-urls`)
+## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S8 merged into `main`, `main` at 6bc5857, S9 on `ofc/s09-design-tokens`)
+
+- S9, first move on Node 22.17.0, on `main` at `6bc5857` (all of PRs #4
+  to #8 merged): `npx vitest run` passed 12 files, 107 tests. `npx vite
+  build` wrote the entry `index-IHj8glyl.js` at 230.55 KB raw / 73.47 KB
+  gzip. `npx tsc --noEmit` exited 0. All three match the S8 records.
+- S9, counts re-taken with grep on `6bc5857` over the client (`App.tsx`,
+  `index.*`, `components/`, `context/`, `hooks/`, `utils/`): 94 distinct
+  hex values, 993 occurrences, `#ff6600` 605 times (the audit said 95 and
+  612 at `10223be`). Arbitrary text sizes: `text-[10px]` 147, `[11px]`
+  89, `[9px]` 12, `[8px]` 2, `[5px]` 1. Radius: `rounded` 251,
+  `rounded-lg` 174, `rounded-xl` 173, `rounded-2xl` 26. Dead classes
+  (every `className` token the built CSS does not define, found by a
+  script that reads the class strings and looks each one up in
+  `dist/assets/index-*.css`): `animate-fade-in` 21, `animate-in` and
+  `fade-in` 3 each, `custom-scrollbar` 4, `primary-400`/`-500` 3, `prose`
+  and `prose-invert`, plus ones the audit did not list: `py-0.2` 5,
+  `animate-scale-up` 2, `no-scrollbar`, `scrollbar-thin`, `text-md`,
+  `border-gray-855`, `animate-spin-slow`, `group-hover:r-3`.
+- S9, after: the same script finds no dead class; what it still prints
+  are tab names compared inside `className` expressions (`'editor'`,
+  `'offense'`). Hex values: 82 distinct, 659 occurrences, `#ff6600` 430,
+  all outside the migrated pages. On the migrated pages and their child
+  components (22 files) hex values went from 388 to 66, and none of the
+  66 is a brand orange or a surface black except ActivityGraph's two
+  `#222` grid and cursor greys; the rest are chart axis and label greys,
+  series palettes, status-dot colours and the helmet avatar (flagged).
+  No `text-[Npx]` is left on the migrated pages except the server map's
+  `text-[5px]` tooltip, which sits in a 100x100 SVG viewBox.
+- S9, headless Chrome 154 over CDP against `PORT=3100
+  DATA_DIR=/tmp/ofc-data npm start` serving the built `dist/` (fresh data
+  dir, 25 games at the start, 27 by the end). `/api/browser` and
+  `/api/game/23.94.53.39` were captured once while a real ANARCHY match on
+  ASCENT was running there, and replayed through CDP's Fetch domain in
+  every run so before and after saw the same live data. Screenshots of
+  `/`, `/pilots`, `/pilots?min=1`, `/pilot/WD-40`, `/game/78735` and
+  `/live/23.94.53.39`, full page at 1,280 and 390 px, before the change,
+  after it and again after /simplify: same layout and
+  content, with the intended differences. Corners on cards are 8px and
+  on controls 4px, the live page's panels are `surface-card` instead of
+  translucent grey-blue, the idle-servers panel is the shared
+  EmptyState with an icon, and 11px text is 10px. Between before and
+  after the data grew (WD-40 21 to 22 matches, new recent bouts) and a
+  fight night qualified for real (2026-10-07: 19 matches, 14 pilots), so
+  the teaser shows on the dashboard. The first after-shots showed 11px
+  text mapped to 12px wrapping the Active Nodes header and the tiny map
+  tooltip doubling in size; both fixed (see decisions). No console
+  errors on any of the twelve shots. Page widths at 390 px are 411
+  (dashboard) and 516 (live), the same as before.
+- S9, shared states, forced with CDP's Fetch domain (a held request for
+  Loading, an empty answer for EmptyState, a 500 or a failed request for
+  ErrorState), checked by `role="status"`, `role="alert"` or the text,
+  35 of 35 pass before the review and 39 of 39 after /simplify (four
+  cases added for paths /simplify changed):
+  dashboard (first poll held, poll failed, `/api/browser` `[]`, archive
+  failed on `/?tab=history`), history (page 1 held, failed, empty, a
+  search with no match), leaderboard (roster held, failed, empty, online
+  tab empty), pilot (stats held, stats failed, match list failed,
+  unknown pilot, `?mode=CTF` with no matches), match (held, failed,
+  timeline with no kills, no damage log), live (held, failed, no
+  players), fight night (held, failed, no recaps), archive (games held,
+  failed, empty; pilots failed), maps (failed, empty), admin with a
+  mocked session (stats held, failed), taunts (vault not connected), the
+  history tab's activity timeline (failed). With the dashboard's archive
+  request failed, `/api/games` was asked once, not twice.
+- S9, error boundaries: `/game/78735` answered with `players: "not a
+  list"` makes GameDetail throw; the page shows "Application recovery"
+  with the nav still there, and clicking Leaderboards in the nav opens
+  `/pilots` with the roster and no alert. `/api/stats/active-count`
+  answered with `{"count": {"not": "a number"}}` makes Layout throw; the
+  top-level boundary in `index.tsx` shows "Application recovery" with
+  no nav, not a blank page.
+- S9: `npx vitest run` passes 12 files, 107 tests (no test files
+  changed; the session touched no server code). `npx vite build` entry
+  `index-DBexm-fv.js` 230.60 KB raw / 73.63 KB gzip (73.47 in S8;
+  `States.tsx` and its icons are in the entry because every view imports
+  them), CSS 81.07 KB / 12.89 KB gzip. `designTokens.js` lands in a
+  0.2 KB shared chunk the chart views load. `npx tsc --noEmit` exits 0.
+- S9, server (same command): `/api/health` `{"status":"ok"}`,
+  `/api/stats/global` `total_games: 26`, `/api/stats/pilots` JSON (top
+  WD-40, 22 games), `/api/pilot/WD-40/stats` 22 games and 356 kills.
 
 - S8, first move on Node 22.17.0, on S7's tip `a9a1699`: `npx vitest
   run` passed 10 files, 99 tests. `npx vite build` wrote the entry
@@ -563,6 +624,19 @@ open). Phase 1: 6/6. Phase 2: 2/5. Phase 3: 0/6. Phase 4: 0/11.
 
 ## NOT validated, do not claim these work
 
+- S9 was checked in headless Chrome 154 on macOS, at 1,280 and 390 px
+  only. Safari, Firefox and a real phone were not tried. Pages other than
+  the five screenshotted were not compared before and after; they lost
+  only dead classes, which render nothing, and gained the shared states.
+- The shared states were forced with mocked responses. A real slow
+  tracker, a real outage, and the admin page with a real login were not
+  tried; the admin states ran on a mocked session.
+- Whether the taunt tools' busy icons and the editor's engine banner,
+  left as they were, read well beside the new states.
+- The 10px floor for small text was judged from screenshots, not
+  against a contrast or size guideline (S10 owns accessibility).
+- The CI workflow on the S9 PR before it opened; see the PR's checks.
+
 - S8 was checked in headless Chrome 154 on macOS only. Ctrl-click
   opening a tab on Windows and Linux, Firefox and Safari (including
   their limits on rapid history writes), and a real phone were not
@@ -753,11 +827,11 @@ open). Phase 1: 6/6. Phase 2: 2/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 12 files, 107 tests pass (S8) | 2026-10-07 |
+| `npx vitest run` | all pass | 12 files, 107 tests pass (S9) | 2026-10-07 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry `index-IHj8glyl.js` 230.55 KB raw / 73.47 KB gzip (S8; 73.21 KB in S7, one 351.07 KB chunk before S4) | 2026-10-07 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S8) | 2026-10-07 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 25`, dev mode without secrets; `/api/stats/pilots` 15 pilots, `/api/pilot/WD-40/stats` 20 games, `/api/health` ok (S8) | 2026-10-07 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry `index-DBexm-fv.js` 230.60 KB raw / 73.63 KB gzip (S9; 73.47 KB in S8, one 351.07 KB chunk before S4) | 2026-10-07 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S9) | 2026-10-07 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 26`, dev mode without secrets; `/api/stats/pilots` JSON, `/api/pilot/WD-40/stats` 22 games, `/api/health` ok (S9) | 2026-10-07 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | healthy in about 9 s, uid 1000, 567 MB (S6) | 2026-10-07 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | under 1 s, exit 0, no `-wal` left (S6) | 2026-10-07 |
@@ -766,6 +840,8 @@ open). Phase 1: 6/6. Phase 2: 2/5. Phase 3: 0/6. Phase 4: 0/11.
 | Same server, `curl -D - -H "Accept-Encoding: gzip, deflate, br" localhost:3100/ffmpeg/ffmpeg-core.wasm` | `Content-Encoding: br`, short cache | br, 8,367,469 bytes, `public, max-age=3600` (S4) | 2026-10-06 |
 | Headless Chrome over CDP on the same server serving `dist/` (S7 scripts: dashboard order, nav, favorites across a reload, copy button, match result) | live section above the teaser; Fight Night in the nav; "Copied"; winner, score or podium, duration and result line | all seen, see the S7 Validated entry | 2026-10-07 |
 | Headless Chrome over CDP, S8 scripts (real mouse clicks: plain, middle, Cmd, Ctrl, Shift; reload and back on each piece of URL state; a held `/api/game/<id>` for the stale match) | new tab on middle/Cmd click, same document on a plain click, a title per route, state back after reload and back, no stale match | all seen, see the S8 Validated entry | 2026-10-07 |
+| Headless Chrome over CDP, S9 scripts (full-page shots of five pages at 1,280 and 390 px with `/api/browser` and the live game replayed; every view's states forced with the Fetch domain; a component made to throw in a view and in `Layout`) | shots the same apart from the token changes; Loading, EmptyState and ErrorState where each view loads, is empty or fails; the recovery screen, with the nav for a view and without it for `Layout` | all seen, 39 of 39 states, see the S9 Validated entry | 2026-10-07 |
+| Dead-class script: each `className` token looked up in `dist/assets/index-*.css` | nothing but tab names compared in expressions | as expected (S9) | 2026-10-07 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -875,7 +951,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       `og:url` per route; tabs, filters, the map popup and the fight-night
       date are in the URL; back buttons call `history.back()`; the stale match
       flash is gone.
-- [ ] **S9 Design tokens and shared states** (L). Done when:
+- [x] **S9 Design tokens and shared states** (L). PR #9. Done when:
       `tailwind.config.js` defines the palette (one orange, one hover orange,
       three surface blacks, one border), radius and type scale; dead classes
       are removed; `Loading`, `EmptyState`, `ErrorState` components exist and
@@ -1442,6 +1518,122 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   `LiveGameDetail` are keyed by pilot and IP, so going from one pilot or
   server to another starts with empty state rather than the previous
   one's numbers.
+- 2026-10-07 (S9): Tokens. `designTokens.js` at the repo root holds them
+  and `tailwind.config.js` spreads them into `theme.extend`, so every
+  class and every chart prop reads one file. Charts import `colors` from
+  it because Recharts takes colour strings, not classes. Colours:
+  `brand` `#ff6600` (`bg-brand`, `text-brand`, ...), `brand-hover`
+  `#ff8533`, `surface-page` `#0a0a0a`, `surface-card` `#111111`,
+  `surface-raised` `#1a1a1a`, and `line` `#1f2937` for borders (the value
+  of Tailwind's `gray-800`, which 89 of the migrated pages' borders
+  already used). Old hex values map like this. `#ff6600` is `brand`.
+  Every other orange used for hover (`#ff8533`, `#ff8833`, `#ff771a`,
+  `#ff7722`, `#ff7711`, `#e65c00`, `#e55b00`, `#cc5200`) is
+  `brand-hover`. A near-black grey (channels within 6 of each other, none
+  above `0x26`) goes to the nearest surface by its mean channel: up to
+  `0x0d` is `page` (`#050505`, `#09090b`, `#0a0a0c`, `#0d0d0f`), up to
+  `0x15` is `card` (`#0e0e0e`, `#101012`, `#111`, `#121212`, `#121215`,
+  `#141210`, `#151515`, `#151518`), above that `raised` (`#161616`,
+  `#18181b`, `#1a1a1a`, `#222`, `#262626`). Borders in `gray-800`,
+  `gray-900`, `zinc-800`, `white/5` and `white/10` are `line`, opacity
+  kept (`border-line/80`); `gray-700` and lighter stay, as control and
+  hover borders. The tinted ones were mapped by hand: `#16120e` is
+  `bg-brand/5`, `#2a1010` `bg-red-950/40`, `#150505` went with the old
+  "Connection Failed" box. Accents outside the palette went to the
+  nearest Tailwind colour: `#00ffff` is `cyan-400`, `#ffea00`
+  `yellow-300`, `#ff4500` `orange-600`, `#333` (the server map's land)
+  `neutral-700`. `index.html`'s inline `<style>` moved to `index.css`
+  and reads the tokens through `theme()`. Two visible changes come with
+  it: the body background behind the header and footer went from
+  `#050505` to `surface-page`, and the scrollbar thumb's hover is
+  `brand-hover`, lighter, where it was a darker `#cc5200`. Chart
+  colours: brand and surface values on the migrated pages read
+  `colors` from `designTokens.js`, and the three tooltips that shared one
+  style use `chartTooltip` from there. Axis, grid and label greys and the
+  series palettes stay hex (a chart theme is flagged); ActivityGraph's
+  bars, grid and cursor keep `#262626` and `#222`, because mapping all
+  three to `surface-raised` made the bars vanish into the grid.
+- 2026-10-07 (S9): Type scale and radius. The type scale is Tailwind's
+  plus `text-2xs` (10px, 14px line height). On the migrated pages every
+  arbitrary size became a step: `text-[10px]`, `[11px]`, `[9px]` and
+  `[8px]` are all `text-2xs`. 11px was first mapped up to `text-xs`;
+  that made the dashboard's Active Nodes header wrap at 1,280 px, so the
+  rule rounds down. One exception: the server map's hover label stays
+  `text-[5px]`, because it sits in a 100x100 SVG viewBox and is drawn at
+  the map's scale; 10px there doubled it. Radius has two
+  steps: `rounded-control` (4px) for buttons, inputs, badges, tabs and
+  small panels, `rounded-card` (8px) for cards, tables and dialogs, plus
+  `rounded-full`. On the migrated pages a container (`div`, `section`,
+  `table`) with `p-3` or more or a fixed height is a card, and so is a
+  bordered panel that holds a table or a list; everything else is a
+  control. `rounded-xl` and
+  `rounded-2xl` cards drop from 12 and 16px to 8px.
+- 2026-10-07 (S9): Shared states live in `components/States.tsx`.
+  `Loading({ label?, compact? })` is a brand spinner with an optional
+  label, `role="status"`. `EmptyState({ title, message?, icon?, action?,
+  compact?, card? })` takes a lucide icon (default `Inbox`), an optional
+  action such as Reset Filters, and `card` to draw the card frame when
+  the state stands alone in a page (inside a table or panel it has
+  none). `ErrorState({ title?, message?, onRetry?,
+  retryLabel?, action?, compact? })` is a red-bordered card,
+  `role="alert"`, with a Retry button when `onRetry` is given and any
+  other button (Back, Logout) in `action`, styled with the exported
+  `secondaryButtonClass`. `compact` is for a section
+  inside a page; without it the state takes page-level padding. Copy
+  stays as it was on each page (one voice is S10). Button busy icons
+  (a spinning `RefreshCw` inside a button) are not view states and stay.
+  Skeleton blocks that hold a number's or a section's place (Archive
+  stat cards and tables, the map grid, the PPI card) stay too.
+- 2026-10-07 (S9): Where they are used. Every view that fetches now
+  tells loading, nothing and failure apart. Several said nothing on a
+  failure before: the history list stayed blank, the leaderboard said
+  "No pilots match current filters", the pilot page said "No data
+  found", fight night said "No fight nights yet", the archive said "No
+  archived matches found". To tell them apart, `fetchColdGames` now
+  answers null on failure (its only caller is ColdStorage). GameList
+  keeps a `historyError` flag: the History view fetches page 1 itself,
+  and the dashboard, when App's page-1 fetch failed, shows the error
+  with a Retry instead of asking again. A failed history search shows the
+  error instead of an empty list, and a page-1 answer older than a newer
+  search is dropped. ColdStorage's stats retry calls the fetch again
+  instead of reloading the page, and a failed pilots request shows an
+  error in the hall of fame. The pilot page fails when its stats or its
+  match list fail.
+- 2026-10-07 (S9): Views and their states. Dashboard (first poll, connection
+  failed, no servers to show; each live card's roster), history (list,
+  search), leaderboard (roster, online tab), pilot (stats, no stats, no
+  matches in a mode), match (load, failure, empty timeline and damage
+  tabs, no playstyles), live (load, failure, no players), fight night,
+  archive (games, hall of fame, top maps, stats banner), maps (list
+  failure, no match), admin (stats), taunts (vault not connected,
+  scanning, nothing found), the history tab's activity timeline. OLMod,
+  Resources and the pilot manager fetch nothing to wait on.
+- 2026-10-07 (S9): Error boundaries. The top-level `ErrorBoundary`
+  wraps `<App />` in `index.tsx`, outside `OverloadFsProvider`, `Layout`
+  and the `Suspense`, so a throw in App itself, the provider or the nav
+  shows the recovery screen instead of a blank page. The existing one
+  inside `Layout`, around the `Suspense`, stays: a view that throws keeps
+  the nav, and it takes `resetKey={pathname}`, so following a nav link
+  clears the error (before S9 it stayed until a reload). It clears only
+  an error from the page before, so a new page that throws on its first
+  render keeps its error screen instead of rendering twice. The
+  boundary keeps a `hasError` flag beside the error, so a thrown `null`
+  still shows the fallback. Both render `ErrorState` with a Reload
+  button. A `resetKey` was chosen over keying
+  the boundary by path, which would remount MapLibrary when its popup
+  opens.
+- 2026-10-07 (S9): Migrated to tokens: the dashboard (`App.tsx`'s
+  headers, `GameList`, `ServerStats`, `LiveMatchCard`, `ActivityGraph`,
+  `GlobalActivityChart`, `ServerActivitySparkline`, `CalendarWidget`,
+  `FightNightTeaser`), the leaderboard (`PilotsList`), the pilot page
+  (`PilotDetail`, `PilotPerformanceCard`), the match page (`GameDetail`,
+  `MatchAnalysis`, `ScoreChart`, `DamageMatrix`, `Analysis`), the live
+  page (`LiveGameDetail`, `JoinIp`; its translucent `bg-gray-800/50`
+  panels are `surface-card`), plus `Layout`, `ErrorBoundary` and
+  `index.html`. Left: Fight Night (`FightNightSection`,
+  `FightNightRecapCard`), Archive, Maps, Admin, Taunts and its editors,
+  the pilot manager, OLMod and Resources. Those got the shared states and
+  lost their dead classes but keep their hex values.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -1566,7 +1758,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   storage by hand; the admin page's restore and its restart text are
   unchanged.
 - (S4) `App.tsx` now has three copies of the orange spinner markup. S9's
-  `Loading` component replaces them.
+  `Loading` component replaces them. Fixed in S9: all three are `Loading`.
 - (S4) `/api/games` pages past the stored count: the read-through sync
   stores the tracker's page N, but the response reads local page N by
   offset, so a page beyond what is stored comes back with `games: []`
@@ -1729,6 +1921,66 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   title.
 - (S8) The live page's share title shows the IP: the server name comes
   from the browser poll, which the page route does not read.
+
+- (S9) Fight Night, Archive, Maps, Admin, Taunts and its editors, the
+  pilot manager, OLMod and Resources still use hex classes, `rounded-lg`
+  and `rounded-xl`, and arbitrary text sizes (179 `text-[Npx]` left, all
+  outside the migrated pages). The mapping scripts used in S9 are
+  described in the decision entry; the same rules apply.
+- (S9) Chart chrome is still hex on the migrated pages: axis and grid
+  greys (`#666`, `#444`, `#333`), tooltip text (`#fff`, `#ccc`), and two
+  series palettes (the stock Recharts one in `MatchAnalysis` and
+  `ServerStats`, Tailwind 500s in `ScoreChart`). The audit's "2 tooltip
+  styles" were copies of one `contentStyle` object, now `chartTooltip`,
+  plus `GlobalActivityChart`'s black one, left as it was. A chart theme in
+  `designTokens.js` would cover both; S12 adds charts.
+- (S9) The helmet avatar on the pilot page draws in zinc hex values
+  (`#18181b`, `#27272a`, `#3f3f46`, `#52525b`, `#71717a`) and its visor
+  accents in cyan, emerald, amber and purple. It is an illustration; left
+  as is. The status dots (`#22c55e`, `#eab308`, `#4b5563`) and a green
+  glow shadow in `GameList` are Tailwind colours written as hex.
+- (S9) The live page's error view still covers an idle server ("Unable
+  to load game" with the join IP), because `/api/game/<ip>` answers the
+  same way for an idle server and a failure (S7 flag). It is now an
+  `ErrorState`; telling the two apart needs the server to say which.
+- (S9) The map popup on `/maps/:name` shows nothing while its intel
+  loads, and nothing when that request fails with anything but a 404.
+  `MapLibrary` still declares `loadingIntel` and never reads it (dead
+  before S9).
+- (S9) The admin page shows the login form while it checks the session,
+  then switches to the panel; no loading state for the check.
+- (S9) A live match card whose `/api/game/<ip>` keeps failing shows its
+  "Scanning N active pilots" Loading for as long as the server reports
+  players, as the old text did.
+- (S9) `ActivityGraph` renders nothing while `/api/stats/global` loads and
+  when it has no activity; it cannot tell the two apart from its props.
+- (S9) The AI analysis tab shows the server's error text (for visitors,
+  "Unauthorized") as if it were the analysis (S1 flag). S25 removes the
+  route.
+- (S9) Grey text and control colours (`text-gray-*`, `bg-gray-800` on
+  buttons, `border-gray-700` on inputs) are Tailwind's cool greys next to
+  neutral surfaces. The Done-when palette names only surfaces and one
+  border; a text and control scale would be the next set of tokens.
+- (S9) The Taunts editor's "Loading Local WebAssembly Mastering Engine"
+  banner keeps its own small spinner: it sits beside controls that work
+  while the engine loads.
+- (S9) The dashboard at 390 px is 411 px wide and the live page 516 px
+  (before and after S9; S10's mobile pass).
+- (S9) /simplify suggested, and S9 skipped as wider than the diff: one
+  `useLoad` hook (loading, failure, retry, a stale-answer guard) for the
+  seven views that each keep those by hand and guard stale answers three
+  different ways; apiService functions, null on failure, for the
+  endpoints views still `fetch` directly (pilot page, leaderboard, maps,
+  archive stats, activity timeline); one `compact` value per slot, so a
+  slot keeps its size from loading to empty to error; a `PageHeader` for
+  App's three header blocks; one link-button style for Reset Filters
+  (orange on the leaderboard, blue on the archive).
+- (S9) `/history` still fetches archive page 1 twice: `App.refreshData`
+  and then GameList (older than S9; App needs it only on the
+  dashboard).
+- (S9) The hex, dead-class and screenshot scripts lived in the session's
+  scratch directory, not the repo. The Verification rows say what they
+  do.
 
 ## Rollback
 
@@ -2028,12 +2280,49 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   formatter, a `StatList` and one search effect (flagged). PR #8 opened
   against `main`, not merged.
 
+- 2026-10-07, S9 (Claude Opus 5.5): design tokens in `designTokens.js`
+  read by `tailwind.config.js` and the charts (one orange, one hover
+  orange, three surface blacks, one border, `text-2xs`, two radii), dead
+  classes removed everywhere, `Loading`, `EmptyState` and `ErrorState` in
+  every view that fetches, a top-level `ErrorBoundary` in `index.tsx`,
+  and the dashboard, leaderboard, pilot, match and live pages on the
+  tokens. Status line checked first: it said PRs #4 to #8 were open, but
+  all five had merged (`main` at `6bc5857`, the PR #8 merge, nothing
+  after it), so S9 branched from `origin/main`; `10223be` is not an
+  object here. First move: 12 files, 107 tests; entry 73.47 KB gzip; tsc
+  0. Re-counting turned up things the tracker did not list: 94 hex values
+  and `#ff6600` 605 times (the audit said 95 and 612), a dozen dead
+  classes beyond the audit's five (found by checking every class against
+  the built CSS), and three views that showed an empty state when their
+  request failed. A real match was running on 23.94.53.39, so its answers
+  were captured and replayed for every screenshot, and a fight night
+  qualified for real during the session. The first after-shots caught
+  11px text mapped up to 12px wrapping a header; the rule now rounds
+  down. /code-review found 10 issues. Fixed: the map tooltip inside an
+  SVG doubled by the type scale, chart bars the same grey as their grid,
+  the inner boundary clearing an error thrown by the page it had just
+  opened, a thrown `null` escaping the boundary, a compact error card too
+  tall for the timeline slot, stale history answers, a raw orange on a
+  rewritten line, one stat card on the wrong radius. Kept: dead-class
+  removal in files the token work did not touch (the Done-when list
+  says dead classes are removed) and the body and scrollbar colours
+  moving onto the tokens (recorded in the decisions). /simplify (four
+  agents): `card` on `EmptyState` instead of five wrappers, one
+  secondary button class, one chart tooltip style, failure as null data
+  instead of extra flags, the archive retry without a page reload,
+  failed requests no longer read as empty on the pilot page, the
+  leaderboard and the archive's hall of fame, no second archive request
+  on a failed dashboard, one `.brand-font` rule. Skipped: a shared load
+  hook, apiService functions for the direct fetches, per-slot sizing and
+  a page header component (flagged). PR #9 opened against `main`, not
+  merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S9: design tokens and shared states.
+Continue the overloadfight.club roadmap. This session is S10: glossary, accessibility, mobile.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -2042,50 +2331,51 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S8 (branch ofc/s08-links-urls, PR #8) sits on S7 (ofc/s07-live-dashboard, PR #7), which sits on S6 (PR #6), S5 (PR #5) and S4 (PR #4).
-  If PRs #4 to #8 are all merged:
-    git checkout -B ofc/s09-design-tokens origin/main
-  If PR #8 is still open:
-    git checkout -B ofc/s09-design-tokens origin/ofc/s08-links-urls
-    and open the S9 PR against main anyway; say in its description which open PRs it sits on.
-  If some of PRs #4 to #7 merged but #8 did not, still branch from origin/ofc/s08-links-urls.
-  Check again before opening the PR: if PRs merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6). If origin/main has commits the open PRs lack, diff them before building, and settle any conflict with your branch before opening the PR.
+  S9 is on branch ofc/s09-design-tokens, PR #9. PRs #1 to #8 are merged.
+  If PR #9 is merged:
+    git checkout -B ofc/s10-glossary-a11y-mobile origin/main
+  If PR #9 is still open:
+    git checkout -B ofc/s10-glossary-a11y-mobile origin/ofc/s09-design-tokens
+    and open the S10 PR against main anyway; say in its description that it sits on PR #9.
+  Check again before opening the PR: if PR #9 merged during the session, rebase onto origin/main first.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6). If origin/main has commits PR #9 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s08-links-urls has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s09-design-tokens has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S9 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S4, S7 and S8 entries under "Decisions and deviations" (lazy views behind one Suspense and the ErrorBoundary inside it, the dashboard order, the link pattern and URL state), every "Flagged, not fixed" item that names S9 or the spinners (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
-- docs/audit/ux.md, "Biggest" (no design tokens: 95 hex colors, #ff6600 x612, 6 hover oranges, 34 near-blacks, two border systems) and "Visual" (dead classes primary-*, animate-fade-in, animate-in, custom-scrollbar, prose; radius mix; 6+ spinners). Counts are as of 10223be (2c4f174 after the rewrite); re-count with grep before quoting any.
-- tailwind.config.js, index.html (inline styles), index.tsx, App.tsx (the Suspense fallback, the dashboard and match loading screens, the match error view), components/ErrorBoundary.tsx, and the dashboard, pilots, match and live pages: GameList.tsx, ServerStats.tsx, LiveMatchCard.tsx, PilotsList.tsx, PilotDetail.tsx, GameDetail.tsx, LiveGameDetail.tsx.
+- docs/ROADMAP.md, the S10 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S8 and S9 entries under "Decisions and deviations" (the link pattern and rowLink, URL state, the tokens, the shared states, the two error boundaries), every "Flagged, not fixed" item that names S10, rowLink, clickable rows, mobile widths, tiny text or labels (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
+- docs/audit/ux.md, "Biggest" (labels conflict: "Pilot" three meanings, /history and /archive both "Historical Archive", "Combat Ratio" K/D on the profile vs KDA on the leaderboard, "Lethality" two formulas; accessibility zero), "Site map issues" (PilotsList renders every pilot with no pagination, MapLibrary up to 1000 cards), "IA duplication" (the term list) and "Visual" (tiny text; mobile: active: 0 vs hover: 499, 7 of 13 tables lack a scroll wrapper). Counts are as of 10223be (2c4f174 after the rewrite); re-count with grep before quoting any.
+- components/Layout.tsx (nav, menu), components/Link.tsx and hooks/useLocation.ts (rowLink, useQueryParam), components/States.tsx, designTokens.js, and the pages with tables, rows or dialogs: GameList.tsx, PilotsList.tsx, PilotDetail.tsx, GameDetail.tsx, MatchAnalysis.tsx, DamageMatrix.tsx, LiveGameDetail.tsx, ColdStorage.tsx, MapLibrary.tsx (its popup), FightNightRecapCard.tsx, and the taunt modals (WebImportModal.tsx, VoiceRecorderModal.tsx, OverloadVault.tsx).
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
 - gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
-- server/lib/gameParse.js owns the game rules; the client imports it directly. server/lib/siteRoutes.js owns page URLs and titles (one route table) and server/lib/matchResult.js the result sentence; both client and server import them. Never copy a rule into the client. Do not change the public API paths (add endpoints if needed).
-- Internal navigation is components/Link.tsx (an <a href> with click interception) or rowLink() from hooks/useLocation.ts for rows that hold their own controls; hrefs come from urlFor(). Tabs and filters live in the query string through useQueryParam/useQueryText/setQueryParams. Do not add navigation callbacks or local state that duplicates the URL (S8).
+- server/lib/gameParse.js owns the game rules; the client imports it directly. server/lib/siteRoutes.js owns page URLs and titles (one route table) and server/lib/matchResult.js the result sentence; both client and server import them. Never copy a rule into the client: if "Combat Ratio" or "Lethality" needs one formula, it lives in gameParse.js (or the server) and both sides read it. Do not change the public API paths (add endpoints if needed).
+- Internal navigation is components/Link.tsx (an <a href> with click interception) or rowLink() from hooks/useLocation.ts for rows that hold their own controls; hrefs come from urlFor(). Tabs, filters and any new page number live in the query string through useQueryParam/useQueryText/setQueryParams. Do not add navigation callbacks or local state that duplicates the URL (S8).
+- Colours, radius and small text come from designTokens.js through Tailwind: bg-brand, hover:bg-brand-hover, bg-surface-page/card/raised, border-line, rounded-control, rounded-card, text-2xs. Do not add hex values or text-[Npx] on the pages S9 migrated (dashboard, leaderboard, pilot, match, live). A focus ring or an active state is a token class, not a new hex (S9).
+- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx. The top-level ErrorBoundary wraps <App /> in index.tsx; the one inside Layout wraps the Suspense and clears on a path change. Keep both (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
 - Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts and pauses while the tab is hidden. Keep both. The dashboard leads with the live section and a one-line Fight Night teaser (S7); keep that order.
 - Server favorites live in localStorage under `favorite_servers` as a JSON array of IPs (S7).
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
 - Do not add a router library, state library, ORM or component library. Tailwind utility classes, functional React.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist (or `npx vite dev`, whose proxy points at port 3000) and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4, S7 and S8 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port: In S8 a leftover instance answered on the port and its hidden tab paused the shared poll. S7 mocked `/api/browser` and `/api/game/<ip>` with CDP's Fetch domain when no live game existed, and S7 and S8 forced fight-night recaps with `generateRecapForDate(date, true)`.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist (or `npx vite dev`, whose proxy points at port 3000) and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4, S7, S8 and S9 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port: in S8 a leftover instance answered on the port and its hidden tab paused the shared poll. S9 captured `/api/browser` and `/api/game/<ip>` once while a real match ran and replayed them with CDP's Fetch domain so before and after shots saw the same live data; do the same, or mock them from fixture 72102 as S7 did when no live game exists.
 
 Rules for this session:
-- One PR, scope is the S9 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the token names and values (and how each old hex maps onto them), the type scale and radius, what Loading, EmptyState and ErrorState take as props, where the top-level ErrorBoundary sits relative to Layout and the Suspense, and which pages were migrated and which were left.
+- One PR, scope is the S10 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the one term chosen for each of match, pilot, kill, map, server and archive (and which old words map onto it), the one definition of "Combat Ratio" and of "Lethality" and where each is computed, how clickable rows and divs became buttons or links (and what happens to rowLink), the focus-visible style, the dialog pattern (role, labelling, Escape, focus), the page size and query parameter for the roster and map grid pagination, and the active: style for tap targets.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S9 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S10 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S10.
+- Before ending: tick S10 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S11 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S11.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S8 left 12 files, 107 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.47 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then take before screenshots of the dashboard, leaderboard, a pilot, a match and a live page at 1,280 and 390 px.
-Done when: every item in the S9 Done-when list is true and seen in headless Chrome (after screenshots of the same five pages at both widths look the same as before apart from the intended colour, radius and type changes; each view shows the shared Loading, EmptyState and ErrorState where it loads, has nothing to show, or fails, forced with CDP's Fetch domain; a component that throws shows the top-level ErrorBoundary instead of a blank page), a grep shows no dead classes left and the hex count on the migrated pages, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S9 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S9 left 12 files, 107 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.63 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then take before screenshots of the dashboard, leaderboard, a pilot, a match, a live page and the maps page at 1,280 and 390 px, and record each page's width at 390 px (S9 measured the dashboard at 411 and the live page at 516).
+Done when: every item in the S10 Done-when list is true and seen in headless Chrome (a grep shows one term for each of the six words in user-visible strings; "Combat Ratio" and "Lethality" show the same number for the same pilot on the profile and the leaderboard; Tab reaches every row link and button with a visible focus ring and Enter opens it; every dialog has role="dialog", a label, and closes on Escape with focus back where it was; at 390 px no page is wider than the window and every table scrolls inside its wrapper; the roster and map grid show one page at a time with the page in the URL, kept across a reload and back; tap targets show an active state, checked with CDP touch emulation), `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S10 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```

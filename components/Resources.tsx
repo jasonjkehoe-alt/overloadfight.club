@@ -41,7 +41,7 @@ const Resources: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-8">
             <div className="flex items-center justify-between border-b border-gray-800 pb-6">
                 <div>
                     <h1 className="text-3xl font-bold text-white tracking-tight mb-2">Community Resources</h1>

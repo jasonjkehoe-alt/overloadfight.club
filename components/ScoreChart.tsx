@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { GameData } from '../types';
+import { colors, chartTooltip } from '../designTokens.js';
 
 interface ScoreChartProps {
   game: GameData;
@@ -67,7 +68,7 @@ const ScoreChart: React.FC<ScoreChartProps> = ({ game }) => {
     return { chartData: dataPoints, leadChanges: changes };
   }, [game]);
 
-  const colors = ['#ff6600', '#3b82f6', '#22c55e', '#eab308', '#ef4444', '#a855f7'];
+  const lineColors = [colors.brand.DEFAULT, '#3b82f6', '#22c55e', '#eab308', '#ef4444', '#a855f7'];
   const playerNames = game.players?.map(p => p.name) || [];
 
   const formatTime = (seconds: number) => {
@@ -77,7 +78,7 @@ const ScoreChart: React.FC<ScoreChartProps> = ({ game }) => {
   };
 
   return (
-    <div className="w-full h-[400px] bg-[#111] border border-gray-800 p-4 rounded">
+    <div className="w-full h-[400px] bg-surface-card border border-line p-4 rounded-card">
       <h3 className="text-gray-300 mb-4 font-bold">Score Progression</h3>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData}>
@@ -91,7 +92,7 @@ const ScoreChart: React.FC<ScoreChartProps> = ({ game }) => {
           />
           <YAxis stroke="#666" />
           <Tooltip 
-            contentStyle={{ backgroundColor: '#1a1a1a', borderColor: '#333', color: '#fff', borderRadius: '4px' }}
+            contentStyle={{ ...chartTooltip, color: '#fff' }}
             labelFormatter={(val) => formatTime(val as number)}
             itemStyle={{ color: '#fff' }}
             labelStyle={{ color: '#ccc' }}
@@ -102,7 +103,7 @@ const ScoreChart: React.FC<ScoreChartProps> = ({ game }) => {
               key={player}
               type="stepAfter"
               dataKey={player}
-              stroke={colors[index % colors.length]}
+              stroke={lineColors[index % lineColors.length]}
               strokeWidth={2}
               dot={false}
             />

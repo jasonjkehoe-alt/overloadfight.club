@@ -4,6 +4,7 @@ import FightNightRecapCard from './FightNightRecapCard';
 import Link from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
 import { Flame, Calendar, ChevronRight } from 'lucide-react';
+import { Loading, EmptyState, ErrorState } from './States';
 
 interface FightNightSectionProps {
     // The date in the URL (/fight-night/:date); the latest card when absent.
@@ -11,53 +12,39 @@ interface FightNightSectionProps {
 }
 
 export const FightNightSection: React.FC<FightNightSectionProps> = ({ date }) => {
-    const [recaps, setRecaps] = useState<FightNightRecap[]>([]);
+    // null when the request failed
+    const [recaps, setRecaps] = useState<FightNightRecap[] | null>([]);
     const [loading, setLoading] = useState(true);
+    const [retries, setRetries] = useState(0);
 
     useEffect(() => {
         let isCurrent = true;
         setLoading(true);
         fetchFightNights(15).then(res => {
             if (!isCurrent) return;
-            if (res && res.recaps && res.recaps.length > 0) {
-                setRecaps(res.recaps);
-            } else {
-                setRecaps([]);
-            }
+            setRecaps(res ? res.recaps ?? [] : null);
             setLoading(false);
-        }).catch(() => {
-            if (isCurrent) {
-                setRecaps([]);
-                setLoading(false);
-            }
         });
         return () => { isCurrent = false; };
-    }, []);
+    }, [retries]);
+
+
+    if (loading) return <Loading label="Loading Fight Night Recaps..." />;
+
+    if (!recaps) {
+        return <ErrorState title="Fight night recaps unavailable" message="Could not load the fight night cards." onRetry={() => setRetries(n => n + 1)} />;
+    }
 
     const activeRecap = recaps.find(r => r.date === date) || recaps[0];
 
-    if (loading) {
+    if (!activeRecap) {
         return (
-            <div className="bg-[#0e0e12] border border-gray-800 rounded-xl p-8 text-center font-mono">
-                <div className="w-8 h-8 border-2 border-[#ff6600] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-gray-400 text-xs uppercase tracking-wider">Loading Fight Night Recaps...</p>
-            </div>
-        );
-    }
-
-    if (!recaps || recaps.length === 0) {
-        return (
-            <div className="bg-[#0e0e12] border border-gray-800/80 rounded-xl p-8 text-center font-mono">
-                <div className="w-10 h-10 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center mx-auto mb-3 text-gray-500">
-                    <Flame size={18} />
-                </div>
-                <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-1">
-                    No fight nights yet
-                </h3>
-                <p className="text-xs text-gray-500 max-w-md mx-auto">
-                    Check back after the next big one. When the arena erupts with heavy traffic and high frags, the official fight card will auto-generate here.
-                </p>
-            </div>
+            <EmptyState
+                card
+                icon={Flame}
+                title="No fight nights yet"
+                message="Check back after the next big one. When the arena erupts with heavy traffic and high frags, the official fight card will auto-generate here."
+            />
         );
     }
 
@@ -76,7 +63,7 @@ export const FightNightSection: React.FC<FightNightSectionProps> = ({ date }) =>
                 </div>
 
                 {/* Date Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
                     <span className="text-xs text-gray-500 font-mono flex items-center gap-1 mr-1">
                         <Calendar size={12} /> Past Cards:
                     </span>

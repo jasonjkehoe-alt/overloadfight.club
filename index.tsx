@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
 // A deploy replaces the hashed chunks, so a tab opened before it cannot load its next
@@ -22,8 +23,12 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
+// The top-level boundary catches what App's own boundary cannot: App itself,
+// Layout and the providers. A crash there shows the recovery screen, not a blank page.
 root.render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );

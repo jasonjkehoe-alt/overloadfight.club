@@ -455,7 +455,7 @@ export const LoadoutManager: React.FC<LoadoutManagerProps> = ({ onLoadTauntIntoE
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto space-y-6 font-mono animate-fade-in">
+        <div className="w-full max-w-5xl mx-auto space-y-6 font-mono">
             <div className="bg-[#121212] border border-white/10 rounded-2xl p-6 md:p-8 shadow-2xl space-y-6">
                 {/* Header & Pilot Selector */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/10">

@@ -536,13 +536,13 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
     };
 
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 font-mono ${isOpen ? 'block animate-fade-in' : 'hidden'}`}>
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 font-mono ${isOpen ? 'block' : 'hidden'}`}>
             <div className="bg-[#141414] border border-[#ff6600]/40 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-black/80 to-[#1a0e05]/80">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-[#ff6600]/20 border border-[#ff6600]/50 flex items-center justify-center text-[#ff6600] shadow-md">
-                            <Globe className="w-5 h-5 animate-spin-slow" />
+                            <Globe className="w-5 h-5" />
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white brand-font tracking-tight flex items-center gap-2">
@@ -661,7 +661,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
 
                             {/* Extracted Result Card (Prominent if ready) */}
                             {ytResult && (
-                                <div className="p-5 rounded-xl bg-black/60 border border-green-500/40 space-y-4 animate-fade-in shadow-xl shadow-green-950/20">
+                                <div className="p-5 rounded-xl bg-black/60 border border-green-500/40 space-y-4 shadow-xl shadow-green-950/20">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="space-y-1">
                                             <span className="px-2 py-0.5 rounded bg-green-950/60 border border-green-500/40 text-green-400 text-[10px] uppercase font-bold tracking-wider">
@@ -1066,7 +1066,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
                                                                         </div>
                                                                         <div className="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5">
                                                                             {track.length ? (
-                                                                                <span className="px-1.5 py-0.2 rounded bg-white/10 text-gray-300 font-mono">
+                                                                                <span className="px-1.5 rounded bg-white/10 text-gray-300 font-mono">
                                                                                     {Math.round(track.length)}s
                                                                                 </span>
                                                                             ) : null}
@@ -1184,7 +1184,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
 
                             {/* Extracted Audio Result */}
                             {extractedAudio && (
-                                <div className="p-4 rounded-xl bg-black/60 border border-green-500/40 flex items-center justify-between gap-4 animate-fade-in">
+                                <div className="p-4 rounded-xl bg-black/60 border border-green-500/40 flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded bg-green-950/60 border border-green-500/40 flex items-center justify-center text-green-400 shrink-0">
                                             <Check className="w-4 h-4" />
@@ -1274,7 +1274,7 @@ export const WebImportModal: React.FC<WebImportModalProps> = ({ isOpen, onClose,
 
                             {/* Direct Result */}
                             {directAudio && (
-                                <div className="p-4 rounded-xl bg-black/60 border border-green-500/40 flex items-center justify-between gap-4 animate-fade-in">
+                                <div className="p-4 rounded-xl bg-black/60 border border-green-500/40 flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-3 truncate">
                                         <div className="w-8 h-8 rounded bg-green-950/60 border border-green-500/40 flex items-center justify-center text-green-400 shrink-0">
                                             <Check className="w-4 h-4" />
