@@ -49,6 +49,17 @@ export function rowLink(url: string) {
     return { onClick: open, onAuxClick: open };
 }
 
+// Several query-string values in one history write; '' or null removes a key.
+export function setQueryParams(updates: Record<string, string | null>) {
+    const params = new URLSearchParams(window.location.search);
+    for (const [key, value] of Object.entries(updates)) {
+        if (value) params.set(key, value);
+        else params.delete(key);
+    }
+    const query = params.toString();
+    navigate(window.location.pathname + (query ? `?${query}` : ''), { replace: true });
+}
+
 export const useUrl = () => useSyncExternalStore(subscribe, currentUrl);
 
 // Its own snapshot, so a query-string change does not re-render App.
@@ -63,11 +74,7 @@ export function useQueryParam<T extends string = string>(key: string, fallback =
     const raw = new URLSearchParams(url.split('?')[1]).get(key);
     const value = raw !== null && (!allowed || allowed.includes(raw as T)) ? raw as T : fallback;
     const setValue = useCallback((next: T) => {
-        const params = new URLSearchParams(window.location.search);
-        if (next === fallback || next === '') params.delete(key);
-        else params.set(key, next);
-        const query = params.toString();
-        navigate(window.location.pathname + (query ? `?${query}` : ''), { replace: true });
+        setQueryParams({ [key]: next === fallback ? null : next });
     }, [key, fallback]);
     return [value, setValue];
 }

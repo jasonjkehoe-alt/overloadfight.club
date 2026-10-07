@@ -4,22 +4,26 @@
 
 export const SITE_NAME = 'overloadfight.club';
 
-// Page title per view; detail views add a name below.
-const VIEW_TITLES = {
-    dashboard: 'Live',
-    history: 'Match history',
-    maps: 'Maps',
-    olmod: 'OLMod',
-    taunts: 'Taunts',
-    'pilot-manager': 'Pilot settings',
-    'fight-night': 'Fight Night',
-    resources: 'Resources',
-    'cold-storage': 'Archive',
-    admin: 'Admin',
-    pilots: 'Leaderboards',
-    'game-detail': 'Match',
-    'live-game-detail': 'Live'
-};
+// One row per view: its path, older paths that still open it, and the title of
+// the page without a parameter. A row with `param` takes /path/:param.
+const ROUTES = [
+    { view: 'dashboard', path: '/', aliases: ['/dashboard'], title: 'Live' },
+    { view: 'history', path: '/history', title: 'Match history' },
+    { view: 'maps', path: '/maps', param: true, title: 'Maps' },
+    { view: 'olmod', path: '/olmod', title: 'OLMod' },
+    { view: 'taunts', path: '/taunts', aliases: ['/tools'], title: 'Taunts' },
+    { view: 'fight-night', path: '/fight-night', aliases: ['/fight-nights'], param: true, title: 'Fight Night' },
+    { view: 'resources', path: '/resources', title: 'Resources' },
+    { view: 'cold-storage', path: '/archive', aliases: ['/cold-storage'], title: 'Archive' },
+    { view: 'admin', path: '/admin', title: 'Admin' },
+    { view: 'pilots', path: '/pilots', title: 'Leaderboards' },
+    { view: 'pilot-manager', path: '/pilot', title: 'Pilot settings' },
+    // detail pages: always a parameter; without one they fall back to `bare`
+    { view: 'pilot', path: '/pilot', param: true, bare: 'pilot-manager' },
+    { view: 'game-detail', path: '/game', param: true, bare: 'history' },
+    { view: 'live-game-detail', path: '/live', param: true, bare: 'dashboard' }
+];
+const byView = new Map(ROUTES.map(r => [r.view, r]));
 
 const decode = part => {
     try {
@@ -36,30 +40,16 @@ const decode = part => {
  */
 export function parseRoute(pathname) {
     const [first, second] = String(pathname).split('/').filter(Boolean);
-    const param = second ? decode(second) : undefined;
-    switch (first) {
-        case undefined:
-        case 'dashboard': return { view: 'dashboard' };
-        case 'history': return { view: 'history' };
-        case 'maps': return { view: 'maps', param };
-        case 'olmod': return { view: 'olmod' };
-        case 'tools':
-        case 'taunts': return { view: 'taunts' };
-        case 'fight-night':
-        case 'fight-nights': return { view: 'fight-night', param };
-        case 'resources': return { view: 'resources' };
-        case 'cold-storage':
-        case 'archive': return { view: 'cold-storage' };
-        case 'admin': return { view: 'admin' };
-        case 'pilots': return { view: 'pilots' };
-        case 'pilot': return param ? { view: 'pilot', param } : { view: 'pilot-manager' };
-        case 'game': {
-            const id = parseInt(second, 10);
-            return isNaN(id) ? { view: 'history' } : { view: 'game-detail', param: id };
-        }
-        case 'live': return param ? { view: 'live-game-detail', param } : { view: 'dashboard' };
-        default: return { view: 'dashboard' };
+    const base = first ? `/${first}` : '/';
+    // a detail row first, so /pilot/:name is the pilot and /pilot alone the settings page
+    const route = (second && ROUTES.find(r => r.bare && r.path === base))
+        || ROUTES.find(r => !r.bare && (r.path === base || r.aliases?.includes(base)));
+    if (!route) return { view: 'dashboard' };
+    if (route.view === 'game-detail') {
+        const id = parseInt(second, 10);
+        return isNaN(id) ? { view: 'history' } : { view: route.view, param: id };
     }
+    return route.param && second ? { view: route.view, param: decode(second) } : { view: route.view };
 }
 
 /**
@@ -69,25 +59,10 @@ export function parseRoute(pathname) {
  * @returns {string}
  */
 export function urlFor(view, param) {
-    const part = param === undefined || param === null || param === '' ? '' : `/${encodeURIComponent(String(param))}`;
-    switch (view) {
-        case 'dashboard': return '/';
-        case 'history': return '/history';
-        case 'maps': return `/maps${part}`;
-        case 'olmod': return '/olmod';
-        case 'tools':
-        case 'taunts': return '/taunts';
-        case 'pilot-manager': return '/pilot';
-        case 'fight-night': return `/fight-night${part}`;
-        case 'resources': return '/resources';
-        case 'cold-storage': return '/archive';
-        case 'admin': return '/admin';
-        case 'pilots': return '/pilots';
-        case 'pilot': return `/pilot${part}`;
-        case 'game-detail': return part ? `/game${part}` : '/history';
-        case 'live-game-detail': return part ? `/live${part}` : '/';
-        default: return '/';
-    }
+    const route = byView.get(view) || ROUTES[0];
+    const hasParam = route.param && param !== undefined && param !== null && param !== '';
+    if (route.bare && !hasParam) return urlFor(route.bare);
+    return hasParam ? `${route.path}/${encodeURIComponent(String(param))}` : route.path;
 }
 
 /**
@@ -98,7 +73,7 @@ export function urlFor(view, param) {
  * @returns {string}
  */
 export function pageTitle({ view, param }, name) {
-    let page = VIEW_TITLES[view] || '';
+    let page = byView.get(view)?.title || '';
     if (view === 'pilot') page = String(param);
     else if (view === 'maps' && param) page = `${param} map`;
     else if (view === 'fight-night' && param) page = `Fight Night ${param}`;

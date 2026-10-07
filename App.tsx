@@ -97,7 +97,8 @@ const App: React.FC = () => {
 
   // Load Detail View
   useEffect(() => {
-    if (!selectedGameId) return;
+    // back to the match just shown: it is already loaded
+    if (!selectedGameId || (loadedGame?.id === selectedGameId && loadedGame.data)) return;
     let isCurrent = true;
     fetchGameDetail(selectedGameId)
       .catch(() => null)
@@ -255,7 +256,7 @@ const App: React.FC = () => {
       {currentView === 'live-game-detail' && (
         <LiveGameDetail
           key={activeServerIp}
-          ip={activeServerIp || undefined}
+          ip={activeServerIp}
           serverData={activeServer}
           archivedGames={archivedGames}
           onBack={() => goBack(urlFor('dashboard'))}
@@ -293,7 +294,7 @@ const App: React.FC = () => {
         <PilotManager />
       )}
 
-      {(currentView === 'tools' || currentView === 'taunts') && (
+      {currentView === 'taunts' && (
         <AudioTauntMaker />
       )}
       </Suspense>

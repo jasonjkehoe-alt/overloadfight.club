@@ -119,10 +119,12 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
     const listedMap = mapName ? maps.find(m => m.name.toLowerCase() === mapName.toLowerCase()) : undefined;
     const selectedMapForIntel: MapData | null = listedMap ?? intelData;
 
-    // Ask by id once the list has loaded (the server reads an all-digit name as an id).
-    const intelKey = listedMap?.id ?? mapName;
+    // The server reads an all-digit name as an id, so such a name waits for the
+    // list to find its id; any other name is asked for at once.
+    const digitsOnly = !!mapName && /^\d+$/.test(mapName);
+    const intelKey = digitsOnly ? (loading ? undefined : listedMap?.id ?? mapName) : mapName;
     useEffect(() => {
-        if (!mapName || loading) return;
+        if (!mapName || intelKey === undefined) return;
         let isCurrent = true;
         fetch(`/api/maps/${encodeURIComponent(String(intelKey))}/intel`)
             .then(async res => ({ data: res.ok ? await res.json() : null, missing: res.status === 404 }))
@@ -134,7 +136,7 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                 if (isCurrent) setIntel({ name: mapName, data, missing });
             });
         return () => { isCurrent = false; };
-    }, [mapName, intelKey, loading]);
+    }, [mapName, intelKey]);
 
     // /maps/<text> that names no map (an old search link, a renamed map) becomes
     // a search for it, keeping the other filters.

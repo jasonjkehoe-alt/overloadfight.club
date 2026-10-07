@@ -3,6 +3,20 @@ import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, History, Users, Database, Map as MapIcon, Settings, Link as LinkIcon, Menu, X } from 'lucide-react';
 import Link from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
+import { usePathname } from '../hooks/useLocation';
+
+// The header's pages, in order; the desktop bar and the menu below xl both list them.
+const NAV = [
+  { view: 'dashboard', label: 'Live' },
+  { view: 'fight-night', label: 'Fight Night' },
+  { view: 'pilots', label: 'Leaderboards' },
+  { view: 'maps', label: 'Maps' },
+  { view: 'taunts', label: 'Taunts' },
+  { view: 'pilot-manager', label: 'Pilot' },
+  { view: 'olmod', label: 'OLMod' },
+  { view: 'resources', label: 'Resources' },
+  { view: 'cold-storage', label: 'Archive' }
+];
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -32,7 +46,9 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
     return () => clearInterval(interval);
   }, []);
 
-  const closeMenu = () => setIsMobileMenuOpen(false);
+  // Close the menu on any page change: a link in it, the logo, or back and forward.
+  const pathname = usePathname();
+  useEffect(() => setIsMobileMenuOpen(false), [pathname]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -40,7 +56,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
       <header className="bg-black border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to={urlFor('dashboard')} onClick={closeMenu} className="flex items-center">
+            <Link to={urlFor('dashboard')} className="flex items-center">
               <div className="flex-shrink-0 flex items-center gap-2">
                 <div className="w-8 h-8 bg-[#ff6600] rounded-sm flex items-center justify-center transform rotate-45">
                   <div className="w-4 h-4 bg-black transform -rotate-45"></div>
@@ -62,70 +78,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
                 <span className="text-gray-500 group-hover:text-gray-300 transition-colors">ACTIVE PILOTS</span>
               </Link>
               <nav className="flex space-x-4">
-                <Link
-                  to={urlFor('dashboard')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'dashboard' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
-                >
-                  Live
-                </Link>
-                <Link
-                  to={urlFor('fight-night')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'fight-night' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap`}
-                >
-                  Fight Night
-                </Link>
-                <Link
-                  to={urlFor('pilots')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'pilots' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
-                >
-                  Leaderboards
-                </Link>
-                <Link
-                  to={urlFor('maps')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'maps' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
-                >
-                  Maps
-                </Link>
-                <Link
-                  to={urlFor('taunts')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'taunts' || currentView === 'tools' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
-                >
-                  Taunts
-                </Link>
-                <Link
-                  to={urlFor('pilot-manager')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'pilot-manager' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
-                >
-                  Pilot
-                </Link>
-                <Link
-                  to={urlFor('olmod')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'olmod' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
-                >
-                  OLMod
-                </Link>
-                <Link
-                  to={urlFor('resources')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'resources' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5`}
-                >
-                  <LinkIcon className="w-3.5 h-3.5" />
-                  Resources
-                </Link>
-                <Link
-                  to={urlFor('cold-storage')}
-                  onClick={closeMenu}
-                  className={`${currentView === 'cold-storage' ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors`}
-                >
-                  Archive
-                </Link>
+                {NAV.map(({ view, label }) => (
+                  <Link
+                    key={view}
+                    to={urlFor(view)}
+                    className={`${currentView === view ? 'text-[#ff6600]' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5`}
+                  >
+                    {view === 'resources' && <LinkIcon className="w-3.5 h-3.5" />}
+                    {label}
+                  </Link>
+                ))}
               </nav>
             </div>
 
@@ -145,69 +107,15 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
         {isMobileMenuOpen && (
           <div className="xl:hidden bg-[#111] border-b border-gray-800">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              <Link
-                to={urlFor('dashboard')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'dashboard' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                Live
-              </Link>
-              <Link
-                to={urlFor('fight-night')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'fight-night' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                Fight Night
-              </Link>
-              <Link
-                to={urlFor('pilots')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'pilots' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                Leaderboards
-              </Link>
-              <Link
-                to={urlFor('maps')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'maps' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                Maps
-              </Link>
-              <Link
-                to={urlFor('taunts')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'taunts' || currentView === 'tools' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                Taunts
-              </Link>
-              <Link
-                to={urlFor('pilot-manager')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'pilot-manager' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                Pilot
-              </Link>
-              <Link
-                to={urlFor('olmod')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'olmod' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                OLMod
-              </Link>
-              <Link
-                to={urlFor('resources')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'resources' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                Resources
-              </Link>
-              <Link
-                to={urlFor('cold-storage')}
-                onClick={closeMenu}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === 'cold-storage' ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-              >
-                Archive
-              </Link>
+              {NAV.map(({ view, label }) => (
+                <Link
+                  key={view}
+                  to={urlFor(view)}
+                  className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${currentView === view ? 'bg-gray-900 text-[#ff6600]' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                >
+                  {label}
+                </Link>
+              ))}
             </div>
           </div>
         )}

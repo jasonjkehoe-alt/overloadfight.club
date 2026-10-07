@@ -7,8 +7,12 @@ import {
 import { fetchColdGames } from '../services/apiService';
 import { getMapImage } from '../services/mapService';
 import Link from './Link';
-import { useQueryParam, rowLink } from '../hooks/useLocation';
+import { useQueryParam, setQueryParams, rowLink } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
+
+// A record card; with a match it is a link to that match.
+const RecordCard: React.FC<{ matchId?: number; className: string; children: React.ReactNode }> = ({ matchId, className, children }) =>
+    matchId ? <Link to={urlFor('game-detail', matchId)} className={`block ${className}`}>{children}</Link> : <div className={className}>{children}</div>;
 
 const DeepStatCard: React.FC<{
     title: string;
@@ -98,13 +102,12 @@ const ColdStorage: React.FC = () => {
     const [gamesTotalCount, setGamesTotalCount] = useState(0);
     const [loadingGames, setLoadingGames] = useState(true);
     // The submitted search, the year pill and the page live in the URL: ?q=, ?year=, ?page=
-    const [search, setSearchParam] = useQueryParam('q');
+    const [search] = useQueryParam('q');
     const [searchInput, setSearchInput] = useState(search);
-    const [selectedYear, setSelectedYear] = useQueryParam('year', 'ALL');
+    const [selectedYear] = useQueryParam('year', 'ALL');
     const [pageParam, setPageParam] = useQueryParam('page', '1');
     const page = Math.max(1, parseInt(pageParam, 10) || 1);
     const setPage = (next: number) => setPageParam(String(next));
-    const setSearch = (term: string) => setSearchParam(term.trim());
 
     // Initial Load of Deep Stats, Pilots & Maps
     useEffect(() => {
@@ -161,19 +164,16 @@ const ColdStorage: React.FC = () => {
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setPage(1);
-        setSearch(searchInput);
+        setQueryParams({ q: searchInput.trim(), page: null });
     };
 
     const handleClearSearch = () => {
         setSearchInput('');
-        setSearch('');
-        setPage(1);
+        setQueryParams({ q: null, page: null });
     };
 
     const handleYearFilter = (year: string) => {
-        setSelectedYear(year);
-        setPage(1);
+        setQueryParams({ year: year === 'ALL' ? null : year, page: null });
     };
 
     // Filtered & Sorted Hall of Fame Pilots (requiring min 50 games for genuine competitive ranking)
@@ -440,8 +440,8 @@ const ColdStorage: React.FC = () => {
                                 const rec = deepStats?.records?.bloodiest_match;
                                 const hasRecord = Boolean(rec && rec.id);
                                 return (
-                                    <div 
-                                        {...(hasRecord ? rowLink(urlFor('game-detail', rec.id)) : {})}
+                                    <RecordCard
+                                        matchId={hasRecord ? rec.id : undefined}
                                         className={`bg-gradient-to-br from-[#131111] to-[#1a1111] border border-red-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
                                             hasRecord ? 'hover:border-red-500/70 cursor-pointer' : 'opacity-80'
                                         }`}
@@ -468,11 +468,13 @@ const ColdStorage: React.FC = () => {
                                                 </div>
                                             </div>
                                             {hasRecord && (
-                                                <Link to={urlFor('game-detail', rec.id)} className="mt-4 pt-3 border-t border-red-950/60 flex items-center justify-between text-xs font-mono text-red-300 group-hover:text-white transition-colors">                                                    <span>Inspect Match</span>
-                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />                                                </Link>
+                                                <div className="mt-4 pt-3 border-t border-red-950/60 flex items-center justify-between text-xs font-mono text-red-300 group-hover:text-white transition-colors">
+                                                    <span>Inspect Match</span>
+                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </RecordCard>
                                 );
                             })()}
 
@@ -481,8 +483,8 @@ const ColdStorage: React.FC = () => {
                                 const rec = deepStats?.records?.max_single_pilot_frags;
                                 const hasRecord = Boolean(rec && rec.id);
                                 return (
-                                    <div 
-                                        {...(hasRecord ? rowLink(urlFor('game-detail', rec.id)) : {})}
+                                    <RecordCard
+                                        matchId={hasRecord ? rec.id : undefined}
                                         className={`bg-gradient-to-br from-[#131311] to-[#1a1811] border border-amber-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
                                             hasRecord ? 'hover:border-amber-500/70 cursor-pointer' : 'opacity-80'
                                         }`}
@@ -509,11 +511,13 @@ const ColdStorage: React.FC = () => {
                                                 </div>
                                             </div>
                                             {hasRecord && (
-                                                <Link to={urlFor('game-detail', rec.id)} className="mt-4 pt-3 border-t border-amber-950/60 flex items-center justify-between text-xs font-mono text-amber-300 group-hover:text-white transition-colors">                                                    <span>Inspect Match</span>
-                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />                                                </Link>
+                                                <div className="mt-4 pt-3 border-t border-amber-950/60 flex items-center justify-between text-xs font-mono text-amber-300 group-hover:text-white transition-colors">
+                                                    <span>Inspect Match</span>
+                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </RecordCard>
                                 );
                             })()}
 
@@ -522,8 +526,8 @@ const ColdStorage: React.FC = () => {
                                 const rec = deepStats?.records?.longest_match;
                                 const hasRecord = Boolean(rec && rec.id);
                                 return (
-                                    <div 
-                                        {...(hasRecord ? rowLink(urlFor('game-detail', rec.id)) : {})}
+                                    <RecordCard
+                                        matchId={hasRecord ? rec.id : undefined}
                                         className={`bg-gradient-to-br from-[#111218] to-[#121622] border border-blue-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
                                             hasRecord ? 'hover:border-blue-500/70 cursor-pointer' : 'opacity-80'
                                         }`}
@@ -550,11 +554,13 @@ const ColdStorage: React.FC = () => {
                                                 </div>
                                             </div>
                                             {hasRecord && (
-                                                <Link to={urlFor('game-detail', rec.id)} className="mt-4 pt-3 border-t border-blue-950/60 flex items-center justify-between text-xs font-mono text-blue-300 group-hover:text-white transition-colors">                                                    <span>Inspect Match</span>
-                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />                                                </Link>
+                                                <div className="mt-4 pt-3 border-t border-blue-950/60 flex items-center justify-between text-xs font-mono text-blue-300 group-hover:text-white transition-colors">
+                                                    <span>Inspect Match</span>
+                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </RecordCard>
                                 );
                             })()}
 
@@ -563,8 +569,8 @@ const ColdStorage: React.FC = () => {
                                 const rec = deepStats?.records?.most_attended_match;
                                 const hasRecord = Boolean(rec && rec.id);
                                 return (
-                                    <div 
-                                        {...(hasRecord ? rowLink(urlFor('game-detail', rec.id)) : {})}
+                                    <RecordCard
+                                        matchId={hasRecord ? rec.id : undefined}
                                         className={`bg-gradient-to-br from-[#121118] to-[#181224] border border-purple-900/40 p-5 rounded-xl transition-all group relative overflow-hidden shadow-lg ${
                                             hasRecord ? 'hover:border-purple-500/70 cursor-pointer' : 'opacity-80'
                                         }`}
@@ -591,11 +597,13 @@ const ColdStorage: React.FC = () => {
                                                 </div>
                                             </div>
                                             {hasRecord && (
-                                                <Link to={urlFor('game-detail', rec.id)} className="mt-4 pt-3 border-t border-purple-950/60 flex items-center justify-between text-xs font-mono text-purple-300 group-hover:text-white transition-colors">                                                    <span>Inspect Match</span>
-                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />                                                </Link>
+                                                <div className="mt-4 pt-3 border-t border-purple-950/60 flex items-center justify-between text-xs font-mono text-purple-300 group-hover:text-white transition-colors">
+                                                    <span>Inspect Match</span>
+                                                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
+                                    </RecordCard>
                                 );
                             })()}
                         </div>
@@ -957,7 +965,7 @@ const ColdStorage: React.FC = () => {
                                 <p className="text-gray-300 font-bold">No archived matches found matching criteria.</p>
                                 <p className="text-xs text-gray-600">Try adjusting your search terms or clearing the year filter.</p>
                                 <button
-                                    onClick={() => { setSearchInput(''); setSearch(''); setSelectedYear('ALL'); setPage(1); }}
+                                    onClick={() => { setSearchInput(''); setQueryParams({ q: null, year: null, page: null }); }}
                                     className="text-xs text-blue-400 underline font-bold mt-2 inline-block"
                                 >
                                     Reset Filters

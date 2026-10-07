@@ -15,7 +15,7 @@ const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(second
 function pilotMeta(name) {
     const pilot = db.getPilotSummary(name);
     if (!pilot) return {};
-    return { description: `${pilot.name}: ${count(pilot.games)} matches, ${count(pilot.kills)} kills, last match ${pilot.last_date.slice(0, 10)}.` };
+    return { description: `${pilot.name}: ${count(pilot.games)} matches, ${count(pilot.kills)} kills, last match ${pilot.lastSeen.slice(0, 10)}.` };
 }
 
 // "BLUE wins 42–35. TEAM ANARCHY on Vault, 15:10." The name is the map, for the title.

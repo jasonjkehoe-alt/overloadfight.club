@@ -13,16 +13,13 @@ type LiveGame = GameData & {
 };
 
 interface LiveGameDetailProps {
-    ip?: string;
+    ip: string;
     onBack?: () => void;
     serverData?: any;
     archivedGames?: any;
 }
 
-const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip: propIp, onBack, serverData }) => {
-    // Prioritize prop IP, fallback to serverData IP
-    const ip = propIp || serverData?.server?.ip;
-
+const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData }) => {
     const [healthHistory, setHealthHistory] = useState<any[]>([]);
 
     // Restore missing state variables that caused the blank screen/render failure

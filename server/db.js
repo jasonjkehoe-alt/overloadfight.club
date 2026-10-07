@@ -1405,15 +1405,11 @@ const getPilotFirstSeen = hotDb.prepare(`
   )
 `);
 
-// A pilot's all-time match count, kills and last game over both files, for the
-// pilot page's share preview; name is the spelling from the latest game.
-const getPilotSummary = hotDb.prepare(`
-  SELECT name, COUNT(DISTINCT game_id) AS games, SUM(net_kills(kills)) AS kills, MAX(date) AS last_date FROM (
-    SELECT game_id, name, date, kills FROM game_players WHERE name = TRIM(@name)
-    UNION ALL
-    SELECT game_id, name, date, kills FROM cold.game_players WHERE name = TRIM(@name)
-  )
-`);
+const getFightNightRecapsStmt = hotDb.prepare('SELECT date, data, created_at FROM fight_night_recaps ORDER BY date DESC LIMIT ?');
+const getFightNightRecapStmt = hotDb.prepare('SELECT date, data, created_at FROM fight_night_recaps WHERE date = ?');
+
+// One pilot's all-time leaderboard row, for the pilot page's share preview.
+const getPilotSummary = hotDb.prepare(pilotTotalsSql('WHERE name = TRIM(@name)'));
 
 // Hot games in one UTC day; bind utcDayBounds().
 const getGamesInDay = hotDb.prepare(`
@@ -2442,9 +2438,7 @@ VALUES(?, ?, ?, ?, ?)
 
   getFightNightRecaps: (limit = 20) => {
     try {
-      const rows = hotDb.prepare(`
-        SELECT date, data, created_at FROM fight_night_recaps ORDER BY date DESC LIMIT ?
-      `).all(limit);
+      const rows = getFightNightRecapsStmt.all(limit);
       return rows.map(r => ({
         date: r.date,
         created_at: r.created_at,
@@ -2456,17 +2450,12 @@ VALUES(?, ?, ?, ?, ?)
     }
   },
 
-  // null when the pilot has no games
-  getPilotSummary: (name) => {
-    const row = getPilotSummary.get({ name });
-    return row?.games ? row : null;
-  },
+  // undefined when the pilot has no games
+  getPilotSummary: (name) => getPilotSummary.get({ name }),
 
   getFightNightRecapByDate: (date) => {
     try {
-      const row = hotDb.prepare(`
-        SELECT date, data, created_at FROM fight_night_recaps WHERE date = ?
-      `).get(date);
+      const row = getFightNightRecapStmt.get(date);
       if (!row) return null;
       return {
         date: row.date,

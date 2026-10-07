@@ -17,7 +17,10 @@ describe('parseRoute and urlFor', () => {
             { view: 'live-game-detail', param: '143.110.230.67' },
             { view: 'pilots' },
             { view: 'cold-storage' },
-            { view: 'taunts' }
+            { view: 'taunts' },
+            { view: 'olmod' },
+            { view: 'resources' },
+            { view: 'admin' }
         ];
         for (const route of routes) {
             const parsed = parseRoute(urlFor(route.view, route.param));
@@ -32,6 +35,10 @@ describe('parseRoute and urlFor', () => {
         expect(parseRoute('/tools')).toEqual({ view: 'taunts' });
         expect(parseRoute('/game/abc')).toEqual({ view: 'history' });
         expect(parseRoute('/nowhere')).toEqual({ view: 'dashboard' });
+        expect(parseRoute('/game')).toEqual({ view: 'dashboard' });
+        expect(urlFor('game-detail')).toBe('/history');
+        expect(urlFor('pilot')).toBe('/pilot');
+        expect(urlFor('live-game-detail')).toBe('/');
         expect(parseRoute('/pilot/%E0%A4%A')).toEqual({ view: 'pilot', param: '%E0%A4%A' });
     });
 });

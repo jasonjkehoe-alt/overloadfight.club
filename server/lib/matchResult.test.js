@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { winnerOf } from '../server/lib/gameParse.js';
-import { resultLine } from './matchResult';
-import { byId, detailSample } from '../server/testFixtures.js';
+import { winnerOf } from './gameParse.js';
+import { resultLine } from './matchResult.js';
+import { byId, detailSample } from '../testFixtures.js';
 
 // The match page's result line, built from winnerOf() on the fixture games.
 describe('resultLine', () => {

@@ -8,7 +8,7 @@ import MatchAnalysis from './MatchAnalysis';
 import { getMapImage } from '../services/mapService';
 // The server's rules, so this page shows the result and length the stats count.
 import { winnerOf, durationOf, measuredDurationOf } from '../server/lib/gameParse.js';
-import { resultLine } from '../utils/matchResult';
+import { resultLine } from '../server/lib/matchResult.js';
 import Link from './Link';
 import { useQueryParam } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
