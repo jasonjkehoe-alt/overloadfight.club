@@ -12,7 +12,7 @@ export const ARCHIVE_MONTHS = [
 
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/overload-development-community/tracker-log-archive/main';
 
-class ArchiveIngestService {
+export class ArchiveIngestService {
     constructor() {
         this.state = {
             isRunning: false,
@@ -28,9 +28,38 @@ class ArchiveIngestService {
             logs: []
         };
         this.cancelRequested = false;
+        this.syncStatusFromDb();
+    }
+
+    syncStatusFromDb() {
+        try {
+            const completedMonths = [];
+            let totalGamesInserted = 0;
+
+            for (const month of ARCHIVE_MONTHS) {
+                const count = db.countColdGamesInMonth(month);
+                if (count > 0) {
+                    completedMonths.push(month);
+                    totalGamesInserted += count;
+                }
+            }
+
+            this.state.completedMonths = completedMonths;
+            this.state.totalGamesInserted = totalGamesInserted;
+            this.state.totalMonths = ARCHIVE_MONTHS.length;
+            if (completedMonths.length === this.state.totalMonths && this.state.status === 'idle') {
+                this.state.status = 'completed';
+            }
+        } catch (err) {
+            // Cold DB might not be initialized yet
+        }
     }
 
     getStatus() {
+        if (!this.state.isRunning) {
+            this.syncStatusFromDb();
+        }
+
         const completedMonthsList = Array.isArray(this.state.completedMonths) ? this.state.completedMonths : [];
         return {
             ...this.state,

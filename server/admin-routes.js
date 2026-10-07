@@ -58,10 +58,22 @@ router.post('/restore', upload.single('backup'), async (req, res) => {
 router.get('/stats', (req, res) => {
     try {
         const stats = db.getDatabaseStats.get();
+        const coldStats = db.getColdDatabaseStats ? db.getColdDatabaseStats.get() : null;
         const activeJob = backfillManager.getActiveJob();
+
+        const totalGames = (stats?.total_games || 0) + (coldStats?.total_games || 0);
+        const earliestDate = [stats?.earliest_date, coldStats?.earliest_date].filter(Boolean).sort()[0] || null;
+        const latestDate = [stats?.latest_date, coldStats?.latest_date].filter(Boolean).sort().reverse()[0] || null;
+        const minId = [stats?.min_game_id, coldStats?.min_game_id].filter(id => id != null).sort((a, b) => a - b)[0] ?? null;
+        const maxId = [stats?.max_game_id, coldStats?.max_game_id].filter(id => id != null).sort((a, b) => b - a)[0] ?? null;
 
         res.json({
             ...stats,
+            total_games: totalGames,
+            earliest_date: earliestDate,
+            latest_date: latestDate,
+            min_game_id: minId,
+            max_game_id: maxId,
             activeJob: activeJob ? backfillManager.getJobStatus(activeJob.id) : null
         });
     } catch (error) {
@@ -73,22 +85,23 @@ router.get('/stats', (req, res) => {
 router.get('/stats/extended', (req, res) => {
     try {
         const stats = db.getDatabaseStats.get();
+        const coldStats = db.getColdDatabaseStats ? db.getColdDatabaseStats.get() : null;
         const monthly = db.getMonthlyGameCounts.all();
         const activeJob = backfillManager.getActiveJob();
 
-        // Calculate coverage estimate
-        // Assuming Game ID 1 is the start.
-        const totalPossible = stats.max_game_id || 0;
-        const coveragePercent = totalPossible > 0 ? (stats.total_games / totalPossible) * 100 : 0;
+        const totalGames = (stats?.total_games || 0) + (coldStats?.total_games || 0);
+        const earliestDate = [stats?.earliest_date, coldStats?.earliest_date].filter(Boolean).sort()[0] || null;
+        const latestDate = [stats?.latest_date, coldStats?.latest_date].filter(Boolean).sort().reverse()[0] || null;
+        const minId = [stats?.min_game_id, coldStats?.min_game_id].filter(id => id != null).sort((a, b) => a - b)[0] ?? null;
+        const maxId = [stats?.max_game_id, coldStats?.max_game_id].filter(id => id != null).sort((a, b) => b - a)[0] ?? null;
 
         res.json({
             overview: {
-                totalGames: stats.total_games,
-                maxId: stats.max_game_id,
-                minId: stats.min_game_id,
-                earliestDate: stats.earliest_date,
-                latestDate: stats.latest_date,
-                coveragePercent: Math.round(coveragePercent * 10) / 10
+                totalGames,
+                maxId,
+                minId,
+                earliestDate,
+                latestDate
             },
             history: monthly,
             activeJob: activeJob ? backfillManager.getJobStatus(activeJob.id) : null

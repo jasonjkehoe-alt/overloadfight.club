@@ -53,3 +53,5 @@ scripts/test_*.cjs
 scripts/test_*.mjs
 scripts/update_*.py
 scripts/verify_*.py
+__pycache__/
+*.py[cod]
