@@ -120,17 +120,17 @@ router.get('/stats/extended', (req, res) => {
 router.post('/maintenance/refresh-stats', (req, res) => {
     try {
         console.log('[Admin] Manual stats cache refresh requested.');
-        setImmediate(() => {
+        setImmediate(async () => {
             console.log('[Admin] Stats cache refresh started.');
             try {
                 if (typeof db.refreshPilotStats === 'function') {
-                    db.refreshPilotStats();
+                    await db.refreshPilotStats();
                 }
                 if (typeof db.buildColdStorageStatsCache === 'function') {
-                    db.buildColdStorageStatsCache();
+                    await db.buildColdStorageStatsCache();
                 }
                 if (typeof db.buildMapStatsCache === 'function') {
-                    db.buildMapStatsCache();
+                    await db.buildMapStatsCache();
                 }
                 console.log('[Admin] Stats cache refresh finished.');
             } catch (err) {

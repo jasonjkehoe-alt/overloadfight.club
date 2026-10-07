@@ -395,17 +395,17 @@ class BackfillManager {
     // Trigger asynchronous stats cache refresh on job completion
     triggerStatsRefresh() {
         console.log('[Backfill] Triggering post-job stats cache refresh...');
-        setImmediate(() => {
+        setImmediate(async () => {
             console.log('[Backfill] Stats cache refresh started.');
             try {
                 if (typeof db.refreshPilotStats === 'function') {
-                    db.refreshPilotStats();
+                    await db.refreshPilotStats();
                 }
                 if (typeof db.buildColdStorageStatsCache === 'function') {
-                    db.buildColdStorageStatsCache();
+                    await db.buildColdStorageStatsCache();
                 }
                 if (typeof db.buildMapStatsCache === 'function') {
-                    db.buildMapStatsCache();
+                    await db.buildMapStatsCache();
                 }
                 console.log('[Backfill] Stats cache refresh finished.');
             } catch (err) {
