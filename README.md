@@ -6,7 +6,7 @@ A full-stack community platform, analytics engine, and workstation for the 6DOF 
 
 - **Historical Games Database & Cold Storage**: High-performance SQLite engine querying millions of historical rounds and telemetry across 8+ years of Overload matches.
 - **Real-Time Game Monitoring & Live Match Tracker**: Automatic ingestion of live games, active servers, scoreboard changes, and match timelines.
-- **Pilot Dossiers & ELO Ratings**: In-depth player analytics, head-to-head records, weapon accuracy matrices, and Pilot Performance Intelligence (PPI).
+- **Pilot Dossiers & Glicko-2 Ratings**: In-depth player analytics, head-to-head records, power rankings, weapon accuracy matrices, and Pilot Performance Intelligence (PPI).
 - **Interactive Map Library**: Full level catalog synchronized with overloadmaps.com, complete with 3D map telemetry, author attribution, and level previews.
 - **Integrated Audio Taunt Maker**: Comprehensive in-browser DAW for composing Overload multiplayer audio taunts, complete with multi-track timeline, anti-click zero-crossing fades, parametric gain, live microphone recorder, Web/YouTube import, and instant loadout export.
 

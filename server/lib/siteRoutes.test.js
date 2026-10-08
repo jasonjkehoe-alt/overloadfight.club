@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRoute, urlFor, pageTitle } from './siteRoutes.js';
+import { parseRoute, urlFor, pageTitle, navSection } from './siteRoutes.js';
 
 describe('parseRoute and urlFor', () => {
     it('read back every page URL they write', () => {
@@ -56,5 +56,13 @@ describe('pageTitle', () => {
         expect(pageTitle({ view: 'maps', param: 'Vault' })).toBe('Vault map | overloadfight.club');
         expect(pageTitle({ view: 'live-game-detail', param: '1.2.3.4' })).toBe('Live: 1.2.3.4 | overloadfight.club');
         expect(pageTitle({ view: 'live-game-detail', param: '1.2.3.4' }, 'San Francisco 1')).toBe('Live: San Francisco 1 | overloadfight.club');
+    });
+});
+
+describe('navSection', () => {
+    it('lights Leaderboards on the power rankings, and a page\'s own item otherwise', () => {
+        expect(navSection('rankings')).toBe('pilots');
+        expect(navSection('pilots')).toBe('pilots');
+        expect(navSection('maps')).toBe('maps');
     });
 });

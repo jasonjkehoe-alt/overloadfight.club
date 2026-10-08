@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
 import { ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
-import { RATING } from '../../server/lib/gameParse.js';
+import { DAY_MS, RATING } from '../../server/lib/gameParse.js';
 import { chart, chartTooltip, colors } from '../../designTokens.js';
 import { RatingPoint } from '../../services/apiService';
 
-const DAY_MS = 86400000;
 // up to this many days played, each one gets a dot
 const MAX_DOTS = 30;
 // each day's point sits at noon UTC, which is that date in every US time zone

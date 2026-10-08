@@ -3,13 +3,15 @@ import { Info, TrendingUp } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from '../States';
 import Link from '../Link';
 import { urlFor } from '../../server/lib/siteRoutes.js';
-import { RATING, RATING_HINT } from '../../server/lib/gameParse.js';
-import { fetchPilotRating, PilotRating, RatingPoint } from '../../services/apiService';
+import { RATING, RATING_HINT, RATED_MATCH_TEXT } from '../../server/lib/gameParse.js';
+import { PilotRating, RatingPoint } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
 
 // Recharts is a large chunk the rest of the pilot page does not need, so the
-// chart loads after the page, behind its own Suspense (not the views' one).
-const RatingChart = lazy(() => import('./RatingChart'));
+// chart renders behind its own Suspense (not the views' one). Its download
+// starts with the pilot page instead of after the rating arrives.
+const chartModule = import('./RatingChart');
+const RatingChart = lazy(() => chartModule);
 
 // The days behind the chart, newest first; built only while open.
 const RatingTable: React.FC<{ history: RatingPoint[] }> = ({ history }) => {
@@ -45,19 +47,20 @@ const RatingTable: React.FC<{ history: RatingPoint[] }> = ({ history }) => {
     );
 };
 
-// Where the pilot stands in the power rankings, or why they are not in them.
-// The rankings page lists the top RATING.listed, so only those link to it.
+// Where the pilot stands in the power rankings, or why they are not in them
+// (rankStatus in gameParse.js). The rankings page lists the top RATING.listed,
+// so only those link to it.
 const standing = (rating: PilotRating) => {
-    if (rating.rank !== null && rating.rank <= RATING.listed) return <Link to={urlFor('rankings')} className="text-brand hover:text-brand-hover underline">#{rating.rank} in the power rankings</Link>;
-    if (rating.rank !== null) return `#${rating.rank} in the power rankings`;
-    if (rating.matches < RATING.rankedAfter) return `Provisional: ${rating.matches} of ${RATING.rankedAfter} rated matches`;
-    return `Not ranked: no rated match in the last ${RATING.activeDays} days`;
+    if (rating.status === 'provisional') return `Provisional: ${rating.matches} of ${RATING.rankedAfter} rated matches`;
+    if (rating.status === 'inactive' || rating.rank === null) return `Not ranked: no rated match in the last ${RATING.activeDays} days`;
+    if (rating.rank > RATING.listed) return `#${rating.rank} in the power rankings`;
+    return <Link to={urlFor('rankings')} className="text-brand hover:text-brand-hover underline">#{rating.rank} in the power rankings</Link>;
 };
 
-// The pilot page's Glicko-2 rating: the number, its RD, the standing and the history.
-const RatingCard: React.FC<{ pilotName: string }> = ({ pilotName }) => {
-    const { data: rating, failed, retry } = useLoad(() => fetchPilotRating(pilotName), [pilotName]);
-
+// The pilot page's Glicko-2 rating: the number, its RD, the standing and the
+// history. PilotDetail loads it (useLoad), so the request does not wait for
+// the page's own and survives a change of mode.
+const RatingCard: React.FC<{ load: ReturnType<typeof useLoad<PilotRating>> }> = ({ load: { data: rating, failed, retry } }) => {
     if (failed) return <ErrorState compact title="Rating unavailable" message="Could not load this pilot's rating." onRetry={retry} />;
 
     return (
@@ -69,7 +72,7 @@ const RatingCard: React.FC<{ pilotName: string }> = ({ pilotName }) => {
             {!rating ? (
                 <Loading compact label="Loading rating..." />
             ) : rating.history.length === 0 || rating.rating === null || rating.rd === null ? (
-                <EmptyState compact title="No rated match yet" message="A match counts once it has 2+ pilots, runs 60 seconds or more and has a result." />
+                <EmptyState compact title="No rated match yet" message={`A match counts once it has ${RATED_MATCH_TEXT}.`} />
             ) : (
                 <>
                     <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3">

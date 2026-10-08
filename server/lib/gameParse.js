@@ -77,10 +77,11 @@ export function durationOf(game) {
 }
 
 // The ranked filter: the career stats, the telemetry, the 90-day results and
-// the rating count a match with 2+ players that ran 60 s or more by durationOf().
-// Pass the duration when the caller has it already.
+// the rating count a match with RANKED.pilots+ players that ran RANKED.seconds
+// or more by durationOf(). Pass the duration when the caller has it already.
+export const RANKED = { pilots: 2, seconds: 60 };
 export function rankedMatch(game, duration = durationOf(game)) {
-    return Array.isArray(game?.players) && game.players.length >= 2 && duration >= 60;
+    return Array.isArray(game?.players) && game.players.length >= RANKED.pilots && duration >= RANKED.seconds;
 }
 
 // Who won. Team games rank teams by teamScore (any number of teams; teams
@@ -408,11 +409,18 @@ export const RATING = {
     timeZone: 'America/Chicago',
 };
 
-export const RATING_HINT = 'Rating: Glicko-2 over every stored match with 2+ pilots, 60 s or more and a result. Each match counts as one game against the other sides: FFA by score, team games by team score, a tie counts half. RD is the uncertainty: about 95% of the time the true rating is within 2 RD. It grows while a pilot sits out.';
+// The pages' words for these rules, built from the numbers above.
+export const RATED_MATCH_TEXT = `${RANKED.pilots}+ pilots, ${RANKED.seconds} s or more and a result`;
+export const RD_HINT = 'RD is the uncertainty: about 95% of the time the true rating is within 2 RD. It grows while a pilot sits out.';
+export const RATING_HINT = `Rating: Glicko-2 over every stored match with ${RATED_MATCH_TEXT}. Each match counts as one game against the other sides: FFA by score, team games by team score, a tie counts half. ${RD_HINT}`;
 export const RANKING_HINT = `Ranked: ${RATING.rankedAfter}+ rated matches and one in the last ${RATING.activeDays} days. Movement compares the rank with ${RATING.movementDays} days earlier; NEW was not ranked then.`;
 
 const PHI_MAX = RATING.rd / RATING.scale;
-const DAY_MS = 86400000;
+export const DAY_MS = 86400000;
+
+// A pilot's phi after `days` without a rated match: it grows by the
+// volatility for every day, up to the starting RD.
+const idlePhi = (phi, sigma, days) => Math.min(Math.sqrt(phi * phi + sigma * sigma * Math.max(0, days)), PHI_MAX);
 const gOf = phi => 1 / Math.sqrt(1 + (3 * phi * phi) / (Math.PI * Math.PI));
 
 // Glicko-2 step 5: the new volatility, by the Illinois algorithm.
@@ -465,7 +473,7 @@ export function glicko2(player, games) {
         vInverse += weight * g * g * expected * (1 - expected);
         sum += weight * g * (score - expected);
     }
-    if (!(vInverse > 0)) return { ...player, phi: Math.min(Math.hypot(player.phi, player.sigma), PHI_MAX) };
+    if (!(vInverse > 0)) return { ...player, phi: idlePhi(player.phi, player.sigma, 1) };
     const v = 1 / vInverse;
     const sigma = newVolatility(player.phi, player.sigma, v, v * sum);
     const phi = Math.min(1 / Math.sqrt(1 / (player.phi * player.phi + sigma * sigma) + vInverse), PHI_MAX);
@@ -477,8 +485,10 @@ export function glicko2(player, games) {
 // (a team game without teamScore), or fewer than two sides with a named
 // pilot. A pilot listed twice plays once, on the first listing's side; in a
 // team game a pilot without a team sits out.
-export function ratingSides(game, result = winnerOf(game)) {
-    if (!rankedMatch(game) || result.winners.length === 0) return null;
+export function ratingSides(game) {
+    if (!rankedMatch(game)) return null;
+    const result = winnerOf(game);
+    if (result.winners.length === 0) return null;
     const sides = new Map(result.ranking.map(r => [r.side, { score: r.score, pilots: [] }]));
     const seen = new Set();
     for (const p of game.players) {
@@ -499,17 +509,13 @@ export function ratingDay(date) {
     return dayFormat.format(new Date(date));
 }
 
-// A pilot's phi after `days` without a rated match: it grows by the
-// volatility for every day, up to the starting RD.
-const idlePhi = (phi, sigma, days) => Math.min(Math.sqrt(phi * phi + sigma * sigma * Math.max(0, days)), PHI_MAX);
-
 const mean = values => values.reduce((a, b) => a + b, 0) / values.length;
 const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
 
 // Replays rated matches ([{ id, date, sides }], sides from ratingSides()) in
 // date order (id order for equal dates; a match without a date is skipped)
 // and returns each pilot's rating at the end of every day they played:
-// [{ pilot, name, day, rating, rd, volatility, matches, last_played }],
+// [{ pilot, name, day, rating, rd, volatility, matches }],
 // `pilot` being the pilotKey(), `name` the latest spelling and `matches` the
 // rated matches so far.
 export function ratingSnapshots(matches) {
@@ -519,7 +525,10 @@ export function ratingSnapshots(matches) {
         .sort((a, b) => a.at - b.at || a.id - b.id);
     const pilots = new Map();
     const snapshots = new Map();
-    for (const { date, at, sides } of timed) {
+    // the day of each hour seen: Chicago's offset changes only on the hour,
+    // and formatting a date for every match was a fifth of the replay
+    const dayOfHour = new Map();
+    for (const { at, sides } of timed) {
         // everyone's state before the match, RD grown over the days sat out
         const teams = sides.map(side => side.pilots.map(({ key, name }) => {
             let p = pilots.get(key);
@@ -540,7 +549,9 @@ export function ratingSnapshots(matches) {
             }
             return [p, glicko2({ mu: p.mu, phi, sigma: p.sigma }, games)];
         }));
-        const day = ratingDay(at);
+        const hour = Math.floor(at / 3600000);
+        if (!dayOfHour.has(hour)) dayOfHour.set(hour, ratingDay(at));
+        const day = dayOfHour.get(hour);
         for (const [p, next] of updates) {
             Object.assign(p, next);
             p.matches++;
@@ -552,8 +563,7 @@ export function ratingSnapshots(matches) {
                 rating: round(RATING.start + RATING.scale * p.mu, 1),
                 rd: round(RATING.scale * p.phi, 1),
                 volatility: round(p.sigma, 6),
-                matches: p.matches,
-                last_played: date
+                matches: p.matches
             });
         }
     }
@@ -570,13 +580,21 @@ export function rdOn(snapshot, day) {
     return round(RATING.scale * idlePhi(snapshot.rd / RATING.scale, snapshot.volatility, dayNumber(day) - dayNumber(snapshot.day)), 1);
 }
 
+// Whether a pilot's latest snapshot on or before `day` puts them in the power
+// rankings that day: 'provisional' below RATING.rankedAfter rated matches,
+// 'inactive' when the last one is more than RATING.activeDays before `day`,
+// otherwise 'ranked'.
+export function rankStatus(snapshot, day) {
+    if (snapshot.matches < RATING.rankedAfter) return 'provisional';
+    return dayNumber(day) - dayNumber(snapshot.day) > RATING.activeDays ? 'inactive' : 'ranked';
+}
+
 // The power rankings on `day` from each pilot's latest snapshot on or before
-// it: pilots with RATING.rankedAfter+ rated matches whose last one is at most
-// RATING.activeDays before `day`, by rating (then rated matches, then name),
-// each with a `rank` from 1 and its RD on `day` (rdOn).
+// it: the 'ranked' ones (rankStatus) by rating (then rated matches, then
+// name), each with a `rank` from 1 and its RD on `day` (rdOn).
 export function powerRankings(latest, day) {
     return latest
-        .filter(s => s.matches >= RATING.rankedAfter && dayNumber(day) - dayNumber(s.day) <= RATING.activeDays)
+        .filter(s => rankStatus(s, day) === 'ranked')
         .sort((a, b) => b.rating - a.rating || b.matches - a.matches || a.pilot.localeCompare(b.pilot))
         .map((s, i) => ({ ...s, rd: rdOn(s, day), rank: i + 1 }));
 }

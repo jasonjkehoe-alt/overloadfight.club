@@ -122,7 +122,7 @@ describe('ratings (rating_snapshots)', () => {
     });
 
     it('answers an empty history for a pilot with no rated match', () => {
-        expect(db.getPilotRating('NOBODY')).toMatchObject({ matches: 0, rank: null, history: [] });
+        expect(db.getPilotRating('NOBODY')).toMatchObject({ matches: 0, status: null, rank: null, history: [] });
     });
 
     it('ranks pilots with 10+ rated matches, all NEW in their first week', () => {
@@ -134,12 +134,13 @@ describe('ratings (rating_snapshots)', () => {
         expect(pilots.map(p => p.rank)).toEqual([1, 2, 3]);
         expect(pilots.map(p => p.change)).toEqual([null, null, null]);
         expect(pilots.map(p => p.rating)).toEqual(pilots.map(p => p.rating).sort((a, b) => b - a));
-        expect(db.getPilotRating('STITCH').rank).toBe(pilots.find(p => p.pilot === 'stitch').rank);
+        expect(db.getPilotRating('STITCH')).toMatchObject({ status: 'ranked', rank: pilots.find(p => p.pilot === 'stitch').rank });
     });
 
     it('shows the RD grown for the days since, and no rank for a pilot who cannot be ranked', () => {
         const phoenix = db.getPilotRating('PHOENIX'); // 9 rated matches
-        expect(phoenix.rank).toBeNull();
+        expect(phoenix).toMatchObject({ status: 'provisional', rank: null });
+        expect(db.getPilotRating('JFTP', shiftDay(today, RATING.activeDays + 5))).toMatchObject({ status: 'inactive', rank: null });
         expect(db.getPilotRating('PHOENIX', shiftDay(today, 100)).rd).toBeGreaterThan(phoenix.rd);
     });
 
@@ -147,12 +148,18 @@ describe('ratings (rating_snapshots)', () => {
         const hot = connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'rating_snapshots'").get());
         const table = () => hot.prepare('SELECT * FROM rating_snapshots ORDER BY pilot, day').all();
         const before = table();
-        hot.prepare("INSERT INTO rating_snapshots VALUES ('ghost', '2001-01-01', 'GHOST', 1500, 350, 0.06, 1, NULL)").run();
+        hot.prepare("INSERT INTO rating_snapshots (pilot, day, name, rating, rd, volatility, matches) VALUES ('ghost', '2001-01-01', 'GHOST', 1500, 350, 0.06, 1)").run();
         hot.prepare("UPDATE rating_snapshots SET rating = 1 WHERE pilot = 'jftp'").run();
         const log = vi.spyOn(console, 'log');
         await db.refreshPilotStats();
         expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Ratings]'))).toEqual([`[Ratings] ${before.length} daily rating snapshots: 1 written, 1 removed.`]);
         log.mockRestore();
+        expect(table()).toEqual(before);
+
+        // 4,500 stray days take three chunks of the write
+        const ghost = hot.prepare("INSERT INTO rating_snapshots (pilot, day, name, rating, rd, volatility, matches) VALUES ('ghost', ?, 'GHOST', 1500, 350, 0.06, 1)");
+        hot.transaction(() => { for (let i = 0; i < 4500; i++) ghost.run(shiftDay('2001-01-01', i)); })();
+        await db.refreshPilotStats();
         expect(table()).toEqual(before);
     });
 
@@ -290,7 +297,7 @@ describe('backup and restore (backupHot, restoreHot)', () => {
 });
 
 describe('ratings after a refresh', () => {
-    it('ranks a pilot whose new match is his tenth once the refresh lands', async () => {
+    it('ranks a pilot whose new match is their tenth once the refresh lands', async () => {
         const today = ratingDay(Date.now());
         const ranked = () => db.getPowerRankings(today).pilots.map(p => p.pilot);
         expect(ranked()).not.toContain('phoenix'); // 9 rated matches, and the rankings are now memoised

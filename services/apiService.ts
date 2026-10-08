@@ -427,7 +427,8 @@ export interface PilotRating {
     rating: number | null;
     rd: number | null;
     matches: number;
-    lastPlayed: string | null;
+    // 'ranked', 'provisional' (too few rated matches) or 'inactive' (none lately); null with no rating
+    status: 'ranked' | 'provisional' | 'inactive' | null;
     rank: number | null;
     history: RatingPoint[];
 }
@@ -439,7 +440,6 @@ export interface RankedPilot {
     rating: number;
     rd: number;
     matches: number;
-    last_played: string;
     rank: number;
     // places gained since `since`, null when not ranked then (NEW)
     change: number | null;

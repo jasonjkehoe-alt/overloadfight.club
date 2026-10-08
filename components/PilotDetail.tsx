@@ -3,6 +3,8 @@ import { GameData } from '../types';
 import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink, Zap, Clock, Flame, Filter } from 'lucide-react';
 import PilotPerformanceCard from './PilotPerformanceCard';
 import RatingCard from './pilotDetail/RatingCard';
+import { useLoad } from '../hooks/useLoad';
+import { fetchPilotRating } from '../services/apiService';
 import { colors } from '../designTokens.js';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
@@ -131,6 +133,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     // ?mode= filters the stats and match list; ?weapons=defense picks the weapon tab
     const [selectedMode, setSelectedMode] = useQueryParam('mode', 'ALL');
     const [weaponView, setWeaponView] = useQueryParam('weapons', 'offense', ['offense', 'defense'] as const);
+    // the rating does not depend on the mode, so it loads once beside the page's requests
+    const rating = useLoad(() => fetchPilotRating(pilotName), [pilotName]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -388,7 +392,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                             {/* PPI Framework Dashboard */}
                             <PilotPerformanceCard pilotName={pilotName} />
 
-                            <RatingCard pilotName={pilotName} />
+                            <RatingCard load={rating} />
 
                             {/* Arsenal Breakdown & Weapon Mastery */}
                             {((stats.weapons && stats.weapons.length > 0) || (stats.damage_taken_weapons && stats.damage_taken_weapons.length > 0)) && (

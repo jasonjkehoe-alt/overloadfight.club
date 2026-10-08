@@ -3,7 +3,7 @@ import { Info, Trophy } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
-import { RATING, RATING_HINT, RANKING_HINT } from '../server/lib/gameParse.js';
+import { RATING, RATING_HINT, RANKING_HINT, RD_HINT } from '../server/lib/gameParse.js';
 import { fetchPowerRankings } from '../services/apiService';
 import { useLoad } from '../hooks/useLoad';
 
@@ -59,9 +59,9 @@ const PowerRankings: React.FC = () => {
                                     <th className="p-3 text-right" title={RATING_HINT}>
                                         <span className="inline-flex items-center gap-1">Rating <Info size={11} className="text-gray-500" aria-hidden /></span>
                                     </th>
-                                    <th className="p-3 text-right hidden sm:table-cell" title="Rating Deviation: the rating's uncertainty. About 95% of the time the true rating is within 2 RD.">RD</th>
+                                    <th className="p-3 text-right hidden sm:table-cell" title={`Rating Deviation. ${RD_HINT}`}>RD</th>
                                     <th className="p-3 text-right">Matches</th>
-                                    <th className="p-3 text-right hidden sm:table-cell" title="The day of the last rated match, Chicago time, as the rankings count days.">Last match</th>
+                                    <th className="p-3 text-right hidden sm:table-cell" title={`The day of the last rated match in ${RATING.timeZone} time, as the rankings count days.`}>Last match</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-line">

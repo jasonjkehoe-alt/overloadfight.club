@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { pilotPass } from './statsPasses.js';
 import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
-import { RATING, glicko2, powerRankings, rankedMatch, rankingMovement, ratingDay, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
+import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingDay, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
 import { ffaWithLog, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -436,7 +436,7 @@ describe('ratingSnapshots', () => {
 
     it('moves two new pilots by the textbook amount for one win', () => {
         const rows = ratingSnapshots([rated(byId(72090))]); // OKSTER 5, WD-40 3
-        expect(row(rows, 'okster')).toMatchObject({ name: 'OKSTER', day: '2025-11-24', rating: 1662.3, rd: 290.3, matches: 1, last_played: byId(72090).date });
+        expect(row(rows, 'okster')).toMatchObject({ name: 'OKSTER', day: '2025-11-24', rating: 1662.3, rd: 290.3, matches: 1 });
         expect(row(rows, 'wd-40')).toMatchObject({ rating: 1337.7, rd: 290.3, matches: 1 });
     });
 
@@ -506,7 +506,7 @@ describe('ratingSnapshots', () => {
         const matches = sample.map(g => rated(g));
         const forward = ratingSnapshots(matches);
         expect(ratingSnapshots([...matches].reverse())).toEqual(forward);
-        // B2AF lost both of his 1v1s to BEHEMOTH on the Chicago evening of 2025-11-23
+        // B2AF lost both 1v1s to BEHEMOTH on the Chicago evening of 2025-11-23
         expect(row(forward, 'b2af')).toMatchObject({ day: '2025-11-23', matches: 2, rating: 1279.7, rd: 260.5 });
         expect(row(forward, 'behemoth')).toMatchObject({ day: '2025-11-23', matches: 2, rating: 1720.3 });
         // WD-40 played 10 rated matches, all on 2025-11-24 Chicago time
@@ -547,6 +547,12 @@ describe('ratingDay and shiftDay', () => {
 
 describe('powerRankings and rankingMovement', () => {
     const snap = (pilot, rating, matches = 10, day = '2026-10-08') => ({ pilot, name: pilot.toUpperCase(), day, rating, rd: 80, matches });
+
+    it('says why a pilot is or is not ranked', () => {
+        expect(rankStatus(snap('a', 1600, 9), '2026-10-08')).toBe('provisional');
+        expect(rankStatus(snap('a', 1600, 10, '2026-09-10'), '2026-10-08')).toBe('ranked'); // 28 days
+        expect(rankStatus(snap('a', 1600, 10, '2026-09-09'), '2026-10-08')).toBe('inactive'); // 29 days
+    });
 
     it('ranks pilots with enough rated matches and a recent one, by rating', () => {
         const ranked = powerRankings([

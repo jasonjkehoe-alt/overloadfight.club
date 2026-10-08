@@ -262,7 +262,7 @@ export function pilotPass() {
 }
 
 // rating_snapshots columns, in table order.
-export const RATING_SNAPSHOT_COLUMNS = ['pilot', 'day', 'name', 'rating', 'rd', 'volatility', 'matches', 'last_played'];
+export const RATING_SNAPSHOT_COLUMNS = ['pilot', 'day', 'name', 'rating', 'rd', 'volatility', 'matches'];
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
 // sides and replayed in date order once every game has been read.

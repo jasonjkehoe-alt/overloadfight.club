@@ -8,6 +8,8 @@ import { clearRankings } from './ratings.js';
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
 // the run in progress. Never rejects: a failure is logged and the old caches stay.
 let refreshing = null;
+// rating_snapshots rows written per transaction (see refreshCaches)
+const RATING_WRITE_CHUNK = 2000;
 // The stats worker while a refresh runs, so close() can stop it first.
 let statsWorker = null;
 export const refreshPilotStats = () => {
@@ -98,10 +100,19 @@ async function refreshCaches() {
         VALUES (${RATING_SNAPSHOT_COLUMNS.map(c => `@${c}`).join(', ')})
       `);
       const deleteStmt = hotDb.prepare('DELETE FROM rating_snapshots WHERE pilot = ? AND day = ?');
-      hotDb.transaction(({ upserts, deletes }) => {
-        for (const [pilot, day] of deletes) deleteStmt.run(pilot, day);
-        for (const row of upserts) upsertStmt.run(row);
-      })(ratings);
+      // a delete is a [pilot, day] pair, an upsert a row
+      const apply = hotDb.transaction(ops => {
+        for (const op of ops) Array.isArray(op) ? deleteStmt.run(...op) : upsertStmt.run(op);
+      });
+      // In chunks, letting requests run between them: the first refresh, or one
+      // after an older match arrives, moves most days, which is too long to hold
+      // the event loop on the NAS. A read between chunks sees some days new and
+      // some old; the rankings kept in memory are cleared once all are written.
+      const ops = [...ratings.deletes, ...ratings.upserts];
+      for (let i = 0; i < ops.length; i += RATING_WRITE_CHUNK) {
+        if (i > 0) await new Promise(resolve => setImmediate(resolve));
+        apply(ops.slice(i, i + RATING_WRITE_CHUNK));
+      }
       clearRankings();
       console.log(`[Ratings] ${ratings.total} daily rating snapshots: ${ratings.upserts.length} written, ${ratings.deletes.length} removed.`);
     }

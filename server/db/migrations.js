@@ -201,7 +201,6 @@ export function ensureRatingSnapshots() {
       rd REAL NOT NULL,
       volatility REAL NOT NULL,
       matches INTEGER NOT NULL,
-      last_played TEXT,
       PRIMARY KEY (pilot, day)
     ) WITHOUT ROWID;
   `);
