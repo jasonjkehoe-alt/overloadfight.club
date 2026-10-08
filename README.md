@@ -15,7 +15,7 @@ A full-stack community platform, analytics engine, and workstation for the 6DOF 
 ## Architecture & Technology Stack
 
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS, Lucide icons, Recharts, Wavesurfer.js, WebAssembly FFmpeg.
-- **Backend**: Node.js 22, Express, `better-sqlite3`, native Python engine for yt-dlp/ffmpeg media ingestion, Redis cache with in-memory fallback.
+- **Backend**: Node.js 26, Express, `better-sqlite3`, native Python engine for yt-dlp/ffmpeg media ingestion, Redis cache with in-memory fallback.
 - **Deployment**: Docker, Docker Compose, Synology Container Manager/Portainer, GitHub Container Registry (`ghcr.io/jasonjkehoe-alt/overloadfight.club`).
 
 ---

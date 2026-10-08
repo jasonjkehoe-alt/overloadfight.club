@@ -1,10 +1,11 @@
-# Build stage: compiles better-sqlite3, builds the client, then drops dev dependencies.
-FROM node:22-alpine AS build
+# Build stage: installs better-sqlite3's bundled linuxmusl prebuild, builds the client, then drops dev dependencies.
+FROM node:26-alpine AS build
 
 WORKDIR /app
 
-# Toolchain for native modules (better-sqlite3). .git is not in the build context,
-# so generate-version.js keeps the hash already in public/version.json.
+# npm still runs node-gyp for better-sqlite3: with a matching prebuild it needs python3 and make
+# but compiles nothing; g++ is the fallback when no prebuild matches. .git is not in the build
+# context, so generate-version.js keeps the hash already in public/version.json.
 RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
@@ -14,7 +15,7 @@ COPY . .
 RUN npm run build && npm prune --omit=dev
 
 # Runtime stage: no compiler or git, runs as the image's unprivileged node user (uid 1000).
-FROM node:22-alpine
+FROM node:26-alpine
 
 WORKDIR /app
 
