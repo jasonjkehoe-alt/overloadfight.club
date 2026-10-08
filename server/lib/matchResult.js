@@ -7,6 +7,20 @@ export const clock = seconds => {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
+// Labels for a day (YYYY-MM-DD, a fight-night day) or a month (YYYY-MM), the
+// same in every viewer's time zone: read at noon UTC and formatted in UTC. The
+// formatters are made once; the activity calendar labels 371 days.
+const formatter = options => new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' });
+const dayFormat = formatter({ weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+const monthFormat = formatter({ month: 'short', year: 'numeric' });
+const monthNameFormat = formatter({ month: 'short' });
+// "Sun, Oct 4, 2026"
+export const dayLabel = day => dayFormat.format(Date.parse(`${day}T12:00:00Z`));
+// "Oct 2026"
+export const monthLabel = month => monthFormat.format(Date.parse(`${month}-15T12:00:00Z`));
+// "Oct" for the month a day is in
+export const monthName = day => monthNameFormat.format(Date.parse(`${day}T12:00:00Z`));
+
 // "A", "A and B", "A, B and C"
 const listNames = names =>
     names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join('');

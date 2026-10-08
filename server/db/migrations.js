@@ -190,7 +190,7 @@ migrateGamePlayers();
 // files, so it lives in tracker.db only, like pilot_stats_cache. Every stats
 // refresh replays every rated match and brings it in line (analytics/refresh.js),
 // so it starts empty and a refresh fills it, at startup when it is empty;
-// dropping it loses nothing the next refresh does not rebuild. `pilot` is the pilotKey(), `day` YYYY-MM-DD in America/Chicago.
+// dropping it loses nothing the next refresh does not rebuild. `pilot` is the pilotKey(), `day` the fight-night day (gameParse.js fightNightDay).
 export function ensureRatingSnapshots() {
   hotDb.exec(`
     CREATE TABLE IF NOT EXISTS rating_snapshots (
@@ -206,6 +206,30 @@ export function ensureRatingSnapshots() {
   `);
 }
 ensureRatingSnapshots();
+
+// pilot_months (S14): each pilot's career totals per month (the month of the
+// fight-night day), by the career cards' rules, for the pilot page's career
+// arc. Built and kept in line the same way as rating_snapshots, from the same
+// stats pass as pilot_stats_cache (statsPasses.js pilotPass). `pilot` is the
+// pilotKey(), `month` YYYY-MM, `seconds` the summed durationOf().
+export function ensurePilotMonths() {
+  hotDb.exec(`
+    CREATE TABLE IF NOT EXISTS pilot_months (
+      pilot TEXT NOT NULL,
+      month TEXT NOT NULL,
+      matches INTEGER NOT NULL,
+      wins INTEGER NOT NULL,
+      losses INTEGER NOT NULL,
+      ties INTEGER NOT NULL,
+      kills INTEGER NOT NULL,
+      deaths INTEGER NOT NULL,
+      assists INTEGER NOT NULL,
+      seconds REAL NOT NULL,
+      PRIMARY KEY (pilot, month)
+    ) WITHOUT ROWID;
+  `);
+}
+ensurePilotMonths();
 
 // Admin Settings Table
 hotDb.exec(`

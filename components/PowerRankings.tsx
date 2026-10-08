@@ -3,7 +3,7 @@ import { Info, Trophy } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
-import { RATING, RATING_HINT, RANKING_HINT, RD_HINT } from '../server/lib/gameParse.js';
+import { FIGHT_NIGHT_DAY_TEXT, RATING, RATING_HINT, RANKING_HINT, RD_HINT } from '../server/lib/gameParse.js';
 import { fetchPowerRankings } from '../services/apiService';
 import { useLoad } from '../hooks/useLoad';
 
@@ -61,7 +61,7 @@ const PowerRankings: React.FC = () => {
                                     </th>
                                     <th className="p-3 text-right hidden sm:table-cell" title={`Rating Deviation. ${RD_HINT}`}>RD</th>
                                     <th className="p-3 text-right">Matches</th>
-                                    <th className="p-3 text-right hidden sm:table-cell" title={`The day of the last rated match in ${RATING.timeZone} time, as the rankings count days.`}>Last match</th>
+                                    <th className="p-3 text-right hidden sm:table-cell" title={`The day of the last rated match (${FIGHT_NIGHT_DAY_TEXT}).`}>Last match</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-line">

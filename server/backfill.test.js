@@ -3,10 +3,13 @@ import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { day, detailSample, onDay, sample } from './testFixtures.js';
+import { dayBounds, shiftDay } from './lib/gameParse.js';
 
 vi.mock('axios', () => ({ default: { get: vi.fn() } }));
 
-const nextDay = new Date(Date.parse(`${day}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+const nextDay = shiftDay(day, 1);
+// the fight-night day `day` ends at 06:00 Chicago time on nextDay
+const dayEnd = Date.parse(dayBounds(day)[1]);
 
 // The gamelist sends every game with an empty kill log. A hydrated game is the
 // same game as /api/game/:id returns it, with kills (shaped like the detail sample's).
@@ -21,9 +24,9 @@ const hydrated = id => {
 // 72087 cut to a 30 s game, too short to be worth a hydration request.
 const short = { ...summary(72087), id: 90020 };
 short.settings = { ...short.settings, start: new Date(Date.parse(short.date) - 30000).toISOString() };
-// Games either side of the day's end, for the UTC day bounds.
-const lastSecond = { ...summary(72090), id: 90021, date: `${day}T23:59:59.999Z` };
-const nextMidnight = { ...summary(72090), id: 90022, date: `${nextDay}T00:00:00.000Z` };
+// Games either side of the fight-night day's end, for the day bounds.
+const lastSecond = { ...summary(72090), id: 90021, date: new Date(dayEnd - 1).toISOString() };
+const nextMidnight = { ...summary(72090), id: 90022, date: new Date(dayEnd).toISOString() };
 // The gamelist games, saved once in beforeAll.
 const listed = [...summaries, lastSecond, nextMidnight];
 
@@ -219,7 +222,7 @@ describe('backfill', () => {
 });
 
 describe('fight-night day queries', () => {
-    it('returns a UTC day from midnight up to, not including, the next midnight', () => {
+    it('returns a fight-night day from 06:00 Chicago time up to, not including, the next 06:00', () => {
         const ids = db.getGamesForDate(day).map(r => r.id);
         expect(ids).toContain(90021);
         expect(ids).not.toContain(90022);
@@ -232,6 +235,11 @@ describe('fight-night day queries', () => {
     });
 
     it('counts a qualifying fight night from the same day bounds', () => {
-        expect(db.getQualifyingFightNightDates({ minMatches: 16, minPilots: 1, minFrags: 1 })).toEqual([day]);
+        // the fixtures' 11 matches from 21:24 to 02:49 Chicago time (and the
+        // short copy of 72087) are one evening, the day before `day`; `day`
+        // has the other 14, lastSecond and the games other tests saved
+        expect(db.getGamesForDate(shiftDay(day, -1)).map(r => r.id).sort()).toEqual([72084, 72085, 72086, 72087, 72088, 72089, 72090, 72091, 72092, 72093, 72094, 90020]);
+        expect(db.getQualifyingFightNightDates({ minMatches: 12, minPilots: 1, minFrags: 1 })).toEqual([day, shiftDay(day, -1)]);
+        expect(db.getQualifyingFightNightDates({ minMatches: 13, minPilots: 1, minFrags: 1 })).toEqual([day]);
     });
 });

@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { pilotPass } from './statsPasses.js';
 import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
-import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingDay, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
+import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
+import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, weekdayOf, winRate } from './gameParse.js';
 import { ffaWithLog, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -437,7 +438,8 @@ describe('ratingSnapshots', () => {
 
     it('moves two new pilots by the textbook amount for one win', () => {
         const rows = ratingSnapshots([rated(byId(72090))]); // OKSTER 5, WD-40 3
-        expect(row(rows, 'okster')).toMatchObject({ name: 'OKSTER', day: '2025-11-24', rating: 1662.3, rd: 290.3, matches: 1 });
+        // 01:58 Chicago time, so the fight-night day before
+        expect(row(rows, 'okster')).toMatchObject({ name: 'OKSTER', day: '2025-11-23', rating: 1662.3, rd: 290.3, matches: 1 });
         expect(row(rows, 'wd-40')).toMatchObject({ rating: 1337.7, rd: 290.3, matches: 1 });
     });
 
@@ -510,9 +512,9 @@ describe('ratingSnapshots', () => {
         // B2AF lost both 1v1s to BEHEMOTH on the Chicago evening of 2025-11-23
         expect(row(forward, 'b2af')).toMatchObject({ day: '2025-11-23', matches: 2, rating: 1279.7, rd: 260.5 });
         expect(row(forward, 'behemoth')).toMatchObject({ day: '2025-11-23', matches: 2, rating: 1720.3 });
-        // WD-40 played 10 rated matches, all on 2025-11-24 Chicago time
-        expect(forward.filter(r => r.pilot === 'wd-40')).toHaveLength(1);
-        expect(row(forward, 'wd-40').matches).toBe(10);
+        // WD-40 played 9 rated matches from 01:30 to 02:49 Chicago time, on the
+        // fight-night day before, and the 10th that afternoon
+        expect(forward.filter(r => r.pilot === 'wd-40').map(r => [r.day, r.matches])).toEqual([['2025-11-23', 9], ['2025-11-24', 10]]);
         expect(new Set(forward.map(r => `${r.pilot} ${r.day}`)).size).toBe(forward.length);
     });
 
@@ -556,16 +558,141 @@ describe('ratingSnapshots', () => {
     });
 });
 
-describe('ratingDay and shiftDay', () => {
-    it('reads the day in America/Chicago', () => {
-        expect(ratingDay('2025-11-24T03:24:58.479Z')).toBe('2025-11-23'); // 21:24 CST
-        expect(ratingDay('2025-11-24T20:41:44.143Z')).toBe('2025-11-24');
-        expect(ratingDay('2026-07-04T04:59:00Z')).toBe('2026-07-03'); // 23:59 CDT
+describe('fight-night days', () => {
+    it('rolls the day over at 06:00 Chicago time, in CST and CDT', () => {
+        expect(fightNightDay('2025-11-24T11:59:59.999Z')).toBe('2025-11-23'); // 05:59 CST
+        expect(fightNightDay('2025-11-24T12:00:00.000Z')).toBe('2025-11-24'); // 06:00 CST
+        expect(fightNightDay('2026-07-04T10:59:59.999Z')).toBe('2026-07-03'); // 05:59 CDT
+        expect(fightNightDay('2026-07-04T11:00:00.000Z')).toBe('2026-07-04'); // 06:00 CDT
+        expect(fightNightDay('2026-07-04T04:59:00Z')).toBe('2026-07-03'); // 23:59 CDT
+        expect(fightNightDay('not a date')).toBeNull();
+    });
+
+    it('keeps the fixtures\' evening, 21:24 to 02:49 Chicago time, on one day', () => {
+        const days = new Map(sample.map(g => [g.id, fightNightDay(g.date)]));
+        expect([72084, 72085, 72090, 72094].map(id => days.get(id))).toEqual(['2025-11-23', '2025-11-23', '2025-11-23', '2025-11-23']);
+        expect(days.get(72095)).toBe('2025-11-24');
+    });
+
+    it('reads the weekday of the fight-night day and the clock hour', () => {
+        expect(localClock('2025-11-24T03:24:58.479Z')).toEqual({ day: '2025-11-23', weekday: 6, hour: 21 }); // Sunday 21:24
+        expect(localClock('2025-11-24T08:49:30.761Z')).toEqual({ day: '2025-11-23', weekday: 6, hour: 2 }); // Monday 02:49, Sunday's night
+        expect(localClock(Date.parse('2025-11-24T20:41:44.143Z'))).toEqual({ day: '2025-11-24', weekday: 0, hour: 14 });
+        expect([weekdayOf('2025-11-24'), weekdayOf('2025-11-23'), weekdayOf('1970-01-01')]).toEqual([0, 6, 3]);
+    });
+
+    it('gives each day its UTC bounds, 23 and 25 hours on the DST days', () => {
+        expect(dayBounds('2025-11-24')).toEqual(['2025-11-24T12:00:00.000Z', '2025-11-25T12:00:00.000Z']);
+        expect(dayBounds('2026-07-04')).toEqual(['2026-07-04T11:00:00.000Z', '2026-07-05T11:00:00.000Z']);
+        // clocks go forward at 02:00 on 2026-03-08 and back on 2026-11-01
+        expect(dayBounds('2026-03-07')).toEqual(['2026-03-07T12:00:00.000Z', '2026-03-08T11:00:00.000Z']);
+        expect(dayBounds('2026-10-31')).toEqual(['2026-10-31T11:00:00.000Z', '2026-11-01T12:00:00.000Z']);
+        // a date inside a day's bounds is on that day, the end is not
+        const [start, end] = dayBounds('2026-03-07');
+        expect([fightNightDay(start), fightNightDay(Date.parse(end) - 1), fightNightDay(end)]).toEqual(['2026-03-07', '2026-03-07', '2026-03-08']);
+        expect(dayStart('2026-03-08')).toBe(dayBounds('2026-03-07')[1]);
+        expect([DAY_HOURS[0], DAY_HOURS[17], DAY_HOURS[18], DAY_HOURS[23]]).toEqual([6, 23, 0, 5]);
+        expect(FIGHT_NIGHT_DAY_TEXT).toBe('Central time, a day running from 06:00 to 06:00');
+        expect([dayBounds('2026-02-30'), dayBounds('2026-13-01'), dayBounds('foo'), dayBounds('2026-10')]).toEqual([null, null, null, null]);
     });
 
     it('counts whole days across months', () => {
         expect(shiftDay('2026-03-03', -7)).toBe('2026-02-24');
         expect(shiftDay('2026-12-29', 7)).toBe('2027-01-05');
+        expect(daysBetween('2026-02-24', '2026-03-03')).toBe(7);
+    });
+});
+
+describe('heatmap and activity calendar', () => {
+    it('counts matches by fight-night weekday and clock hour', () => {
+        const cells = heatmapCells(sample.map(g => g.date));
+        expect(cells).toHaveLength(7);
+        expect(cells.flat().reduce((a, b) => a + b, 0)).toBe(25);
+        // Sunday's night: 21:24 and 21:45, then 01:30 to 02:49 on Monday morning
+        expect([cells[6][21], cells[6][1], cells[6][2]]).toEqual([2, 5, 4]);
+        // Monday afternoon
+        expect(cells[0].slice(13, 17)).toEqual([2, 8, 3, 1]);
+        expect(cells[0][1]).toBe(0);
+    });
+
+    it('takes the twelve whole weeks before today', () => {
+        expect(heatmapDays('2026-10-08')).toEqual({ since: '2026-07-16', until: '2026-10-08' });
+    });
+
+    it('counts a pilot\'s matches per fight-night day, from a Monday 52 weeks back', () => {
+        expect(calendarDays(sample.map(g => g.date))).toEqual([{ day: '2025-11-23', matches: 11 }, { day: '2025-11-24', matches: 14 }]);
+        expect(calendarSince('2025-11-24')).toBe('2024-11-25'); // today a Monday
+        expect(calendarSince('2025-11-23')).toBe('2024-11-18'); // today a Sunday
+        expect(weekdayOf(calendarSince('2026-10-08'))).toBe(0);
+    });
+});
+
+describe('career series', () => {
+    it('puts a match in the month of its fight-night day', () => {
+        expect(careerMonth('2025-12-01T05:30:00Z')).toBe('2025-11'); // 23:30 on 30 November
+        expect(careerMonth('2025-12-01T12:00:00Z')).toBe('2025-12');
+    });
+
+    it('adds up to the career totals, month by month', () => {
+        const pass = pilotPass();
+        const moved = sample.map(g => (g.id >= 72100 ? { ...g, date: g.date.replace('2025-11', '2025-12') } : g));
+        for (const g of moved) pass.add({ id: g.id, date: g.date }, g);
+        const months = pass.months();
+        for (const row of pass.rows()) {
+            const mine = months.filter(m => m.pilot === pilotKey(row.name));
+            const sum = field => mine.reduce((a, m) => a + m[field], 0);
+            expect([sum('matches'), sum('kills'), sum('deaths'), sum('assists'), sum('wins'), sum('losses'), sum('ties')])
+                .toEqual([row.games, row.kills, row.deaths, row.assists, row.wins, row.losses, row.ties]);
+            expect(Math.round(sum('seconds'))).toBe(row.time_played_seconds);
+        }
+        // JFTP's ranked matches: 72098 in November, seven from 72100 on in December
+        expect(months.filter(m => m.pilot === 'jftp').map(m => [m.month, m.matches]).sort()).toEqual([['2025-11', 1], ['2025-12', 7]]);
+    });
+
+    it('fills the months between and up to this month, rates null where nothing was played', () => {
+        const month = (m, matches, wins, kills, deaths, assists, seconds) => ({ month: m, matches, wins, losses: matches - wins, ties: 0, kills, deaths, assists, seconds });
+        const series = careerSeries([month('2025-11', 4, 1, 30, 20, 4, 2400), month('2026-01', 2, 2, 9, 0, 1, 600)], '2026-03');
+        expect(series.map(m => m.month)).toEqual(['2025-11', '2025-12', '2026-01', '2026-02', '2026-03']);
+        expect(series[0]).toMatchObject({ matches: 4, winRate: 25, combatRatio: 1.6, lethality: 0.75 });
+        expect(series[1]).toMatchObject({ matches: 0, winRate: null, combatRatio: null, lethality: null });
+        expect(series[2]).toMatchObject({ winRate: 100, combatRatio: 9, lethality: 0.9 });
+        expect(careerSeries([], '2026-03')).toEqual([]);
+        expect(careerSeries([month('2026-05', 1, 1, 1, 1, 0, 60)], '2026-03').map(m => m.month)).toEqual(['2026-05']);
+        expect([winRate(1, 3), winRate(0, 0)]).toEqual([33.3, 0]);
+    });
+});
+
+describe('nightRatingChange', () => {
+    const snap = (day, rating) => ({ day, rating });
+    it('takes the night\'s last snapshot less the one before, or the start for a first night', () => {
+        expect(nightRatingChange([snap('2026-10-07', 1512.34), snap('2026-10-01', 1500.1)], '2026-10-07')).toBe(12.2);
+        expect(nightRatingChange([snap('2026-10-07', 1480)], '2026-10-07')).toBe(-20);
+    });
+
+    it('is null for a night without a rated match', () => {
+        expect(nightRatingChange([snap('2026-10-01', 1512)], '2026-10-07')).toBeNull();
+        expect(nightRatingChange([], '2026-10-07')).toBeNull();
+    });
+});
+
+describe('lastOuting', () => {
+    const sundayNight = sample.filter(g => fightNightDay(g.date) === '2025-11-23');
+
+    it('sums the pilot\'s fight-night day, newest match first', () => {
+        const night = lastOuting(sundayNight, 'wd-40');
+        expect(night).toMatchObject({ day: '2025-11-23', wins: 3, losses: 5, ties: 1, kills: 87, deaths: 92, assists: 12, combatRatio: 1.01 });
+        expect(night.matches.map(m => m.id)).toEqual([72094, 72093, 72092, 72091, 72090, 72089, 72088, 72087, 72086]);
+        expect(night.matches[0]).toEqual({ id: 72094, date: '2025-11-24T08:49:30.761Z', map: 'JAZZYBOX', mode: 'ANARCHY', outcome: 'win', kills: 16, deaths: 17, assists: 1 });
+    });
+
+    it('counts a team result for the team, and nothing for a match without a result', () => {
+        const night = lastOuting([byId(72102), { ...byId(72099), teamScore: {} }], 'Stitch');
+        expect(night).toMatchObject({ day: '2025-11-24', wins: 0, losses: 1, ties: 0 });
+        expect(night.matches.map(m => m.outcome)).toEqual([ 'loss', null ]);
+    });
+
+    it('is null for a pilot who is not in the matches', () => {
+        expect(lastOuting(sundayNight, 'JFTP')).toBeNull();
     });
 });
 

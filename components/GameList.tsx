@@ -1,7 +1,5 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useState, useMemo, useRef } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
-import ActivityGraph from './ActivityGraph';
-import GlobalActivityChart from './GlobalActivityChart';
 import ServerActivitySparkline from './ServerActivitySparkline';
 import ServerStats from './ServerStats';
 import { fetchArchivedGames, getGlobalStats } from '../services/apiService';
@@ -9,6 +7,7 @@ import { getMapImage } from '../services/mapService';
 import MatchTimer from './MatchTimer';
 import LiveMatchCard from './LiveMatchCard';
 import CalendarWidget from './CalendarWidget';
+import ActivityHeatmap from './gameList/ActivityHeatmap';
 import { Database, Copy, Check, Server, Search } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { CellLink, LinkCell } from './Link';
@@ -38,6 +37,9 @@ const loadFavorites = (): string[] => {
         return [];
     }
 };
+
+// Recharts is only on the History tab, so the servers tab does not load it.
+const GlobalActivityChart = lazy(() => import('./GlobalActivityChart'));
 
 const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initialArchivedGames, globalStats, startDate, showColdStorage, initialTab = 'servers', afterLive }) => {
     // ?tab=, ?idle=1 and ?q= (the submitted history search) keep the list's state in the URL
@@ -547,6 +549,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
 
                     {afterLive}
 
+                    <ActivityHeatmap />
+
                     {/* Recently Completed Matches (Top 3) */}
                     {historyGames && historyGames.length > 0 && (
                         <div className="pt-2">
@@ -600,13 +604,10 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             </h3>
                         </div>
 
-                        <div className="flex flex-col h-[500px]">
-                            <div className="h-2/3 border-b border-line p-4">
-                                <ActivityGraph globalActivity={globalStats?.activity} />
-                            </div>
-                            <div className="h-1/3 p-4 bg-surface-card">
+                        <div className="h-[200px] p-4 bg-surface-card">
+                            <Suspense fallback={<Loading compact />}>
                                 <GlobalActivityChart />
-                            </div>
+                            </Suspense>
                         </div>
                     </div>
                         {/* Archive Search & Stats */}

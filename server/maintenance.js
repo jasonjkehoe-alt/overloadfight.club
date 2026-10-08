@@ -1,6 +1,11 @@
 import db from './db.js';
 import { backupDatabases } from './backup.js';
 import fightNightService from './services/fightNightService.js';
+import { dayStart, fightNightDay, shiftDay } from './lib/gameParse.js';
+
+// The fight-night detector runs this long after a fight-night day ends (06:00
+// Chicago time), so the night's last matches have been synced from the tracker.
+const DETECTOR_DELAY_MS = 15 * 60 * 1000;
 
 async function runNightlyBackup() {
     console.log('[Maintenance] Backing up databases...');
@@ -21,9 +26,6 @@ async function runDailyMaintenance() {
         } else {
             console.log('[Maintenance] No games needed moving to Cold Storage.');
         }
-
-        // Run Fight Night Recap Big Night Detector
-        await fightNightService.checkAndGenerateRecentFightNight();
     } catch (error) {
         console.error('[Maintenance] Error running maintenance:', error);
     }
@@ -54,9 +56,10 @@ function scheduleMaintenance() {
                 if (maxGameDate && (!maxCacheDate || maxGameDate > maxCacheDate)) {
                     console.log(`[Maintenance] Data is newer than cache on startup (${maxGameDate} > ${maxCacheDate}), refreshing stats...`);
                     await refreshPilotStats();
-                } else if (db.hasRatingSnapshots && !db.hasRatingSnapshots()) {
-                    // the first start with ratings, or a restored backup from before them
-                    console.log('[Maintenance] No rating snapshots on startup, refreshing stats...');
+                } else if (!db.hasRatingSnapshots() || !db.hasPilotMonths()) {
+                    // the first start with ratings (S13) or career months (S14), or a
+                    // restored backup from before them
+                    console.log('[Maintenance] No rating snapshots or career months on startup, refreshing stats...');
                     await refreshPilotStats();
                 } else {
                     console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');
@@ -94,7 +97,23 @@ function scheduleMaintenance() {
     };
     scheduleNextNightly();
 
-    // 3. Schedule Pilot Stats Cache Refresh every 6 hours (21600000 ms)
+    // 3. The Fight Night detector, once each fight-night day has ended: the
+    // day rolls over at 06:00 Chicago time (gameParse.js FIGHT_NIGHT_DAY), so
+    // the 03:00 job would still be inside the night it should judge.
+    // Scheduled by day, so a timer that fires a little early by the wall clock
+    // still moves on to the next day.
+    const runAt = day => Date.parse(dayStart(day)) + DETECTOR_DELAY_MS;
+    const scheduleDetector = day => {
+        console.log(`[Maintenance] Fight night detector scheduled for ${new Date(runAt(day)).toISOString()} (in ${Math.round((runAt(day) - Date.now()) / 60000)}m).`);
+        setTimeout(async () => {
+            await fightNightService.checkAndGenerateRecentFightNight();
+            scheduleDetector(shiftDay(day, 1));
+        }, Math.max(0, runAt(day) - Date.now()));
+    };
+    const today = fightNightDay(Date.now());
+    scheduleDetector(runAt(today) > Date.now() ? today : shiftDay(today, 1));
+
+    // 4. Schedule Pilot Stats Cache Refresh every 6 hours (21600000 ms)
     setInterval(refreshPilotStats, 21600000);
 }
 

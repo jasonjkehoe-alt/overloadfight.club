@@ -3,9 +3,10 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, addToLine, careerMonth, emptyLine, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winRate, winnerOf } from './gameParse.js';
 
-// pilot_stats_cache rows, one per pilotKey().
+// pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
+// per pilot per career month for pilot_months.
 export function pilotPass() {
     const pilotMap = {};
     const killGraph = {};
@@ -18,6 +19,7 @@ export function pilotPass() {
         const players = g.players;
 
         const result = winnerOf(g);
+        const month = careerMonth(row.date || g.date);
 
         for (let j = 0; j < players.length; j++) {
             const p = players[j];
@@ -38,7 +40,8 @@ export function pilotPass() {
                     ties: 0,
                     totalDamage: 0,
                     playtimeSec: 0,
-                    lastSeen: row.date || g.end || g.date || null
+                    lastSeen: row.date || g.end || g.date || null,
+                    months: new Map()
                 };
             }
 
@@ -54,6 +57,11 @@ export function pilotPass() {
 
             const outcome = outcomeOf(g, p, result);
             if (outcome) pilot[OUTCOME_FIELD[outcome]]++;
+
+            if (month) {
+                if (!pilot.months.has(month)) pilot.months.set(month, emptyLine());
+                addToLine(pilot.months.get(month), p, outcome, durationSec);
+            }
         }
 
         // Suicides from g.kills
@@ -218,7 +226,7 @@ export function pilotPass() {
             const wins = p.wins || 0;
             const losses = p.losses || 0;
             const ties = p.ties || 0;
-            const winRate = Math.round((wins / games) * 1000) / 10;
+            const pilotWinRate = winRate(wins, games);
 
             const totalDamage = Math.round(p.totalDamage || 0);
             const dpm = flightMinutes > 0 ? Math.round(totalDamage / flightMinutes) : 0;
@@ -245,7 +253,7 @@ export function pilotPass() {
                 wins,
                 losses,
                 ties,
-                win_rate: winRate,
+                win_rate: pilotWinRate,
                 total_damage: totalDamage,
                 dpm,
                 flight_hours: flightHours,
@@ -258,8 +266,18 @@ export function pilotPass() {
         });
     }
 
-    return { add, rows };
+    // pilot_months rows: { pilot (the pilotKey), month, matches, wins, losses,
+    // ties, kills, deaths, assists, seconds }
+    function months() {
+        return Object.entries(pilotMap).flatMap(([pilot, p]) =>
+            [...p.months].map(([month, m]) => ({ pilot, month, ...m, seconds: Math.round(m.seconds * 1000) / 1000 })));
+    }
+
+    return { add, rows, months };
 }
+
+// pilot_months columns, in table order, and its key.
+export const PILOT_MONTH_COLUMNS = ['pilot', 'month', 'matches', 'wins', 'losses', 'ties', 'kills', 'deaths', 'assists', 'seconds'];
 
 // rating_snapshots columns, in table order.
 export const RATING_SNAPSHOT_COLUMNS = ['pilot', 'day', 'name', 'rating', 'rd', 'volatility', 'matches'];

@@ -1,18 +1,9 @@
 import { hotDb, coldDb } from '../connection.js';
 import { GAME_PLAYERS_COLUMNS, writeHotPlayers, writeColdPlayers } from '../migrations.js';
+import { dayBounds } from '../../lib/gameParse.js';
 
 // The games table in both files: lists, search, single games, the writers that keep
 // game_players in step, the cold move, and the hydration and fight-night day reads.
-
-// [start, end) of a UTC day ('YYYY-MM-DD') for `date >= ? AND date < ?`,
-// which can use idx_games_date where `date LIKE 'YYYY-MM-DD%'` cannot.
-// null when dateStr is not a calendar day.
-export function utcDayBounds(dateStr) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
-  const start = Date.parse(`${dateStr}T00:00:00Z`);
-  if (Number.isNaN(start)) return null;
-  return [dateStr, new Date(start + 86400000).toISOString().slice(0, 10)];
-}
 
 // [start, end) of a UTC month ('YYYY-MM') for `date >= ? AND date < ?`,
 // which can use idx_games_date. null when monthStr is not 'YYYY-MM'.
@@ -196,7 +187,7 @@ const upsertGameSql = `
 const upsertGameHot = hotDb.prepare(upsertGameSql);
 const upsertGameCold = coldDb.prepare(upsertGameSql);
 
-// Hot games in one UTC day; bind utcDayBounds().
+// Hot games in one fight-night day; bind gameParse.js dayBounds().
 export const getGamesInDay = hotDb.prepare(`
   SELECT id, date, details FROM games
   WHERE date >= ? AND date < ?
@@ -266,8 +257,12 @@ export const insertGame = {
   }
 };
 
+// Games dated from this instant on belong in hot storage; moveGamesToColdStorage
+// moves the older ones to cold.
+export const hotCutoff = () => new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+
 export const saveGames = (games) => {
-  const ONE_YEAR_AGO = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+  const ONE_YEAR_AGO = hotCutoff();
 
   // Separate games into Hot and Cold
   const hotGames = [];
@@ -352,7 +347,7 @@ export const saveColdGamesBatch = (gamesList) => {
 };
 
 export const updateGameDetails = (game) => {
-  const ONE_YEAR_AGO = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+  const ONE_YEAR_AGO = hotCutoff();
   const gameDate = game.date || game.start || new Date().toISOString();
 
   // Determine target DB
@@ -417,7 +412,7 @@ VALUES(?, ?, ?, ?, ?)
 // half; this order leaves a duplicate at worst, which the next run removes, and
 // never a game in neither file.
 export const moveGamesToColdStorage = () => {
-  const ONE_YEAR_AGO = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+  const ONE_YEAR_AGO = hotCutoff();
 
   hotDb.transaction(() => {
     // A game cold storage already has keeps its cold copy and rows.
@@ -452,7 +447,8 @@ export const getSummaryGames = {
   all: (afterId, limit) => getSummaryGamesStmt.all(afterId, limit)
 };
 
+// Hot games on a fight-night day ('YYYY-MM-DD'); none for anything else.
 export const getGamesForDate = (dateStr) => {
-  const bounds = utcDayBounds(dateStr);
+  const bounds = dayBounds(dateStr);
   return bounds ? getGamesInDay.all(...bounds) : [];
 };

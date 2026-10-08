@@ -1,16 +1,17 @@
 import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
-import { RATING_SNAPSHOT_COLUMNS } from '../../lib/statsPasses.js';
+import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS } from '../../lib/statsPasses.js';
 import { clearRankings } from './ratings.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
 // the run in progress. Never rejects: a failure is logged and the old caches stay,
-// except rating_snapshots, whose chunks already written stay until the next refresh.
+// except rating_snapshots and pilot_months, whose chunks already written stay
+// until the next refresh.
 let refreshing = null;
-// rating_snapshots rows written per transaction (see refreshCaches)
-const RATING_WRITE_CHUNK = 2000;
+// rating_snapshots and pilot_months rows written per transaction (see writeChanges)
+const WRITE_CHUNK = 2000;
 // The stats worker while a refresh runs, so close() can stop it first.
 let statsWorker = null;
 export const refreshPilotStats = () => {
@@ -37,12 +38,35 @@ const runStatsWorker = () => new Promise((resolve, reject) => {
   });
 });
 
+// Applies the worker's changes to a derived table keyed by its first two
+// columns: only the rows that differ (a match added in the past moves every
+// day or month after it). In chunks, letting requests run between them: the
+// first refresh, or one after an older match arrives, moves most rows, which
+// is too long to hold the event loop on the NAS. A read between chunks sees
+// some rows new and some old.
+async function writeChanges(table, columns, { upserts, deletes }) {
+  const upsertStmt = hotDb.prepare(`
+    INSERT OR REPLACE INTO ${table} (${columns.join(', ')})
+    VALUES (${columns.map(c => `@${c}`).join(', ')})
+  `);
+  const deleteStmt = hotDb.prepare(`DELETE FROM ${table} WHERE ${columns[0]} = ? AND ${columns[1]} = ?`);
+  // a delete is a key pair, an upsert a row
+  const apply = hotDb.transaction(ops => {
+    for (const op of ops) Array.isArray(op) ? deleteStmt.run(...op) : upsertStmt.run(op);
+  });
+  const ops = [...deletes, ...upserts];
+  for (let i = 0; i < ops.length; i += WRITE_CHUNK) {
+    if (i > 0) await new Promise(resolve => setImmediate(resolve));
+    apply(ops.slice(i, i + WRITE_CHUNK));
+  }
+}
+
 async function refreshCaches() {
   try {
     ensurePilotStatsCache();
 
     const started = performance.now();
-    const { errors, pilots, archive, maps, ratings } = await runStatsWorker();
+    const { errors, pilots, archive, maps, ratings, months } = await runStatsWorker();
     for (const [pass, message] of Object.entries(errors)) console.error(`[StatsWorker] ${pass} pass failed: ${message}`);
 
     if (!errors.pilots) {
@@ -94,32 +118,17 @@ async function refreshCaches() {
       console.log(`[MapStats] Built map_stats_cache for ${maps.length} maps.`);
     }
     if (ratings) {
-      // The worker replayed every rated match and sent only the days that differ
-      // from the table (a match added in the past moves every day after it).
-      const upsertStmt = hotDb.prepare(`
-        INSERT OR REPLACE INTO rating_snapshots (${RATING_SNAPSHOT_COLUMNS.join(', ')})
-        VALUES (${RATING_SNAPSHOT_COLUMNS.map(c => `@${c}`).join(', ')})
-      `);
-      const deleteStmt = hotDb.prepare('DELETE FROM rating_snapshots WHERE pilot = ? AND day = ?');
-      // a delete is a [pilot, day] pair, an upsert a row
-      const apply = hotDb.transaction(ops => {
-        for (const op of ops) Array.isArray(op) ? deleteStmt.run(...op) : upsertStmt.run(op);
-      });
-      // In chunks, letting requests run between them: the first refresh, or one
-      // after an older match arrives, moves most days, which is too long to hold
-      // the event loop on the NAS. A read between chunks sees some days new and
-      // some old; the rankings kept in memory are cleared once all are written.
-      const ops = [...ratings.deletes, ...ratings.upserts];
       try {
-        for (let i = 0; i < ops.length; i += RATING_WRITE_CHUNK) {
-          if (i > 0) await new Promise(resolve => setImmediate(resolve));
-          apply(ops.slice(i, i + RATING_WRITE_CHUNK));
-        }
+        await writeChanges('rating_snapshots', RATING_SNAPSHOT_COLUMNS, ratings);
       } finally {
         // also after a failed chunk, so the ranks agree with the days written
         clearRankings();
       }
       console.log(`[Ratings] ${ratings.total} daily rating snapshots: ${ratings.upserts.length} written, ${ratings.deletes.length} removed.`);
+    }
+    if (months) {
+      await writeChanges('pilot_months', PILOT_MONTH_COLUMNS, months);
+      console.log(`[Career] ${months.total} pilot months: ${months.upserts.length} written, ${months.deletes.length} removed.`);
     }
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);
   } catch (err) {

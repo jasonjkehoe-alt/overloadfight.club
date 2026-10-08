@@ -1,6 +1,6 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
-import { RATING, pilotKey, powerRankings, rankStatus, rankingMovement, ratingDay, rdOn, shiftDay } from '../../lib/gameParse.js';
+import { RATING, fightNightDay, pilotKey, powerRankings, rankStatus, rankingMovement, rdOn, shiftDay } from '../../lib/gameParse.js';
 
 // Ratings from rating_snapshots, which every stats refresh rewrites: one
 // pilot's history and the power rankings. Nothing here computes a rating.
@@ -30,10 +30,10 @@ export const clearRankings = () => rankedByDay.clear();
 const anySnapshot = hotDb.prepare('SELECT 1 FROM rating_snapshots LIMIT 1');
 export const hasRatingSnapshots = () => Boolean(anySnapshot.get());
 
-// { day, since, total, pilots }: the top RATING.listed on `day` (today in
-// RATING.timeZone by default), each with its `change` since RATING.movementDays
+// { day, since, total, pilots }: the top RATING.listed on `day` (today's
+// fight-night day by default), each with its `change` since RATING.movementDays
 // earlier (null = NEW), and how many pilots are ranked in all.
-export const getPowerRankings = (day = ratingDay(Date.now())) => {
+export const getPowerRankings = (day = fightNightDay(Date.now())) => {
   const since = shiftDay(day, -RATING.movementDays);
   const ranked = rankedOn(day);
   return { day, since, total: ranked.length, pilots: rankingMovement(ranked, rankedOn(since)) };
@@ -43,7 +43,7 @@ export const getPowerRankings = (day = ratingDay(Date.now())) => {
 // they played; `history` is empty for a pilot with no rated match. `rd` has
 // grown for the days since the last one; `status` is rankStatus() and `rank`
 // is null unless 'ranked'.
-export const getPilotRating = (name, day = ratingDay(Date.now())) => {
+export const getPilotRating = (name, day = fightNightDay(Date.now())) => {
   const pilot = pilotKey(name);
   const history = pilotHistory.all(pilot);
   const last = history[history.length - 1];

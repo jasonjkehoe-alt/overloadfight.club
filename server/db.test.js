@@ -4,7 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { byId, day, onDay, sample, veteranSoup } from './testFixtures.js';
-import { RATING, ratingDay, shiftDay } from './lib/gameParse.js';
+import { RATING, dayBounds, fightNightDay, heatmapCells, shiftDay } from './lib/gameParse.js';
 
 // Fixture games built from the samples:
 // 90001: game 72102 with the score flipped, an ORANGE win (STITCH, MAESTRO).
@@ -106,8 +106,8 @@ describe('pilot stats cache (refreshPilotStats)', () => {
 });
 
 describe('ratings (rating_snapshots)', () => {
-    const today = ratingDay(Date.now());
-    const jftpDay = ratingDay(onDay(byId(72107)).date);
+    const today = fightNightDay(Date.now());
+    const jftpDay = fightNightDay(onDay(byId(72107)).date);
 
     it('rates every match in the refresh, one row per pilot per day, spellings merged', () => {
         const jftp = db.getPilotRating('jftp');
@@ -173,6 +173,114 @@ describe('ratings (rating_snapshots)', () => {
     it('keeps the ranks a week on, then drops pilots idle for more than 28 days', () => {
         expect(db.getPowerRankings(shiftDay(today, 7)).pilots.map(p => p.change)).toEqual([0, 0, 0]);
         expect(db.getPowerRankings(shiftDay(jftpDay, RATING.activeDays + 1)).total).toBe(0);
+    });
+});
+
+describe('career (pilot_months, /api/pilot/:name/career) and the heatmap', () => {
+    const today = fightNightDay(Date.now());
+    const hot = () => connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'pilot_months'").get());
+
+    it('adds up each pilot\'s months to the career totals, spellings merged', () => {
+        for (const name of ['JFTP', 'WD-40', 'MAESTRO', 'BALLER']) {
+            const { months } = db.getPilotCareer(name);
+            const sum = field => months.reduce((a, m) => a + m[field], 0);
+            const career = cached(name);
+            expect([sum('matches'), sum('kills'), sum('deaths'), sum('assists'), sum('wins'), sum('losses'), sum('ties')])
+                .toEqual([career.games, career.kills, career.deaths, career.assists, career.wins, career.losses, career.ties]);
+            expect(months.at(-1).month).toBe(today.slice(0, 7));
+        }
+        expect(db.getPilotCareer('jftp ').months).toEqual(db.getPilotCareer('JFTP').months);
+    });
+
+    it('counts a pilot\'s matches per fight-night day for the calendar', () => {
+        const { calendar } = db.getPilotCareer('WD-40');
+        expect(calendar.until).toBe(today);
+        // the fixtures' Sunday evening (9 matches) is the day before the afternoon's one
+        expect(calendar.days).toEqual([{ day: shiftDay(day, -1), matches: 9 }, { day, matches: 1 }]);
+        const jftp = db.getPilotCareer('JFTP').calendar.days;
+        expect(jftp.reduce((a, d) => a + d.matches, 0)).toBe(db.countGamesByPilot.get({ name: 'JFTP', startDate: null }).count);
+    });
+
+    it('sums the last fight-night day, with the rating change and the recap', async () => {
+        const wd40 = db.getPilotCareer('WD-40').lastOut;
+        expect(wd40).toMatchObject({ day, wins: 0, losses: 1, kills: 2, deaths: 6, assists: 2, combatRatio: 0.5, recap: false }); // 72105: 2 kills, 2 assists, 6 deaths
+        expect(wd40.matches.map(m => m.id)).toEqual([72105]);
+        // its only snapshot that day minus the evening before's
+        const history = db.getPilotRating('WD-40').history;
+        expect(wd40.ratingChange).toBe(Math.round((history.at(-1).rating - history.at(-2).rating) * 10) / 10);
+        await generateRecapForDate(day, true);
+        expect(db.getPilotCareer('WD-40').lastOut.recap).toBe(true);
+        // B2AF's only night is the Sunday evening, and his first rated day
+        const b2af = db.getPilotCareer('B2AF').lastOut;
+        expect(b2af).toMatchObject({ day: shiftDay(day, -1), wins: 0, losses: 2, recap: false });
+        expect(b2af.ratingChange).toBe(Math.round((db.getPilotRating('B2AF').rating - RATING.start) * 10) / 10);
+    });
+
+    it('gives no rating change for a night without a rated match', async () => {
+        // LONER beats PARTNER two days before `day`, then plays alone the evening before it
+        const duel = { ...onDay(byId(72090)), id: 90040, players: [{ name: 'LONER', kills: 5, deaths: 1, assists: 0 }, { name: 'PARTNER', kills: 1, deaths: 5, assists: 0 }] };
+        duel.date = new Date(Date.parse(duel.date) - 86400000).toISOString();
+        duel.settings = { ...duel.settings, start: new Date(Date.parse(duel.settings.start) - 86400000).toISOString() };
+        const alone = { ...onDay(byId(72090)), id: 90041, players: [{ name: 'LONER', kills: 0, deaths: 0, assists: 0 }] };
+        db.saveGames([duel, alone]);
+        await db.refreshPilotStats();
+        expect(db.getPilotRating('LONER').history.map(h => h.day)).toEqual([shiftDay(day, -2)]);
+        expect(db.getPilotCareer('LONER').lastOut).toMatchObject({ day: shiftDay(day, -1), ratingChange: null, wins: 0, losses: 0 });
+    });
+
+    it('starts the year of daily counts at a fight-night day, not at UTC midnight', () => {
+        // a year after `day`: the window starts at 06:00 Chicago time on `day`, so the
+        // fixtures' evening before it (dated `day` in UTC, 03:24 to 08:49) is out
+        vi.useFakeTimers({ toFake: ['Date'] });
+        try {
+            vi.setSystemTime(Date.parse(dayBounds(shiftDay(day, 365))[0]) + 2 * 3600000);
+            const days = db.getGameCountsByDate.all().map(d => d.day);
+            expect(days[0]).toBe(day);
+            expect(days).not.toContain(shiftDay(day, -1));
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('answers an unknown pilot with nothing in each part', () => {
+        expect(db.getPilotCareer('NOBODY')).toMatchObject({ months: [], calendar: { days: [] }, lastOut: null });
+    });
+
+    it('brings pilot_months back in line on the next refresh', async () => {
+        const table = () => hot().prepare('SELECT * FROM pilot_months ORDER BY pilot, month').all();
+        const before = table();
+        hot().prepare("INSERT INTO pilot_months VALUES ('ghost', '2001-01', 1, 1, 0, 0, 1, 0, 0, 60)").run();
+        hot().prepare("UPDATE pilot_months SET kills = 999 WHERE pilot = 'jftp'").run();
+        const log = vi.spyOn(console, 'log');
+        await db.refreshPilotStats();
+        expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Career]'))).toEqual([`[Career] ${before.length} pilot months: 1 written, 1 removed.`]);
+        log.mockRestore();
+        expect(table()).toEqual(before);
+    });
+
+    it('counts the last 12 weeks of matches by weekday and hour, today left out', () => {
+        const tomorrow = shiftDay(today, 1);
+        const heat = db.getActivityHeatmap(Date.parse(dayBounds(tomorrow)[0]) + 3600000);
+        expect(heat).toMatchObject({ since: shiftDay(tomorrow, -84), until: tomorrow });
+        const dates = [];
+        for (let d = heat.since; d < heat.until; d = shiftDay(d, 1)) dates.push(...db.getGamesForDate(d).map(g => g.date));
+        expect(dates.length).toBeGreaterThan(25);
+        expect(heat.total).toBe(dates.length);
+        expect(heat.cells).toEqual(heatmapCells(dates));
+        // 84 days after `day` the window starts on `day`: the evening before it is out
+        const later = db.getActivityHeatmap(Date.parse(dayBounds(shiftDay(day, 84))[0]));
+        expect(later.since).toBe(day);
+        let fromDay = 0;
+        for (let d = day; d < later.until; d = shiftDay(d, 1)) fromDay += db.getGamesForDate(d).length;
+        expect(later.total).toBe(fromDay);
+        expect(later.total).toBeLessThan(heat.total);
+        // during `day` the window ends before it: the matches already played that day are out
+        const during = db.getActivityHeatmap(Date.parse(dayBounds(day)[1]) - 3600000);
+        expect(during.until).toBe(day);
+        expect(db.getGamesForDate(day).length).toBeGreaterThan(0);
+        let beforeDay = 0;
+        for (let d = during.since; d < day; d = shiftDay(d, 1)) beforeDay += db.getGamesForDate(d).length;
+        expect(during.total).toBe(beforeDay);
     });
 });
 
@@ -273,7 +381,10 @@ describe('isPilotFirstSeenOnDate', () => {
 describe('fight night recap', () => {
     it('counts pilots case-insensitively and checks cold storage for new blood', async () => {
         const recap = await generateRecapForDate(day, true);
-        const keys = new Set(hotGames.flatMap(g => g.players.map(p => p.name.trim().toLowerCase())));
+        // the fight-night day: the fixtures' Sunday evening (B2AF, WD-40, ...) is the day before
+        const onFightNight = hotGames.filter(g => fightNightDay(g.date) === day);
+        const keys = new Set(onFightNight.flatMap(g => g.players.map(p => p.name.trim().toLowerCase())));
+        expect(keys.has('b2af')).toBe(false);
         expect(recap.totalPilots).toBe(keys.size);
         expect(recap.newBlood.pilots).toContain('ZERGLING');
         expect(recap.newBlood.pilots).not.toContain('SOUP');
@@ -284,6 +395,83 @@ describe('fight night recap', () => {
         expect(recap.closestFinish).toMatchObject({ gameId: 90002, margin: 0, score: '10 - 10' });
         expect(recap.closestFinish.copy).toMatch(/exact draw/);
     });
+
+    it('rebuilds the last year\'s recaps on fight-night days once', async () => {
+        const { rebuildRecapsForDayRule, FIGHT_NIGHT_THRESHOLDS } = await import('./services/fightNightService.js');
+        const old = shiftDay(fightNightDay(Date.now()), -400);
+        // a recap saved under the UTC day, and one too old to rebuild
+        db.saveFightNightRecap(shiftDay(day, 1), { totalMatches: 99 });
+        db.saveFightNightRecap(old, { totalMatches: 1 });
+        await rebuildRecapsForDayRule();
+        const dates = db.getFightNightRecaps(50).map(r => r.date);
+        expect(dates).not.toContain(shiftDay(day, 1));
+        expect(dates).toContain(old);
+        expect(dates.filter(d => d !== old)).toEqual(db.getQualifyingFightNightDates(FIGHT_NIGHT_THRESHOLDS));
+        expect(db.getAdminSetting.get('fight_night_day_rule').value).toBe('America/Chicago from 6:00');
+        // done once: a second run leaves a recap alone
+        db.saveFightNightRecap(shiftDay(day, 1), { totalMatches: 99 });
+        await rebuildRecapsForDayRule();
+        expect(db.getFightNightRecapByDate(shiftDay(day, 1)).totalMatches).toBe(99);
+    });
+
+    describe('rebuild edges, every fixture day qualifying', () => {
+        let service;
+        let thresholds;
+        beforeAll(async () => {
+            service = await import('./services/fightNightService.js');
+            thresholds = { ...service.FIGHT_NIGHT_THRESHOLDS };
+            Object.assign(service.FIGHT_NIGHT_THRESHOLDS, { minMatches: 1, minPilots: 1 });
+        });
+        afterAll(() => {
+            Object.assign(service.FIGHT_NIGHT_THRESHOLDS, thresholds);
+        });
+        const rebuildAt = async now => {
+            db.setAdminSetting.run('fight_night_day_rule', 'UTC');
+            vi.useFakeTimers({ toFake: ['Date'] });
+            try {
+                vi.setSystemTime(now);
+                await service.rebuildRecapsForDayRule();
+            } finally {
+                vi.useRealTimers();
+            }
+        };
+
+        it('leaves the night still running to the detector', async () => {
+            // an hour before `day` ends: its matches are in, its night is not over
+            await rebuildAt(Date.parse(dayBounds(day)[1]) - 3600000);
+            expect(db.getFightNightRecapByDate(shiftDay(day, -1))).not.toBeNull();
+            expect(db.getFightNightRecapByDate(day)).toBeNull();
+        });
+
+        it('keeps the old recaps when a save fails part-way', async () => {
+            db.saveFightNightRecap(shiftDay(day, 1), { totalMatches: 99 });
+            db.setAdminSetting.run('fight_night_day_rule', 'UTC');
+            const save = vi.spyOn(db, 'saveFightNightRecap').mockImplementation(() => { throw new Error('disk full'); });
+            try {
+                await expect(service.rebuildRecapsForDayRule()).rejects.toThrow('disk full');
+            } finally {
+                save.mockRestore();
+            }
+            expect(db.getFightNightRecapByDate(shiftDay(day, 1)).totalMatches).toBe(99);
+            expect(db.getAdminSetting.get('fight_night_day_rule').value).toBe('UTC');
+        });
+
+        it('starts at the first fight-night day wholly in hot storage', async () => {
+            // a year after 08:00 Chicago time on `day`: hot storage starts inside `day`
+            const now = new Date(Date.parse(dayBounds(day)[0]) + 2 * 3600000);
+            now.setFullYear(now.getFullYear() + 1);
+            db.saveFightNightRecap(day, { totalMatches: 99 });
+            await rebuildAt(now.getTime());
+            expect(db.getFightNightRecapByDate(day).totalMatches).toBe(99);
+        });
+
+        it('runs one rebuild at a time', async () => {
+            db.setAdminSetting.run('fight_night_day_rule', 'UTC');
+            const running = service.rebuildRecapsForDayRule();
+            expect(service.rebuildRecapsForDayRule()).toBe(running);
+            await running;
+        });
+    });
 });
 
 // Last: it rewrites the hot database the tests above read.
@@ -291,11 +479,11 @@ describe('backup and restore (backupHot, restoreHot)', () => {
     it('copies the live database and writes the copy back into it', async () => {
         const copy = path.join(dataDir, 'copy.db');
         await db.backupHot(copy);
-        // as a backup from before S13
+        // as a backup from before S13 and S14
         const old = new Database(copy);
-        old.exec('DROP TABLE rating_snapshots');
+        old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months');
         old.close();
-        const today = ratingDay(Date.now());
+        const today = fightNightDay(Date.now());
         expect(db.hasRatingSnapshots()).toBe(true);
         expect(db.getPowerRankings(today).total).toBeGreaterThan(0);
         const before = db.countGames(null, null).count;
@@ -309,6 +497,8 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.countGamesByPilot.get({ name: 'JFTP', startDate: null }).count).toBe(10);
         // the table is back, empty until the next refresh, and the rankings held in memory are gone
         expect(db.hasRatingSnapshots()).toBe(false);
+        expect(db.hasPilotMonths()).toBe(false);
+        expect(db.getPilotCareer('JFTP').months).toEqual([]);
         expect(db.getPilotRating('JFTP').history).toEqual([]);
         expect(db.getPowerRankings(today).total).toBe(0);
     });
@@ -316,7 +506,7 @@ describe('backup and restore (backupHot, restoreHot)', () => {
 
 describe('ratings after a refresh', () => {
     it('ranks a pilot whose new match is their tenth once the refresh lands', async () => {
-        const today = ratingDay(Date.now());
+        const today = fightNightDay(Date.now());
         const ranked = () => db.getPowerRankings(today).pilots.map(p => p.pilot);
         expect(ranked()).not.toContain('phoenix'); // 9 rated matches, and the rankings are now memoised
         db.saveGames([{ ...onDay(byId(72096)), id: 90020 }]);

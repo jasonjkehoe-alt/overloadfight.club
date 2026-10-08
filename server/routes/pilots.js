@@ -2,7 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import cacheService from '../services/cacheService.js';
 
-// /pilot/:name/*: one pilot's stats, weapons, PPI, rating, breakdown and match history.
+// /pilot/:name/*: one pilot's stats, weapons, PPI, rating, career, breakdown and match history.
 const router = express.Router();
 
 // GET /api/pilot/:name/stats - Detailed Pilot Stats
@@ -106,6 +106,22 @@ router.get('/pilot/:name/rating', (req, res) => {
     } catch (e) {
         console.error("Pilot Rating Error:", e);
         res.status(500).json({ error: "Failed to fetch pilot rating" });
+    }
+});
+
+// GET /api/pilot/:name/career - Career months, activity calendar and last time out (S14)
+router.get('/pilot/:name/career', async (req, res) => {
+    try {
+        const cacheKey = `pilot_career_${req.params.name.toLowerCase()}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return res.json(cached);
+        const career = db.getPilotCareer(req.params.name);
+        // not before pilot_months' first build, when every pilot reads as unplayed
+        if (db.hasPilotMonths()) await cacheService.set(cacheKey, career, 300);
+        res.json(career);
+    } catch (e) {
+        console.error("Pilot Career Error:", e);
+        res.status(500).json({ error: "Failed to fetch pilot career" });
     }
 });
 

@@ -1,8 +1,8 @@
 import db from '../db.js';
-import { netKills, pilotKey, winnerOf } from '../lib/gameParse.js';
+import { FIGHT_NIGHT_DAY, dayStart, fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
 
 export const FIGHT_NIGHT_THRESHOLDS = {
-    minMatches: 16,    // ≥ 16 matches in the 24h window
+    minMatches: 16,    // ≥ 16 matches in one fight-night day (gameParse.js)
     minPilots: 14,     // AND (≥ 14 unique pilots
     minFrags: 1600     //      OR ≥ 1600 total frags)
 };
@@ -395,16 +395,15 @@ export async function generateRecapForDate(targetDate, force = false) {
 }
 
 /**
- * Checks the last 24h-48h for big nights and auto-generates recaps.
+ * Checks the last two finished fight-night days for big nights and auto-generates recaps.
  */
 export async function checkAndGenerateRecentFightNight() {
     try {
         console.log('[FightNight] Running big night detector...');
-        const now = new Date();
-        // Check yesterday and day before yesterday
+        const today = fightNightDay(Date.now());
+        // the two fight-night days before today's, which is still running
         for (let daysAgo = 1; daysAgo <= 2; daysAgo++) {
-            const dt = new Date(now.getTime() - daysAgo * 86400000);
-            const dateStr = dt.toISOString().substring(0, 10);
+            const dateStr = shiftDay(today, -daysAgo);
 
             // Fetch games for target date
             const rawGames = db.getGamesForDate ? db.getGamesForDate(dateStr) : [];
@@ -452,11 +451,52 @@ export async function checkAndGenerateRecentFightNight() {
     }
 }
 
+// Recaps saved before S14 are keyed by UTC day; since S14 a date names a
+// fight-night day (gameParse.js FIGHT_NIGHT_DAY), so the same night would come
+// back under a second key. Once per day rule (marked in admin_settings), the
+// recaps from the first fight-night day wholly in hot storage (db.hotCutoff)
+// to yesterday are rebuilt on fight-night days: every qualifying night, not
+// only the latest 10. Today's night may still be running; the detector takes
+// it. Each night is saved before the old keys go, so a failure part-way leaves
+// the old recaps for the next start to retry. Older recaps stay as they were;
+// their matches cannot be re-read. The old key on the first day held the night
+// before it, which is outside the rebuild, so that one night is dropped.
+const DAY_RULE_SETTING = 'fight_night_day_rule';
+const DAY_RULE = `${FIGHT_NIGHT_DAY.timeZone} from ${FIGHT_NIGHT_DAY.startHour}:00`;
+
+// One rebuild at a time: GET /api/fight-nights starts one while the table is empty.
+let rebuilding = null;
+export function rebuildRecapsForDayRule() {
+    rebuilding ??= rebuildRecaps().finally(() => {
+        rebuilding = null;
+    });
+    return rebuilding;
+}
+
+async function rebuildRecaps() {
+    if (db.getAdminSetting.get(DAY_RULE_SETTING)?.value === DAY_RULE) return;
+    const cutoff = db.hotCutoff();
+    const edge = fightNightDay(cutoff);
+    const first = dayStart(edge) < cutoff ? shiftDay(edge, 1) : edge;
+    const today = fightNightDay(Date.now());
+    // generateRecapForDate checks the thresholds itself, reading each day once
+    const saved = [];
+    for (const { day, count } of db.getGameCountsByDate.all()) {
+        if (day < first || day >= today || count < FIGHT_NIGHT_THRESHOLDS.minMatches) continue;
+        if (await generateRecapForDate(day)) saved.push(day);
+        await new Promise(resolve => setImmediate(resolve)); // let requests in between days
+    }
+    const removed = db.deleteFightNightRecapsSince(first, saved);
+    db.setAdminSetting.run(DAY_RULE_SETTING, DAY_RULE);
+    console.log(`[FightNight] Days now count ${DAY_RULE}: saved ${saved.length} recaps from ${first}, removed ${removed} others.`);
+}
+
 /**
  * Initializes Fight Night recaps: ensures table exists, and backfills recent qualified nights if empty.
  */
 export async function initializeFightNights() {
     try {
+        await rebuildRecapsForDayRule();
         const existing = db.getFightNightRecaps ? db.getFightNightRecaps(1) : [];
         if (existing && existing.length > 0) {
             console.log(`[FightNight] Found ${existing.length} existing recaps. Running daily check...`);
@@ -483,5 +523,6 @@ export default {
     FIGHT_NIGHT_THRESHOLDS,
     generateRecapForDate,
     checkAndGenerateRecentFightNight,
-    initializeFightNights
+    initializeFightNights,
+    rebuildRecapsForDayRule
 };

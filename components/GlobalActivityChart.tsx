@@ -56,7 +56,7 @@ const GlobalActivityChart: React.FC = () => {
                             dataKey="day"
                             stroke="#666"
                             fontSize={10}
-                            tickFormatter={(date) => new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            tickFormatter={(date) => new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}
                             minTickGap={30}
                             height={30}
                         />
@@ -65,7 +65,7 @@ const GlobalActivityChart: React.FC = () => {
                             contentStyle={{ backgroundColor: '#000', border: `1px solid ${colors.line}` }}
                             itemStyle={{ color: colors.brand.DEFAULT }}
                             labelStyle={{ color: '#ccc' }}
-                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                            labelFormatter={(label) => new Date(label).toLocaleDateString(undefined, { timeZone: 'UTC' })}
                         />
                         <Area
                             type="monotone"

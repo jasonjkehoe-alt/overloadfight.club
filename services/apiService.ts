@@ -467,6 +467,70 @@ export const fetchPilotRating = (name: string) => getJson<PilotRating>(`${API_BA
 
 export const fetchPowerRankings = () => getJson<PowerRankings>(`${API_BASE}/stats/rankings`);
 
+// /api/stats/heatmap (S14): matches per weekday and clock hour, `cells[0]`
+// Monday by fight-night day, each row 24 counts by hour, over [since, until).
+export interface ActivityHeatmap {
+    since: string;
+    until: string;
+    total: number;
+    cells: number[][];
+}
+
+export const fetchActivityHeatmap = () => getJson<ActivityHeatmap>(`${API_BASE}/stats/heatmap`);
+
+// /api/pilot/:name/career (S14), built by gameParse.js careerSeries,
+// calendarDays and lastOuting.
+export interface CareerMonth {
+    month: string;
+    matches: number;
+    wins: number;
+    losses: number;
+    ties: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    seconds: number;
+    // null for a month with no ranked match
+    winRate: number | null;
+    combatRatio: number | null;
+    lethality: number | null;
+}
+
+export interface OutingMatch {
+    id: number;
+    date: string;
+    map: string | null;
+    mode: string | null;
+    outcome: 'win' | 'loss' | 'tie' | null;
+    kills: number;
+    deaths: number;
+    assists: number;
+}
+
+export interface LastOut {
+    day: string;
+    matches: OutingMatch[];
+    wins: number;
+    losses: number;
+    ties: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    combatRatio: number;
+    // null when the night had no rated match
+    ratingChange: number | null;
+    recap: boolean;
+}
+
+export interface PilotCareer {
+    months: CareerMonth[];
+    // `until` is today's fight-night day
+    calendar: { since: string; until: string; days: { day: string; matches: number }[] };
+    lastOut: LastOut | null;
+}
+
+export const fetchPilotCareer = (name: string) => getJson<PilotCareer>(`${API_BASE}/pilot/${encodeURIComponent(name)}/career`);
+
 // Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.

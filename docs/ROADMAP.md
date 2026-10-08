@@ -77,10 +77,14 @@ as `6bdeb97`), with no owner commits after it.
 S13 is merged into `main` (PR #13, squash-merged 2026-10-08 15:28 UTC
 as `d7a81eb`), with no owner commits after it.
 
-A maintenance PR outside the numbered sessions moves the project to
-Node 26 and better-sqlite3 13 (see "Maintenance" in the queue): branch
-`ofc/node26`, based on `d7a81eb`, PR #14 open against `main` and not
-merged, 2026-10-08 UTC. S14 comes after it.
+A maintenance PR outside the numbered sessions moved the project to
+Node 26 and better-sqlite3 13 (see "Maintenance" in the queue): PR #14,
+squash-merged 2026-10-08 16:01 UTC as `e35672a`, with no owner commits
+after it. (The tracker said it was still open when S14 started; it had
+merged.)
+
+S14 is on branch `ofc/s14-time-career`, based on `e35672a`, PR #15 open
+against `main` and not merged, 2026-10-08 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -91,11 +95,157 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 13 of 28 sessions done (S1 to S13 merged).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11. The Node 26
+Counts: 14 of 28 sessions done (S1 to S13 merged, S14 in PR #15).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 3/6. Phase 4: 0/11. The Node 26
 maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S13 merged into `main`, `main` at d7a81eb, Node 26 maintenance on `ofc/node26`)
+## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S13 and Node 26 merged into `main`, `main` at e35672a, S14 on `ofc/s14-time-career`)
+
+- S14, first move on Node 26.11.1, on `main` at `e35672a` (PRs #13 and
+  #14 merged): `npx vitest run` passed 14 files, 193 tests. `npx vite
+  build` wrote the entry `index-DHFRW1S6.js` at 231.49 KB raw / 74.16 KB
+  gzip, `PilotDetail-*.js` 40.33 KB / 9.99 KB gzip and `GameList-*.js`
+  54.96 KB / 15.48 KB gzip. `npx tsc --noEmit` exited 0. All three match
+  the Node 26 records. `wc -l`: `gameParse.js` 608, `fightNightService.js`
+  487, `repos/games.js` 458, `analytics/global.js` 384,
+  `analytics/pilots.js` 289, `pilotTelemetry.js` 449, `statsPasses.js`
+  536, `backup.js` 43, `maintenance.js` 105, `App.tsx` 291, `GameList`
+  711, `ActivityGraph` 175, `GlobalActivityChart` 93, `PilotDetail` 912,
+  `RatingCard` 99, `RatingChart` 90, `designTokens.js` 59. The sample
+  files are one line each.
+- S14, the time-zone question: asked before building. The owner chose
+  America/Chicago and a 06:00 rollover.
+- S14, tests: `npx vitest run` passes 14 files, 220 tests (27 new).
+  `gameParse.test.js`: the rollover at 05:59 and 06:00 in CST and CDT;
+  the fixtures' evening (72084 to 72094, 21:24 to 02:49 Chicago time) on
+  one fight-night day; `localClock` weekday and hour; `dayBounds` at 24,
+  23 (2026-03-07) and 25 hours (2026-10-31), null for 2026-02-30,
+  2026-13-01, `foo` and `2026-10`; `dayStart`, `DAY_HOURS` and the day
+  wording; the heatmap cells of the 25 fixtures (Sunday 21:00 2, Monday
+  01:00 5 and 02:00 4 on Sunday's row, Monday 13:00 to 16:00 2, 8, 3, 1);
+  the 12-week window; calendar days (11 on 2025-11-23, 14 on
+  2025-11-24) and the Monday 52 weeks back; `careerMonth` across a month
+  end; months from `pilotPass` adding up to its career rows for every
+  fixture pilot (JFTP 1 in November, 7 in December when half the
+  fixtures move a month); `careerSeries` filling gaps up to this month
+  with null rates; `winRate`; `nightRatingChange`; `lastOuting` for WD-40
+  on the Sunday night (3W 5L 1T, 87 kills, 92 deaths, Combat Ratio 1.01,
+  nine matches newest first), a team result, a no-result match, a pilot
+  not there. Two S13 rating tests moved with the day: 72090 and WD-40's
+  first nine matches are on 2025-11-23 now. `db.test.js` through the
+  real refresh: months adding up to `pilot_stats_cache` for JFTP (and
+  "jftp "), WD-40, MAESTRO and BALLER; WD-40's calendar (9 the evening
+  before `day`, 1 on `day`) and JFTP's matching the match-list count;
+  WD-40's last time out (72105: 2 kills, 6 deaths, 2 assists, Combat
+  Ratio 0.5, the rating change against the evening before, the recap
+  link once a recap exists); B2AF's first rated night against 1500; no
+  rating change for a night with no rated match; an unknown pilot; a
+  refresh restoring a changed month and removing a stray one ("1
+  written, 1 removed"); the heatmap equal to `heatmapCells` over the
+  same days and moving with the window; the year of daily counts
+  starting at 06:00 on a fight-night day, not at UTC midnight (with the
+  clock set a year on); the recap rebuild removing a UTC-keyed recap,
+  keeping one 400 days old, saving exactly the qualifying days and
+  running once; a restore of a copy without `pilot_months`.
+  `backfill.test.js`: the fight-night day runs from 06:00 Chicago time to
+  the next 06:00 (a game 1 ms before the end is in, one at the end is
+  out); the qualifying scan counts the fixtures' evening as one day.
+- S14, mutations (each run, then the file restored from a copy): a
+  midnight rollover fails 14 tests; the calendar day instead of the
+  fight-night day 13; months not counted 2; the recap rebuild running on
+  every start 1; the rating change read from an older day 1; no gap
+  months 1; the series stopping at the last month played 1; the year
+  window from UTC midnight 1; an invalid month accepted by `dayBounds` 1.
+  The first versions of the gap and older-day mutants survived (a broken
+  edit, then no test with an unrated last night); tests were added for
+  both.
+- S14, real data from scripts run by plain `node` (so the ES-module
+  imports are checked outside vitest), on the 40 local matches:
+  `pilot_months` from `pilotPass` equals the server's table (23 of 23
+  rows), `rating_snapshots` from `ratingPass` equals the table (32 of
+  32), and all 23 pilots' months add up to `pilot_stats_cache`.
+  Fight-night days: 2026-10-05 6 matches, 10-06 18, 10-07 14, 10-08 2
+  (UTC days: 1, 7, 22, 10). `EXPLAIN QUERY PLAN`: the calendar's dates
+  and the night's games use the covering `idx_game_players_name_date` in
+  both files and the games' primary key; the heatmap is `SEARCH games
+  USING COVERING INDEX idx_games_date`; the months `SEARCH pilot_months
+  USING PRIMARY KEY`.
+- S14, synthetic history (75,000 matches 2019 to 2026, 400 pilots, 2 to 8
+  a match, a third team games), `pilotPass` on this Mac: 0.62 s with the
+  months against 0.58 s on `main`'s code, 2,947 month rows, heap 81 MB
+  against 66 MB (most of it the per-hour day cache); `localClock` for
+  75,000 dates with the cache warm, 68 ms.
+- S14, ramp: dataviz `validate_palette.js "#184f95,#256abf,#3987e5,#6da7ec,#9ec5f4" --ordinal --mode dark --surface "#111111"`:
+  lightness monotone, adjacent steps at least 0.06 apart, the darkest at
+  2.33:1, hue spread 3°, all pass.
+- S14, server (`PORT=3100 DATA_DIR=/tmp/ofc-data npm start` on the
+  built `dist/`, after `Startup sync complete`): the first start over the
+  S13 data logged "No rating snapshots or career months on startup", then
+  "[Ratings] 32 daily rating snapshots: 11 written, 4 removed" and
+  "[Career] 23 pilot months: 23 written". After the review fixes the next
+  start logged "Days now count America/Chicago from 6:00: removed 1
+  recaps of the last 365 days, saved 0", and the one after that skipped
+  the rebuild. The detector is scheduled for 2026-10-09T11:15:00Z (06:15
+  CDT). `/api/health` `{"status":"ok"}`, `/api/stats/global`
+  `total_games: 40`, `/api/stats/pilots` 24 pilots (top WD-40, 23
+  matches), `/api/pilot/WD-40/stats` 23 matches and 380 kills,
+  `/api/stats/rankings` day 2026-10-08 with WD-40 first,
+  `/api/stats/heatmap` 38 matches from 2026-07-16 (today left out),
+  `/api/pilot/WD-40/career` one month (23 matches, 26.1%, 0.76, 1.15),
+  three calendar days and last time out on 2026-10-07. For the browser
+  checks a recap for 2026-10-06 was forced with
+  `generateRecapForDate('2026-10-06', true)`.
+- S14, headless Chrome 154 over CDP, `checks.mjs`, 124 of 124 before
+  the review fixes, 148 of 148 after them and after /simplify (the
+  Tokyo run added):
+  - Dashboard at 1,280 and 390 px, local data and a mocked year: the
+    7×24 counts equal `/api/stats/heatmap` with columns from 06:00, every
+    cell is `rampColor(count, max)`, only the current Chicago hour is
+    outlined, the busiest line ("Saturday 21:00, 72 matches" mocked;
+    "Monday night, 04:00" locally) and the cell titles ("Monday night,
+    02:00: ..."), the heatmap under the teaser and above Recent Matches,
+    the page no wider than the window. Loading while the request is held,
+    ErrorState on a 500 and Retry loading it, EmptyState for 12 empty
+    weeks. `/history` shows the timeline chart and no hour chart.
+  - `/pilot/WD-40` at 1,280 and 390 px, real and mocked (30 months with
+    gaps, 8 matches on the last night, a recap, -12.4 rating): the day
+    and "yesterday" / "2 days ago", the night's five newest matches as
+    links in order, the recap link only with a recap, record, kills,
+    deaths, Combat Ratio, "▼ down 12.4", "3 more in the match list",
+    four sparklines, the last-month numbers, one calendar cell per day
+    (371 or fewer) with the filled ones exactly the days with matches,
+    the calendar scrolled to the latest week, Last Active as the
+    fight-night day, "Career by month" listing each month played, no
+    wider than the window. Loading, ErrorState with the rest of the page
+    still there, Retry, EmptyState with no match, "No ranked match yet"
+    beside the rest.
+  - The same dashboard and pilot checks with the browser in Asia/Tokyo:
+    the same cells, days and labels.
+  - `/rankings` (WD-40 first, no wider than the window),
+    `/pilots?min=1`, `/game/78764` ("Split decision"), `/fight-night/2026-10-06`.
+    No console errors anywhere.
+  - Element shots of the heatmap and the career block, local and mocked,
+    at both widths, were looked at. They caught a one-month sparkline
+    sitting on its baseline, monthly bars running together at 390 px and
+    "Monday 04:00" reading as Monday morning; all three fixed.
+- S14, sizes on Node 26.11.1 after /simplify: entry `index-*.js` 231.71
+  KB raw / 74.26 KB gzip (74.16 before: the two fetchers and their
+  types); `GameList-*.js` 40.40 KB / 11.42 KB gzip (54.96 / 15.48
+  before: `ActivityGraph` gone, the timeline chart lazy in its own
+  `GlobalActivityChart-*.js`, 15.41 / 5.06); `PilotDetail-*.js` 48.79 KB
+  / 12.77 KB gzip (40.33 / 9.99 before: the career block). The
+  dashboard's first visit now loads no Recharts chunk (from the browser's
+  resource list: entry, `GameList`, `gameParse`, `designTokens`,
+  `RampLegend`, `useLoad` and icons). Before, `GameList` imported both
+  chart components statically, so it pulled `BarChart`, `CartesianChart`
+  and `Area` (S4 measured the `BarChart` load). `npx tsc --noEmit` exits
+  0. `wc -l`: `gameParse.js` 788, `statsPasses.js` 554, `statsWorker.js`
+  103, `analytics/career.js` 77, `analytics/global.js` 394,
+  `analytics/refresh.js` 152, `migrations.js` 357, `maintenance.js` 124,
+  `fightNightService.js` 511, `GameList` 712, `PilotDetail` 919,
+  `ActivityHeatmap` 105, `CareerArc` 107, `ActivityCalendar` 75,
+  `LastTimeOut` 76, `CareerCard` 38, `DetailsTable` 33, `RatingCard` 75,
+  `RampLegend` 15, `designTokens.js` 73.
 
 - Node 26, first move: `nvm install 26` reported v26.11.1 already
   installed. `origin/main` was `d7a81eb` (2026-10-08T10:28:17-05:00), as
@@ -1184,6 +1334,28 @@ maintenance item does not count toward the 28.
 
 ## NOT validated, do not claim these work
 
+- S14 ran on the 40 local matches (four days), the fixtures, mocked
+  answers and a synthetic history. Nobody has run the first start on
+  the NAS: how many rating days move, how long the recap rebuild takes
+  over a year of real nights, which recaps it removes and which it saves,
+  and whether any real night still meets the thresholds on the new day.
+- The detector's 06:15 run has not happened; it was only scheduled. The
+  next one locally was 2026-10-09T11:15Z.
+- The heatmap and the calendar with a real year of data: only mocked
+  answers filled them. The 12-week window and the five ramp steps were
+  judged on mocked shapes.
+- Headless Chrome 154 on macOS only, at 1,280 and 390 px, plus a Tokyo
+  time-zone override. Not Safari, Firefox or a real phone (the
+  calendar's horizontal scroll on touch, the heatmap's 10 px cells); no
+  screen reader on the heatmap table, the sparklines' labels or the
+  rating change's sr-only words. The sparkline and calendar hovers are
+  `title` tooltips, checked in the DOM only.
+- The admin page's calendar (`/api/admin/stats/calendar`, now fight-night
+  days) was not opened.
+- The DST days: `dayBounds` and `localClock` are tested on 2026-03-07/08
+  and 2026-10-31/11-01, but no stored match falls on one.
+- The CI workflow on the S14 PR before it opened; see the PR's checks.
+
 - Node 26: nobody has run the new image on the NAS or opened its real
   databases with better-sqlite3 13 (SQLite 3.53.4). The amd64 image is
   checked only by docker-publish's pull-request build; this Mac builds
@@ -1464,11 +1636,11 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 14 files, 193 tests pass on 26.11.1, then on 24.6.0 and 22.17.0 with the same install; no worker left (Node 26) | 2026-10-08 |
+| `npx vitest run` | all pass | 14 files, 220 tests pass on 26.11.1 (S14; 193 at its start) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.49 KB raw / 74.16 KB gzip, pilot page `PilotDetail` 40.33 KB / 9.99 KB gzip on 26.11.1 (Node 26, unchanged from S13; 73.91 and 8.84 at S13's start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed, `@types/node` 26.6.4 on 26.11.1 (Node 26) | 2026-10-08 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1 with a fresh `DATA_DIR=/tmp/ofc-node26`: `total_games: 25`, `/api/stats/pilots` 18 pilots, `/api/stats/rankings` 2 ranked, `/api/health` ok (Node 26). S13: `total_games: 40`, 24 pilots, `/api/pilot/WD-40/stats` 23 games and 380 kills | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.71 KB raw / 74.26 KB gzip, dashboard `GameList` 40.40 KB / 11.42 KB gzip and no Recharts on its first visit, pilot page `PilotDetail` 48.79 KB / 12.77 KB gzip on 26.11.1 (S14; 74.16, 15.48 and 9.99 at its start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S14) | 2026-10-08 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S14 on `/tmp/ofc-data`: `total_games: 40`, `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats` 23 games and 380 kills, `/api/stats/rankings` WD-40 first, `/api/health` ok, `/api/stats/heatmap` 38 matches, `/api/pilot/WD-40/career` 1 month and 3 days | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine`, arm64: healthy in 5 s, uid 1000, 599 MB (Node 26; S6 on `node:22-alpine`: about 9 s, 567 MB) | 2026-10-08 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
@@ -1492,6 +1664,9 @@ maintenance item does not count toward the 28.
 | S13 `checks.mjs`: headless Chrome over CDP, `/rankings` (local and 25 mocked pilots, every movement kind, held, failed and empty), `/pilot/WD-40` (the rating card, chart, table, tooltip, request order; 300 days, one day, rank 40, no rating and a 500 mocked), the leaderboard's link, the match page, at 1,280 and 390 px | numbers equal the API, the shared states, no wider than the window, no console errors | 75 of 75 (S13) | 2026-10-08 |
 | S13 `bench3.mjs`: 75,000 synthetic matches through `ratingSides` and `ratingSnapshots`, then the worker's comparison and the write | volatility bounded, a normal refresh writes little on the main thread | 288,766 rows; volatility at most 0.0601; replay 0.48 s, comparison 0.77 s, 2.3 ms main-thread write for 50 new matches (S13) | 2026-10-08 |
 | dataviz `validate_palette.js --mode dark --surface "#111111"` on `chart.series` | every check passes | passes (S13) | 2026-10-08 |
+| S14 `checks.mjs`: headless Chrome over CDP, the dashboard heatmap (local, a mocked year, held, failed, empty), `/history`, `/pilot/WD-40`'s career block (real and a mocked 30-month career; held, failed, empty, no ranked match), the same in Asia/Tokyo, then `/rankings`, `/pilots?min=1`, a match and a fight night, at 1,280 and 390 px | the heatmap equals the API by weekday and hour from 06:00, ramp colours, the career numbers equal the API, the shared states, no wider than the window, no console errors | 148 of 148 (S14) | 2026-10-08 |
+| S14 `real.mjs`, run by `node`: `pilotPass` months and `ratingPass` on every local match against `pilot_months` and `rating_snapshots`, months against `pilot_stats_cache`, and the new reads' query plans | the same rows; every pilot's months add up; index searches only | 23 of 23 and 32 of 32 rows, 23 of 23 pilots; covering index or primary key for every read (S14) | 2026-10-08 |
+| dataviz `validate_palette.js --ordinal --mode dark --surface "#111111"` on `chart.ramp` | every check passes | passes, darkest step 2.33:1 (S14) | 2026-10-08 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -1705,9 +1880,59 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          and a pilot page with a rating history (local data, plus
          Fetch-domain mocks for a full table); the leaderboard, pilot pages
          and match page still work.
-- [ ] **S14 Time and career** (M). 7×24 local-time heatmap on the dashboard;
+- [x] **S14 Time and career** (M). PR #15. 7×24 local-time heatmap on the dashboard;
       fight-night day boundary in the configured time zone; profile career
-      arc sparklines, activity calendar and "last time out" block.
+      arc sparklines, activity calendar and "last time out" block. The owner
+      decided at the start of S14: days are counted in America/Chicago and
+      roll over at 06:00 there. Done when (written at the start of S14):
+      1. `server/lib/gameParse.js` owns the day rule, tested: a fight-night
+         day runs from 06:00 to 06:00 in America/Chicago; `fightNightDay`
+         names a date's day (YYYY-MM-DD), `dayBounds` gives a day's UTC
+         start and end for `date >= ? AND date < ?` (23 or 25 hours on the
+         DST days), and `localClock` gives a date's weekday and clock hour
+         there. Tested at 05:59 and 06:00, in CST and CDT, and on both DST
+         days.
+      2. Everything that counts days uses it: the fight-night match lists,
+         the qualifying-day scan and the detector (which runs after the
+         06:00 rollover instead of on UTC days), the rating's snapshot day
+         and the rankings' today (`RATING.timeZone` goes), the activity
+         timeline and the admin calendar, the last-match day in the pilot
+         share description and the pilot page's Last Active. Tested on
+         fixture games: the fixtures' evening matches (21:24 to 02:49
+         Chicago time) are one fight-night day.
+      3. A 7×24 heatmap on the dashboard, under the Fight Night teaser:
+         matches per weekday and clock hour in Central time over the last
+         12 weeks, columns from 06:00 so a night reads as one row, a
+         sequential ramp in `chart` (`designTokens.js`) that passes the
+         dataviz validator against `surface-card`, the current hour marked,
+         a "busiest" line, and each cell's count readable without a pointer.
+         New endpoint `GET /api/stats/heatmap` through `apiService`, with
+         the shared loading, empty and failed states. The hour chart on the
+         History tab (`ActivityGraph`, UTC hours labelled local) goes.
+      4. Career arc on the pilot page: monthly sparklines of matches, win
+         rate, Combat Ratio and Lethality from the first month played to
+         this month, by the career cards' rules (ranked matches only). The
+         stats worker builds them into a new `pilot_months` table
+         (migration decision); a pilot's months add up to their career
+         totals in `pilot_stats_cache` (tested).
+      5. An activity calendar on the pilot page: matches per fight-night
+         day over the last 53 weeks, weeks from Monday, the same ramp, and
+         a label that says what it shows.
+      6. A "Last time out" block on the pilot page: the pilot's latest
+         fight-night day, how long ago, matches, wins, losses and ties,
+         kills, deaths, Combat Ratio, the rating change that day, the
+         night's matches as links, and the recap link when that day has a
+         recap.
+      7. New endpoint `GET /api/pilot/:name/career` (months, calendar, last
+         time out) through `apiService`; the existing endpoints answer as
+         before; no request walks every stored match.
+      8. Charts stay out of the entry chunk; the entry, the dashboard's
+         `GameList` and the pilot page chunk sizes are recorded before and
+         after.
+      9. Checked in headless Chrome at 1,280 and 390 px: the heatmap and a
+         pilot page with its career block, on local data plus Fetch-domain
+         mocks for a full year; the dashboard, leaderboard, rankings, pilot
+         pages and match page still work.
 - [ ] **S15 Server history** (S). Persist server-browser snapshots; `/server/:ip`
       page with uptime, peak hours, average players; regional share over time.
 - [ ] **S16 Weapon meta and ladders** (M). Weapon × map heatmap; weapon mix
@@ -2954,6 +3179,181 @@ Not counted in the 28 sessions.
   and compiling fails on Node 24 and in this Mac's Command Line Tools
   linker). Rollback: revert the PR and pull the image; a Node 22 image
   reads the same database files.
+- 2026-10-08 (S14): Time zone and day boundary, decided by the owner at
+  the start of S14: days are counted in America/Chicago and roll over at
+  06:00 there, so a night that runs past midnight stays on the evening it
+  started. On the 40 local matches a session ran from 22:00 to 01:00
+  Chicago time and another from 03:00 to 06:00; midnight would have split
+  the first across two fight nights and two rating days. The rule is
+  `FIGHT_NIGHT_DAY` in `server/lib/gameParse.js`: `fightNightDay(date)`
+  names a date's day, `dayBounds(day)` gives its UTC start and end as ISO
+  strings for `date >= ? AND date < ?` (the stored dates are all
+  24-character UTC ISO strings, so the comparison is exact and uses
+  `idx_games_date`; a day is 23 or 25 hours long on the DST days), and
+  `localClock(date)` gives the fight-night day, its weekday (0 Monday)
+  and the clock hour. The clock is read through `Intl.DateTimeFormat`
+  once per UTC hour seen, as S13's replay did, because Chicago's offset
+  changes only on the hour. What moved with it: the fight-night match
+  list (`getGamesForDate`), the qualifying-day scan, the detector (below),
+  the rating's snapshot day and the rankings' today (`ratingDay` and
+  `RATING.timeZone` are gone; `ratingSnapshots` calls `fightNightDay`),
+  the activity timeline and the admin calendar (`getGameCountsByDate`
+  now counts fight-night days in JS from the dates on `idx_games_date`;
+  SQL's `date()` counted UTC days), the pilot share description's last
+  match, the pilot page's Last Active (it showed the viewer's local date)
+  and the rankings' Last match tooltip. `utcDayBounds` is gone; the S3
+  test for the day's edges now checks 06:00. What did not move: the
+  backup folder names stay the calendar day of the 03:00 run (they name
+  when the copy was made, not a day of matches); `utcMonthBounds` (the
+  archive's month filter), the monthly counts and the server activity's
+  last 24 hours stay UTC, and `/api/stats/global`'s `activity` stays UTC
+  weekday and hour (nothing reads it now; flagged). On the first start
+  over the S13 data the refresh moved 4 rating days and rewrote 11 rows.
+  Rejected: midnight (splits a night), and the viewer's own time zone
+  for the heatmap, which the plan page suggested (the owner chose one
+  zone for every day count).
+- 2026-10-08 (S14): The fight-night detector ran in the 03:00 job and
+  checked the two UTC days before now. With a 06:00 rollover, 03:00 is
+  still inside the night it should judge, so the detector now has its own
+  timer: 15 minutes after each fight-night day ends (06:15 Chicago time,
+  worked out from `dayBounds`, not the process TZ), checking the two days
+  before today's. The 15 minutes let the tracker sync store the night's
+  last matches. The 03:00 job keeps the backup and the cold move. The
+  timer is set by day (the next run is the next day's 06:15), so a timer
+  that fires a little early by the wall clock cannot run the same day
+  twice.
+- 2026-10-08 (S14): Saved recaps and the new day. A recap is keyed by its
+  date, and before S14 that date was a UTC day, which takes in the evening
+  before (from 18:00 or 19:00 Chicago time) and leaves out the evening
+  itself. Kept as they were, the same night would come back under a second
+  key and show twice. So the first start of S14 rebuilds them once
+  (`rebuildRecapsForDayRule` in `fightNightService.js`, run from
+  `initializeFightNights`, one run at a time): from the first fight-night
+  day wholly in hot storage (after `hotCutoff()` in `repos/games.js`) to
+  yesterday, it saves a recap for every fight-night day that meets the
+  thresholds (every one, not only the latest 10 the empty-table scan
+  makes), one day's read at a time with requests let in between. Today's
+  night may still be running, so the detector takes it. Only then does it
+  delete the other recaps from that first day on, so a failure part-way
+  leaves the old ones for the next start, and writes
+  `fight_night_day_rule = America/Chicago from 6:00` to `admin_settings`,
+  so it never runs again for this rule. Older recaps stay under their UTC
+  dates: their matches are in cold storage, which `getGamesForDate` does
+  not read. The old recap keyed on the first day held the night before it,
+  which is not rebuilt, so that one night is dropped. Shared links to the
+  rebuilt recaps' old UTC dates now name the next fight-night day: they
+  404, or show that night if it qualified (flagged). On the local data the UTC recap for 2026-10-07 (19 matches, 14
+  pilots) went, and no fight-night day qualified in its place: the night
+  of 2026-10-06 has 18 matches but 11 pilots and 1,102 kills, and
+  2026-10-07 has 14 matches. The thresholds (16 matches and 14 pilots or
+  1,600 kills) were set against UTC days (flagged). Rollback: revert;
+  the old code keys new recaps by UTC day again, and `DELETE FROM
+  fight_night_recaps WHERE date >= '<a year ago>'` plus a restart rebuilds
+  them that way.
+- 2026-10-08 (S14): The heatmap. Rows are the weekday of the fight-night
+  day, Monday first; columns are clock hours from 06:00, so Saturday's
+  row runs on to 05:00 Sunday and a night reads as one row ("Saturday
+  night, 02:00" in the busiest line and the cell titles). The window is
+  the 12 whole weeks of fight-night days before today (84 days, today
+  left out), so each weekday counts 12 days. A cell is the number of
+  matches whose `date` (when the tracker closed the match) falls in that
+  hour; reading only dates keeps the query on `idx_games_date` with no
+  details parsed, and a match is about 15 minutes, so the close hour is
+  close to the playing hour. Counts, not a weekly average: the same
+  order with one less division to explain. Colour: a sequential ramp in
+  `chart.ramp`, the dataviz reference palette's blue steps 600 to 200
+  (`#184f95`, `#256abf`, `#3987e5`, `#6da7ec`, `#9ec5f4`), fewest to
+  most; on the dark surface the fewest is the darkest. Its validator in
+  `--ordinal --mode dark --surface "#111111"` passes: monotone lightness,
+  steps at least 0.06 apart, the darkest at 2.33:1, one hue. No matches
+  is `surface.raised`. `rampColor(count, max)` in `designTokens.js` picks
+  the step: each covers a fifth of the way to the largest count shown.
+  The heatmap is an HTML table (a header per row and column, the count
+  as screen-reader text, a title on hover) drawn with background colours,
+  not Recharts, which has no heatmap form; it adds no chart chunk. The
+  current hour is outlined in `chart.ink`. It sits on the dashboard under
+  the Fight Night teaser. `ActivityGraph` (UTC hours labelled LOCAL, audit
+  item 11) left the History tab and was deleted, and `GlobalActivityChart`
+  became a lazy import inside `GameList`, so the dashboard's first visit
+  loads no Recharts (S4 flag): `BarChart`, `CartesianChart` and `Area`,
+  about 104 KB gzip, now load only on the History tab.
+- 2026-10-08 (S14): Career series. Four monthly series on the pilot page:
+  matches, win rate, Combat Ratio and Lethality. The plan page said K/D;
+  Combat Ratio is the site's headline ratio since S10, with K/D under it.
+  They count what the career cards count: ranked matches (`rankedMatch`),
+  netKills totals, win rate as wins over matches played
+  (`winRate`, now in `gameParse.js` and used by the career cards too),
+  Lethality over the summed `durationOf`. A month's totals are a career
+  line (`emptyLine`, `addToLine` in `gameParse.js`), which "last time out"
+  uses for its night too. A match belongs to the month of
+  its fight-night day (`careerMonth`). The months are built in the same
+  loop of `pilotPass` that builds `pilot_stats_cache`, so a pilot's months
+  add up to their career totals (tested on fixtures and on the 40 local
+  matches). `careerSeries` fills every month from the first played to
+  this month; a month without a match has 0 matches and null rates, and
+  the lines break there. The sparklines are hand-drawn SVG (2px line in
+  `chart.series`, bars for the match count, a dot on the last month
+  played), with a title per month on hover and a "Career by month" table
+  for the keyboard and screen readers. The number beside each line is the
+  last month played.
+- 2026-10-08 (S14): `pilot_months(pilot, month, matches, wins, losses,
+  ties, kills, deaths, assists, seconds)`, primary key `(pilot, month)`,
+  `WITHOUT ROWID`, in `tracker.db` only (derived from both files, like
+  `rating_snapshots`). First build: `migrations.js` creates it empty; the
+  startup check in `maintenance.js` refreshes when it (or
+  `rating_snapshots`) is empty. Every refresh brings it in line the S13
+  way: the worker compares its rows with the table and sends only the
+  changes, and the main thread writes them in 2,000-row chunks. The S13
+  code for that is now one `tableChanges` in the worker and one
+  `writeChanges` in `analytics/refresh.js` for both tables. `restoreHot`
+  creates it when the restored file predates S14. Rollback: revert, pull
+  the old image, `DROP TABLE pilot_months;` on `tracker.db` (or leave it).
+  Rejected: a JSON column in `pilot_stats_cache` (every `SELECT *` on it,
+  `/ppi` included, would carry it), and computing months per request
+  (win rate and Lethality need every career match's details).
+- 2026-10-08 (S14): The activity calendar counts matches per fight-night
+  day, every stored match with the pilot in it (the match list's rule,
+  not only ranked ones; the calendar answers "when did they play"), over
+  53 weeks from the Monday 52 weeks before this week up to today. It is
+  read per request from the pilot's own `game_players` rows on the
+  covering `idx_game_players_name_date`, both files. Same ramp, scaled to
+  the pilot's busiest day. SVG with 11px days and 2px gaps; below the
+  year's width it scrolls and opens on the latest week. A summary line
+  says how many matches on how many days and the busiest day.
+- 2026-10-08 (S14): "Last time out" is the pilot's latest fight-night day
+  with a match (`lastOuting`): every match they played that day, ranked
+  or not, with wins, losses and ties from `outcomeOf`, kills (netKills),
+  deaths and the night's Combat Ratio. The rating change is the
+  snapshot at the end of that day minus the one before it (1500 for a
+  first rated day), and none when no match that day was rated
+  (`nightRatingChange`). It links
+  the night's recap when one is saved for that day and lists the five
+  newest matches as links. "Today", "yesterday" and "N days ago" count
+  fight-night days.
+- 2026-10-08 (S14): Endpoints. `GET /api/stats/heatmap` (in
+  `server/routes/stats.js`) answers `{ since, until, total, cells }`,
+  `cells` 7 rows of 24 counts; the zone, the start hour and the weeks are
+  `FIGHT_NIGHT_DAY` and `HEATMAP` in `gameParse.js`, which the page
+  imports. `GET /api/pilot/:name/career` (in `server/routes/pilots.js`)
+  answers `{ months, calendar: { since, until, days }, lastOut }`, `until`
+  being today's fight-night day; an unknown pilot gets empty months and
+  days and a null `lastOut`, not a 404. Both, and the activity timeline,
+  go through the route cache for 300 s like the pilot page's other
+  routes: the timeline and the day counts now bucket a year of dates in
+  JS, and the career parses one night's blobs. A refresh can therefore
+  take up to 5 minutes to show in the career arc, as on the career
+  cards. The calendar's dates come from the match list's query
+  (`pilotGameIdsSql`) and the night's games from the telemetry's
+  (`pilotGamesSql`), so the career block adds no new index path. The client reads them through `fetchActivityHeatmap` and
+  `fetchPilotCareer` (null on failure) and `useLoad`; the pilot page
+  loads the career beside the rating, so a mode change does not ask
+  again. `dayLabel` ("Wed, Oct 7, 2026"), `monthLabel` and `monthName`
+  sit beside `clock()` in `server/lib/matchResult.js`, on formatters made
+  once. The words for the day rule (`FIGHT_NIGHT_DAY_TEXT`), the column
+  order (`DAY_HOURS`) and `WIN_RATE_HINT` come from `gameParse.js`. The
+  rating card's "Rating by day" and the career's "Career by month" are one
+  `DetailsTable`. The activity timeline's day labels now
+  format in UTC, so a day shows as itself in any viewer's zone.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -3579,6 +3979,84 @@ Not counted in the 28 sessions.
   allowScripts" and still run them. npm 12.2.0 is out; whether it runs
   them unasked was not checked.
 
+- (S14) Earlier flags that name S14, the time zone, the day boundary,
+  fight nights, the dashboard's charts or the pilot page, decided:
+  - (S13) The rating's snapshot day should follow the fight-night day:
+    covered. It is `fightNightDay`.
+  - (S4) The dashboard's first visit loads Recharts through `GameList`:
+    covered. `ActivityGraph` is gone and `GlobalActivityChart` is lazy, so
+    the servers tab loads no chart chunk.
+  - (S9) `ActivityGraph` renders nothing while it loads: covered (deleted;
+    the heatmap has the shared states).
+  - (S12) Chart chrome still hex: `ActivityGraph` is gone; the career
+    block and the heatmap read `chart`. `GlobalActivityChart`,
+    `ServerActivitySparkline`, the pilot page's older charts, Archive and
+    Admin are still hex.
+  - (S3) `getQualifyingFightNightDates` runs one query per candidate day:
+    still open. The candidates now come from one index read of a year of
+    dates, then one indexed day read each.
+  - (S2) Fight-night Biggest Upset treats the top kills as the winner:
+    still open (not a day rule).
+  - (S7) The teaser waits for the first poll and the `GameList` chunk, and
+    a recap made while the tab is open shows after a reload; (S7, S10) the
+    header's ACTIVE PILOTS pill is the 90-day count: still open. The
+    heatmap loads beside the teaser and does not wait for it.
+  - (S10) Recaps saved before S10 keep the old words: covered for the
+    last 365 days, which the S14 rebuild regenerates with today's words;
+    older recaps keep them.
+  - (S13) The pilot page loads Recharts for the rating chart: unchanged.
+    The career block draws its own SVG and loads none.
+- (S14) The fight-night thresholds (16 matches, and 14 pilots or 1,600
+  kills) were tuned on UTC days, which ran from about 18:00 to 18:00
+  Chicago time and so took one evening's end and the next one's start.
+  On the local data no fight-night day qualifies any more (the best,
+  2026-10-06, has 18 matches, 11 pilots, 1,102 kills), where the UTC day
+  2026-10-07 did. Whether to lower them is the owner's call; the dashboard
+  teaser shows nothing until a night qualifies.
+- (S14) Recaps older than hot storage keep their UTC dates (see the recap
+  decision): their matches are in cold storage.
+- (S14) Links shared to a recap from before S14 inside the rebuilt year
+  (`/fight-night/<UTC date>`) now ask for the next fight-night day: a 404,
+  or that night's recap if it qualified. Accepted: a fallback to the day
+  before cannot tell an old link from a new one for a night that did not
+  qualify.
+- (S14) `/api/stats/global`'s `activity` is still UTC weekday and hour,
+  and its query still runs on each uncached request. Nothing in the
+  client reads it since `ActivityGraph` went; the field stays because it
+  is in a public API answer. Dropping it, with `getGlobalActivityStats`,
+  is a small follow-up if the owner agrees.
+- (S14, /simplify) Skipped: one daily scheduler for the 03:00 job and the
+  detector (the 03:00 job is outside this change); building the admin
+  page's monthly counts from fight-night days (`getMonthlyGameCounts` is
+  still UTC, so a month's total can differ from the sum of its days); one
+  list of derived tables (`rating_snapshots`, `pilot_months`) for the
+  ensure, restore, startup-check and write steps, each of which names
+  both today; a shared ▲▼ delta component for the rankings and the career
+  block (they differ: NEW against –, whole numbers against one decimal);
+  memoising the year of day counts inside `global.js` for the admin
+  calendar and the qualifying scan (the route cache covers the page).
+- (S14) The plan page said the heatmap would follow the viewer's clock.
+  The owner chose one zone for every day count, so it is in Central time.
+  A viewer elsewhere has to shift it in their head; a "your time" toggle
+  could rotate the columns by the offset difference.
+- (S14) Other day and month buckets still in UTC: the archive's month
+  filter (`utcMonthBounds`), `getMonthlyGameCounts`, the server activity
+  sparklines' hours (last 24 hours), the archive's year pills, and the
+  leaderboard's Last Seen (`toLocaleDateString()` in the viewer's zone).
+- (S14) The calendar counts every match with the pilot; the career arc
+  and the career cards count ranked matches only (2+ pilots, 60 s+). A
+  month can show more matches in the calendar than in the arc.
+- (S14) `localClock` reads the zone's offset once per UTC hour. That is
+  right for America/Chicago and any zone whose offset changes on the
+  hour, not for one with half-hour changes (Lord Howe).
+- (S14) The nightly job still runs at 03:00 by the process TZ
+  (`setHours`), while the detector's 06:15 comes from `dayBounds`. In the
+  container both are Chicago; on a Mac in another zone the 03:00 job
+  moves.
+- (S14) The local `rating_snapshots` in `/tmp/ofc-data` has an extra
+  `last_played` column from an early S13 build, so `/api/stats/rankings`
+  answers it there. A table made by `migrations.js` has no such column.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -3589,14 +4067,16 @@ the revert and the pull, run `DROP TABLE game_players;` on `tracker.db` and
 on `cold_storage.db` (see the S5 migration decision). The JSON blobs remain
 the source of truth, so no data is lost. S13 adds `rating_snapshots` to
 `tracker.db`; after its revert, `DROP TABLE rating_snapshots;` there, or
-leave it (nothing older reads it).
+leave it (nothing older reads it). S14 adds `pilot_months` the same way
+(`DROP TABLE pilot_months;`, or leave it). After an S14 revert the rating
+days go back to Chicago calendar days at the next refresh, and fight
+nights back to UTC days.
 
 ## Open questions
 
-- The time zone for fight-night day boundaries (US Central is the likely
-  answer given the server names). Decided in S14; ask the user at the start of
-  that session. S13's rating snapshots count days in America/Chicago
-  (`RATING.timeZone` in `gameParse.js`); S14 should move them with it.
+- None open. The time zone for fight-night days was settled by the owner at
+  the start of S14: America/Chicago, with the day rolling over at 06:00 (see
+  the S14 decisions).
 
 ## Skills to load
 
@@ -4140,12 +4620,52 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   the Rollback line are flagged, not fixed. PR #14 opened against
   `main`, not merged.
 
+- 2026-10-08, S14 (Claude Opus 5.5): fight-night days run from 06:00 to
+  06:00 Chicago time, by the owner's answer at the start, as one rule in
+  `gameParse.js` that fight nights, the rating's snapshot day, the
+  activity timeline, the share description and Last Active all use; a
+  7×24 heatmap on the dashboard in place of the History tab's UTC hour
+  chart; a career block on the pilot page (last time out, monthly
+  sparklines, a year's activity calendar) from a new `pilot_months` table
+  the stats worker builds; `/api/stats/heatmap` and
+  `/api/pilot/:name/career`. Status line checked first: it said the Node
+  26 PR #14 was open, but it had merged (`e35672a`), as had PR #13, with
+  no owner commits after them, so S14 branched from `origin/main`;
+  `10223be` is not an object here. First move: 14 files, 193 tests;
+  entry 74.16 KB gzip; tsc 0. Reading the code turned up three things the
+  tracker did not list. The 03:00 job ran the fight-night detector, which
+  under a 06:00 rollover would judge a night that had not ended, so the
+  detector now runs at 06:15. Saved recaps are keyed by UTC day and would
+  have come back under a second date. And `GameList` imported both chart
+  components statically, so the dashboard loaded Recharts for a tab it
+  was not showing. The new day also changed what the local data says: no
+  night meets the fight-night thresholds any more, because the UTC day
+  that did was two evenings joined (flagged for the owner). The career
+  months come out of the same loop as the career cards, and a plain
+  `node` run on the local data matched the server's tables row for row.
+  /code-review found 9 issues: fixed the UTC-keyed recaps (rebuilt once
+  for the last 365 days), a 500 for an impossible date, a year window
+  starting at UTC midnight, the career block hidden when the last night
+  failed to parse, uncached year scans and a detector that could reschedule
+  itself; kept the startup check (an all-unranked database already
+  refreshes on every start), months for undated matches (every writer
+  stores a date) and the unread `activity` field (public API, flagged).
+  Two mutation checks survived at first and got tests. /simplify (four
+  agents): one career line for the months and the night, the night's
+  rating change in `gameParse.js`, `dayStart` and the day wording from
+  `FIGHT_NIGHT_DAY`, the match-list and telemetry queries reused, one read
+  per day in the recap rebuild, memoised components, shared label
+  formatters and one `DetailsTable`, a route cache on the career, smaller
+  answers. Skipped: one scheduler for both daily jobs, UTC monthly
+  counts on the admin page, a list of derived tables, a shared delta
+  component (flagged). PR #15 opened against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S14: time and career.
+Continue the overloadfight.club roadmap. This session is S15: server history.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -4154,54 +4674,54 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  If the Node 26 PR (ofc/node26) is still open, tell me before starting S14.
-  S13 is on branch ofc/s13-rating, PR #13. PRs #1 to #12 are merged.
-  If PR #13 is merged:
-    git checkout -B ofc/s14-time-career origin/main
-  If PR #13 is still open:
-    git checkout -B ofc/s14-time-career origin/ofc/s13-rating
-    and open the S14 PR against main anyway; say in its description that it sits on PR #13.
-  Check again before opening the PR: if PR #13 merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #13 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  S14 is on branch ofc/s14-time-career, PR #15. PRs #1 to #14 are merged.
+  If PR #15 is merged:
+    git checkout -B ofc/s15-server-history origin/main
+  If PR #15 is still open:
+    git checkout -B ofc/s15-server-history origin/ofc/s14-time-career
+    and open the S15 PR against main anyway; say in its description that it sits on PR #15.
+  Check again before opening the PR: if PR #15 merged during the session, rebase onto origin/main first.
+  `git checkout -B ... origin/...` sets the remote branch as upstream; run `git branch --unset-upstream` so a bare push cannot go to main.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #15 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 26
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
-If neither origin/main nor origin/ofc/s13-rating has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s14-time-career has docs/ROADMAP.md, stop and tell me.
 
-Before building, ask me the open question in the tracker: which time zone fight-night days (and so the heatmap, the calendar and the rating's snapshot day) are counted in. The tracker suggests US Central. Do not pick one silently.
+Before building, ask me two questions the S15 entry leaves open: how often to snapshot the server browser (the shared poll runs every 10 s in the browser; the server's own fetch is what gets stored) and how long to keep the snapshots (raw rows against an hourly rollup). Also tell me, as S14 flagged, that no local fight-night day meets the thresholds under the 06:00 Chicago day, and ask whether to lower them in this session or leave them. Do not pick silently.
 
 Read first:
-- docs/ROADMAP.md, the S14 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the dashboard and the pilot page already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S2 decisions (durationOf, the ranked filter), S3 (fight-night day queries on `date >= ? AND date < ?`, utcDayBounds), S5 (game_players and its indexes, the stats worker, the hot/cold split), S6 (the 03:00 nightly job in server/backup.js, TZ=America/Chicago in the container), S7 (the dashboard order and the Fight Night teaser), S8 (URL state, siteRoutes), S9 (tokens, States), S10 (Combat Ratio and Lethality, the focus and tap rules), S11 (server/db/ and server/routes/ layout, hooks and child folders, apiService), S12 (the `chart` colours in designTokens.js and the dataviz validator), S13 (the rating rules in gameParse.js and RATING.timeZone, rating_snapshots, hooks/useLoad.ts, navSection, the pilot page's lazy chart chunk behind its own Suspense), every "Flagged, not fixed" item that names S14, the time zone, the day boundary, fight nights, the dashboard's charts or the pilot page (decide for each whether S14 covers it; flag the rest again), and the Postmortems.
-- server/lib/gameParse.js, server/services/fightNightService.js, server/db/repos/games.js (utcDayBounds, getGamesInDay, getGamesForDate), server/db/analytics/global.js (the activity charts), server/db/analytics/pilots.js and pilotTelemetry.js, server/lib/statsPasses.js, server/backup.js, server/maintenance.js, App.tsx (the dashboard), components/GameList.tsx, components/ActivityGraph.tsx, components/GlobalActivityChart.tsx, components/PilotDetail.tsx and components/pilotDetail/, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S15 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the dashboard, the live page and the server browser already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S4 decisions (the shared poll in hooks/useServerBrowser.ts, /api/browser), S5 (the stats worker, the hot/cold split), S6 (the 03:00 nightly job, backups, TZ=America/Chicago), S7 (the dashboard order, the live page and JoinIp, favorites), S8 (URL state, siteRoutes, share tags), S9 (tokens, States), S10 (focus and tap rules, tables in scroll wrappers), S11 (server/db/ and server/routes/ layout, hooks and child folders, apiService), S12 (`chart` in designTokens.js and the dataviz validator), S13 (useLoad, navSection, lazy chart chunks behind their own Suspense), S14 (fight-night days in gameParse.js: FIGHT_NIGHT_DAY, fightNightDay, dayBounds, dayStart, localClock, DAY_HOURS, heatmapCells; chart.ramp and rampColor; the dashboard heatmap; tableChanges/writeChanges for derived tables; the recap rebuild), every "Flagged, not fixed" item that names S15, servers, the server browser, the live page, regions or peak hours (decide for each whether S15 covers it; flag the rest again), and the Postmortems.
+- server/routes/browser.js, the server-browser fetch it proxies, hooks/useServerBrowser.ts, components/GameList.tsx (the server browser), components/ServerStats.tsx, components/ServerActivitySparkline.tsx, components/LiveGameDetail.tsx, server/db/analytics/global.js (getServerActivityStats, getActiveServerIps, the heatmap), server/lib/gameParse.js (the S14 day rules), server/lib/siteRoutes.js, server/pageMeta.js, server/db/migrations.js, server/maintenance.js, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
-- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every stat or chart number ships with a test on fixture games.
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every stat or chart number ships with a test on fixture data.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
 - server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. New tables go in server/db/migrations.js beside `games`, with a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules: a day boundary, a local hour, a career series and what counts as a pilot's last match are game rules, so they go there with tests and the server and client import them, as S7, S12 and S13 did. Never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
-- server/lib/siteRoutes.js owns page URLs, titles and the nav section; a new view gets its route, title and share description there and in server/pageMeta.js. Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
-- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js and any new series colour or sequential ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12).
+- server/lib/gameParse.js owns the game rules, the day rule included: a server's day, peak hour or uptime counts days and hours with fightNightDay, dayBounds and localClock (America/Chicago, 06:00 rollover, the owner's S14 answer). Never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
+- server/lib/siteRoutes.js owns page URLs, titles and the nav section; a new view (/server/:ip) gets its route, title and share description there and in server/pageMeta.js. Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
+- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js (chart.ramp for counts) and any new series colour or ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12, S14).
 - Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S13 left 231.49 KB raw / 74.16 KB gzip), the pilot page chunk (40.33 KB / 9.99 KB gzip) and whatever the dashboard loads, before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, and the dashboard's first visit loads no Recharts chunk (S14); record the entry size (S14 left 231.71 KB raw / 74.26 KB gzip), the dashboard's GameList chunk (40.40 KB / 11.42 KB gzip) and any new view's chunk, before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
-- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI): better-sqlite3 13 loads its N-API prebuild with no compile (see the Node 26 decision).
-- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (40 local matches at the end of S13). Check the UI in headless Chrome over CDP, as S4 and S7 to S13 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more pilots, matches or days than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy, not with `git checkout`, which also discards uncommitted work.
+- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI).
+- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it, or hand-drawn SVG and tables as S14 did, to a new chart library.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (40 local matches and one forced recap for 2026-10-06 at the end of S14). Check the UI in headless Chrome over CDP, as S4 and S7 to S14 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more servers, snapshots or days than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy, not with `git checkout`, which also discards uncommitted work.
 
 Rules for this session:
-- One PR, scope is the S14 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the time zone and the day boundary (and what moves with it: fight nights, the heatmap, the rating's snapshot day, backup folder names or not), the heatmap's buckets and colour ramp, each career series, the activity calendar's unit, the "last time out" block, any new table and its migration, and any new endpoint.
+- One PR, scope is the S15 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the snapshot cadence and retention (the owner's answers), the new table and its migration, how uptime, peak hours and average players are counted (and in which day and hour), the regions and where each server's region comes from, the /server/:ip page and its URL state, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S14 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S15 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S15.
+- Before ending: tick S15 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S16 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S16.
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S13 left 14 files, 193 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|GameList)-.*\.js"` (the Verification table records the entry at 74.16 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the time-zone question, then write the S14 Done-when list into the tracker.
-Done when: every item of the S14 Done-when list is true and checked on fixture games and in headless Chrome (the dashboard's heatmap and a pilot page with its career block, at 1,280 and 390 px), the dashboard, leaderboard, rankings, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S14 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S14 left 14 files, 220 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|LiveGameDetail)-.*\.js"` (the Verification table records the entry at 74.26 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S15 Done-when list into the tracker.
+Done when: every item of the S15 Done-when list is true and checked on fixture data and in headless Chrome (a /server/:ip page and whatever the dashboard gains, at 1,280 and 390 px), the dashboard, the server browser, the live page, leaderboard, rankings, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S15 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career` and `/api/health`, and the PR is open with the tracker updated.
 ```

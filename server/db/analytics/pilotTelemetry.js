@@ -51,8 +51,8 @@ export function normalizeWeaponName(raw) {
 // A pilot's games in one file: the ids from game_players through
 // idx_game_players_name_date, then the details by primary key. game_players
 // stores names trimmed, and the NOCASE column ignores ASCII case.
-const pilotGamesSql = (schema, since = '') => `
-    SELECT details, date FROM ${schema}.games
+export const pilotGamesSql = (schema, since = '') => `
+    SELECT id, details, date FROM ${schema}.games
     WHERE id IN (SELECT game_id FROM ${schema}.game_players WHERE name = TRIM(@name) ${since})
     ORDER BY date DESC
 `;
