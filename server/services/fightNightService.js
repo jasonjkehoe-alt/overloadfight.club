@@ -1,5 +1,5 @@
 import db from '../db.js';
-import { FIGHT_NIGHT_DAY, fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
+import { FIGHT_NIGHT_DAY, dayStart, fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
 
 export const FIGHT_NIGHT_THRESHOLDS = {
     minMatches: 16,    // ≥ 16 matches in one fight-night day (gameParse.js)
@@ -454,24 +454,41 @@ export async function checkAndGenerateRecentFightNight() {
 // Recaps saved before S14 are keyed by UTC day; since S14 a date names a
 // fight-night day (gameParse.js FIGHT_NIGHT_DAY), so the same night would come
 // back under a second key. Once per day rule (marked in admin_settings), the
-// recaps of the last 365 days, whose matches are still in hot storage, are
-// rebuilt on fight-night days: every qualifying night, not only the latest 10.
-// Older recaps stay as they were; their matches cannot be re-read.
+// recaps from the first fight-night day wholly in hot storage (db.hotCutoff)
+// to yesterday are rebuilt on fight-night days: every qualifying night, not
+// only the latest 10. Today's night may still be running; the detector takes
+// it. Each night is saved before the old keys go, so a failure part-way leaves
+// the old recaps for the next start to retry. Older recaps stay as they were;
+// their matches cannot be re-read. The old key on the first day held the night
+// before it, which is outside the rebuild, so that one night is dropped.
 const DAY_RULE_SETTING = 'fight_night_day_rule';
 const DAY_RULE = `${FIGHT_NIGHT_DAY.timeZone} from ${FIGHT_NIGHT_DAY.startHour}:00`;
 
-export async function rebuildRecapsForDayRule() {
+// One rebuild at a time: GET /api/fight-nights starts one while the table is empty.
+let rebuilding = null;
+export function rebuildRecapsForDayRule() {
+    rebuilding ??= rebuildRecaps().finally(() => {
+        rebuilding = null;
+    });
+    return rebuilding;
+}
+
+async function rebuildRecaps() {
     if (db.getAdminSetting.get(DAY_RULE_SETTING)?.value === DAY_RULE) return;
-    const removed = db.deleteFightNightRecapsSince(shiftDay(fightNightDay(Date.now()), -365));
+    const cutoff = db.hotCutoff();
+    const edge = fightNightDay(cutoff);
+    const first = dayStart(edge) < cutoff ? shiftDay(edge, 1) : edge;
+    const today = fightNightDay(Date.now());
     // generateRecapForDate checks the thresholds itself, reading each day once
-    let saved = 0;
+    const saved = [];
     for (const { day, count } of db.getGameCountsByDate.all()) {
-        if (count < FIGHT_NIGHT_THRESHOLDS.minMatches) continue;
-        if (await generateRecapForDate(day)) saved++;
+        if (day < first || day >= today || count < FIGHT_NIGHT_THRESHOLDS.minMatches) continue;
+        if (await generateRecapForDate(day)) saved.push(day);
         await new Promise(resolve => setImmediate(resolve)); // let requests in between days
     }
+    const removed = db.deleteFightNightRecapsSince(first, saved);
     db.setAdminSetting.run(DAY_RULE_SETTING, DAY_RULE);
-    console.log(`[FightNight] Days now count ${DAY_RULE}: removed ${removed} recaps of the last 365 days, saved ${saved}.`);
+    console.log(`[FightNight] Days now count ${DAY_RULE}: saved ${saved.length} recaps from ${first}, removed ${removed} others.`);
 }
 
 /**

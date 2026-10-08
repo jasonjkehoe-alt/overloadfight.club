@@ -52,8 +52,11 @@ export const saveFightNightRecap = (date, data) => {
   }
 };
 
-// Removes the recaps from `day` (YYYY-MM-DD) on; returns how many.
-export const deleteFightNightRecapsSince = day => hotDb.prepare('DELETE FROM fight_night_recaps WHERE date >= ?').run(day).changes;
+// Removes the recaps from `day` (YYYY-MM-DD) on, except the days in `keep`;
+// returns how many.
+export const deleteFightNightRecapsSince = (day, keep = []) => hotDb
+  .prepare('DELETE FROM fight_night_recaps WHERE date >= ? AND date NOT IN (SELECT value FROM json_each(?))')
+  .run(day, JSON.stringify(keep)).changes;
 
 const hasFightNightRecapStmt = hotDb.prepare('SELECT 1 FROM fight_night_recaps WHERE date = ?').pluck();
 export const hasFightNightRecap = date => Boolean(hasFightNightRecapStmt.get(date));

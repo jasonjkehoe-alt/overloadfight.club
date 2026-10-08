@@ -274,6 +274,13 @@ describe('career (pilot_months, /api/pilot/:name/career) and the heatmap', () =>
         for (let d = day; d < later.until; d = shiftDay(d, 1)) fromDay += db.getGamesForDate(d).length;
         expect(later.total).toBe(fromDay);
         expect(later.total).toBeLessThan(heat.total);
+        // during `day` the window ends before it: the matches already played that day are out
+        const during = db.getActivityHeatmap(Date.parse(dayBounds(day)[1]) - 3600000);
+        expect(during.until).toBe(day);
+        expect(db.getGamesForDate(day).length).toBeGreaterThan(0);
+        let beforeDay = 0;
+        for (let d = during.since; d < day; d = shiftDay(d, 1)) beforeDay += db.getGamesForDate(d).length;
+        expect(during.total).toBe(beforeDay);
     });
 });
 
@@ -405,6 +412,65 @@ describe('fight night recap', () => {
         db.saveFightNightRecap(shiftDay(day, 1), { totalMatches: 99 });
         await rebuildRecapsForDayRule();
         expect(db.getFightNightRecapByDate(shiftDay(day, 1)).totalMatches).toBe(99);
+    });
+
+    describe('rebuild edges, every fixture day qualifying', () => {
+        let service;
+        let thresholds;
+        beforeAll(async () => {
+            service = await import('./services/fightNightService.js');
+            thresholds = { ...service.FIGHT_NIGHT_THRESHOLDS };
+            Object.assign(service.FIGHT_NIGHT_THRESHOLDS, { minMatches: 1, minPilots: 1 });
+        });
+        afterAll(() => {
+            Object.assign(service.FIGHT_NIGHT_THRESHOLDS, thresholds);
+        });
+        const rebuildAt = async now => {
+            db.setAdminSetting.run('fight_night_day_rule', 'UTC');
+            vi.useFakeTimers({ toFake: ['Date'] });
+            try {
+                vi.setSystemTime(now);
+                await service.rebuildRecapsForDayRule();
+            } finally {
+                vi.useRealTimers();
+            }
+        };
+
+        it('leaves the night still running to the detector', async () => {
+            // an hour before `day` ends: its matches are in, its night is not over
+            await rebuildAt(Date.parse(dayBounds(day)[1]) - 3600000);
+            expect(db.getFightNightRecapByDate(shiftDay(day, -1))).not.toBeNull();
+            expect(db.getFightNightRecapByDate(day)).toBeNull();
+        });
+
+        it('keeps the old recaps when a save fails part-way', async () => {
+            db.saveFightNightRecap(shiftDay(day, 1), { totalMatches: 99 });
+            db.setAdminSetting.run('fight_night_day_rule', 'UTC');
+            const save = vi.spyOn(db, 'saveFightNightRecap').mockImplementation(() => { throw new Error('disk full'); });
+            try {
+                await expect(service.rebuildRecapsForDayRule()).rejects.toThrow('disk full');
+            } finally {
+                save.mockRestore();
+            }
+            expect(db.getFightNightRecapByDate(shiftDay(day, 1)).totalMatches).toBe(99);
+            expect(db.getAdminSetting.get('fight_night_day_rule').value).toBe('UTC');
+        });
+
+        it('starts at the first fight-night day wholly in hot storage', async () => {
+            // a year after 08:00 Chicago time on `day`: hot storage starts inside `day`
+            const now = new Date(Date.parse(dayBounds(day)[0]) + 2 * 3600000);
+            now.setFullYear(now.getFullYear() + 1);
+            db.saveFightNightRecap(day, { totalMatches: 99 });
+            await rebuildAt(now.getTime());
+            expect(db.getFightNightRecapByDate(day).totalMatches).toBe(99);
+        });
+
+        it('runs one rebuild at a time', async () => {
+            db.setAdminSetting.run('fight_night_day_rule', 'UTC');
+            const running = service.rebuildRecapsForDayRule();
+            expect(service.rebuildRecapsForDayRule()).toBe(running);
+            await running;
+        });
     });
 });
 

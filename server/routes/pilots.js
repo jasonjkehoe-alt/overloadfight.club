@@ -116,7 +116,8 @@ router.get('/pilot/:name/career', async (req, res) => {
         const cached = await cacheService.get(cacheKey);
         if (cached) return res.json(cached);
         const career = db.getPilotCareer(req.params.name);
-        await cacheService.set(cacheKey, career, 300);
+        // not before pilot_months' first build, when every pilot reads as unplayed
+        if (db.hasPilotMonths()) await cacheService.set(cacheKey, career, 300);
         res.json(career);
     } catch (e) {
         console.error("Pilot Career Error:", e);

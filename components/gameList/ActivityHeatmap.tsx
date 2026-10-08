@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { CalendarClock } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from '../States';
 import { chart, rampColor } from '../../designTokens.js';
@@ -18,6 +18,13 @@ const when = (weekday: number, hour: number) =>
 // column headers for a screen reader and a title on hover.
 const ActivityHeatmap: React.FC = () => {
     const { data, failed, retry } = useLoad(fetchActivityHeatmap, []);
+    // The outlined hour moves on the hour while the dashboard stays open (Chicago's
+    // offset is whole hours, so its hours turn with UTC's).
+    const [now, setNow] = useState(() => localClock(Date.now()));
+    useEffect(() => {
+        const timer = setTimeout(() => setNow(localClock(Date.now())), 3600000 - (Date.now() % 3600000) + 1000);
+        return () => clearTimeout(timer);
+    }, [now]);
 
     let body: React.ReactNode;
     if (failed) {
@@ -32,13 +39,12 @@ const ActivityHeatmap: React.FC = () => {
         data.cells.forEach((row, weekday) => DAY_HOURS.forEach(hour => {
             if (row[hour] > busiest.count) busiest = { weekday, hour, count: row[hour] };
         }));
-        const now = localClock(Date.now());
         const last = shiftDay(data.until, -1);
         body = (
             <>
                 <p className="text-xs text-gray-400 mb-3">
                     Busiest: <span className="text-white font-bold">{when(busiest.weekday, busiest.hour)}</span>,{' '}
-                    {busiest.count.toLocaleString()} matches. {data.total.toLocaleString()} matches from {data.since} to {last}.
+                    {busiest.count.toLocaleString()} match{busiest.count === 1 ? '' : 'es'}. {data.total.toLocaleString()} match{data.total === 1 ? '' : 'es'} from {data.since} to {last}.
                 </p>
                 <div className="overflow-x-auto">
                     <table className="w-full table-fixed border-separate border-spacing-[2px] min-w-[300px]">

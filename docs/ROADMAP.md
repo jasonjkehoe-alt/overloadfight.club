@@ -115,7 +115,7 @@ maintenance item does not count toward the 28.
   files are one line each.
 - S14, the time-zone question: asked before building. The owner chose
   America/Chicago and a 06:00 rollover.
-- S14, tests: `npx vitest run` passes 14 files, 216 tests (23 new).
+- S14, tests: `npx vitest run` passes 14 files, 220 tests (27 new).
   `gameParse.test.js`: the rollover at 05:59 and 06:00 in CST and CDT;
   the fixtures' evening (72084 to 72094, 21:24 to 02:49 Chicago time) on
   one fight-night day; `localClock` weekday and hour; `dayBounds` at 24,
@@ -230,10 +230,10 @@ maintenance item does not count toward the 28.
     "Monday 04:00" reading as Monday morning; all three fixed.
 - S14, sizes on Node 26.11.1 after /simplify: entry `index-*.js` 231.71
   KB raw / 74.26 KB gzip (74.16 before: the two fetchers and their
-  types); `GameList-*.js` 40.22 KB / 11.37 KB gzip (54.96 / 15.48
+  types); `GameList-*.js` 40.40 KB / 11.42 KB gzip (54.96 / 15.48
   before: `ActivityGraph` gone, the timeline chart lazy in its own
-  `GlobalActivityChart-*.js`, 15.41 / 5.06); `PilotDetail-*.js` 48.74 KB
-  / 12.74 KB gzip (40.33 / 9.99 before: the career block). The
+  `GlobalActivityChart-*.js`, 15.41 / 5.06); `PilotDetail-*.js` 48.79 KB
+  / 12.77 KB gzip (40.33 / 9.99 before: the career block). The
   dashboard's first visit now loads no Recharts chunk (from the browser's
   resource list: entry, `GameList`, `gameParse`, `designTokens`,
   `RampLegend`, `useLoad` and icons). Before, `GameList` imported both
@@ -1636,9 +1636,9 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 14 files, 216 tests pass on 26.11.1 (S14; 193 at its start) | 2026-10-08 |
+| `npx vitest run` | all pass | 14 files, 220 tests pass on 26.11.1 (S14; 193 at its start) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.71 KB raw / 74.26 KB gzip, dashboard `GameList` 40.22 KB / 11.37 KB gzip and no Recharts on its first visit, pilot page `PilotDetail` 48.74 KB / 12.74 KB gzip on 26.11.1 (S14; 74.16, 15.48 and 9.99 at its start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.71 KB raw / 74.26 KB gzip, dashboard `GameList` 40.40 KB / 11.42 KB gzip and no Recharts on its first visit, pilot page `PilotDetail` 48.79 KB / 12.77 KB gzip on 26.11.1 (S14; 74.16, 15.48 and 9.99 at its start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S14) | 2026-10-08 |
 | `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S14 on `/tmp/ofc-data`: `total_games: 40`, `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats` 23 games and 380 kills, `/api/stats/rankings` WD-40 first, `/api/health` ok, `/api/stats/heatmap` 38 matches, `/api/pilot/WD-40/career` 1 month and 3 days | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
@@ -3228,15 +3228,21 @@ Not counted in the 28 sessions.
   itself. Kept as they were, the same night would come back under a second
   key and show twice. So the first start of S14 rebuilds them once
   (`rebuildRecapsForDayRule` in `fightNightService.js`, run from
-  `initializeFightNights`): it deletes the recaps of the last 365 days,
-  whose matches are still in hot storage, and saves a recap for every
-  fight-night day in that year that meets the thresholds (every one, not
-  only the latest 10 the empty-table scan makes), one day's read at a time
-  with requests let in between. Then it writes `fight_night_day_rule =
-  America/Chicago from 6:00` to `admin_settings`, so it never runs again
-  for this rule. Recaps older than 365 days stay under their UTC dates:
-  their matches are in cold storage, which `getGamesForDate` does not
-  read. On the local data the UTC recap for 2026-10-07 (19 matches, 14
+  `initializeFightNights`, one run at a time): from the first fight-night
+  day wholly in hot storage (after `hotCutoff()` in `repos/games.js`) to
+  yesterday, it saves a recap for every fight-night day that meets the
+  thresholds (every one, not only the latest 10 the empty-table scan
+  makes), one day's read at a time with requests let in between. Today's
+  night may still be running, so the detector takes it. Only then does it
+  delete the other recaps from that first day on, so a failure part-way
+  leaves the old ones for the next start, and writes
+  `fight_night_day_rule = America/Chicago from 6:00` to `admin_settings`,
+  so it never runs again for this rule. Older recaps stay under their UTC
+  dates: their matches are in cold storage, which `getGamesForDate` does
+  not read. The old recap keyed on the first day held the night before it,
+  which is not rebuilt, so that one night is dropped. Shared links to the
+  rebuilt recaps' old UTC dates now name the next fight-night day: they
+  404, or show that night if it qualified (flagged). On the local data the UTC recap for 2026-10-07 (19 matches, 14
   pilots) went, and no fight-night day qualified in its place: the night
   of 2026-10-06 has 18 matches but 11 pilots and 1,102 kills, and
   2026-10-07 has 14 matches. The thresholds (16 matches and 14 pilots or
@@ -4007,8 +4013,13 @@ Not counted in the 28 sessions.
   2026-10-06, has 18 matches, 11 pilots, 1,102 kills), where the UTC day
   2026-10-07 did. Whether to lower them is the owner's call; the dashboard
   teaser shows nothing until a night qualifies.
-- (S14) Recaps older than 365 days keep their UTC dates (see the recap
+- (S14) Recaps older than hot storage keep their UTC dates (see the recap
   decision): their matches are in cold storage.
+- (S14) Links shared to a recap from before S14 inside the rebuilt year
+  (`/fight-night/<UTC date>`) now ask for the next fight-night day: a 404,
+  or that night's recap if it qualified. Accepted: a fallback to the day
+  before cannot tell an old link from a new one for a night that did not
+  qualify.
 - (S14) `/api/stats/global`'s `activity` is still UTC weekday and hour,
   and its query still runs on each uncached request. Nothing in the
   client reads it since `ActivityGraph` went; the field stays because it
@@ -4693,7 +4704,7 @@ Binding decisions, do not re-derive:
 - Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js (chart.ramp for counts) and any new series colour or ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12, S14).
 - Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, and the dashboard's first visit loads no Recharts chunk (S14); record the entry size (S14 left 231.71 KB raw / 74.26 KB gzip), the dashboard's GameList chunk (40.22 KB / 11.37 KB gzip) and any new view's chunk, before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, and the dashboard's first visit loads no Recharts chunk (S14); record the entry size (S14 left 231.71 KB raw / 74.26 KB gzip), the dashboard's GameList chunk (40.40 KB / 11.42 KB gzip) and any new view's chunk, before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI).
 - Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it, or hand-drawn SVG and tables as S14 did, to a new chart library.
@@ -4711,6 +4722,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S14 left 14 files, 216 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|LiveGameDetail)-.*\.js"` (the Verification table records the entry at 74.26 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S15 Done-when list into the tracker.
+First move: run `npx vitest run` (S14 left 14 files, 220 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|LiveGameDetail)-.*\.js"` (the Verification table records the entry at 74.26 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S15 Done-when list into the tracker.
 Done when: every item of the S15 Done-when list is true and checked on fixture data and in headless Chrome (a /server/:ip page and whatever the dashboard gains, at 1,280 and 390 px), the dashboard, the server browser, the live page, leaderboard, rankings, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S15 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career` and `/api/health`, and the PR is open with the tracker updated.
 ```

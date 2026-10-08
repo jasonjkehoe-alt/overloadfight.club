@@ -28,12 +28,14 @@ const ActivityCalendar: React.FC<{ calendar: PilotCareer['calendar'] }> = ({ cal
 
     const cells: React.ReactNode[] = [];
     const monthMarks: React.ReactNode[] = [];
+    // the first column is labelled by its Monday unless a month starts later in it
+    const monthInFirstWeek = [1, 2, 3, 4, 5, 6].some(i => shiftDay(since, i).endsWith('-01'));
     for (let week = 0; week < CALENDAR.weeks; week++) {
         for (let weekday = 0; weekday < 7; weekday++) {
             const day = shiftDay(since, week * 7 + weekday);
             if (day > until) break;
             const n = counts.get(day) ?? 0;
-            if (day.endsWith('-01') || (week === 0 && weekday === 0)) {
+            if (day.endsWith('-01') || (week === 0 && weekday === 0 && !monthInFirstWeek)) {
                 monthMarks.push(
                     <text key={day} x={LEFT + week * STEP} y={TOP - 4} fill={chart.label} fontSize="9">
                         {monthName(day)}

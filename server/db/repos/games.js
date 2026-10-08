@@ -257,8 +257,12 @@ export const insertGame = {
   }
 };
 
+// Games dated from this instant on belong in hot storage; moveGamesToColdStorage
+// moves the older ones to cold.
+export const hotCutoff = () => new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+
 export const saveGames = (games) => {
-  const ONE_YEAR_AGO = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+  const ONE_YEAR_AGO = hotCutoff();
 
   // Separate games into Hot and Cold
   const hotGames = [];
@@ -343,7 +347,7 @@ export const saveColdGamesBatch = (gamesList) => {
 };
 
 export const updateGameDetails = (game) => {
-  const ONE_YEAR_AGO = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+  const ONE_YEAR_AGO = hotCutoff();
   const gameDate = game.date || game.start || new Date().toISOString();
 
   // Determine target DB
@@ -408,7 +412,7 @@ VALUES(?, ?, ?, ?, ?)
 // half; this order leaves a duplicate at worst, which the next run removes, and
 // never a game in neither file.
 export const moveGamesToColdStorage = () => {
-  const ONE_YEAR_AGO = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString();
+  const ONE_YEAR_AGO = hotCutoff();
 
   hotDb.transaction(() => {
     // A game cold storage already has keeps its cold copy and rows.

@@ -9,7 +9,7 @@ import { ensureGamePlayersTable, ensurePilotMonths, ensureRatingSnapshots, migra
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
-  moveGamesToColdStorage, getMaxGameDate, getSummaryGames, getGamesForDate
+  moveGamesToColdStorage, getMaxGameDate, getSummaryGames, getGamesForDate, hotCutoff
 } from './db/repos/games.js';
 import {
   getBackfillJob, getActiveBackfillJob, createBackfillJob, updateBackfillJob, deleteBackfillJob,
@@ -101,6 +101,7 @@ const db = {
   getMaxGameDate,
   getSummaryGames,
   getGamesForDate,
+  hotCutoff,
 
   // repos/jobs.js
   getBackfillJob,
