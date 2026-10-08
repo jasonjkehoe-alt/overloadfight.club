@@ -1252,7 +1252,44 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 
 - [ ] **S12 Fight card, momentum, scrubber** (M). Match page: momentum chart
       with lead changes and weapon-colored kills; a time scrubber that replays
-      the scoreboard from `kills[].time`.
+      the scoreboard from `kills[].time`. Done when (written at the start of
+      S12):
+      1. `server/lib/gameParse.js` owns the kill-log rules, each tested on
+         fixture games: what one kill is worth (`killPoints`), the
+         scoreboard replayed to any second (`scoreboardAt`), lead changes
+         (`leadChanges`), the momentum series (`momentumOf`), first blood
+         (`firstBloodOf`), weapon families (`weaponFamily`) and the verdict
+         (`verdictOf`: KO, decision, split decision, draw). Replaying a
+         whole kill log gives each pilot's kills, deaths and assists and
+         each team's score as the tracker reports them.
+      2. The result panel reads as a fight card: the verdict, the number of
+         lead changes and first blood (pilot, weapon, time) sit beside the
+         S7 winner, score or podium and result line. Lead changes and first
+         blood show only for a match with a kill log.
+      3. A momentum chart replaces "Score Progression": the eventual
+         winner's margin over the best other side after every kill, lead
+         changes marked, every kill drawn in its weapon family's colour
+         with a legend, a tooltip with time, margin and score. A match
+         without a kill log, or in a mode whose score is not kills (CTF,
+         Monsterball), gets an EmptyState instead.
+      4. A scrubber on the overview tab: a slider from 0:00 to the match
+         length (`durationOf`) that replays the scoreboard (kills, assists,
+         deaths, Combat Ratio, order) and the team score or the leader at
+         that second. It works from the keyboard, its position is in the
+         URL as `?t=<seconds>` (left out at the end), the momentum chart
+         marks it, and a click on the chart moves it.
+      5. MatchReplay reads the points per kill, lead changes and match
+         length from `gameParse.js` and its weapon colours from
+         `designTokens.js`, so the page has one copy of each. Not split.
+      6. Chart colours live in `designTokens.js`, checked with the dataviz
+         palette validator against `surface-card`; the momentum chart,
+         MatchReplay and the deep-dive tab's charts read them. `ScoreChart`
+         and the first-blood copy in `utils/statCalculators.ts` are gone.
+      7. Charts stay out of the entry chunk; entry and match-page chunk
+         sizes recorded before and after.
+      8. Checked in headless Chrome on a team match and an FFA match with
+         kill logs, at 1,280 and 390 px; the existing tabs, result line,
+         duration and MatchReplay still work.
 - [ ] **S13 Rating and power rankings** (M). Glicko-2 from placement and
       corrected team results; nightly snapshot table; rating history line on
       the profile; `PowerRankings` view with weekly movement.
