@@ -402,6 +402,10 @@ export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday',
 
 // "06:00" for an hour of the day
 export const clockHour = hour => `${String(hour).padStart(2, '0')}:00`;
+// An hour of a named fight-night day; an hour before the day starts is that
+// night's: "Monday 21:00", "Monday night, 02:00".
+export const atClock = (dayName, hour) =>
+    hour < FIGHT_NIGHT_DAY.startHour ? `${dayName} night, ${clockHour(hour)}` : `${dayName} ${clockHour(hour)}`;
 // The clock hours in the order a fight-night day runs through them: 06:00 to 05:00.
 export const DAY_HOURS = Array.from({ length: 24 }, (_, i) => (FIGHT_NIGHT_DAY.startHour + i) % 24);
 // The pages' words for the rule.
@@ -719,6 +723,13 @@ const nextMonth = month => {
     const [y, m] = month.split('-').map(Number);
     return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
 };
+// Every month (YYYY-MM) from `first` to `thisMonth`, or just `first` when it is later.
+const monthsTo = (first, thisMonth) => {
+    const months = [];
+    const last = thisMonth > first ? thisMonth : first;
+    for (let month = first; month <= last; month = nextMonth(month)) months.push(month);
+    return months;
+};
 
 // A career line: the totals of some matches, as pilot_months keeps them per
 // month and lastOuting() for a night. addToLine() adds one player's match.
@@ -739,21 +750,17 @@ export function addToLine(line, player, outcome, seconds = 0) {
 // Lethality, which are null for a month with no match.
 export function careerSeries(months, thisMonth) {
     const byMonth = new Map(months.map(m => [m.month, m]));
-    const first = months[0]?.month;
-    const series = [];
-    if (!first) return series;
-    const last = thisMonth > first ? thisMonth : first;
-    for (let month = first; month <= last; month = nextMonth(month)) {
+    if (!months[0]) return [];
+    return monthsTo(months[0].month, thisMonth).map(month => {
         const m = { ...emptyLine(), ...byMonth.get(month), month };
         const played = m.matches > 0;
-        series.push({
+        return {
             ...m,
             winRate: played ? winRate(m.wins, m.matches) : null,
             combatRatio: played ? combatRatio(m.kills, m.assists, m.deaths) : null,
             lethality: played ? lethality(m.kills, m.seconds) : null
-        });
-    }
-    return series;
+        };
+    });
 }
 
 // "Last time out" (S14): every stored match the pilot played on their latest
@@ -870,14 +877,10 @@ export function regionShare(rows, thisMonth) {
     const byMonth = new Map();
     for (const { region, month, matches } of rows) {
         const m = byMonth.get(month) || { month, total: 0, counts: {} };
-        m.counts[region] = (m.counts[region] || 0) + matches;
+        m.counts[region] = matches; // one row per (region, month)
         m.total += matches;
         byMonth.set(month, m);
     }
     const first = [...byMonth.keys()].sort()[0];
-    const series = [];
-    if (!first) return series;
-    const last = thisMonth > first ? thisMonth : first;
-    for (let month = first; month <= last; month = nextMonth(month)) series.push(byMonth.get(month) || { month, total: 0, counts: {} });
-    return series;
+    return first ? monthsTo(first, thisMonth).map(month => byMonth.get(month) || { month, total: 0, counts: {} }) : [];
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { ArrowLeft, Radio, ServerOff } from 'lucide-react';
 import { Loading, EmptyState, ErrorState, secondaryButtonClass } from './States';
 import JoinIp from './JoinIp';
@@ -10,18 +10,18 @@ import { useQueryParam } from '../hooks/useLocation';
 import { useLoad } from '../hooks/useLoad';
 import { useServerBrowser } from '../hooks/useServerBrowser';
 import { fetchServerHistory, ServerHistory as History } from '../services/apiService';
-import { pageTitle, urlFor } from '../server/lib/siteRoutes.js';
+import { urlFor } from '../server/lib/siteRoutes.js';
 import { regionLabel } from '../server/lib/serverRegions.js';
-import { FIGHT_NIGHT_DAY, FIGHT_NIGHT_DAY_TEXT, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, clockHour, localClock, shiftDay } from '../server/lib/gameParse.js';
-import { dayLabel } from '../server/lib/matchResult.js';
+import { FIGHT_NIGHT_DAY_TEXT, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, atClock, localClock, shiftDay } from '../server/lib/gameParse.js';
+import { dayLabel, percent } from '../server/lib/matchResult.js';
 
 const WINDOWS = SERVER_WINDOWS.map(String);
-const share = (n: number | null) => (n === null ? '–' : `${(n * 100).toFixed(1)}%`);
+const share = (n: number | null) => (n === null ? '–' : percent(n, 1));
 const pilots = (n: number) => `${n.toFixed(1)} pilot${n === 1 ? '' : 's'} on average`;
 // "Sat, Oct 3, 2026 night, 01:00" for an hour of a fight-night day
 const atHour = (iso: string) => {
     const clock = localClock(iso)!;
-    return `${dayLabel(clock.day)}${clock.hour < FIGHT_NIGHT_DAY.startHour ? ' night' : ''}, ${clockHour(clock.hour)}`;
+    return atClock(dayLabel(clock.day), clock.hour);
 };
 
 const Card: React.FC<{ label: string; value: string; detail: string; title?: string }> = ({ label, value, detail, title }) => (
@@ -34,7 +34,7 @@ const Card: React.FC<{ label: string; value: string; detail: string; title?: str
 
 // The numbers for the window: uptime, use, pilots in a match, the peak, and
 // the peak hours.
-const WindowStats: React.FC<{ data: History }> = ({ data }) => {
+const WindowStats: React.FC<{ data: History }> = memo(({ data }) => {
     const last = shiftDay(data.until, -1);
     if (data.samples === 0) {
         return (
@@ -70,23 +70,24 @@ const WindowStats: React.FC<{ data: History }> = ({ data }) => {
             </section>
         </>
     );
-};
+});
 
 // /server/:ip (S15): one server's stored history from the site's minute-by-
 // minute record of the tracker's server browser. The window is ?days= (7, 30,
 // 90 or 365 whole fight-night days before today; 30 left out of the URL).
-const ServerHistory: React.FC<{ ip: string; onBack: () => void }> = ({ ip, onBack }) => {
+// `onName` hands App the stored name for the tab title (App owns it), so a
+// server that has left the live list is not titled by its IP.
+const ServerHistory: React.FC<{ ip: string; onBack: () => void; onName: (name: string) => void }> = ({ ip, onBack, onName }) => {
     const [days, setDays] = useQueryParam('days', String(SERVER_WINDOW_DEFAULT), WINDOWS);
     const { data, failed, retry } = useLoad(() => fetchServerHistory(ip, Number(days)), [ip, days]);
     // the last answer, so the header stays while another window loads
     const shown = useRef<History | null>(null);
     if (data) shown.current = data;
-    const listing = data ?? shown.current;
+    const listing = shown.current;
     const live = useServerBrowser().games?.find(s => s.server?.ip === ip);
-    // App titles the page from the live list; a server that has left it still has its stored name
     useEffect(() => {
-        if (listing?.name) document.title = pageTitle({ view: 'server', param: ip }, listing.name);
-    }, [ip, listing?.name]);
+        if (listing?.name) onName(listing.name);
+    }, [listing?.name]);
     const playing = Boolean(live?.game && !live.game.inLobby);
 
     const back = (
@@ -146,7 +147,7 @@ const ServerHistory: React.FC<{ ip: string; onBack: () => void }> = ({ ip, onBac
                         <h3 id="last-day-title" className="text-gray-500 font-bold text-xs uppercase tracking-widest mb-2">Last 24 hours</h3>
                         {data.lastDay.length === 0
                             ? <EmptyState compact icon={ServerOff} title="No ticks in the last 24 hours" />
-                            : <LastDayChart ticks={data.lastDay} now={data.asOf} />}
+                            : <LastDayChart ticks={data.lastDay} hours={data.lastDayHours} now={data.asOf} />}
                     </section>
                 </>
             )}

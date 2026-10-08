@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { chart, rampColor } from '../designTokens.js';
-import { DAY_HOURS, FIGHT_NIGHT_DAY, WEEKDAYS, clockHour, localClock } from '../server/lib/gameParse.js';
+import { DAY_HOURS, WEEKDAYS, atClock, clockHour, localClock } from '../server/lib/gameParse.js';
 
 // Columns in the order a fight-night day runs (DAY_HOURS), so a night past
 // midnight reads as one row; a row's hours before the day starts are the next
 // morning: "Monday night, 02:00".
-export const when = (weekday: number, hour: number) =>
-    hour < FIGHT_NIGHT_DAY.startHour ? `${WEEKDAYS[weekday]} night, ${clockHour(hour)}` : `${WEEKDAYS[weekday]} ${clockHour(hour)}`;
+export const when = (weekday: number, hour: number) => atClock(WEEKDAYS[weekday], hour);
 
 interface HourGridProps {
     // 7 rows (Monday first, by fight-night day) of 24 values by clock hour; null: nothing was counted

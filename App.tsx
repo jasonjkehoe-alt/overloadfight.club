@@ -34,13 +34,14 @@ const App: React.FC = () => {
   const currentView = route.view;
   const selectedGameId = currentView === 'game-detail' ? Number(route.param) : null;
   const activeServerIp = currentView === 'live-game-detail' ? String(route.param) : null;
-  const historyServerIp = currentView === 'server' && route.param ? String(route.param) : null;
+  const historyServerIp = currentView === 'server' ? String(route.param) : null;
+  // the server page's stored name, for its title (the live list may not have it)
+  const [serverName, setServerName] = useState<{ ip: string; name: string } | null>(null);
   const selectedPilot = currentView === 'pilot' ? String(route.param) : null;
   const selectedFightNightDate = currentView === 'fight-night' && route.param ? String(route.param) : undefined;
 
   const { games: activeGames, updatedAt: lastRefreshed, settled: browserSettled } = useServerBrowser();
   const activeServer = activeServerIp ? activeGames?.find(s => s.server?.ip === activeServerIp) : undefined;
-  const historyServer = historyServerIp ? activeGames?.find(s => s.server?.ip === historyServerIp) : undefined;
   const [archivedGames, setArchivedGames] = useState<GameData[] | null>(null);
   // The last match fetched, with its id: a page shows it only when the id is
   // its own, so match B never shows match A while B loads. data null = failed.
@@ -121,7 +122,7 @@ const App: React.FC = () => {
 
   const titleName = currentView === 'game-detail' ? selectedGameData?.settings?.level
     : currentView === 'live-game-detail' ? activeServer?.server?.name
-    : currentView === 'server' ? historyServer?.server?.name
+    : currentView === 'server' ? (serverName?.ip === historyServerIp ? serverName.name : undefined)
     : undefined;
   useEffect(() => {
     document.title = pageTitle(route, titleName);
@@ -252,6 +253,7 @@ const App: React.FC = () => {
           key={historyServerIp}
           ip={historyServerIp}
           onBack={() => goBack(urlFor('dashboard'))}
+          onName={name => setServerName({ ip: historyServerIp, name })}
         />
       )}
 

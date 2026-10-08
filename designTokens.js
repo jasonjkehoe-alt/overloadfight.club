@@ -1,6 +1,7 @@
 // The site's design tokens. tailwind.config.js turns them into classes
 // (bg-brand, bg-surface-card, border-line, rounded-card, text-2xs, ...);
 // chart code that needs a colour string imports them from here.
+import { REGIONS } from './server/lib/serverRegions.js';
 export const colors = {
   brand: { DEFAULT: '#ff6600', hover: '#ff8533' },
   // darkest to lightest: the page behind everything, cards and panels, controls and insets on a card
@@ -53,20 +54,6 @@ export const chart = {
     heavy: '#9085e9',
     other: '#898781',
   },
-  // Server regions (S15, the dashboard's region share), keyed by
-  // server/lib/serverRegions.js REGIONS ids and stacked in that order: the same
-  // seven slots in the same order as the weapons, so neighbours are the pairs
-  // the validator passed (worst adjacent CVD ΔE 8.4); Unknown is the chart grey.
-  region: {
-    'na-west': '#3987e5',
-    'na-central': '#d95926',
-    'na-east': '#199e70',
-    europe: '#c98500',
-    oceania: '#d55181',
-    asia: '#008300',
-    'south-america': '#9085e9',
-    unknown: '#898781',
-  },
   // How many (the dashboard heatmap and the pilot's activity calendar): the
   // reference palette's sequential blue, steps 600 to 200, fewest to most. On
   // the dark surface the fewest is the darkest; the validator's ordinal check
@@ -74,6 +61,12 @@ export const chart = {
   // 2.33:1). A count of 0 is surface.raised.
   ramp: ['#184f95', '#256abf', '#3987e5', '#6da7ec', '#9ec5f4'],
 };
+
+// Server regions (S15, the dashboard's region share), keyed by
+// server/lib/serverRegions.js REGIONS ids, which are stacked in that order: the
+// weapons' seven slots in their order, so neighbours are the pairs the validator
+// passed (worst adjacent CVD ΔE 8.4), and Unknown takes the weapons' grey.
+chart.region = Object.fromEntries(REGIONS.map((r, i) => [r.id, Object.values(chart.weapon)[i]]));
 
 // The ramp colour for `count` against the largest count shown: each step
 // covers a fifth of the way to `max`.

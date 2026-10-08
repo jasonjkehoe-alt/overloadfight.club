@@ -536,7 +536,6 @@ export const fetchPilotCareer = (name: string) => getJson<PilotCareer>(`${API_BA
 // raw ticks of the last 24 hours. `firstSeen` is null for a server never stored.
 export interface ServerTick {
     at: number;
-    online: number;
     players: number;
     // gameParse.js SERVER_STATE: 0 idle, 1 lobby, 2 match
     state: number;
@@ -549,8 +548,6 @@ export interface ServerHistory {
     version: string | null;
     region: string;
     firstSeen: string | null;
-    lastSeen: string | null;
-    lastOnline: string | null;
     days: number;
     since: string;
     until: string;
@@ -562,18 +559,19 @@ export interface ServerHistory {
     // 7 rows (Monday first) of 24 average pilots by clock hour, null without a tick
     cells: (number | null)[][];
     busiest: { weekday: number; hour: number; pilots: number } | null;
-    // when the answer was made (ms); lastDay is the 24 hours up to it
+    // when the answer was made (ms); lastDay is the 24 hours of ticks up to
+    // it, lastDayHours the same hours from server_hours (UTC hour numbers)
     asOf: number;
     lastDay: ServerTick[];
+    lastDayHours: { hour: number; samples: number; match: number; peak: number }[];
 }
 
 export const fetchServerHistory = (ip: string, days: number) =>
     getJson<ServerHistory>(`${API_BASE}/server/${encodeURIComponent(ip)}/history?days=${days}`);
 
-// /api/stats/regions (S15): stored matches per region (serverRegions.js ids,
-// in stacking order) per month, from the first stored match to this month.
+// /api/stats/regions (S15): stored matches per region (serverRegions.js ids)
+// per month, from the first stored match to this month.
 export interface RegionShare {
-    regions: string[];
     months: { month: string; total: number; counts: Record<string, number> }[];
 }
 

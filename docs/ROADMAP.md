@@ -3435,7 +3435,11 @@ Not counted in the 28 sessions.
   and stops before `db.close()` on shutdown. A fetch that fails, or an
   answer that is not a list, stores nothing, so a tracker outage or a
   down site counts against no server's uptime; those minutes are simply
-  missing. `snapshotRow` in `gameParse.js` reads one entry: online is
+  missing. A server the tracker listed in the last 30 days that an
+  answer leaves out gets an offline tick (from the review: a server
+  that drops off the list would otherwise keep 100% uptime). A listing
+  without a name, notes or version keeps the stored ones.
+  `snapshotRow` in `gameParse.js` reads one entry: online is
   the tracker's `server.online`, pilots `game.currentPlayers`, and the
   state idle (no `game`), lobby (`game.inLobby`) or match, which is what
   the server browser already calls Active, Lobby and Idle.
@@ -3443,8 +3447,8 @@ Not counted in the 28 sessions.
   (`ensureServerTables` in `migrations.js`). `servers(ip, name, notes,
   version, first_seen, last_seen, last_online)` is each server's latest
   listing. `server_snapshots(at, ip, online, players, max_players,
-  state)`, key `(at, ip)`, `WITHOUT ROWID`, is one row per server per
-  tick. `server_hours(ip, hour, samples, online, lobby, match, pilots,
+  state)`, key `(ip, at)`, `WITHOUT ROWID`, is one row per server per
+  tick, keyed by server so the page reads one server's day by key. `server_hours(ip, hour, samples, online, lobby, match, pilots,
   match_pilots, peak)`, key `(ip, hour)`, `WITHOUT ROWID`, is the ticks
   added up per server per UTC hour (`hour` = ms / 3,600,000). A tick
   writes all three in one transaction, and the raw row's key makes a
@@ -3454,8 +3458,8 @@ Not counted in the 28 sessions.
   build: created empty at startup; the first tick fills them. A restart
   needs no repair: a tick is all or nothing, and the minutes the server
   was down are missing, as above. The 03:00 job deletes raw rows older
-  than 30 days (`pruneServerSnapshots`, a range on the key's first
-  column); the hours stay. Size at 21 servers: about 30,000 raw rows a
+  than 30 days (`pruneServerSnapshots`, a scan of about 0.9 million
+  rows once a night); the hours stay. Size at 21 servers: about 30,000 raw rows a
   day, about 0.9 million kept, and about 180,000 hourly rows a year.
   `restoreHot` creates them empty when the restored file predates S15.
   Rollback: revert, pull the old image, and `DROP TABLE servers; DROP
@@ -3495,9 +3499,10 @@ Not counted in the 28 sessions.
   servers no longer sit on one dot. On the 21 servers listed on
   2026-10-08, two are Unknown ("My Overload Server", "The Silken Sad
   Uncertain Server"). A stored match takes the region from the server
-  name and notes stored with it; failing that, from another stored match
-  on the same IP that has one; failing that, from the server's latest
-  listing in `servers`; failing that, Unknown. On the 40 local matches
+  name and notes stored with it; failing that, from the latest stored
+  match on the same IP that has one (so a renamed server's recent name
+  wins); failing that, from the server's latest listing in `servers`;
+  failing that, Unknown. On the 40 local matches
   that leaves one Unknown (114.75.24.117, "My Overload Server"); the two
   Ashburn matches without a stored server come from their IP's other
   matches. Rejected: a GeoIP lookup (a new dependency or an outside
@@ -3517,8 +3522,10 @@ Not counted in the 28 sessions.
 - 2026-10-08 (S15): Endpoints. `GET /api/server/:ip/history?days=` (in
   `server/routes/browser.js`, beside `/api/browser`) answers the
   listing, the region, the window (`days`, `since`, `until`), the
-  `serverSummary` numbers and `lastDay`, the raw ticks of the last 24
-  hours. `days` other than 7, 30, 90 or 365 reads as 30. A server never
+  `serverSummary` numbers, `asOf` (when the answer was made) and
+  `lastDay`, the raw ticks of the 24 hours before `asOf`, which the page
+  draws against `asOf`, not the browser's clock. The share tags read the
+  summary alone (`getServerSummary`). `days` other than 7, 30, 90 or 365 reads as 30. A server never
   stored answers the same shape with a null `firstSeen`, not a 404, so
   the page tells "never seen" from a failure (the S13 rule). It reads
   one server's hours by key (at most 8,760) and a day of ticks, so it has
@@ -4317,10 +4324,11 @@ Not counted in the 28 sessions.
 - (S15) The raw ticks are pruned only by the 03:00 job. If it fails
   (it runs after the backup and the cold move), the raw table grows by
   about 30,000 rows a night until a night succeeds.
-- (S15) The page title on `/server/:ip` takes the name from the shared
-  poll, as the live page does, so a server that has left the browser
-  shows its IP in the tab while the page header (from the database)
-  shows its name. The share tags read the database and name it.
+- (S15) Two writers of `document.title` on `/server/:ip`: `App` titles
+  it from the shared poll, as it does the live page, and the view sets it
+  again from the stored name once its answer arrives, so a server that
+  has left the browser is not titled by its IP. Moving the stored name
+  into `App` would make one writer again; the live page has the same gap.
 - (S15) The last 24 hours chart and the region columns have `title`
   tooltips per hour and per month and a table behind a `<details>`, the
   S14 pattern; no crosshair tooltip and no screen reader was tried.

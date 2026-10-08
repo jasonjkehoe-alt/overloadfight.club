@@ -81,6 +81,9 @@ describe('getServerHistory', () => {
         expect(clock.hour).toBe(20);
         expect(dallas.cells.flat().filter(c => c !== null)).toEqual([7]);
         expect(dallas.lastDay.map(t => [t.at, t.players, t.state])).toEqual([[t0, 6, 2], [t0 + SNAPSHOT.everyMs, 8, 2]]);
+        // the same hour from server_hours, for the table under the chart
+        expect(dallas.lastDayHours).toEqual([{ hour: Math.floor(t0 / HOUR_MS), samples: 2, online: 2, match: 2, pilots: 14, match_pilots: 14, peak: 8 }]);
+        expect(dallas.asOf).toBe(now);
 
         // a lobby is online but not in use; pilots in it count toward the hour, not the match average
         expect(db.getServerHistory(AMSTERDAM, 30, now)).toMatchObject({ region: 'europe', uptime: 1, inUse: 0, avgPilots: null, peak: { pilots: 2 } });
@@ -135,8 +138,7 @@ describe('region share (region_months)', () => {
         // Amsterdam 1 (8, 72098 by IP), Overloader: Amsterdam (1) and A-Garage (4);
         // San Francisco 1 (7) and San Jose (1); Dallas (3); Sydney (1); the 2019 sample
         expect(totals()).toEqual({ europe: 13, 'na-west': 8, 'na-central': 3, oceania: 1, unknown: 1 });
-        const { regions, months } = db.getRegionShare();
-        expect(regions.at(-1)).toBe('unknown');
+        const { months } = db.getRegionShare();
         expect(months.reduce((a, m) => a + m.total, 0)).toBe(db.countGames(null, null).count + db.countColdGames(null, null).count);
         // every month from the 2019 sample's to this one
         expect(months[0].month).toBe(fightNightDay(detailSample.date).slice(0, 7));

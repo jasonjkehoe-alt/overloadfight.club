@@ -3,8 +3,8 @@ import { Globe2 } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from '../States';
 import DetailsTable from '../DetailsTable';
 import { chart } from '../../designTokens.js';
-import { regionLabel } from '../../server/lib/serverRegions.js';
-import { monthLabel } from '../../server/lib/matchResult.js';
+import { REGIONS, regionLabel } from '../../server/lib/serverRegions.js';
+import { monthLabel, percent } from '../../server/lib/matchResult.js';
 import { fetchRegionShare, RegionShare as RegionShareData } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
 
@@ -12,10 +12,10 @@ const COLOR = chart.region as Record<string, string>;
 const H = 120; // the columns' height in px
 const W = 10; // a column's width
 const GAP = 2; // between columns and between stacked segments
-const percent = (n: number, total: number) => `${Math.round((n / total) * 100)}%`;
+const regions = REGIONS.map(r => r.id);
 // A month's regions with a match, largest first, as "Europe 54%, ..."
-const shares = (m: RegionShareData['months'][number], regions: string[]) =>
-    regions.filter(r => m.counts[r]).sort((a, b) => m.counts[b] - m.counts[a]).map(r => `${regionLabel(r)} ${percent(m.counts[r], m.total)}`);
+const shares = (m: RegionShareData['months'][number]) =>
+    regions.filter(r => m.counts[r]).sort((a, b) => m.counts[b] - m.counts[a]).map(r => `${regionLabel(r)} ${percent(m.counts[r] / m.total)}`);
 
 // The dashboard's regional share (S15): each month's stored matches split by
 // the region of the server they were played on, as 100% stacked columns in
@@ -37,7 +37,7 @@ const RegionShare: React.FC = () => {
     } else if (data.months.every(m => m.total === 0)) {
         body = <EmptyState compact icon={Globe2} title="No matches stored yet" />;
     } else {
-        const { regions, months } = data;
+        const { months } = data;
         const shown = regions.filter(r => months.some(m => m.counts[r]));
         const latest = [...months].reverse().find(m => m.total > 0)!;
         const total = months.reduce((a, m) => a + m.total, 0);
@@ -45,18 +45,18 @@ const RegionShare: React.FC = () => {
         body = (
             <>
                 <p className="text-xs text-gray-400 mb-3">
-                    <span className="text-white font-bold">{monthLabel(latest.month)}</span>: {shares(latest, regions).join(', ')}.{' '}
+                    <span className="text-white font-bold">{monthLabel(latest.month)}</span>: {shares(latest).join(', ')}.{' '}
                     {total.toLocaleString()} matches from {monthLabel(months[0].month)} on.
                 </p>
                 <div ref={scroller} className="overflow-x-auto" tabIndex={0} aria-label="Matches by region, by month">
                     <svg width={width} height={H + 16} role="img" className="block"
-                        aria-label={`Share of matches by server region per month, ${monthLabel(months[0].month)} to ${monthLabel(months.at(-1)!.month)}. ${monthLabel(latest.month)}: ${shares(latest, regions).join(', ')}.`}>
+                        aria-label={`Share of matches by server region per month, ${monthLabel(months[0].month)} to ${monthLabel(months.at(-1)!.month)}. ${monthLabel(latest.month)}: ${shares(latest).join(', ')}.`}>
                         {months.map((m, i) => {
                             const x = i * (W + GAP);
                             let y = H;
                             return (
                                 <g key={m.month}>
-                                    <title>{m.total ? `${monthLabel(m.month)}, ${m.total.toLocaleString()} matches: ${shares(m, regions).join(', ')}` : `${monthLabel(m.month)}: no matches`}</title>
+                                    <title>{m.total ? `${monthLabel(m.month)}, ${m.total.toLocaleString()} matches: ${shares(m).join(', ')}` : `${monthLabel(m.month)}: no matches`}</title>
                                     {/* hit area the full height of the column */}
                                     <rect x={x} y={0} width={W + GAP} height={H} fill="transparent" />
                                     {m.total === 0 && <rect x={x} y={H - 1} width={W} height={1} fill={chart.axis} />}
@@ -89,7 +89,7 @@ const RegionShare: React.FC = () => {
                     headers={['Month', ...shown.map(regionLabel), 'Matches']}
                     rows={months.filter(m => m.total > 0).reverse().map(m => ({
                         key: m.month,
-                        cells: [monthLabel(m.month), ...shown.map(r => (m.counts[r] ? percent(m.counts[r], m.total) : '–')), m.total.toLocaleString()]
+                        cells: [monthLabel(m.month), ...shown.map(r => (m.counts[r] ? percent(m.counts[r] / m.total) : '–')), m.total.toLocaleString()]
                     }))}
                 />
                 <p className="mt-2 text-2xs text-gray-500">

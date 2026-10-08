@@ -1,7 +1,7 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
 import { DAY_MS, HOUR_MS, careerMonth, dayStart, fightNightDay, regionShare, serverSummary, serverWindow } from '../../lib/gameParse.js';
-import { regionOf, REGIONS } from '../../lib/serverRegions.js';
+import { regionOf } from '../../lib/serverRegions.js';
 import { getServerListing } from '../repos/servers.js';
 
 // The server page (S15) and the dashboard's region share. A server page reads
@@ -9,12 +9,18 @@ import { getServerListing } from '../repos/servers.js';
 // ticks; the region share reads region_months, which the stats worker keeps.
 
 const serverHours = hotDb.prepare(`
-  SELECT hour, samples, online, lobby, match, pilots, match_pilots, peak
+  SELECT hour, samples, online, match, pilots, match_pilots, peak
   FROM server_hours WHERE ip = ? AND hour >= ? AND hour < ? ORDER BY hour
 `);
 const serverTicks = hotDb.prepare(`
-  SELECT at, online, players, state FROM server_snapshots WHERE ip = ? AND at >= ? ORDER BY at
+  SELECT at, players, state FROM server_snapshots WHERE ip = ? AND at >= ? ORDER BY at
 `);
+
+// The window's hours all end before today's fight-night day starts, so a
+// summary holds until the day turns: kept per server, window and day.
+const summaries = new Map();
+// After a restore the hours behind a kept summary may be gone.
+export const clearServerSummaries = () => summaries.clear();
 
 /**
  * A server's listing and region, the window (`days` whole fight-night days
@@ -24,40 +30,49 @@ const serverTicks = hotDb.prepare(`
  */
 export function getServerSummary(ip, days, now = Date.now()) {
   const server = getServerListing(ip) || { ip };
-  const { since, until } = serverWindow(fightNightDay(now), days);
-  const hours = serverHours.all(ip, Date.parse(dayStart(since)) / HOUR_MS, Date.parse(dayStart(until)) / HOUR_MS);
+  const today = fightNightDay(now);
+  const key = `${ip}\n${days}`;
+  let window = summaries.get(key);
+  if (window?.today !== today) {
+    if (summaries.size > 2000) summaries.clear();
+    const { since, until } = serverWindow(today, days);
+    const hours = serverHours.all(ip, Date.parse(dayStart(since)) / HOUR_MS, Date.parse(dayStart(until)) / HOUR_MS);
+    window = { today, since, until, ...serverSummary(hours) };
+    summaries.set(key, window);
+  }
+  const { today: _, ...summary } = window;
   return {
-    ip: server.ip,
+    ip,
     name: server.name ?? null,
     notes: server.notes ?? null,
     version: server.version ?? null,
     region: regionOf(server.name, server.notes),
     firstSeen: server.first_seen ?? null,
-    lastSeen: server.last_seen ?? null,
-    lastOnline: server.last_online ?? null,
     days,
-    since,
-    until,
-    ...serverSummary(hours)
+    ...summary
   };
 }
 
-// The server page's answer: the summary, and the ticks of the 24 hours up to
-// `asOf` (ms), when the answer was made, which the page draws them against.
-export const getServerHistory = (ip, days, now = Date.now()) => ({
-  ...getServerSummary(ip, days, now),
-  asOf: now,
-  lastDay: serverTicks.all(ip, now - DAY_MS)
-});
+// The server page's answer: the summary, then the ticks and the hours of the
+// 24 hours up to `asOf` (ms), when the answer was made, which the page draws
+// them against.
+export function getServerHistory(ip, days, now = Date.now()) {
+  const firstHour = Math.floor((now - DAY_MS) / HOUR_MS);
+  return {
+    ...getServerSummary(ip, days, now),
+    asOf: now,
+    lastDay: serverTicks.all(ip, now - DAY_MS),
+    lastDayHours: serverHours.all(ip, firstHour, firstHour + 25)
+  };
+}
 
 const regionMonthRows = hotDb.prepare('SELECT region, month, matches FROM region_months');
 const anyRegionMonth = hotDb.prepare('SELECT 1 FROM region_months LIMIT 1');
 // False until a refresh has written a row.
 export const hasRegionMonths = () => Boolean(anyRegionMonth.get());
 
-// { regions, months }: the region ids in stacking order, and each month from
-// the first stored match to this month with its count per region.
+// { months }: each month from the first stored match to this month with its
+// count per region (serverRegions.js REGIONS ids).
 export const getRegionShare = (now = Date.now()) => ({
-  regions: REGIONS.map(r => r.id),
   months: regionShare(regionMonthRows.all(), careerMonth(now))
 });

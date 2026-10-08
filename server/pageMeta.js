@@ -5,7 +5,7 @@ import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
 import { SERVER_WINDOW_DEFAULT, fightNightDay, winnerOf, measuredDurationOf } from './lib/gameParse.js';
 import { regionLabel } from './lib/serverRegions.js';
-import { clock, resultLine } from './lib/matchResult.js';
+import { clock, percent, resultLine } from './lib/matchResult.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
@@ -46,17 +46,15 @@ function rankingsMeta() {
     return { description: `Power rankings for ${day}: ${top}.` };
 }
 
-const percent = share => `${Math.round(share * 100)}%`;
-
-// "Overloader: Dallas, TX (North America Central): online 99% of the last 30
-// days, a match running 12% of that time, 6.5 pilots in a match on average.
+// "Overloader: Dallas, TX (North America Central): online 99.0% of the last 30
+// days, a match running 12.0% of that time, 6.5 pilots in a match on average.
 // Join at 192.227.193.172." The parts with no ticks behind them are left out.
 function serverMeta(ip) {
     const s = db.getServerSummary(ip, SERVER_WINDOW_DEFAULT);
     if (!s.firstSeen) return {};
     const parts = [
-        s.uptime !== null && `online ${percent(s.uptime)} of the last ${s.days} days`,
-        s.inUse !== null && `a match running ${percent(s.inUse)} of that time`,
+        s.uptime !== null && `online ${percent(s.uptime, 1)} of the last ${s.days} days`,
+        s.inUse !== null && `a match running ${percent(s.inUse, 1)} of that time`,
         s.avgPilots !== null && `${s.avgPilots.toFixed(1)} pilots in a match on average`
     ].filter(Boolean);
     const name = s.name || ip;

@@ -309,13 +309,20 @@ export function regionPass(regionByIp = new Map()) {
     const pending = new Map();
     // ip -> { region, date } of its latest match with a region
     const learned = new Map();
+    // a few hundred server names and notes across every stored match
+    const regionCache = new Map();
+    const regionOfServer = ({ name, notes }) => {
+        const key = `${name}\n${notes}`;
+        if (!regionCache.has(key)) regionCache.set(key, regionOf(name, notes));
+        return regionCache.get(key);
+    };
     const count = (key, n = 1) => counts.set(key, (counts.get(key) || 0) + n);
     function add(row, g) {
         const month = careerMonth(row.date || g?.date);
         if (!month) return;
         const ip = row.ip || g?.server?.ip || '';
         const date = row.date || g?.date || '';
-        const region = g?.server ? regionOf(g.server.name, g.server.notes) : UNKNOWN_REGION;
+        const region = g?.server ? regionOfServer(g.server) : UNKNOWN_REGION;
         if (region !== UNKNOWN_REGION) {
             if (ip && !(learned.get(ip)?.date > date)) learned.set(ip, { region, date });
             count(`${region}\n${month}`);

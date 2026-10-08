@@ -53,7 +53,7 @@ export const saveServerSnapshot = hotDb.transaction((at, entries) => {
     });
   }
   for (const ip of recentServers.all(new Date(at - SNAPSHOT.keepDays * DAY_MS).toISOString())) {
-    if (!rows.has(ip)) rows.set(ip, { ip, online: 0, players: 0, max_players: null, state: SERVER_STATE.idle });
+    if (!rows.has(ip)) rows.set(ip, snapshotRow({ server: { ip, online: false } }));
   }
   let stored = 0;
   for (const row of rows.values()) {
@@ -69,9 +69,15 @@ export const saveServerSnapshot = hotDb.transaction((at, entries) => {
   return stored;
 });
 
-const deleteTicksBefore = hotDb.prepare('DELETE FROM server_snapshots WHERE at < ?');
-// Drops raw ticks older than SNAPSHOT.keepDays days; the hours stay.
-export const pruneServerSnapshots = (now = Date.now()) => deleteTicksBefore.run(now - SNAPSHOT.keepDays * DAY_MS).changes;
+const allServers = hotDb.prepare('SELECT ip FROM servers').pluck();
+const deleteTicksBefore = hotDb.prepare('DELETE FROM server_snapshots WHERE ip = ? AND at < ?');
+// Drops raw ticks older than SNAPSHOT.keepDays days, server by server so each
+// delete is a range of the (ip, at) key; the hours stay.
+export const pruneServerSnapshots = hotDb.transaction((now = Date.now()) => {
+  let deleted = 0;
+  for (const ip of allServers.all()) deleted += deleteTicksBefore.run(ip, now - SNAPSHOT.keepDays * DAY_MS).changes;
+  return deleted;
+});
 
 const getServerStmt = hotDb.prepare('SELECT ip, name, notes, version, first_seen, last_seen, last_online FROM servers WHERE ip = ?');
 // A server's latest listing, or undefined for one never stored.
