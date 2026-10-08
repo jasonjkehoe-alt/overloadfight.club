@@ -104,9 +104,11 @@ maintenance item does not count toward the 28.
   better-sqlite3@^13.0.3 @types/node@^26` resolved 13.0.3 and 26.6.4.
   The lockfile lost 30 entries (`prebuild-install`, `bindings` and their
   dependencies) and gained `node-addon-api`. Then `rm -rf node_modules
-  && npm ci` exited 0. better-sqlite3 13 has no install script of its
-  own, so npm ran its implicit `node-gyp rebuild` (the package has a
-  `binding.gyp`). Nothing compiled: `binding.gyp` makes both targets
+  && npm ci` exited 0. better-sqlite3 13 has no install script, sets
+  `"gypfile": false` and has no `hasInstallScript` in the lockfile, yet
+  npm 11.20 still ran the implicit `node-gyp rebuild` that a
+  `binding.gyp` triggers (its warning names it, and `build/` appeared).
+  Nothing compiled: `binding.gyp` makes both targets
   empty when `lib/binding.js` finds a matching prebuild, and
   `build/Release` held two stamp files, no `.node` and no `.o`. The
   module loaded `prebuilds/darwin-arm64.node` and `select
@@ -3535,7 +3537,24 @@ Not counted in the 28 sessions.
   implicit `node-gyp rebuild` fails without python3 (configure) or make
   (build) even with nothing to compile. The cost is that a future
   better-sqlite3 without a prebuild for the platform would fail the
-  build instead of compiling.
+  build instead of compiling. better-sqlite3 13 sets `"gypfile": false`,
+  which npm 11.19 and 11.20 ignore here; an npm that honours it would
+  skip the step and leave python3 and make unused in the build stage too.
+- (Node 26, /code-review) The S14 prompt's setup still says S13 is on
+  `ofc/s13-rating` with PR #13 open, and branches on whether #13 merged.
+  #13 is merged as `d7a81eb`. This PR changed only that prompt's Node
+  lines, as asked. Also, while this PR is open, an S14 branch from
+  `origin/main` gets better-sqlite3 11.10.0, which `nvm use 26 && npm ci`
+  cannot install here; the prompt's new first setup line makes the
+  session ask before starting.
+- (Node 26, /code-review) The Node version is written in four places:
+  `.nvmrc`, `ci.yml` and both `FROM` lines. `actions/setup-node` can read
+  `node-version-file: .nvmrc`, and the Dockerfile could take one `ARG`.
+- (Node 26, /code-review) `package.json` has no `engines` field.
+  better-sqlite3 13 needs Node 22 or later; on an older Node, npm only
+  warns (EBADENGINE) and the failure comes later.
+- (Node 26, /code-review) The Rollback section has no line for this PR;
+  the rollback is in the Node 26 decision only.
 - (Node 26) The runtime image carries better-sqlite3's prebuilds for the
   seven other platforms (about 14 MB) and the SQLite source in `deps/`
   (9.8 MB); `npm prune` keeps both. Deleting them in the build stage
@@ -4101,8 +4120,14 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   for removal. The image grew from 567 to 599 MB (base image and
   prebuilds). The two hung vitest workers seen earlier belong to another
   worktree; none hung here. `docs/overload-fight-club-roadmap.html` still
-  says the image uses Node 22 and stays as written (a dated plan). PR
-  #14 opened against `main`, not merged.
+  says the image uses Node 22 and stays as written (a dated plan).
+  /code-review raised 9 items. One was fixed: the Validated entry now
+  says better-sqlite3 13 sets `"gypfile": false`, which npm ignored. The
+  floating `node:26-alpine` tag is the decision as written. The image
+  size and g++ were already flagged. The stale S13 lines in the S14
+  prompt, the version written in four places, the missing `engines` and
+  the Rollback line are flagged, not fixed. PR #14 opened against
+  `main`, not merged.
 
 ## Next session prompt
 
