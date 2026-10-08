@@ -17,6 +17,7 @@ const ROUTES = [
     { view: 'cold-storage', path: '/archive', aliases: ['/cold-storage'], title: 'Archive' },
     { view: 'admin', path: '/admin', title: 'Admin' },
     { view: 'pilots', path: '/pilots', title: 'Leaderboards' },
+    { view: 'rankings', path: '/rankings', title: 'Power rankings' },
     { view: 'pilot-manager', path: '/pilot', title: 'Pilot settings' },
     // detail pages: always a parameter; without one they fall back to `bare`
     { view: 'pilot', path: '/pilot', param: true, bare: 'pilot-manager' },

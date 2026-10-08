@@ -16,6 +16,7 @@ describe('parseRoute and urlFor', () => {
             { view: 'game-detail', param: 72102 },
             { view: 'live-game-detail', param: '143.110.230.67' },
             { view: 'pilots' },
+            { view: 'rankings' },
             { view: 'cold-storage' },
             { view: 'taunts' },
             { view: 'olmod' },
@@ -47,6 +48,7 @@ describe('pageTitle', () => {
     it('names the page first and the site last', () => {
         expect(pageTitle({ view: 'dashboard' })).toBe('Live | overloadfight.club');
         expect(pageTitle({ view: 'pilots' })).toBe('Leaderboards | overloadfight.club');
+        expect(pageTitle({ view: 'rankings' })).toBe('Power rankings | overloadfight.club');
         expect(pageTitle({ view: 'pilot', param: 'WD-40' })).toBe('WD-40 | overloadfight.club');
         expect(pageTitle({ view: 'game-detail', param: 72102 })).toBe('Match 72102 | overloadfight.club');
         expect(pageTitle({ view: 'game-detail', param: 72102 }, 'ASCENT')).toBe('Match 72102: ASCENT | overloadfight.club');

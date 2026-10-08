@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { GameData } from '../types';
 import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink, Zap, Clock, Flame, Filter } from 'lucide-react';
 import PilotPerformanceCard from './PilotPerformanceCard';
+import RatingCard from './pilotDetail/RatingCard';
 import { colors } from '../designTokens.js';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
@@ -386,6 +387,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
 
                             {/* PPI Framework Dashboard */}
                             <PilotPerformanceCard pilotName={pilotName} />
+
+                            <RatingCard pilotName={pilotName} />
 
                             {/* Arsenal Breakdown & Weapon Mastery */}
                             {((stats.weapons && stats.weapons.length > 0) || (stats.damage_taken_weapons && stats.damage_taken_weapons.length > 0)) && (

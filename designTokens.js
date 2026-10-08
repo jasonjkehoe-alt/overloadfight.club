@@ -38,6 +38,8 @@ export const chart = {
   text: '#c3c2b7', // secondary text in tooltips
   ink: '#ffffff', // values in tooltips, markers
   team: { BLUE: '#3987e5', ORANGE: '#d95926' },
+  // one-series charts (the pilot page's rating line and its RD band): slot 1
+  series: '#3987e5',
   // FFA charts: the winner, and everyone else as one side
   ffa: { winner: '#d95926', field: '#3987e5' },
   // keyed by gameParse.js WEAPON_FAMILIES ids, in that order

@@ -5,7 +5,7 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureGamePlayersTable, migrateGamePlayers } from './db/migrations.js';
+import { ensureGamePlayersTable, ensureRatingSnapshots, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
@@ -37,6 +37,7 @@ import {
   getPilotDetailedStats, getPilotBreakdown, getPilotTelemetry, normalizeWeaponName,
   PRIMARY_WEAPONS, SECONDARY_WEAPONS
 } from './db/analytics/pilotTelemetry.js';
+import { getPilotRating, getPowerRankings } from './db/analytics/ratings.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -62,6 +63,8 @@ const db = {
     // A backup from before S5 has no game_players; build it for the restored games.
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
+    // A backup from before S13 has no rating_snapshots; the next refresh fills it.
+    ensureRatingSnapshots();
   },
   migrateGamePlayers,
   // For the healthcheck: throws unless both files answer a query.
@@ -169,6 +172,10 @@ const db = {
   normalizeWeaponName,
   PRIMARY_WEAPONS,
   SECONDARY_WEAPONS,
+
+  // analytics/ratings.js
+  getPilotRating,
+  getPowerRankings,
 
   // analytics/refresh.js
   refreshPilotStats,

@@ -1,6 +1,6 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
-import { OUTCOME_FIELD, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, winnerOf } from '../../lib/gameParse.js';
+import { OUTCOME_FIELD, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, winnerOf } from '../../lib/gameParse.js';
 
 // One pilot's numbers parsed from the game blobs: weapons, telemetry for the
 // profile, and the map and rival breakdown.
@@ -108,8 +108,7 @@ export function getPilotTelemetry(name, startDate, matchMode) {
 
             const durationSec = durationOf(g);
 
-            // Ranked filter: exclude <2 players and games under 60s or of unknown length
-            if (players.length < 2 || durationSec < 60) continue;
+            if (!rankedMatch(g)) continue;
 
             // Mode filter if requested
             if (matchMode && matchMode.toUpperCase() !== 'ALL') {

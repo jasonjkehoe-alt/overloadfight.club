@@ -37,7 +37,7 @@ async function refreshCaches() {
     ensurePilotStatsCache();
 
     const started = performance.now();
-    const { errors, pilots, archive, maps } = await runStatsWorker();
+    const { errors, pilots, archive, maps, ratings } = await runStatsWorker();
     for (const [pass, message] of Object.entries(errors)) console.error(`[StatsWorker] ${pass} pass failed: ${message}`);
 
     if (!errors.pilots) {
@@ -87,6 +87,18 @@ async function refreshCaches() {
         for (const row of maps) insertStmt.run(row);
       })();
       console.log(`[MapStats] Built map_stats_cache for ${maps.length} maps.`);
+    }
+    if (ratings) {
+      const insertStmt = hotDb.prepare(`
+        INSERT INTO rating_snapshots (pilot, day, name, rating, rd, volatility, matches, last_played)
+        VALUES (@pilot, @day, @name, @rating, @rd, @volatility, @matches, @last_played)
+      `);
+      // Rebuilt whole: a match added or re-read anywhere in the past moves every rating after it.
+      hotDb.transaction((rows) => {
+        hotDb.prepare('DELETE FROM rating_snapshots').run();
+        for (const row of rows) insertStmt.run(row);
+      })(ratings);
+      console.log(`[Ratings] Wrote ${ratings.length} daily rating snapshots for ${new Set(ratings.map(r => r.pilot)).size} pilots.`);
     }
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);
   } catch (err) {

@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winnerOf } from './gameParse.js';
 
 // pilot_stats_cache rows, one per pilotKey().
 export function pilotPass() {
@@ -13,13 +13,9 @@ export function pilotPass() {
 
     function add(row, g) {
         if (!g) return;
-        const players = g.players || [];
-        if (!Array.isArray(players) || players.length === 0) return;
-
+        if (!rankedMatch(g)) return;
+        const players = g.players;
         const durationSec = durationOf(g);
-
-        // Ranked filter: exclude <2 players and games under 60s or of unknown length
-        if (players.length < 2 || durationSec < 60) return;
 
         const result = winnerOf(g);
 
@@ -263,6 +259,17 @@ export function pilotPass() {
     }
 
     return { add, rows };
+}
+
+// rating_snapshots rows (S13): every rated match, hot and cold, kept as its
+// sides and replayed in date order once every game has been read.
+export function ratingPass() {
+    const matches = [];
+    function add(row, g) {
+        const sides = g && ratingSides(g);
+        if (sides) matches.push({ id: row.id, date: row.date || g.date, sides });
+    }
+    return { add, rows: () => ratingSnapshots(matches) };
 }
 
 // The cold_storage_stats_cache payload. The pilot totals come from the rows

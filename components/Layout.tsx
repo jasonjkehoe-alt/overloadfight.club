@@ -6,10 +6,11 @@ import { urlFor } from '../server/lib/siteRoutes.js';
 import { usePathname } from '../hooks/useLocation';
 
 // The header's pages, in order; the desktop bar and the menu below xl both list them.
-const NAV = [
+// `also` names another view that lights up the item: the power rankings sit under Leaderboards.
+const NAV: { view: string; label: string; also?: string }[] = [
   { view: 'dashboard', label: 'Live' },
   { view: 'fight-night', label: 'Fight Night' },
-  { view: 'pilots', label: 'Leaderboards' },
+  { view: 'pilots', label: 'Leaderboards', also: 'rankings' },
   { view: 'maps', label: 'Maps' },
   { view: 'taunts', label: 'Taunts' },
   { view: 'pilot-manager', label: 'Settings' },
@@ -78,11 +79,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
                 <span className="text-gray-500 group-hover:text-gray-300 transition-colors">ACTIVE PILOTS</span>
               </Link>
               <nav aria-label="Main" className="flex space-x-4">
-                {NAV.map(({ view, label }) => (
+                {NAV.map(({ view, label, also }) => (
                   <Link
                     key={view}
                     to={urlFor(view)}
-                    className={`${currentView === view ? 'text-brand' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-control text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5`}
+                    className={`${currentView === view || currentView === also ? 'text-brand' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-control text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5`}
                   >
                     {view === 'resources' && <LinkIcon className="w-3.5 h-3.5" />}
                     {label}
@@ -110,11 +111,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
         {isMobileMenuOpen && (
           <nav id="mobile-menu" aria-label="Main" className="xl:hidden bg-surface-card border-b border-line">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              {NAV.map(({ view, label }) => (
+              {NAV.map(({ view, label, also }) => (
                 <Link
                   key={view}
                   to={urlFor(view)}
-                  className={`block w-full text-left px-3 py-2 rounded-control text-base font-medium ${currentView === view ? 'bg-gray-900 text-brand' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                  className={`block w-full text-left px-3 py-2 rounded-control text-base font-medium ${currentView === view || currentView === also ? 'bg-gray-900 text-brand' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
                 >
                   {label}
                 </Link>

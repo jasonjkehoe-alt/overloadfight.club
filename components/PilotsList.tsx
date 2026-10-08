@@ -261,6 +261,9 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                         </span>
                     </button>
                 </div>
+                <Link to={urlFor('rankings')} className="px-4 py-3 font-mono text-sm font-bold text-gray-400 hover:text-brand flex items-center gap-2 whitespace-nowrap">
+                    <Trophy size={14} className="text-brand" aria-hidden /> POWER RANKINGS
+                </Link>
             </div>
 
             {activeTab === 'online' && (

@@ -69,6 +69,15 @@ describe('withPageMeta', () => {
         expect(tagsFor('/fight-night/2001-01-01').description).toBe('Live Overload servers, match results and pilot stats.');
     });
 
+    it('describes the power rankings by their top three', () => {
+        // of the sample's pilots only WD-40 has 10 rated matches
+        const { day: today, pilots } = db.getPowerRankings();
+        expect(pilots.map(p => p.name)).toEqual(['WD-40']);
+        const tags = tagsFor('/rankings');
+        expect(tags.title).toBe('Power rankings | overloadfight.club');
+        expect(tags.description).toBe(`Power rankings for ${today}: 1. WD-40 (${Math.round(pilots[0].rating)}).`);
+    });
+
     it('keeps the query string in og:url and leaves the rest of the page alone', () => {
         const tags = tagsFor('/pilots?tab=online&min=10');
         expect(tags.url).toBe('https://overloadfight.club/pilots?tab=online&#38;min=10');

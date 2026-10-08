@@ -4,6 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { byId, day, onDay, sample, veteranSoup } from './testFixtures.js';
+import { RATING, ratingDay, shiftDay } from './lib/gameParse.js';
 
 // Fixture games built from the samples:
 // 90001: game 72102 with the score flipped, an ORANGE win (STITCH, MAESTRO).
@@ -101,6 +102,42 @@ describe('pilot stats cache (refreshPilotStats)', () => {
 
     it('counts suicides from the kill log', () => {
         expect(cached('XB1').suicides).toBe(1);
+    });
+});
+
+describe('ratings (rating_snapshots)', () => {
+    const today = ratingDay(Date.now());
+    const jftpDay = ratingDay(onDay(byId(72107)).date);
+
+    it('rates every match in the refresh, one row per pilot per day, spellings merged', () => {
+        const jftp = db.getPilotRating('jftp');
+        expect(jftp).toMatchObject({ matches: 10 });
+        expect(jftp.history).toEqual([{ day: jftpDay, rating: jftp.rating, rd: jftp.rd, matches: 10 }]);
+        expect(db.getPilotRating('JFTP ').history).toEqual(jftp.history);
+        // BALLER won three 1v1 Monsterball matches on goals while scoring fewer kills
+        expect(db.getPilotRating('BALLER').rating).toBeGreaterThan(1500);
+        expect(db.getPilotRating('FRAGGER').rating).toBeLessThan(1500);
+    });
+
+    it('answers an empty history for a pilot with no rated match', () => {
+        expect(db.getPilotRating('NOBODY')).toMatchObject({ matches: 0, rank: null, history: [] });
+    });
+
+    it('ranks pilots with 10+ rated matches, all NEW in their first week', () => {
+        const { day: on, since, total, pilots } = db.getPowerRankings(today);
+        expect([on, since]).toEqual([today, shiftDay(today, -RATING.movementDays)]);
+        // JFTP 10, WD-40 10, STITCH 11; PHOENIX has 9
+        expect(pilots.map(p => p.pilot).sort()).toEqual(['jftp', 'stitch', 'wd-40']);
+        expect(total).toBe(3);
+        expect(pilots.map(p => p.rank)).toEqual([1, 2, 3]);
+        expect(pilots.map(p => p.change)).toEqual([null, null, null]);
+        expect(pilots.map(p => p.rating)).toEqual(pilots.map(p => p.rating).sort((a, b) => b - a));
+        expect(db.getPilotRating('STITCH').rank).toBe(pilots.find(p => p.pilot === 'stitch').rank);
+    });
+
+    it('keeps the ranks a week on, then drops pilots idle for more than 28 days', () => {
+        expect(db.getPowerRankings(shiftDay(today, 7)).pilots.map(p => p.change)).toEqual([0, 0, 0]);
+        expect(db.getPowerRankings(shiftDay(jftpDay, RATING.activeDays + 1)).total).toBe(0);
     });
 });
 
