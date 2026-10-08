@@ -79,26 +79,6 @@ export const fetchOldestGame = async (): Promise<GameData | null> => {
 };
 
 // Admin API Functions
-export const adminLogin = async (password: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password }),
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            return { success: true };
-        } else {
-            const error = await response.json();
-            return { success: false, error: error.error || 'Login failed' };
-        }
-    } catch (e) {
-        return { success: false, error: 'Network error' };
-    }
-};
-
 export const adminLogout = async (): Promise<void> => {
     try {
         await fetch(`${API_BASE}/admin/logout`, {
@@ -108,21 +88,6 @@ export const adminLogout = async (): Promise<void> => {
     } catch (e) {
         console.error('Logout failed', e);
     }
-};
-
-export const checkAdminAuth = async (): Promise<boolean> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/auth-status`, {
-            credentials: 'include'
-        });
-        if (response.ok) {
-            const data = await response.json();
-            return data.isAuthenticated || false;
-        }
-    } catch (e) {
-        console.error('Auth check failed', e);
-    }
-    return false;
 };
 
 export const getPublicStats = async (): Promise<any> => {
@@ -148,23 +113,6 @@ export const getAdminStats = async (): Promise<any> => {
         }
     } catch (e) {
         console.error('Failed to fetch admin stats', e);
-    }
-    return null;
-};
-
-export const startBackfill = async (startGameId: number, endGameId: number, rateLimitMs: number, jobType: 'id_range' | 'page_sync' = 'id_range'): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/backfill/start`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ startGameId, endGameId, rateLimitMs, jobType })
-        });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (e) {
-        console.error('Failed to start backfill', e);
     }
     return null;
 };
@@ -195,36 +143,6 @@ export const pauseBackfill = async (): Promise<any> => {
         }
     } catch (e) {
         console.error('Failed to pause backfill', e);
-    }
-    return null;
-};
-
-export const resumeBackfill = async (jobId: number): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/backfill/resume/${jobId}`, {
-            method: 'POST',
-            credentials: 'include'
-        });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (e) {
-        console.error('Failed to resume backfill', e);
-    }
-    return null;
-};
-
-export const cancelBackfillJob = async (jobId: number): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/backfill/cancel/${jobId}`, {
-            method: 'POST',
-            credentials: 'include'
-        });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (e) {
-        console.error('Failed to cancel backfill', e);
     }
     return null;
 };
@@ -275,22 +193,6 @@ export const getAdminSettings = async (): Promise<any> => {
     return null;
 };
 
-export const updateAdminSetting = async (key: string, value: string | boolean): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/settings`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ key, value })
-        });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (e) {
-        console.error('Failed to update admin setting', e);
-    }
-    return null;
-};
 export const downloadBackup = async (): Promise<void> => {
     try {
         const response = await fetch(`${API_BASE}/admin/backup`, {
@@ -512,6 +414,87 @@ export const fetchFightNightDetail = async (date: string): Promise<FightNightRec
     return null;
 };
 
+// Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
+// panel was written against: a non-2xx status or a network failure rejects; the error's
+// `response.data` is the body parsed as JSON, or the raw text when it is not JSON.
+class AdminRequestError extends Error {
+    response?: { status: number; data: any };
+
+    constructor(message: string, response?: { status: number; data: any }) {
+        super(message);
+        this.name = 'AdminRequestError';
+        this.response = response;
+    }
+}
+
+const adminRequest = async (url: string, method: 'GET' | 'POST' = 'GET', body?: unknown): Promise<any> => {
+    const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    let response: Response;
+    let text: string;
+    try {
+        response = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+        text = await response.text();
+    } catch {
+        throw new AdminRequestError('Network Error');
+    }
+    let data: any = text;
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch {
+            // not JSON: keep the text
+        }
+    }
+    if (!response.ok) {
+        throw new AdminRequestError(`Request failed with status code ${response.status}`, { status: response.status, data });
+    }
+    return data;
+};
+
+// The timestamp keeps the browser from serving a cached auth status
+export const fetchAdminAuthStatus = (): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/auth-status?t=${Date.now()}`);
+
+export const submitAdminLogin = (password: string): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/login`, 'POST', { password });
+
+export const fetchVersionInfo = (): Promise<any> =>
+    adminRequest('/version.json');
+
+export const fetchAdminExtendedStats = (): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/stats/extended`);
+
+export const fetchAdminSetting = (key: string): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/settings/${key}`);
+
+export const saveAdminSetting = (key: string, value: string): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/settings`, 'POST', { key, value });
+
+export const fetchAdminMapCount = (): Promise<any> =>
+    adminRequest(`${API_BASE}/maps?limit=1`);
+
+export const syncAdminMaps = (): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/maps/sync`, 'POST');
+
+export const addAdminMap = (map: Record<string, unknown>): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/maps`, 'POST', map);
+
+export const startAdminBackfill = (job: { startGameId: number; endGameId: number; rateLimitMs: number; jobType: 'page_sync' | 'hydrate' }): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/backfill/start`, 'POST', job);
+
+export const postAdminBackfillJobAction = (action: 'pause' | 'resume' | 'cancel', jobId: number | string): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/backfill/${action}/${jobId}`, 'POST');
+
+export const fetchAdminArchiveSyncStatus = (): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/archive-sync/status`);
+
+export const cancelAdminArchiveSync = (): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/archive-sync/cancel`, 'POST');
+
+export const triggerAdminStatsRefresh = (): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/maintenance/refresh-stats`, 'POST');
+
 export const apiService = {
     getGame: fetchGameDetail,
     fetchActiveGames,
@@ -519,22 +502,16 @@ export const apiService = {
     downloadBackup,
     restoreBackup,
     detectGaps,
-    startBackfill,
     getBackfillStatus,
     pauseBackfill,
-    resumeBackfill,
-    cancelBackfillJob,
     fetchGameManually,
     scanLocalArchive,
     getAdminSettings,
-    updateAdminSetting,
     getAdminStats,
     getPublicStats,
     getGlobalStats,
     getCalendarStats,
-    adminLogin,
-    adminLogout,
-    checkAdminAuth
+    adminLogout
 };
 
 export default apiService;

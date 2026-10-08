@@ -1,17 +1,24 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import express from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 let dataDir;
 let db;
-let routes;
+let server;
+let baseUrl;
+
+const getKills = async (url) => {
+    const res = await fetch(`${baseUrl}${url}`);
+    return { statusCode: res.status, responseJson: await res.json() };
+};
 
 beforeAll(async () => {
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ofc-replay-test-'));
     process.env.DATA_DIR = dataDir;
     db = (await import('./db.js')).default;
-    routes = (await import('./routes.js')).default;
+    const routes = (await import('./routes.js')).default;
 
     // Seed test games with kills and suicides
     const testGame = {
@@ -41,29 +48,22 @@ beforeAll(async () => {
     };
 
     db.saveGames([testGame]);
+
+    const app = express();
+    app.use('/api', routes);
+    server = app.listen(0);
+    baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
 afterAll(async () => {
+    server?.close();
     await db.close?.();
     fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
 describe('Match Replay Endpoints', () => {
     it('/api/match/:id/kills returns normalized, sorted kill events with suicide flag', async () => {
-        const layer = routes.stack.find(
-            s => s.route && s.route.path === '/match/:id/kills' && s.route.methods.get
-        );
-        expect(layer).toBeDefined();
-
-        let responseJson = null;
-        let statusCode = 200;
-        const mockReq = { params: { id: '99001' } };
-        const mockRes = {
-            json: (data) => { responseJson = data; return mockRes; },
-            status: (code) => { statusCode = code; return mockRes; }
-        };
-
-        await layer.route.stack[0].handle(mockReq, mockRes);
+        const { statusCode, responseJson } = await getKills('/api/match/99001/kills');
 
         expect(statusCode).toBe(200);
         expect(Array.isArray(responseJson)).toBe(true);
@@ -97,20 +97,7 @@ describe('Match Replay Endpoints', () => {
     });
 
     it('/api/game/:id/kills matches /api/match/:id/kills output', async () => {
-        const layer = routes.stack.find(
-            s => s.route && s.route.path === '/game/:id/kills' && s.route.methods.get
-        );
-        expect(layer).toBeDefined();
-
-        let responseJson = null;
-        let statusCode = 200;
-        const mockReq = { params: { id: '99001' } };
-        const mockRes = {
-            json: (data) => { responseJson = data; return mockRes; },
-            status: (code) => { statusCode = code; return mockRes; }
-        };
-
-        await layer.route.stack[0].handle(mockReq, mockRes);
+        const { statusCode, responseJson } = await getKills('/api/game/99001/kills');
 
         expect(statusCode).toBe(200);
         expect(responseJson.length).toBe(7);
