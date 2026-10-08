@@ -7,7 +7,7 @@
 import fs from 'fs';
 import { parentPort, workerData } from 'worker_threads';
 import Database from 'better-sqlite3';
-import { archivePass, mapPass, pilotPass, ratingPass } from './lib/statsPasses.js';
+import { RATING_SNAPSHOT_COLUMNS, archivePass, mapPass, pilotPass, ratingPass } from './lib/statsPasses.js';
 
 const PAGE_SIZE = 500;
 const { hotPath, coldPath, thirtyDaysAgo } = workerData;
@@ -51,13 +51,34 @@ for (const file of [hotPath, coldPath]) {
     }
 }
 
+// What the main thread must write to bring rating_snapshots in line with the
+// replay: the rows that are new or differ, and the (pilot, day) keys the
+// replay no longer has. Most refreshes change only the latest days, so this
+// keeps a rewrite of every row off the main thread.
+function ratingChanges(rows) {
+    const fresh = new Map(rows.map(r => [`${r.pilot}\n${r.day}`, r]));
+    const deletes = [];
+    const conn = new Database(hotPath, { readonly: true, fileMustExist: true });
+    try {
+        for (const old of conn.prepare('SELECT * FROM rating_snapshots').iterate()) {
+            const key = `${old.pilot}\n${old.day}`;
+            const row = fresh.get(key);
+            if (!row) deletes.push([old.pilot, old.day]);
+            else if (RATING_SNAPSHOT_COLUMNS.every(c => row[c] === old[c])) fresh.delete(key);
+        }
+    } finally {
+        conn.close();
+    }
+    return { total: rows.length, upserts: [...fresh.values()], deletes };
+}
+
 const size = file => (fs.existsSync(file) ? fs.statSync(file).size : 0);
 const pilots = errors.pilots ? [] : passes.pilots.rows();
 // The replay runs here, after the scan, so a failure in it must not lose the other passes.
 let ratings = null;
 if (!errors.ratings) {
     try {
-        ratings = passes.ratings.rows();
+        ratings = ratingChanges(passes.ratings.rows());
     } catch (err) {
         errors.ratings = err.message;
     }

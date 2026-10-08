@@ -1,6 +1,7 @@
 import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
+import { RATING_SNAPSHOT_COLUMNS } from '../../lib/statsPasses.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
@@ -89,16 +90,18 @@ async function refreshCaches() {
       console.log(`[MapStats] Built map_stats_cache for ${maps.length} maps.`);
     }
     if (ratings) {
-      const insertStmt = hotDb.prepare(`
-        INSERT INTO rating_snapshots (pilot, day, name, rating, rd, volatility, matches, last_played)
-        VALUES (@pilot, @day, @name, @rating, @rd, @volatility, @matches, @last_played)
+      // The worker replayed every rated match and sent only the days that differ
+      // from the table (a match added in the past moves every day after it).
+      const upsertStmt = hotDb.prepare(`
+        INSERT OR REPLACE INTO rating_snapshots (${RATING_SNAPSHOT_COLUMNS.join(', ')})
+        VALUES (${RATING_SNAPSHOT_COLUMNS.map(c => `@${c}`).join(', ')})
       `);
-      // Rebuilt whole: a match added or re-read anywhere in the past moves every rating after it.
-      hotDb.transaction((rows) => {
-        hotDb.prepare('DELETE FROM rating_snapshots').run();
-        for (const row of rows) insertStmt.run(row);
+      const deleteStmt = hotDb.prepare('DELETE FROM rating_snapshots WHERE pilot = ? AND day = ?');
+      hotDb.transaction(({ upserts, deletes }) => {
+        for (const [pilot, day] of deletes) deleteStmt.run(pilot, day);
+        for (const row of upserts) upsertStmt.run(row);
       })(ratings);
-      console.log(`[Ratings] Wrote ${ratings.length} daily rating snapshots for ${new Set(ratings.map(r => r.pilot)).size} pilots.`);
+      console.log(`[Ratings] ${ratings.total} daily rating snapshots: ${ratings.upserts.length} written, ${ratings.deletes.length} removed.`);
     }
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);
   } catch (err) {

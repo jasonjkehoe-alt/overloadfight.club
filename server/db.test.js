@@ -135,6 +135,19 @@ describe('ratings (rating_snapshots)', () => {
         expect(db.getPilotRating('STITCH').rank).toBe(pilots.find(p => p.pilot === 'stitch').rank);
     });
 
+    it('writes only the days that differ on the next refresh', async () => {
+        const hot = connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'rating_snapshots'").get());
+        const table = () => hot.prepare('SELECT * FROM rating_snapshots ORDER BY pilot, day').all();
+        const before = table();
+        hot.prepare("INSERT INTO rating_snapshots VALUES ('ghost', '2001-01-01', 'GHOST', 1500, 350, 0.06, 1, NULL)").run();
+        hot.prepare("UPDATE rating_snapshots SET rating = 1 WHERE pilot = 'jftp'").run();
+        const log = vi.spyOn(console, 'log');
+        await db.refreshPilotStats();
+        expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Ratings]'))).toEqual([`[Ratings] ${before.length} daily rating snapshots: 1 written, 1 removed.`]);
+        log.mockRestore();
+        expect(table()).toEqual(before);
+    });
+
     it('keeps the ranks a week on, then drops pilots idle for more than 28 days', () => {
         expect(db.getPowerRankings(shiftDay(today, 7)).pilots.map(p => p.change)).toEqual([0, 0, 0]);
         expect(db.getPowerRankings(shiftDay(jftpDay, RATING.activeDays + 1)).total).toBe(0);
