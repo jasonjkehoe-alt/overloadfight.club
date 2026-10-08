@@ -1935,6 +1935,69 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          pages and match page still work.
 - [ ] **S15 Server history** (S). Persist server-browser snapshots; `/server/:ip`
       page with uptime, peak hours, average players; regional share over time.
+      The owner decided at the start of S15: a snapshot every 60 s; raw
+      rows kept 30 days and an hourly rollup kept for good; the regional
+      share counts matches per region per month over every stored match;
+      the fight-night thresholds stay as they are (flagged). Done when
+      (written at the start of S15):
+      1. A server-side timer stores the tracker's server browser every
+         60 s whether or not anyone has the site open. It goes through the
+         same fetch and 15 s cache as `/api/browser` (one function), so the
+         site never asks the tracker twice. Each tick writes one row per
+         listed server to a new `server_snapshots` table (time, IP, online,
+         pilots, max pilots, idle, lobby or match) and adds the same tick
+         to an hourly rollup, `server_hours`, in one transaction. A failed
+         fetch writes nothing. A `servers` table keeps each server's latest
+         name, notes and version and when it was first and last listed.
+         The 03:00 job deletes raw rows older than 30 days; the rollup
+         stays. The timer stops before the database closes on shutdown.
+         Each table gets a migration decision entry.
+      2. The counting rules live in one place each and are tested on
+         fixture data: a server's region from its name and notes
+         (`server/lib/serverRegions.js`, the keyword table ServerStats
+         used for its map dots, which now reads it from there); and in
+         `gameParse.js`, over the rollup's hours, uptime (online ticks over
+         ticks), in use (ticks with a match running over online ticks),
+         average pilots (over ticks with a match running), the peak (most
+         pilots in one tick, and its hour) and peak hours (average pilots
+         per weekday and clock hour of the fight-night day, by
+         `localClock`). The window is whole fight-night days before today.
+      3. Regional share: the stats worker counts every stored match, hot
+         and cold, by region and the month of its fight-night day into a
+         derived `region_months` table (`tableChanges`/`writeChanges`, a
+         migration decision). The region comes from the server name and
+         notes stored with the match, else from `servers` by IP, else
+         Unknown. Tested: the months add up to the match count.
+      4. New endpoints `GET /api/server/:ip/history?days=` and `GET
+         /api/stats/regions`, read through `apiService` (null on failure).
+         The existing endpoints answer as before, and no request walks
+         every stored match.
+      5. A `/server/:ip` page: route, title and nav section in
+         `siteRoutes.js`, share title and description in `pageMeta.js`,
+         lazy in `App.tsx`. It shows the server's name, region, version,
+         the join IP (`JoinIp`) and a link to the live page; cards for
+         uptime, in use, average pilots and the peak; a 7×24 peak-hours
+         grid that shares its table with the dashboard heatmap (same
+         ramp); and the last 24 hours of pilots from the raw rows in
+         hand-drawn SVG with a table for the keyboard. The window is
+         `?days=7|30|90|365` in the URL (30 left out). Loading, failure,
+         an unknown server and a server with no ticks yet use the shared
+         states. The page is 390 px wide at 390 px.
+      6. The server browser's rows and cards and the live page (its
+         header and its error view) link to the server's page. The live
+         page's share title names the server from `servers` (S8 flag).
+      7. A "Matches by region" card on the dashboard, under the heatmap:
+         each month's share by region as 100% stacked columns over the
+         stored history, hand-drawn SVG (the dashboard's first visit still
+         loads no Recharts), colours from a `chart.region` that passes the
+         dataviz validator against `surface-card`, a legend, a per-month
+         table for the keyboard, and the shared states.
+      8. Chunk sizes for the entry, `GameList`, `LiveGameDetail` and the
+         new view are recorded before and after.
+      9. Checked in headless Chrome at 1,280 and 390 px: the server page
+         and the region card on local data plus Fetch-domain mocks for a
+         year; the dashboard, the server browser, the live page,
+         leaderboard, rankings, pilot pages and match page still work.
 - [ ] **S16 Weapon meta and ladders** (M). Weapon × map heatmap; weapon mix
       radar vs community; pilot × map grid; 1v1 duel ladder; CTF and
       Monsterball objective leaderboards.
