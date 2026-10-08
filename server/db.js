@@ -20,7 +20,7 @@ import {
   seedStockMaps, getMaps, countMaps, getMapIntel, getMapById, getMapByName, upsertMap,
   incrementMapDownloads, updateMapLocalPaths, deleteMap
 } from './db/repos/maps.js';
-import { getFightNightRecaps, getFightNightRecapByDate, saveFightNightRecap } from './db/repos/fightNights.js';
+import { getFightNightRecaps, getFightNightRecapByDate, saveFightNightRecap, deleteFightNightRecapsSince } from './db/repos/fightNights.js';
 import {
   getDatabaseStats, getColdDatabaseStats, getGlobalMapStats, getGlobalModeStats, getGlobalActivityStats,
   getGameCountsByDate, getMonthlyGameCounts, getTopPlayedMaps, getRecentTopMaps, getMostActiveMaps,
@@ -131,6 +131,7 @@ const db = {
   getFightNightRecaps,
   getFightNightRecapByDate,
   saveFightNightRecap,
+  deleteFightNightRecapsSince,
 
   // analytics/global.js
   getDatabaseStats,

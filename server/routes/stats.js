@@ -149,9 +149,13 @@ router.get('/stats/rankings', (req, res) => {
 });
 
 // GET /api/stats/heatmap - Matches per weekday and hour, fight-night days (S14)
-router.get('/stats/heatmap', (req, res) => {
+router.get('/stats/heatmap', async (req, res) => {
     try {
-        res.json(db.getActivityHeatmap());
+        const cached = await cacheService.get('activity_heatmap');
+        if (cached) return res.json(cached);
+        const heatmap = db.getActivityHeatmap();
+        await cacheService.set('activity_heatmap', heatmap, 300);
+        res.json(heatmap);
     } catch (e) {
         console.error("Heatmap Error:", e);
         res.status(500).json({ error: "Failed to fetch activity heatmap" });
@@ -222,7 +226,11 @@ router.get('/stats/activity-timeline', async (req, res) => {
     try {
         // This query fetches daily game counts for the entire history
         // We use the existing function getGameCountsByDate
+        // a year of dates counted per fight-night day in JS, so cached like the other aggregates
+        const cached = await cacheService.get('activity_timeline');
+        if (cached) return res.json(cached);
         const timeline = db.getGameCountsByDate.all();
+        await cacheService.set('activity_timeline', timeline, 300);
         res.json(timeline);
     } catch (error) {
         console.error('Error fetching activity timeline:', error);

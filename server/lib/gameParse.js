@@ -448,7 +448,7 @@ export const fightNightDay = date => localClock(date)?.day ?? null;
 // idx_games_date): 23 or 25 hours long on the DST days. null when `day` is
 // not a calendar day.
 export function dayBounds(day) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || shiftDay(day, 0) !== day) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(dayNumber(day)) || shiftDay(day, 0) !== day) return null;
     const startOf = d => {
         // the wall time FIGHT_NIGHT_DAY.startHour on `d`, read as UTC, less the
         // offset there (DST changes at 02:00, never at the start hour)

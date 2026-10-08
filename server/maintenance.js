@@ -100,16 +100,18 @@ function scheduleMaintenance() {
     // 3. The Fight Night detector, once each fight-night day has ended: the
     // day rolls over at 06:00 Chicago time (gameParse.js FIGHT_NIGHT_DAY), so
     // the 03:00 job would still be inside the night it should judge.
-    const scheduleNextDetector = () => {
-        const today = fightNightDay(Date.now());
-        let nextRun = Date.parse(dayBounds(today)[0]) + DETECTOR_DELAY_MS;
-        if (nextRun <= Date.now()) nextRun = Date.parse(dayBounds(shiftDay(today, 1))[0]) + DETECTOR_DELAY_MS;
-        const msUntilNext = nextRun - Date.now();
-        console.log(`[Maintenance] Fight night detector scheduled for ${new Date(nextRun).toISOString()} (in ${Math.round(msUntilNext / 60000)}m).`);
+    // `after`: the run just made, so a timer that fires a little early by the
+    // wall clock does not schedule the same run again
+    const scheduleNextDetector = (after = null) => {
+        const startOf = day => Date.parse(dayBounds(day)[0]) + DETECTOR_DELAY_MS;
+        const today = fightNightDay(after ?? Date.now());
+        let nextRun = startOf(today);
+        if (after !== null || nextRun <= Date.now()) nextRun = startOf(shiftDay(today, 1));
+        console.log(`[Maintenance] Fight night detector scheduled for ${new Date(nextRun).toISOString()} (in ${Math.round((nextRun - Date.now()) / 60000)}m).`);
         setTimeout(async () => {
             await fightNightService.checkAndGenerateRecentFightNight();
-            scheduleNextDetector();
-        }, msUntilNext);
+            scheduleNextDetector(nextRun);
+        }, Math.max(0, nextRun - Date.now()));
     };
     scheduleNextDetector();
 

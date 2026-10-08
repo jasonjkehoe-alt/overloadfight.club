@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useState, useMemo, useRef } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
-import GlobalActivityChart from './GlobalActivityChart';
 import ServerActivitySparkline from './ServerActivitySparkline';
 import ServerStats from './ServerStats';
 import { fetchArchivedGames, getGlobalStats } from '../services/apiService';
@@ -38,6 +37,9 @@ const loadFavorites = (): string[] => {
         return [];
     }
 };
+
+// Recharts is only on the History tab, so the servers tab does not load it.
+const GlobalActivityChart = lazy(() => import('./GlobalActivityChart'));
 
 const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initialArchivedGames, globalStats, startDate, showColdStorage, initialTab = 'servers', afterLive }) => {
     // ?tab=, ?idle=1 and ?q= (the submitted history search) keep the list's state in the URL
@@ -603,7 +605,9 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                         </div>
 
                         <div className="h-[200px] p-4 bg-surface-card">
-                            <GlobalActivityChart />
+                            <Suspense fallback={<Loading compact />}>
+                                <GlobalActivityChart />
+                            </Suspense>
                         </div>
                     </div>
                         {/* Archive Search & Stats */}

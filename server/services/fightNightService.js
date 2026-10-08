@@ -1,5 +1,5 @@
 import db from '../db.js';
-import { fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
+import { FIGHT_NIGHT_DAY, fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
 
 export const FIGHT_NIGHT_THRESHOLDS = {
     minMatches: 16,    // ≥ 16 matches in one fight-night day (gameParse.js)
@@ -451,11 +451,30 @@ export async function checkAndGenerateRecentFightNight() {
     }
 }
 
+// Recaps saved before S14 are keyed by UTC day; since S14 a date names a
+// fight-night day (gameParse.js FIGHT_NIGHT_DAY), so the same night would come
+// back under a second key. Once per day rule (marked in admin_settings), the
+// recaps of the last 365 days, whose matches are still in hot storage, are
+// rebuilt on fight-night days: every qualifying night, not only the latest 10.
+// Older recaps stay as they were; their matches cannot be re-read.
+const DAY_RULE_SETTING = 'fight_night_day_rule';
+const DAY_RULE = `${FIGHT_NIGHT_DAY.timeZone} from ${FIGHT_NIGHT_DAY.startHour}:00`;
+
+export async function rebuildRecapsForDayRule() {
+    if (db.getAdminSetting.get(DAY_RULE_SETTING)?.value === DAY_RULE) return;
+    const removed = db.deleteFightNightRecapsSince(shiftDay(fightNightDay(Date.now()), -365));
+    const days = db.getQualifyingFightNightDates(FIGHT_NIGHT_THRESHOLDS);
+    for (const day of days) await generateRecapForDate(day, true);
+    db.setAdminSetting.run(DAY_RULE_SETTING, DAY_RULE);
+    console.log(`[FightNight] Days now count ${DAY_RULE}: removed ${removed} recaps of the last 365 days, saved ${days.length}.`);
+}
+
 /**
  * Initializes Fight Night recaps: ensures table exists, and backfills recent qualified nights if empty.
  */
 export async function initializeFightNights() {
     try {
+        await rebuildRecapsForDayRule();
         const existing = db.getFightNightRecaps ? db.getFightNightRecaps(1) : [];
         if (existing && existing.length > 0) {
             console.log(`[FightNight] Found ${existing.length} existing recaps. Running daily check...`);
@@ -482,5 +501,6 @@ export default {
     FIGHT_NIGHT_THRESHOLDS,
     generateRecapForDate,
     checkAndGenerateRecentFightNight,
-    initializeFightNights
+    initializeFightNights,
+    rebuildRecapsForDayRule
 };

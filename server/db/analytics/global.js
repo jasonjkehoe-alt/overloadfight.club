@@ -1,7 +1,7 @@
 import { hotDb, coldDb } from '../connection.js';
 import '../migrations.js';
 import { getGamesInDay } from '../repos/games.js';
-import { FIGHT_NIGHT_DAY, HEATMAP, calendarDays, dayBounds, fightNightDay, heatmapCells, heatmapDays, netKills, pilotKey } from '../../lib/gameParse.js';
+import { FIGHT_NIGHT_DAY, HEATMAP, calendarDays, dayBounds, fightNightDay, heatmapCells, heatmapDays, netKills, pilotKey, shiftDay } from '../../lib/gameParse.js';
 
 // Aggregates over many games: site totals, mode, map and activity charts, server
 // activity, all-time totals across both files, the map_stats_cache readers and
@@ -65,14 +65,16 @@ export const getMostActiveMaps = hotDb.prepare(`
     LIMIT 10
 `);
 
-// Hot match dates of the last 365 days (idx_games_date, no details read), for
-// the counts per fight-night day below. SQL's date() would count UTC days.
-const lastYearDates = hotDb.prepare(`SELECT date FROM games WHERE date > date('now', '-365 days')`).pluck();
+// Hot match dates (idx_games_date, no details read) from the start of the
+// fight-night day 365 days before today's, for the counts per fight-night
+// day below. SQL's date() would count UTC days.
+const gameDatesSince = hotDb.prepare('SELECT date FROM games WHERE date >= ?').pluck();
+const lastYearDates = () => gameDatesSince.all(dayBounds(shiftDay(fightNightDay(Date.now()), -365))[0]);
 
 // [{ day, count }] per fight-night day over the last 365 days, oldest first:
 // the activity timeline and the admin calendar.
 export const getGameCountsByDate = {
-  all: () => calendarDays(lastYearDates.all()).map(({ day, matches }) => ({ day, count: matches }))
+  all: () => calendarDays(lastYearDates()).map(({ day, matches }) => ({ day, count: matches }))
 };
 
 const gameDatesBetween = hotDb.prepare('SELECT date FROM games WHERE date >= ? AND date < ?').pluck();
@@ -363,7 +365,7 @@ export const getQualifyingFightNightDates = (thresholds = { minMatches: 16, minP
   const minFrags = thresholds.minFrags || 1600;
 
   // fight-night days of the last 365 days with enough matches, newest first
-  const dayRows = calendarDays(lastYearDates.all()).filter(d => d.matches >= minMatches).reverse();
+  const dayRows = calendarDays(lastYearDates()).filter(d => d.matches >= minMatches).reverse();
 
   const qualifying = [];
   for (const row of dayRows) {

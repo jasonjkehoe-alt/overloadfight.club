@@ -590,7 +590,7 @@ describe('fight-night days', () => {
         // a date inside a day's bounds is on that day, the end is not
         const [start, end] = dayBounds('2026-03-07');
         expect([fightNightDay(start), fightNightDay(Date.parse(end) - 1), fightNightDay(end)]).toEqual(['2026-03-07', '2026-03-07', '2026-03-08']);
-        expect([dayBounds('2026-02-30'), dayBounds('foo'), dayBounds('2026-10')]).toEqual([null, null, null]);
+        expect([dayBounds('2026-02-30'), dayBounds('2026-13-01'), dayBounds('foo'), dayBounds('2026-10')]).toEqual([null, null, null, null]);
     });
 
     it('counts whole days across months', () => {

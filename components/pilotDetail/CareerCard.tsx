@@ -20,11 +20,11 @@ const CareerCard: React.FC<{ load: ReturnType<typeof useLoad<PilotCareer>> }> = 
             </h3>
             {!career ? (
                 <Loading compact label="Loading career..." />
-            ) : !career.lastOut ? (
+            ) : !career.lastOut && career.calendar.days.length === 0 && career.months.length === 0 ? (
                 <EmptyState compact title="No matches yet" />
             ) : (
                 <>
-                    <LastTimeOut lastOut={career.lastOut} today={career.today} />
+                    {career.lastOut && <LastTimeOut lastOut={career.lastOut} today={career.today} />}
                     {career.months.length > 0
                         ? <CareerArc months={career.months} />
                         : <EmptyState compact title="No ranked match yet" message="The career arc counts matches the career cards count." />}

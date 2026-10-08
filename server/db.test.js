@@ -216,6 +216,32 @@ describe('career (pilot_months, /api/pilot/:name/career) and the heatmap', () =>
         expect(b2af.ratingChange).toBe(Math.round((db.getPilotRating('B2AF').rating - RATING.start) * 10) / 10);
     });
 
+    it('gives no rating change for a night without a rated match', async () => {
+        // LONER beats PARTNER two days before `day`, then plays alone the evening before it
+        const duel = { ...onDay(byId(72090)), id: 90040, players: [{ name: 'LONER', kills: 5, deaths: 1, assists: 0 }, { name: 'PARTNER', kills: 1, deaths: 5, assists: 0 }] };
+        duel.date = new Date(Date.parse(duel.date) - 86400000).toISOString();
+        duel.settings = { ...duel.settings, start: new Date(Date.parse(duel.settings.start) - 86400000).toISOString() };
+        const alone = { ...onDay(byId(72090)), id: 90041, players: [{ name: 'LONER', kills: 0, deaths: 0, assists: 0 }] };
+        db.saveGames([duel, alone]);
+        await db.refreshPilotStats();
+        expect(db.getPilotRating('LONER').history.map(h => h.day)).toEqual([shiftDay(day, -2)]);
+        expect(db.getPilotCareer('LONER').lastOut).toMatchObject({ day: shiftDay(day, -1), ratingChange: null, wins: 0, losses: 0 });
+    });
+
+    it('starts the year of daily counts at a fight-night day, not at UTC midnight', () => {
+        // a year after `day`: the window starts at 06:00 Chicago time on `day`, so the
+        // fixtures' evening before it (dated `day` in UTC, 03:24 to 08:49) is out
+        vi.useFakeTimers({ toFake: ['Date'] });
+        try {
+            vi.setSystemTime(Date.parse(dayBounds(shiftDay(day, 365))[0]) + 2 * 3600000);
+            const days = db.getGameCountsByDate.all().map(d => d.day);
+            expect(days[0]).toBe(day);
+            expect(days).not.toContain(shiftDay(day, -1));
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('answers an unknown pilot with nothing in each part', () => {
         expect(db.getPilotCareer('NOBODY')).toMatchObject({ months: [], calendar: { days: [] }, lastOut: null });
     });
@@ -244,7 +270,10 @@ describe('career (pilot_months, /api/pilot/:name/career) and the heatmap', () =>
         // 84 days after `day` the window starts on `day`: the evening before it is out
         const later = db.getActivityHeatmap(Date.parse(dayBounds(shiftDay(day, 84))[0]));
         expect(later.since).toBe(day);
-        expect(later.total).toBe(heat.total - db.getGamesForDate(shiftDay(day, -1)).length);
+        let fromDay = 0;
+        for (let d = day; d < later.until; d = shiftDay(d, 1)) fromDay += db.getGamesForDate(d).length;
+        expect(later.total).toBe(fromDay);
+        expect(later.total).toBeLessThan(heat.total);
     });
 });
 
@@ -358,6 +387,24 @@ describe('fight night recap', () => {
         const recap = await generateRecapForDate(day, true);
         expect(recap.closestFinish).toMatchObject({ gameId: 90002, margin: 0, score: '10 - 10' });
         expect(recap.closestFinish.copy).toMatch(/exact draw/);
+    });
+
+    it('rebuilds the last year\'s recaps on fight-night days once', async () => {
+        const { rebuildRecapsForDayRule, FIGHT_NIGHT_THRESHOLDS } = await import('./services/fightNightService.js');
+        const old = shiftDay(fightNightDay(Date.now()), -400);
+        // a recap saved under the UTC day, and one too old to rebuild
+        db.saveFightNightRecap(shiftDay(day, 1), { totalMatches: 99 });
+        db.saveFightNightRecap(old, { totalMatches: 1 });
+        await rebuildRecapsForDayRule();
+        const dates = db.getFightNightRecaps(50).map(r => r.date);
+        expect(dates).not.toContain(shiftDay(day, 1));
+        expect(dates).toContain(old);
+        expect(dates.filter(d => d !== old)).toEqual(db.getQualifyingFightNightDates(FIGHT_NIGHT_THRESHOLDS));
+        expect(db.getAdminSetting.get('fight_night_day_rule').value).toBe('America/Chicago from 6:00');
+        // done once: a second run leaves a recap alone
+        db.saveFightNightRecap(shiftDay(day, 1), { totalMatches: 99 });
+        await rebuildRecapsForDayRule();
+        expect(db.getFightNightRecapByDate(shiftDay(day, 1)).totalMatches).toBe(99);
     });
 });
 
