@@ -53,7 +53,7 @@ describe('saveServerSnapshot', () => {
         ];
         expect(db.saveServerSnapshot(t0, tick)).toBe(3);
         // the same tick again (a timer that fired twice) adds nothing to the hours
-        expect(db.saveServerSnapshot(t0, tick)).toBe(3);
+        expect(db.saveServerSnapshot(t0, tick)).toBe(0);
         db.saveServerSnapshot(t0 + SNAPSHOT.everyMs, [entry(72108, match(8)), entry(72107), entry(72086, null, false)]);
 
         expect(hot.prepare('SELECT COUNT(*) FROM server_snapshots').pluck().get()).toBe(6);

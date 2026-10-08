@@ -27,24 +27,25 @@ const addToHour = hotDb.prepare(`
 
 /**
  * Stores one tick of the server browser taken at `at` (ms): each server's
- * listing, its raw row, and the tick added to its hour, in one transaction. An
- * entry repeated in one answer, or a tick already stored at the same `at`,
- * counts once. Returns the number of servers stored.
+ * listing, its raw row, and the tick added to its hour, in one transaction. A
+ * server listed twice in one answer, or a tick already stored at the same
+ * `at`, counts once (the raw row's key is (at, ip)). Returns the number of
+ * ticks stored.
  */
 export const saveServerSnapshot = hotDb.transaction((at, entries) => {
   const seen = new Date(at).toISOString();
   const hour = Math.floor(at / HOUR_MS);
-  const done = new Set();
+  let stored = 0;
   for (const entry of entries || []) {
     const row = snapshotRow(entry);
-    if (!row || done.has(row.ip)) continue;
-    done.add(row.ip);
+    if (!row) continue;
     const { server } = entry;
     upsertServer.run({
       ip: row.ip, name: server.name ?? null, notes: server.serverNotes ?? null, version: server.version ?? null,
       seen, last_online: server.lastSeen ?? null
     });
     if (insertTick.run({ at, ...row }).changes === 0) continue;
+    stored++;
     addToHour.run({
       ip: row.ip, hour, online: row.online, players: row.players,
       lobby: row.state === SERVER_STATE.lobby ? 1 : 0,
@@ -52,7 +53,7 @@ export const saveServerSnapshot = hotDb.transaction((at, entries) => {
       match_pilots: row.state === SERVER_STATE.match ? row.players : 0
     });
   }
-  return done.size;
+  return stored;
 });
 
 const deleteTicksBefore = hotDb.prepare('DELETE FROM server_snapshots WHERE at < ?');
