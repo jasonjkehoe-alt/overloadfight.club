@@ -460,26 +460,24 @@ describe('ratingSnapshots', () => {
         expect(ratings[1] - 1500).toBeCloseTo(1500 - ratings[2], 1);
     });
 
-    it('rates a team against the other side\'s mean, so beating a stronger team pays more', () => {
-        // ZERGLING first wins a 1v1 and is rated above 1500; a 2v2 then puts him with a new pilot
-        const ones = byId(72090);
-        const base = [{ ...rated({ ...ones, players: [{ name: 'ZERGLING', kills: 5 }, { name: 'RAPTOR', kills: 1 }] }), id: 1 }];
-        const teamGame = (blueWins, id) => ({
-            id,
-            date: '2025-11-25T00:00:00Z',
+    it('rates a side by its pilots\' mean, so a win beside a stronger teammate pays less', () => {
+        // ZERGLING beats RAPTOR 1v1 (1662 and 1338), then NEW1 wins a 2v2 beside one of them
+        const oneVsOne = { id: 1, date: '2025-11-24T07:58:31.969Z', sides: ratingSides({ ...byId(72090), players: [{ name: 'ZERGLING', kills: 5 }, { name: 'RAPTOR', kills: 1 }] }) };
+        const winBeside = mate => ratingSnapshots([oneVsOne, {
+            id: 2,
+            date: '2025-11-25T18:00:00Z',
             sides: ratingSides({
                 ...byId(72102),
-                teamScore: blueWins ? { BLUE: 10, ORANGE: 5 } : { BLUE: 5, ORANGE: 10 },
+                teamScore: { BLUE: 5, ORANGE: 10 },
                 players: [
-                    { name: 'ZERGLING', team: 'ORANGE', kills: 1 }, { name: 'NEW1', team: 'ORANGE', kills: 1 },
+                    { name: mate, team: 'ORANGE', kills: 1 }, { name: 'NEW1', team: 'ORANGE', kills: 1 },
                     { name: 'NEW2', team: 'BLUE', kills: 1 }, { name: 'NEW3', team: 'BLUE', kills: 1 }
                 ]
             })
-        });
-        const blueWin = ratingSnapshots([...base, teamGame(true, 2)]);
-        const orangeWin = ratingSnapshots([...base, teamGame(false, 2)]);
-        // BLUE beat the stronger side: it gains more than ORANGE gains for beating the weaker one
-        expect(row(blueWin, 'new2').rating - 1500).toBeGreaterThan(row(orangeWin, 'new1').rating - 1500);
+        }]);
+        expect(row(winBeside('ZERGLING'), 'new1').rating).toBeLessThan(row(winBeside('RAPTOR'), 'new1').rating);
+        // the losers' side is the same pair of new pilots either way, and they lose more to the weaker pair
+        expect(row(winBeside('RAPTOR'), 'new2').rating).toBeLessThan(row(winBeside('ZERGLING'), 'new2').rating);
     });
 
     it('replays in date order whatever order the matches come in, one row per pilot per day', () => {
