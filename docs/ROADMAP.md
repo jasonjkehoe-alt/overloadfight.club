@@ -164,7 +164,8 @@ maintenance item does not count toward the 28.
   in dated records: session-log lines, Validated entries, the S6
   Done-when, the S6 decisions (marked superseded) and the resolved
   postmortems.
-- Node 26, PR #14 checks on `16f6ba3`: CI (`check`) passed in 41 s on
+- Node 26, PR #14 checks on `16f6ba3` (the merge of `411d04e` into
+  `d7a81eb`): CI (`check`) passed in 41 s on
   Node 26.11.1 x64 from `actions/setup-node` (14 files, 193 tests).
   docker-publish (`build`) passed in 2 min 26 s, building linux/amd64
   with `push: false`. Its `npm ci` step took about 13 s and warned
