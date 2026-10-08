@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import Link from './Link';
 import { Loading, EmptyState } from './States';
+import { useDialog } from '../hooks/useDialog';
 import { clsx } from 'clsx';
 import { useOverloadFs } from '../context/OverloadFsContext';
 import { getPilotDataClient } from '../utils/overloadFsBridge';
@@ -91,6 +92,8 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
     const [pilotModal, setPilotModal] = useState<'clone' | 'rename' | 'delete' | 'xp' | null>(null);
     const [pilotModalInput, setPilotModalInput] = useState<string>('');
     const [pilotOpLoading, setPilotOpLoading] = useState<boolean>(false);
+    // Escape closes the pilot dialog unless an operation is running, like its close button
+    const pilotDialog = useDialog(pilotModal !== null, () => { if (!pilotOpLoading) setPilotModal(null); });
     const [pilotOpMessage, setPilotOpMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -696,7 +699,7 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
             {/* Pilot Management Modal (Clone, Rename, Delete, XP) */}
             {pilotModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-[#121214] border border-white/15 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+                    <div {...pilotDialog.props} className="bg-[#121214] border border-white/15 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
                         {/* Header */}
                         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-black/40">
                             <div className="flex items-center gap-2.5">
@@ -704,7 +707,7 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                                 {pilotModal === 'rename' && <Edit2 className="w-5 h-5 text-yellow-400" />}
                                 {pilotModal === 'delete' && <Trash2 className="w-5 h-5 text-red-400" />}
                                 {pilotModal === 'xp' && <Award className="w-5 h-5 text-purple-400" />}
-                                <h3 className="font-bold text-base text-white tracking-wide">
+                                <h3 id={pilotDialog.titleId} className="font-bold text-base text-white tracking-wide">
                                     {pilotModal === 'clone' && `Clone Pilot: ${selectedPilot}`}
                                     {pilotModal === 'rename' && `Rename Pilot: ${selectedPilot}`}
                                     {pilotModal === 'delete' && `Delete Pilot: ${selectedPilot}`}
@@ -714,6 +717,7 @@ export const OverloadVault: React.FC<OverloadVaultProps> = ({ onLoadIntoEditor, 
                             <button
                                 onClick={() => setPilotModal(null)}
                                 disabled={pilotOpLoading}
+                                aria-label="Close"
                                 className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
                             >
                                 <X className="w-4 h-4" />

@@ -33,7 +33,7 @@ const FightNightTeaser: React.FC = () => {
             <span className="font-bold text-white uppercase tracking-wide whitespace-nowrap">Fight Night</span>
             <span className="text-gray-400 truncate">
                 {recap.formattedDate}: {recap.totalMatches} matches, {recap.totalPilots} pilots
-                {recap.topFragger?.name && <>, top fragger {recap.topFragger.name} ({recap.topFragger.kills})</>}
+                {recap.topFragger?.name && <>, most kills {recap.topFragger.name} ({recap.topFragger.kills})</>}
             </span>
             <span className="ml-auto text-brand whitespace-nowrap group-hover:underline">Full card &rarr;</span>
         </Link>

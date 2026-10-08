@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, durationOf, netKills, outcomeOf, pairOutcome, pilotKey, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, winnerOf } from './gameParse.js';
 
 // pilot_stats_cache rows, one per pilotKey().
 export function pilotPass() {
@@ -213,9 +213,9 @@ export function pilotPass() {
             const flightMinutes = timeSec > 0 ? timeSec / 60 : 0;
 
             const kd = deaths > 0 ? Math.round((kills / deaths) * 100) / 100 : kills;
-            const kda = deaths > 0 ? Math.round(((kills + assists * 0.5) / deaths) * 100) / 100 : kills;
+            const kda = combatRatio(kills, assists, deaths);
             const akdr = deaths > 0 ? Math.round(((kills + assists * 0.33) / deaths) * 100) / 100 : kills;
-            const kpm = flightMinutes > 0 ? Math.round((kills / flightMinutes) * 100) / 100 : 0;
+            const kpm = lethality(kills, timeSec);
             const tce = Math.round(((kills * 1.0) + (assists * 0.4) - (deaths * 1.0)) * 10) / 10;
             const aci = Math.round(((kills + assists * 0.5 - deaths) / games) * 100) / 100;
 

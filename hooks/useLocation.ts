@@ -37,18 +37,6 @@ export function goBack(fallback: string) {
 export const isModifiedClick = (e: React.MouseEvent) =>
     e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
 
-// Click handlers for a table row or card that cannot be an <a> (it holds other
-// buttons or links). Clicks on those inner controls are theirs; a modified or
-// middle click opens the row's page in a new tab, as a link would.
-export function rowLink(url: string) {
-    const open = (e: React.MouseEvent) => {
-        if ((e.target as Element).closest('a, button')) return;
-        if (!isModifiedClick(e)) navigate(url);
-        else if (e.button <= 1) window.open(url, '_blank', 'noopener');
-    };
-    return { onClick: open, onAuxClick: open };
-}
-
 // Several query-string values in one history write; '' or null removes a key.
 export function setQueryParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(window.location.search);
@@ -68,13 +56,14 @@ export const usePathname = () => useSyncExternalStore(subscribe, () => window.lo
 // One query-string value. Setting it replaces the current entry rather than
 // adding one, so back leaves the page instead of undoing each filter; the
 // default value is left out of the URL. With `allowed`, anything else in the
-// URL reads as the default.
-export function useQueryParam<T extends string = string>(key: string, fallback = '' as NoInfer<T>, allowed?: readonly T[]): [T, (value: T) => void] {
+// URL reads as the default. `also` writes other keys in the same history
+// entry, such as `{ page: null }` when a filter changes a paged list.
+export function useQueryParam<T extends string = string>(key: string, fallback = '' as NoInfer<T>, allowed?: readonly T[]): [T, (value: T, also?: Record<string, string | null>) => void] {
     const url = useUrl();
     const raw = new URLSearchParams(url.split('?')[1]).get(key);
     const value = raw !== null && (!allowed || allowed.includes(raw as T)) ? raw as T : fallback;
-    const setValue = useCallback((next: T) => {
-        setQueryParams({ [key]: next === fallback ? null : next });
+    const setValue = useCallback((next: T, also?: Record<string, string | null>) => {
+        setQueryParams({ ...also, [key]: next === fallback ? null : next });
     }, [key, fallback]);
     return [value, setValue];
 }

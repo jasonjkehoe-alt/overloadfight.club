@@ -54,8 +54,19 @@ S4 to S8 are merged into `main` (PRs #4 to #8, merged in order on
 2026-10-07 UTC); `main` is at `6bc5857`, the PR #8 merge, with no owner
 commits after it.
 
-S9 is on branch `ofc/s09-design-tokens`, based on `6bc5857`, PR #9 open
-against `main` and not merged, 2026-10-07 UTC.
+S9 is merged into `main` (PR #9, squash-merged 2026-10-07 19:50 UTC as
+`ae050c4`). During S10 the owner pushed four commits straight to
+`main`: `95196e7` (Tactical Replay v3, a 1,970-line
+`components/MatchReplay.tsx` on the match page's overview and timeline
+tabs), `887934e` (stats caches refresh after a backfill, an admin
+refresh button, a startup freshness check), `45cb57b` (awaits those
+refreshes) and `5afcdf5` (the leaderboard's Active (90d) toggle fetches
+90-day totals and win rates from the server). `main` is at `5afcdf5`.
+`5afcdf5` fails `npx tsc --noEmit` on its own (`setMinutes` with four
+arguments); S10's branch fixes it.
+
+S10 is on branch `ofc/s10-glossary-a11y-mobile`, rebased onto
+`5afcdf5`, PR #10 open against `main` and not merged, 2026-10-07 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -66,10 +77,145 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 9 of 28 sessions done (S1 to S8 merged, PR for S9 open).
-Phase 1: 6/6. Phase 2: 3/5. Phase 3: 0/6. Phase 4: 0/11.
+Counts: 10 of 28 sessions done (S1 to S9 merged, PR for S10 open).
+Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S8 merged into `main`, `main` at 6bc5857, S9 on `ofc/s09-design-tokens`)
+## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S9 merged into `main`, `main` at 5afcdf5, S10 on `ofc/s10-glossary-a11y-mobile`)
+
+- S10, second rebase, onto the owner's `5afcdf5` (pushed while S10's
+  PR was being prepared). One conflict, in `PilotsList.tsx`: kept the
+  owner's server-side 90-day fetch and S10's URL sort, paging and
+  `combatRatio()` fallback. The owner's new 90-day rows in
+  `db.getPilotStats` computed Combat Ratio inline; they call
+  `combatRatio()` now. The roster's Retry passed its click event as the
+  new `isActiveWindow` argument (it would have loaded the 90-day
+  window); it calls `loadRoster()` with no argument now. `5afcdf5` alone
+  fails `tsc` (`d.setMinutes(0, 0, 0, 0)`, TS2554); the branch drops the
+  fourth argument, which changes nothing at runtime. After the rebase:
+  `npx tsc --noEmit` 0, `npx vitest run` 13 files and 126 tests, entry
+  230.93 KB raw / 73.74 KB gzip, every scratch grep 0. The full
+  `checks.mjs` run on this build against a restarted server: 81 of 81
+  pass, WD-40 at Combat Ratio 0.76 and Lethality 1.15 on the
+  leaderboard, the profile and `/ppi` (the cache had refreshed to 23
+  matches). Server: `/api/health` ok, `/api/stats/global`
+  `total_games: 30`, `/api/stats/pilots` top WD-40 with 23 games,
+  `/api/pilot/WD-40/stats` 23 games and 380 kills.
+
+- S10, after rebasing onto the owner's `45cb57b`: no conflicts. The
+  glossary script found the replay's new strings (six "frag", the
+  "OVERLOAD ARENA" fallback) and one "cold storage" on the admin page;
+  all now use the S10 words, and the grep is 0 again. The replay has no
+  table and no clickable non-control. `npx vitest run` passes 13 files,
+  122 tests (the owner's commits add `server/match-replay.test.js` and
+  tests in four files). `npx tsc --noEmit` exits 0; the entry is
+  still 230.93 KB raw / 73.74 KB gzip (the replay is in the match
+  page's chunk), CSS 85.25 KB / 13.60 KB gzip. All 81 browser checks
+  below were run again on the rebased build against a restarted
+  server: 80 passed at once. The Combat Ratio check failed (leaderboard
+  and profile 0.78, cache 0.76): the owner's new startup check had
+  refreshed the cache (WD-40 from 21 to 23 matches), but
+  `/api/stats/pilots?source=all` kept answering the old row for more
+  than nine minutes while `/ppi` and the database file had the new one
+  (flagged). After another restart the leaderboard, the profile and
+  the cache all read 0.76 and 1.15, and the check passed. Server on the
+  rebased code: `/api/health` ok, `/api/stats/global` `total_games:
+  30`, `/api/stats/pilots` 21 pilots (top WD-40, 23 games),
+  `/api/pilot/WD-40/stats` 23 games and 380 kills.
+
+- S10, first move on Node 22.17.0, on `main` at `ae050c4` (PR #9
+  merged): `npx vitest run` passed 12 files, 107 tests. `npx vite
+  build` wrote the entry `index-D3L71jfs.js` at 230.60 KB raw / 73.64
+  KB gzip (the table said 73.63; same raw size, a rounding step).
+  `npx tsc --noEmit` exited 0.
+- S10, counts re-taken with grep and two scratch scripts (a TypeScript
+  AST walk over `App.tsx` and `components/*.tsx`) on `ae050c4`: 13
+  tables, 9 without a scroll wrapper (the audit said 7 of 13); 22
+  clickable elements that were not buttons or links (14 sortable
+  `<th>`, 6 `rowLink` rows and cards, the rival picker `div`, and
+  `DeepStatCard`'s `onClick` that no caller passed); `hover:` 475,
+  `active:` 0 (the audit said 499 and 0); `focus-visible` 0, `aria-*`
+  0, `role=` 2. Glossary variants in user-visible strings (JSX text and
+  string literals outside `className`, imports, console calls and
+  comparisons): match 26 (games, bouts, mission, engagement, sorties,
+  combat log), pilot 14 (player, callsign), kill 26 (frag, fragger,
+  eliminations), map 37 (arena, combat zone, sector, theater, levels),
+  server 4 (node, relay, uplink), archive 9 ("Historical Archive",
+  archival, archives).
+- S10, before shots on the built `dist/` with `/api/browser` and
+  `/api/game/143.110.230.67` mocked from fixture 72102 through CDP's
+  Fetch domain (no server had a live game): dashboard, `/pilots?min=1`,
+  `/pilot/WD-40`, `/game/78760`, `/live/143.110.230.67` and `/maps`,
+  full page at 1,280 and 390 px, no console errors. Widths at 390 px:
+  dashboard 411, live 509 (S9 measured 516 with a different live game),
+  the other four 390. Thirteen more routes at 390 px: `/taunts` (every
+  tab) 854, `/pilot` (pilot settings) 441, the rest 390.
+- S10, after, same harness, final run after /simplify: every grep
+  above is 0 (13 of 13 tables in a scroll wrapper, no clickable
+  non-control, no glossary variant outside the kept words listed in the
+  glossary decision). Headless Chrome 154 over CDP, `node checks.mjs`,
+  results:
+  - Combat Ratio and Lethality for WD-40: leaderboard 0.78 and 1.15,
+    profile sidebar 0.78, profile Lethality card 1.15,
+    `/api/pilot/WD-40/ppi` `kda` 0.78 and `kpm` 1.15 (the cache then
+    held 21 of WD-40's 23 matches; after the rebases and a refresh all
+    three read 0.76 and 1.15).
+  - Tab from the top of the page reaches every visible focusable
+    element, each with a 2px `#ff6600` ring (on the `::after` for
+    stretched links): `/` 63 at 1,280 and 49 at 390, `/history` 109,
+    `/pilots?min=1` 82, `/pilot/WD-40` 62, `/game/78760` 28,
+    `/live/143.110.230.67` 19, `/maps` 144, `/archive` 36,
+    `/fight-night` 38. Tab then Enter on a row's link opened its page
+    on the server table, the 390 px server cards, the history cards,
+    the roster, the pilot's match list, the archive's hall of fame and
+    a map card (the map popup). Enter on the Kills header set
+    `aria-sort="descending"`; Enter on a rival picked it.
+  - Dialogs, each opened from the keyboard: the map popup, the web
+    import, the voice recorder, the pilot clone dialog and the key
+    rebind dialog are `role="dialog"`, `aria-modal="true"`, labelled by
+    their heading, with focus inside; Tab stays in the map popup;
+    Escape closes each and focus is back on the control that opened
+    it. The two taunt-tool dialogs that need an Overload folder ran
+    against mocked `/api/overload/*` answers (pilots Soup and XB1).
+  - Pagination: the roster (130 made-up pilots added to the real 16
+    through the mocked `/api/stats/pilots`) shows 50 rows, "Page 1 of
+    3"; Next writes `?min=1&page=2` and row 51; a reload keeps it;
+    opening a pilot and pressing back returns to the same URL and rows.
+    Sorting by Combat Ratio, Next, reload: `?min=1&sort=kda&page=2`,
+    same first row. A new minimum drops `page`. The map grid (574
+    maps) shows 24 cards, "Page 1 of 24"; Next writes `?page=2`; reload
+    keeps it; the popup opened from page 2 is `/maps/ALPHA1?page=2` and
+    Escape returns to `/maps?page=2`; leaving through the nav and
+    pressing back returns to page 2.
+  - At 390 px, 21 routes (every view, the match tabs, the map popup,
+    all four taunt tabs, admin) are 390 px wide, and each wide table
+    scrolls inside its wrapper (`scrollLeft` moves).
+  - Touch emulation with `Input.synthesizeTapGesture` (a 800 ms tap;
+    `Input.dispatchTouchEvent` does not set `:active` in headless
+    Chrome): the menu button, a roster row link, a sort header and the
+    pager's Next go from opacity 1 to 0.7 while pressed; a stretched
+    server card and the rival picker show `rgba(255, 102, 0, 0.1)` on
+    their cover.
+  - No console errors or exceptions. Header nav at 768, 1,024, 1,150,
+    1,280, 1,440 and 1,600 px: no overflow; at 1,280 the bar ends at
+    1,274 px.
+  - Full-page shots at 1,280 and 390 px after the change and again
+    after /simplify: same layout and content as before apart from the
+    intended differences (new words, the Lethality column, the pager,
+    the stacked live header, the wrapped taunt header).
+- S10: `npx vitest run` passes 12 files, 109 tests (two new in
+  `server/lib/gameParse.test.js`: INSANER in fixture 72102 has Combat
+  Ratio 2.04 and Lethality 1.25 over 910 s; no deaths gives the kills,
+  no match time gives 0). `pageMeta.test.js` expects "most kills"
+  instead of "top fragger". `npx vite build` entry 230.93 KB raw /
+  73.74 KB gzip, CSS 81.25 KB / 13.06 KB gzip. `npx tsc --noEmit`
+  exits 0.
+- S10, server (`PORT=3100 DATA_DIR=/tmp/ofc-data npm start` on the
+  session's code, restarted after each server change; the data dir
+  from earlier sessions, 30 games): `/api/health` `{"status":"ok"}`,
+  `/api/stats/global` `total_games: 30`, `/api/stats/pilots` 21 pilots
+  (top WD-40, 23 games), `/api/pilot/WD-40/stats` 23 games and 380
+  kills. The only errors in the log are the scraper's 404s for an idle
+  server's live page.
 
 - S9, first move on Node 22.17.0, on `main` at `6bc5857` (all of PRs #4
   to #8 merged): `npx vitest run` passed 12 files, 107 tests. `npx vite
@@ -624,6 +770,25 @@ Phase 1: 6/6. Phase 2: 3/5. Phase 3: 0/6. Phase 4: 0/11.
 
 ## NOT validated, do not claim these work
 
+- S10 was checked in headless Chrome 154 on macOS only. Safari,
+  Firefox and a real phone were not tried: not Safari's table layout
+  for the cell links, not focus return in Safari (which does not focus
+  a clicked button, so a dialog opened by mouse there returns focus
+  nowhere), not a real touch screen. No screen reader was run;
+  `role`, `aria-*` and the cell links' reading order were checked in
+  the DOM only.
+- 390 px only. 375 and 320 px were not measured.
+- The pilot clone and key rebind dialogs ran against mocked
+  `/api/overload/*` answers, not a connected Overload folder. Their
+  actions (clone, rebind) were not run.
+- The roster's pages were checked with 146 pilots (130 made up), not
+  production's thousands; the "Search all N pilots" box and the sort
+  were not timed on a large roster.
+- Recap copy from `fightNightService.js` was not regenerated in the
+  session; the new wording was read in the source. Recaps saved before
+  S10 keep their old words.
+- The CI workflow on the S10 PR before it opened; see the PR's checks.
+
 - S9 was checked in headless Chrome 154 on macOS, at 1,280 and 390 px
   only. Safari, Firefox and a real phone were not tried. Pages other than
   the five screenshotted were not compared before and after; they lost
@@ -827,11 +992,11 @@ Phase 1: 6/6. Phase 2: 3/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 12 files, 107 tests pass (S9) | 2026-10-07 |
+| `npx vitest run` | all pass | 13 files, 129 tests pass (S10, after the review fixes) | 2026-10-07 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry `index-DBexm-fv.js` 230.60 KB raw / 73.63 KB gzip (S9; 73.47 KB in S8, one 351.07 KB chunk before S4) | 2026-10-07 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S9) | 2026-10-07 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 26`, dev mode without secrets; `/api/stats/pilots` JSON, `/api/pilot/WD-40/stats` 22 games, `/api/health` ok (S9) | 2026-10-07 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.93 KB raw / 73.74 KB gzip (S10; 73.64 KB at S10's start, one 351.07 KB chunk before S4) | 2026-10-07 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S10) | 2026-10-07 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 30`, dev mode without secrets; `/api/stats/pilots` 21 pilots, `/api/pilot/WD-40/stats` 23 games, `/api/health` ok (S10) | 2026-10-07 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | healthy in about 9 s, uid 1000, 567 MB (S6) | 2026-10-07 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | under 1 s, exit 0, no `-wal` left (S6) | 2026-10-07 |
@@ -842,6 +1007,8 @@ Phase 1: 6/6. Phase 2: 3/5. Phase 3: 0/6. Phase 4: 0/11.
 | Headless Chrome over CDP, S8 scripts (real mouse clicks: plain, middle, Cmd, Ctrl, Shift; reload and back on each piece of URL state; a held `/api/game/<id>` for the stale match) | new tab on middle/Cmd click, same document on a plain click, a title per route, state back after reload and back, no stale match | all seen, see the S8 Validated entry | 2026-10-07 |
 | Headless Chrome over CDP, S9 scripts (full-page shots of five pages at 1,280 and 390 px with `/api/browser` and the live game replayed; every view's states forced with the Fetch domain; a component made to throw in a view and in `Layout`) | shots the same apart from the token changes; Loading, EmptyState and ErrorState where each view loads, is empty or fails; the recovery screen, with the nav for a view and without it for `Layout` | all seen, 39 of 39 states, see the S9 Validated entry | 2026-10-07 |
 | Dead-class script: each `className` token looked up in `dist/assets/index-*.css` | nothing but tab names compared in expressions | as expected (S9) | 2026-10-07 |
+| Headless Chrome over CDP, S10 `checks.mjs` (Combat Ratio and Lethality on both pages; Tab through ten pages reading the ring; Tab then Enter on each kind of row; every dialog opened from the keyboard and closed with Escape; roster and map pages across Next, reload, back and the popup; 21 routes at 390 px; a synthesized tap on six kinds of target) | same numbers; every focusable reached with a ring; Enter opens the row; dialogs labelled, focus back on the opener; the page in the URL; nothing wider than 390; opacity or cover change while pressed | all seen, see the S10 Validated entry | 2026-10-07 |
+| S10 scratch scripts: `uistrings.cjs` (user-visible strings by TypeScript AST) piped to `glossary.sh`; `tables.cjs`; `clickables.cjs` | 0 variant words for each of the six terms; 13 of 13 tables wrapped; no clickable non-control | as expected (S10) | 2026-10-07 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -958,7 +1125,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       every view uses them; a top-level `ErrorBoundary` wraps the app; at
       least the dashboard, pilots, match and live pages are migrated to
       tokens.
-- [ ] **S10 Glossary, accessibility, mobile** (M). Done when: one term each for
+- [x] **S10 Glossary, accessibility, mobile** (M). PR #10. Done when: one term each for
       match, pilot, kill, map, server, archive across the UI; "Combat Ratio"
       and "Lethality" have one definition; clickable rows and divs are buttons
       or links; `focus-visible` styles exist; dialogs have `role="dialog"` and
@@ -1634,6 +1801,150 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   `FightNightRecapCard`), Archive, Maps, Admin, Taunts and its editors,
   the pilot manager, OLMod and Resources. Those got the shared states and
   lost their dead classes but keep their hex values.
+- 2026-10-07 (S10): Glossary. One word for each idea in user-visible
+  text, the server's recap and share copy included:
+  - match: a played match. Old words: game (for a match: "Games In
+    Progress", "Total Games Archived", "Load older games", "No game
+    data"), bout ("Recent Bouts", "Bout Archive"), mission ("Mission
+    Info"), engagement, sorties, combat log ("Retrieving combat log").
+    "Game" now means Overload itself only: in-game, game folder, Base
+    Game, "the game subtracts 1 kill per suicide".
+  - pilot: a person who plays. Old words: player, callsign. "Host"
+    still means the pilot who created a match; "single-player" is the
+    game mode. The nav's "Pilot" (the pilot-file settings page) is now
+    "Settings"; "Pilot Settings" pushed the 1,280 px bar 44 px past the
+    window. The page title stays "Pilot settings".
+  - kill: old words frag, fragger, eliminations. Kills are the
+    in-game count, which already loses one per suicide; the K/D and
+    Suicides tooltips say so. "Top fragger" is "most kills" on the
+    recap card, the teaser and the share description.
+  - map: old words arena, combat zone, sector, theater, levels. Kept:
+    "Level Editor" (the product's name) and "Lag Compensation Level"
+    (a setting).
+  - server: old words node ("Active Nodes", "Dedicated Node"), relay,
+    uplink ("Establishing uplink").
+  - The replay's full-screen "theater" mode is a video-player word,
+    not a map, and stays.
+  - archive: only the `/archive` page, every stored match of every
+    year. `/history` is "Match History", the list of the last 365 days,
+    and is never called an archive ("Historical Archive", "Fetching
+    archival data" are gone). The taunt importer's audio archives
+    (archive.org) and the admin's XML archive files are files, not the
+    page, and keep the word.
+  Recap sentences come from `fightNightService.js` templates and are
+  saved with the recap, so recaps generated before S10 keep the old
+  words. Checked with a scratch script that walks the TypeScript AST of
+  `App.tsx` and `components/*.tsx` for JSX text and string literals
+  (outside `className`, imports, console calls and comparisons) and
+  greps them for each term's old words, with the kept words above
+  filtered out.
+- 2026-10-07 (S10): Combat Ratio is (kills + 0.5 × assists) ÷ deaths,
+  or the kills when there are no deaths, to two decimals. Lethality is
+  kills per minute of match time: the kills over the summed
+  `durationOf()` of the pilot's ranked matches (2+ pilots, 60 s+),
+  counting each match's whole length, to two decimals. Both are
+  `combatRatio()` and `lethality()` in `server/lib/gameParse.js`, beside
+  the tooltip text for each (`COMBAT_RATIO_HINT`, `LETHALITY_HINT`).
+  The stats worker (`statsPasses.js`, the career numbers in
+  `pilot_stats_cache.kda` and `.kpm`), the pilot telemetry
+  (`getPilotTelemetry`, the 365-day and per-mode numbers) and the
+  roster's 90-day totals (`db.getPilotStats`, the owner's `5afcdf5`)
+  call them;
+  the leaderboard's fallback, the profile's fallback and the match page
+  call `combatRatio` too. The leaderboard and the profile show the
+  career numbers from the cache: the roster's Combat Ratio column, a
+  new Lethality column, the profile's Combat Ratio card (its headline
+  was the career K/D with KDA below; now Combat Ratio, with K/D below)
+  and the PPI card's Lethality. The profile's Combat Performance card
+  shows Lethality for the page's own span and mode, and says so in its
+  sub-line ("Kills / Min, last 365 days, all modes"). The tale of the
+  tape compared the pilot's 365-day ratio with the rival's career one;
+  both sides are career now. The match page's column is "Combat Ratio"
+  at two decimals (it was "KDA Ratio" at three, and gave kills + 0.5 ×
+  assists for a pilot with no deaths). The cost of the no-deaths rule:
+  the ratio can rise at the first death (3 kills, 4 assists and no
+  deaths is 3.00; one death makes it 5.00), which shows most on the
+  match page. Kept, since the career numbers have always used it and
+  changing it means a stats rebuild. The archive's hall-of-fame tab
+  that sorts by K/D said "Combat Ratio (K/D)"; it says "K/D". With the
+  roster's Active (90d) toggle on, its Combat Ratio is the 90-day one,
+  so it differs from the profile's career number on purpose, and its
+  Lethality is `—` (the 90-day totals carry no match time).
+- 2026-10-07 (S10): Clickable rows and divs. The 22 found became:
+  - Sortable headers: `components/SortHeader.tsx`, a `<button>` inside
+    the `<th>` with `aria-sort` on the `<th>` (the roster and the server
+    browser).
+  - Cards that hold other controls (the 390 px server cards, the
+    history cards): the title link covers the card through a
+    `.stretched-link` `::after`; the card's other buttons and links sit
+    above it with `relative z-10`. The rival picker works the same way
+    with a `<button aria-pressed>` as the cover.
+  - Table rows (server browser, roster, the pilot's match list, the
+    archive's hall of fame): every cell is a link to the row's page
+    (`LinkCell` in `components/Link.tsx`, the padding on the link so the
+    whole cell is clickable). The row's main cell is the only Tab stop;
+    the others are `tabIndex={-1}` and stay readable. A covering link
+    is not used on rows because Safari does not position against a
+    `<tr>` (WebKit bug 240961). The server name cell holds a copy
+    button, so it is the name link, the button and a filler link.
+  - `rowLink` is deleted. Middle, Cmd and Shift clicks on a row are the
+    browser's own link behaviour now.
+  - `DeepStatCard`'s `onClick`, which no caller passed, is removed.
+- 2026-10-07 (S10): Focus. One rule in `index.css`:
+  `:focus-visible:not([tabindex="-1"])` draws a 2px `brand` outline
+  (read through `theme()`) 2px out, on every control and on the
+  scrolling boxes Chrome lets Tab reach. A stretched link draws it on
+  its cover, around the card. Elements focused only by script
+  (`tabindex="-1"`: dialog panels, cell links) get no outline.
+  `@tailwind variants` now sits before the custom CSS, so this rule
+  wins over the 42 `focus:outline-none` classes (mostly inputs whose
+  border changes colour on focus; those now show both). Rejected: a
+  focus class on each of the 400+ controls, which the next control
+  would miss.
+- 2026-10-07 (S10): Dialogs. `hooks/useDialog.ts`:
+  `useDialog(open, onClose)` returns `props` for the panel (`ref`,
+  `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, `tabIndex
+  -1`) and `titleId` for its heading. While open: focus moves to the
+  panel unless a field in it took focus with `autoFocus`; Tab and
+  Shift+Tab cycle inside; Escape calls `onClose` and stops there (the
+  audio editor's window Escape does not also fire); on close, focus
+  returns to the element that had it when the dialog opened, read
+  while rendering the opening frame. Used by the map popup (Escape goes
+  back, like its Close), the web import and voice recorder, the pilot
+  management dialog (Escape does nothing while an operation runs, like
+  its close button) and the key rebind dialog (its own capture
+  listener still takes every key, Escape included). No dialog closed on
+  a backdrop click before, and none does now. The 390 px menu is a
+  disclosure (`aria-expanded`, `aria-controls`), not a dialog.
+- 2026-10-07 (S10): Pagination. The roster shows 50 pilots a page, the
+  map grid 24 cards (one to four columns). The page is `?page=`,
+  1-based, left out on page 1, written with `replaceState` like every
+  filter. `usePage(items, size)` in `components/Pager.tsx` returns the
+  page's items and reads a page past the end as the last page; `Pager`
+  renders Previous, "Page N of M", Next and scrolls the list's top into
+  view. A filter, sort or search change writes `page: null` in the same
+  history entry, through a new second argument on `useQueryParam`'s
+  setter (`setMinParam('25', { page: null })`). The map popup's URL
+  keeps the list's whole query, so closing it returns to the same
+  page; `/maps/<text>` turned into a search drops the page. The
+  roster's sort moved into the URL (`?sort=kda`, `?dir=asc`), so a page
+  number names the same pilots after a reload. The archive keeps its
+  own server-side pager. Rejected: dropping `page` in
+  `setQueryParams` on any other change, because switching the archive's
+  hall-of-fame tab would reset its match browser.
+- 2026-10-07 (S10): Tap state. One rule in `index.css`:
+  `:where(a[href], button:not(:disabled), summary, select,
+  label[for]):active` sets opacity 0.7, and a stretched link shows a
+  `brand/10` cover over its card instead. A rule rather than `active:`
+  classes because there were 475 `hover:` classes and no `active:` one,
+  and hover never fires on a touch screen.
+- 2026-10-07 (S10): Mobile widths. At 390 px the dashboard header uses
+  `p-5` and `text-3xl` (it was 411 px wide); the live page's header
+  stacks, its standings columns narrow, and its grid is `grid-cols-1`
+  so a wide child cannot stretch the track (509 px); the taunt and
+  pilot-settings headers wrap and their tab bar scrolls (854 and 441
+  px). The nine tables without one got a wrapper: `overflow-x-auto`, or
+  `overflow-auto` where the box already scrolled down.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -1895,6 +2206,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   would cut it if the NAS shows a cost.
 - (S8) Sort orders are not in the URL: the server browser's column sort
   and the leaderboard's. The rival picked on a pilot page is not either.
+  S10 put the leaderboard's sort in the URL (`?sort=`, `?dir=`) with its
+  page; the server browser's sort and the rival are still local.
 - (S8) The history and archive search boxes copy `?q=` once when the
   page opens. Nothing on those pages changes `q` from elsewhere today,
   so they do not need `useQueryText`'s re-sync yet.
@@ -1914,7 +2227,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   in `server/lib/` would serve them all.
 - (S8) Table rows and cards that hold their own controls keep a click
   handler (`rowLink`) beside a real link on their main text. S10 makes
-  clickable rows into buttons or links.
+  clickable rows into buttons or links. Fixed in S10: `rowLink` is gone
+  (cell links on rows, a covering link on cards).
 - (S8) `npx vite dev` serves its own `index.html`, so titles show but
   the share tags exist only when the Node server serves `dist/`. A
   request for `/index.html` itself gets the static file and the generic
@@ -1965,7 +2279,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   banner keeps its own small spinner: it sits beside controls that work
   while the engine loads.
 - (S9) The dashboard at 390 px is 411 px wide and the live page 516 px
-  (before and after S9; S10's mobile pass).
+  (before and after S9; S10's mobile pass). Fixed in S10: every route
+  is 390 px wide at 390 px.
 - (S9) /simplify suggested, and S9 skipped as wider than the diff: one
   `useLoad` hook (loading, failure, retry, a stale-answer guard) for the
   seven views that each keep those by hand and guard stale answers three
@@ -1981,6 +2296,67 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - (S9) The hex, dead-class and screenshot scripts lived in the session's
   scratch directory, not the repo. The Verification rows say what they
   do.
+
+- (S10) Small text is still a 10px floor (`text-2xs`) on the migrated
+  pages, and 179 `text-[Npx]` remain on the others; nobody checked size
+  or contrast against a guideline. Not on S10's Done-when list (S9
+  flag, re-flagged).
+- (S10) Recaps saved before S10 keep the old words in their sentences
+  (frags, bouts, arena) until they are regenerated.
+- (S10) Hard-coded numbers S7 missed: MapLibrary's "BASE GAME (12)"
+  origin button (the header counts stock maps from the list) and the
+  roster search box's "Search all 4,510 pilots..." before the roster
+  loads.
+- (S10) The header bar at 1,280 px ends at 1,274 px, 6 px from the
+  window edge. The "ACTIVE PILOTS" pill beside it is still the 90-day
+  count (S7 flag).
+- (S10) Before the first stats refresh fills `pilot_stats_cache`, the
+  roster's Lethality column shows `—` (the fallback totals have no match
+  time) and Combat Ratio comes from `combatRatio()` on the totals. The
+  cache also lags new games until a refresh (WD-40: 21 games in the
+  cache, 23 in telemetry, until the owner's startup check refreshed
+  it); the leaderboard and the profile's career cards read the same
+  cache, so they agree with each other.
+- (S10) Seen once, cause not found: on the server start where the
+  owner's startup check refreshed `pilot_stats_cache` (`887934e`),
+  `/api/stats/pilots?source=all` answered WD-40's pre-refresh row (21
+  matches, Combat Ratio 0.78) for more than nine minutes, past its
+  5-minute route cache, while `/api/pilot/WD-40/ppi` and the database
+  file (read with `sqlite3` and a separate better-sqlite3 connection)
+  had the new row (23, 0.76). A restart with the cache already current
+  answered the new row. Worth a look in S11, which splits `db.js`: a
+  read held open on the hot connection would explain it.
+- (S10) The roster's Active (90d) view has no Lethality: the owner's
+  90-day totals (`5afcdf5`) are `game_players` sums without match time.
+  Adding the summed `durationOf()` to that query would give it one.
+  Until then a `?sort=kpm` in the URL sorts nothing in that view while
+  the Lethality header still shows `aria-sort`.
+- (S10) K/D still has several copies: `getPilotTelemetry`, the stats
+  worker, the owner's 90-day rows in `db.getPilotStats`, the startup
+  repair SQL in `db.js` (which also repeats Combat Ratio), and client
+  fallbacks that divide by `Math.max(1, deaths)`
+  without rounding. A `killDeath()` in `gameParse.js`, and
+  better-sqlite3's `db.function()` for the SQL, would make one copy.
+- (S10) The win-rate and suicides tooltips are written out twice
+  (`PilotsList`, `PilotDetail`); `'Unknown Map'` is written 14 times
+  across `fightNightService.js` and `ColdStorage.tsx`.
+- (S10) The archive's own pager (server-paged, "PREVIOUS PAGE") is not
+  the new `Pager`. Moving it needs `usePage` not to clamp before the
+  total count loads, or a reload of `?page=3` lands on page 1.
+- (S10) The `sortProps` adapter is written twice (`GameList`,
+  `PilotsList`); `SortHeader` could take the key and the current sort.
+- (S10) Icon-only buttons in the taunt tools, the pilot manager and the
+  admin page still have no `aria-label`, and tab strips are buttons,
+  not `role="tablist"`. Not on S10's Done-when list.
+- (S10) The live page's dead OFFLINE branch says "This server is
+  currently not hosting a match." twice in a row (older than S10).
+- (S10) The owner's `MatchReplay.tsx` (pushed during S10) sits on the
+  match page, which S9 migrated, but uses hex classes (`#ff6600`) and
+  `text-[10px]`. Its window-level keyboard shortcuts call
+  `preventDefault` on Space while the replay is open, so Space no
+  longer presses a focused button or scrolls the page then. Its full-
+  screen "theater" mode is a fixed overlay without `role="dialog"` or a
+  focus trap; Escape collapses the replay. S10 changed only its words.
 
 ## Rollback
 
@@ -2317,12 +2693,59 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   a page header component (flagged). PR #9 opened against `main`, not
   merged.
 
+- 2026-10-07, S10 (Claude Opus 5.5): one word each for match, pilot,
+  kill, map, server and archive across the client and the recap and
+  share copy; Combat Ratio and Lethality defined once in `gameParse.js`
+  and shown from the same cache on the leaderboard and the profile;
+  sortable headers, cards and table rows as buttons and links; one
+  focus ring and one tap state in `index.css`; `useDialog` on all five
+  dialogs; every table in a scroll wrapper and every route 390 px wide
+  at 390 px; the roster and the map grid paged in `?page=`. Status line
+  checked first: it said PR #9 was open, but it had merged
+  (`ae050c4`, nothing after it), so S10 branched from `origin/main`;
+  `10223be` is not an object here. First move: 12 files, 107 tests;
+  entry 73.64 KB gzip; tsc 0. Re-counting turned up more than the
+  audit listed: 9 of 13 tables without a wrapper (not 7), 22 clickable
+  non-controls, four pages wider than 390 px (the taunt tools at 854),
+  and the profile's "Combat Ratio" card headlining the career K/D while
+  the leaderboard's column was KDA. No server had a live game, so the
+  live page was mocked from fixture 72102; the two taunt dialogs that
+  need an Overload folder ran on mocked `/api/overload/*` answers.
+  Two things the first checks caught: the focus rule lost to
+  `focus:outline-none` because Tailwind emits variants at the end of the
+  file (fixed by placing `@tailwind variants` first), and "Pilot
+  Settings" in the nav overflowed 1,280 px (now "Settings"). CDP's
+  `dispatchTouchEvent` never set `:active`; a synthesized tap gesture
+  does. /code-review found 10 issues, all fixed: cell links hidden from
+  screen readers, dead click zones in the server rows, the dialog
+  opener lost to an `autoFocus` field (and wrong in Safari), a stale
+  `?page=` surviving a search, the page in the URL under a sort that
+  was not, Lethality's sort with no value, "by just 3 kill", leftover
+  `stopPropagation`, duplicated page resets, a dead `onClick` turned
+  into a button. /simplify (four agents): `LinkCell` instead of a `td`
+  around every cell link, `usePage(items, size)` returning the page, a
+  second argument on `useQueryParam`'s setter so a filter clears the
+  page in one history write, one Lethality label with its span in the
+  sub-line, one CSS rule instead of `outline-none` on each dialog
+  panel, the pager on the shared button style. Skipped: dropping
+  `page` inside `setQueryParams` (it would reset the archive's pager on
+  a tab change), the archive's pager on `Pager`, one `SortHeader`
+  adapter, hint constants for win rate and suicides, a `Dialog`
+  wrapper, and K/D copies (flagged). Before pushing, `origin/main` had
+  three new owner commits (the replay and stats refreshes); the branch
+  rebased onto them cleanly, the replay's new strings got the S10
+  words, and the checks ran again on the rebased build. A fourth owner
+  commit (`5afcdf5`, the 90-day roster) arrived after that: one
+  conflict in `PilotsList.tsx`, its inline Combat Ratio moved onto
+  `combatRatio()`, its Retry argument fixed, and its `tsc` error fixed.
+  PR #10 opened against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S10: glossary, accessibility, mobile.
+Continue the overloadfight.club roadmap. This session is S11: split the giants.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -2331,51 +2754,51 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S9 is on branch ofc/s09-design-tokens, PR #9. PRs #1 to #8 are merged.
-  If PR #9 is merged:
-    git checkout -B ofc/s10-glossary-a11y-mobile origin/main
-  If PR #9 is still open:
-    git checkout -B ofc/s10-glossary-a11y-mobile origin/ofc/s09-design-tokens
-    and open the S10 PR against main anyway; say in its description that it sits on PR #9.
-  Check again before opening the PR: if PR #9 merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6). If origin/main has commits PR #9 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  S10 is on branch ofc/s10-glossary-a11y-mobile, PR #10. PRs #1 to #9 are merged.
+  If PR #10 is merged:
+    git checkout -B ofc/s11-split-giants origin/main
+  If PR #10 is still open:
+    git checkout -B ofc/s11-split-giants origin/ofc/s10-glossary-a11y-mobile
+    and open the S11 PR against main anyway; say in its description that it sits on PR #10.
+  Check again before opening the PR: if PR #10 merged during the session, rebase onto origin/main first.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10, the last one while the S10 PR was being prepared). If origin/main has commits PR #10 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s09-design-tokens has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s10-glossary-a11y-mobile has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S10 entry and its Done-when list. That list is the scope. Also "Canonical contract", the S8 and S9 entries under "Decisions and deviations" (the link pattern and rowLink, URL state, the tokens, the shared states, the two error boundaries), every "Flagged, not fixed" item that names S10, rowLink, clickable rows, mobile widths, tiny text or labels (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
-- docs/audit/ux.md, "Biggest" (labels conflict: "Pilot" three meanings, /history and /archive both "Historical Archive", "Combat Ratio" K/D on the profile vs KDA on the leaderboard, "Lethality" two formulas; accessibility zero), "Site map issues" (PilotsList renders every pilot with no pagination, MapLibrary up to 1000 cards), "IA duplication" (the term list) and "Visual" (tiny text; mobile: active: 0 vs hover: 499, 7 of 13 tables lack a scroll wrapper). Counts are as of 10223be (2c4f174 after the rewrite); re-count with grep before quoting any.
-- components/Layout.tsx (nav, menu), components/Link.tsx and hooks/useLocation.ts (rowLink, useQueryParam), components/States.tsx, designTokens.js, and the pages with tables, rows or dialogs: GameList.tsx, PilotsList.tsx, PilotDetail.tsx, GameDetail.tsx, MatchAnalysis.tsx, DamageMatrix.tsx, LiveGameDetail.tsx, ColdStorage.tsx, MapLibrary.tsx (its popup), FightNightRecapCard.tsx, and the taunt modals (WebImportModal.tsx, VoiceRecorderModal.tsx, OverloadVault.tsx).
+- docs/ROADMAP.md, the S11 entry and its Done-when list. That list is the scope. Also "Canonical contract", the decisions on db.js (S3's named `db` object, S4's WAL and refresh, S5's game_players, migration, worker and cold move, S6's backups and shutdown), the S8 link pattern, the S10 entries (useDialog in WebImportModal and PilotSettingsPanel, LinkCell, the focus and tap rules, usePage and the setter's second argument, combatRatio and lethality), every "Flagged, not fixed" item that names S11, db.js, routes.js, dead code, overloadBridge.js, apiService or the four components (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
+- server/db.js (2,520 lines at S10), server/routes.js (964), server/index.js, server/lib/statsPasses.js, server/statsWorker.js, services/apiService.ts, and the four components: PilotSettingsPanel.tsx (2,119), AudioEditor.tsx (1,353), WebImportModal.tsx (1,332), AdminPanel.tsx (919 at S10's start, more after the owner's 887934e; imports axios). Re-count with wc -l before quoting any. components/MatchReplay.tsx (1,970 lines, pushed by the owner during S10) is not on the Done-when list; flag it, do not split it, unless I say otherwise.
 
 Binding decisions, do not re-derive:
-- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
+- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour (an export list, a circular import) from a script run by `node`.
 - gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
-- server/lib/gameParse.js owns the game rules; the client imports it directly. server/lib/siteRoutes.js owns page URLs and titles (one route table) and server/lib/matchResult.js the result sentence; both client and server import them. Never copy a rule into the client: if "Combat Ratio" or "Lethality" needs one formula, it lives in gameParse.js (or the server) and both sides read it. Do not change the public API paths (add endpoints if needed).
-- Internal navigation is components/Link.tsx (an <a href> with click interception) or rowLink() from hooks/useLocation.ts for rows that hold their own controls; hrefs come from urlFor(). Tabs, filters and any new page number live in the query string through useQueryParam/useQueryText/setQueryParams. Do not add navigation callbacks or local state that duplicates the URL (S8).
-- Colours, radius and small text come from designTokens.js through Tailwind: bg-brand, hover:bg-brand-hover, bg-surface-page/card/raised, border-line, rounded-control, rounded-card, text-2xs. Do not add hex values or text-[Npx] on the pages S9 migrated (dashboard, leaderboard, pilot, match, live). A focus ring or an active state is a token class, not a new hex (S9).
-- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx. The top-level ErrorBoundary wraps <App /> in index.tsx; the one inside Layout wraps the Suspense and clears on a path change. Keep both (S9).
+- "Unchanged exports" means every module that imports server/db.js (routes, index, services, workers, scripts, tests) keeps working without edits to what it imports: db.js stays the entry and re-exports. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
+- server/lib/gameParse.js owns the game rules, including combatRatio and lethality; server/lib/siteRoutes.js owns page URLs and titles; server/lib/matchResult.js the result sentence. Never copy a rule while moving code.
+- Internal navigation is components/Link.tsx (Link, CellLink, LinkCell) and URL state goes through useQueryParam/useQueryText/setQueryParams; no navigation callbacks or local state that duplicates the URL (S8, S10).
+- Dialogs use hooks/useDialog.ts (role, label, Escape, focus return); keep it on WebImportModal and PilotSettingsPanel's rebind dialog when you split them (S10).
+- Colours, radius and small text come from designTokens.js through Tailwind; the focus ring and tap state are the rules in index.css, and `@tailwind variants` stays before them (S9, S10).
+- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx; keep both error boundaries (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts and pauses while the tab is hidden. Keep both. The dashboard leads with the live section and a one-line Fight Night teaser (S7); keep that order.
-- Server favorites live in localStorage under `favorite_servers` as a JSON array of IPs (S7).
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Keep them.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
-- Do not add a router library, state library, ORM or component library. Tailwind utility classes, functional React.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist (or `npx vite dev`, whose proxy points at port 3000) and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4, S7, S8 and S9 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port: in S8 a leftover instance answered on the port and its hidden tab paused the shared poll. S9 captured `/api/browser` and `/api/game/<ip>` once while a real match ran and replayed them with CDP's Fetch domain so before and after shots saw the same live data; do the same, or mock them from fixture 72102 as S7 did when no live game exists.
+- Do not add a router library, state library, ORM or component library. Tailwind utility classes, functional React, ES modules on the server.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4 and S7 to S10 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. S10 mocked `/api/browser`, `/api/game/<ip>` and `/api/overload/*` with CDP's Fetch domain (one Fetch.enable for all patterns) to open the taunt dialogs and the pilot settings without an Overload folder; do the same, and mock an admin session for AdminPanel.
 
 Rules for this session:
-- One PR, scope is the S10 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the one term chosen for each of match, pilot, kill, map, server and archive (and which old words map onto it), the one definition of "Combat Ratio" and of "Lethality" and where each is computed, how clickable rows and divs became buttons or links (and what happens to rowLink), the focus-visible style, the dialog pattern (role, labelling, Escape, focus), the page size and query parameter for the roster and map grid pagination, and the active: style for tap targets.
+- One PR, scope is the S11 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
+- Behaviour does not change. Add decision entries for the module boundaries in server/ (which functions and prepared statements went where, and how db.js re-exports them), the route files and how they mount, the hooks extracted from each component and what each owns, and the switch from axios to apiService in AdminPanel (which new apiService functions, error handling).
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S10 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S11 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S11.
+- Before ending: tick S11 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S12 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S12.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S9 left 12 files, 107 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.63 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then take before screenshots of the dashboard, leaderboard, a pilot, a match, a live page and the maps page at 1,280 and 390 px, and record each page's width at 390 px (S9 measured the dashboard at 411 and the live page at 516).
-Done when: every item in the S10 Done-when list is true and seen in headless Chrome (a grep shows one term for each of the six words in user-visible strings; "Combat Ratio" and "Lethality" show the same number for the same pilot on the profile and the leaderboard; Tab reaches every row link and button with a visible focus ring and Enter opens it; every dialog has role="dialog", a label, and closes on Escape with focus back where it was; at 390 px no page is wider than the window and every table scrolls inside its wrapper; the roster and map grid show one page at a time with the page in the URL, kept across a reload and back; tap targets show an active state, checked with CDP touch emulation), `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S10 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S10 left 13 files, 126 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.74 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then record what must not change: from a script run by `node`, the sorted export names of server/db.js (and the keys of its `db` object); the route list (method and path) that server/index.js mounts; `wc -l` of the six files; and the JSON of `/api/stats/global`, `/api/stats/pilots?source=all`, `/api/pilot/WD-40/stats`, `/api/pilot/WD-40/ppi` and `/api/games?page=1` from the running server.
+Done when: every item in the S11 Done-when list is true (db.js split into connection, migrations, repos and analytics modules with the same export names and `db` keys as before, shown by the node script; routes.js one file per resource with the same route list; PilotSettingsPanel, AudioEditor, WebImportModal and AdminPanel each under 500 lines by wc -l with hooks extracted; no axios import in AdminPanel), the five API answers are byte-identical before and after on the same data dir (or every difference explained), the taunt tools, pilot settings and admin page (mocked session) work in headless Chrome (S10's dialog checks still pass, the editor's Create tab loads, admin stats load), `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S11 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```

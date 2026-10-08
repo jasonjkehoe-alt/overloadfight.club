@@ -88,9 +88,9 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
         <div className="bg-surface-card border border-line p-4 rounded-card flex flex-col justify-between relative overflow-hidden h-full min-h-[220px]">
             <div className="flex justify-between items-start z-10">
                 <div>
-                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest">Active Nodes</h3>
+                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest">Active Servers</h3>
                     <div className="text-2xs font-mono text-brand mt-0.5">
-                        {activeGames?.length || 0} Relays Standing By
+                        {activeGames?.length || 0} Servers Standing By
                     </div>
                 </div>
                 <div className="flex items-center gap-2">

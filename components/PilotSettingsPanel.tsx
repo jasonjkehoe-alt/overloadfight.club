@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useOverloadFs } from '../context/OverloadFsContext';
+import { useDialog } from '../hooks/useDialog';
 import {
     ParsedXPrefs,
     ParsedXConfig,
@@ -98,6 +99,9 @@ export const PilotSettingsPanel: React.FC = () => {
 
     // Key rebind modal / listener
     const [rebindAction, setRebindAction] = useState<{ actionName: string; slot: 1 | 2 } | null>(null);
+    // The rebind listener below sees every key first and closes on Escape itself;
+    // the hook adds the focus handling and the label.
+    const rebindDialog = useDialog(rebindAction !== null, () => setRebindAction(null));
 
     // Raw search query
     const [rawSearchQuery, setRawSearchQuery] = useState('');
@@ -1999,7 +2003,7 @@ export const PilotSettingsPanel: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="max-h-[500px] overflow-y-auto border border-gray-800 rounded-xl">
+                            <div className="max-h-[500px] overflow-auto border border-gray-800 rounded-xl">
                                 <table className="w-full text-left text-xs">
                                     <thead className="bg-black/60 text-gray-400 uppercase text-[10px] tracking-wider sticky top-0 border-b border-gray-800">
                                         <tr>
@@ -2084,12 +2088,12 @@ export const PilotSettingsPanel: React.FC = () => {
             {/* Key Rebind Listener Modal */}
             {rebindAction && (
                 <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#16161a] border border-[#ff6600]/60 rounded-2xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl shadow-[#ff6600]/10">
+                    <div {...rebindDialog.props} className="bg-[#16161a] border border-[#ff6600]/60 rounded-2xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl shadow-[#ff6600]/10">
                         <div className="w-12 h-12 mx-auto rounded-full bg-[#ff6600]/10 border border-[#ff6600]/40 flex items-center justify-center text-[#ff6600] animate-pulse">
                             <Keyboard className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="text-base font-bold text-white brand-font tracking-wider">
+                            <h3 id={rebindDialog.titleId} className="text-base font-bold text-white brand-font tracking-wider">
                                 PRESS ANY KEY OR MOUSE BUTTON
                             </h3>
                             <p className="text-xs text-[#ff6600] font-bold mt-1">

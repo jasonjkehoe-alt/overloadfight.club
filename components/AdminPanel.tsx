@@ -211,7 +211,7 @@ const AdminPanel: React.FC = () => {
         setSyncResult(null);
         try {
             const res = await axios.post('/api/admin/maps/sync');
-            setSyncResult(`Synced ${res.data.count} levels successfully from overloadmaps.com`);
+            setSyncResult(`Synced ${res.data.count} maps successfully from overloadmaps.com`);
             fetchMapCount();
         } catch (err: any) {
             setSyncResult(`Sync failed: ${err.response?.data?.error || err.message}`);
@@ -412,7 +412,7 @@ const AdminPanel: React.FC = () => {
                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <p className="text-gray-400 text-sm">Total Games Tracked</p>
+                            <p className="text-gray-400 text-sm">Total Matches Tracked</p>
                             <h3 className="text-3xl font-bold text-white mt-1">{stats.overview.totalGames.toLocaleString()}</h3>
                         </div>
                         <Database className="text-blue-500 w-8 h-8 opacity-80" />
@@ -598,7 +598,7 @@ const AdminPanel: React.FC = () => {
                                     <Zap className="w-5 h-5 text-yellow-400" /> Hydrate Kill Logs
                                 </button>
                                 <p className="text-xs text-gray-400 text-center">
-                                    Walks games and fetches full kill logs for matches over 1 minute.
+                                    Walks matches and fetches full kill logs for matches over 1 minute.
                                 </p>
                             </div>
                         </div>
@@ -633,7 +633,7 @@ const AdminPanel: React.FC = () => {
                             <p className="text-xs text-emerald-400 font-medium">{refreshStatsMessage}</p>
                         )}
                         <p className="text-xs text-gray-400">
-                            Rebuilds pilot, cold storage, and map telemetry caches from current match &amp; kill data.
+                            Rebuilds pilot, archive, and map telemetry caches from current match &amp; kill data.
                         </p>
                     </div>
                 </div>
@@ -649,7 +649,7 @@ const AdminPanel: React.FC = () => {
                         <div className="flex items-center justify-between bg-gray-700/50 p-4 rounded-lg border border-gray-600">
                             <div>
                                 <p className="font-bold text-white text-sm">Show Archive</p>
-                                <p className="text-xs text-gray-400">Enable historical archive view</p>
+                                <p className="text-xs text-gray-400">Show the Archive link on the dashboard</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -732,7 +732,7 @@ const AdminPanel: React.FC = () => {
                                 </div>
 
                                 <div className="bg-gray-900/60 p-4 rounded-lg border border-gray-700">
-                                    <p className="text-gray-400 text-xs uppercase font-semibold">Games Inserted</p>
+                                    <p className="text-gray-400 text-xs uppercase font-semibold">Matches Inserted</p>
                                     <p className="text-2xl font-bold text-cyan-400 mt-1">
                                         {(archiveStatus?.totalGamesInserted ?? 0).toLocaleString()}
                                     </p>
@@ -826,7 +826,7 @@ const AdminPanel: React.FC = () => {
                             <MapIcon className="text-[#ff6600]" /> Map Database Management
                         </h3>
                         <p className="text-sm text-gray-400 mt-1">
-                            Manage the local catalog, sync upstream from overloadmaps.com, and register custom levels.
+                            Manage the local catalog, sync upstream from overloadmaps.com, and register custom maps.
                             {totalMapsCount !== null && (
                                 <span className="ml-2 px-2 py-0.5 rounded bg-gray-700 text-blue-400 font-mono text-xs">
                                     {totalMapsCount} Maps in DB
@@ -921,7 +921,7 @@ const AdminPanel: React.FC = () => {
                         </div>
 
                         <div>
-                            <label className="block text-xs text-gray-400 mb-1">Max Players</label>
+                            <label className="block text-xs text-gray-400 mb-1">Max Pilots</label>
                             <input
                                 type="number"
                                 min="2"

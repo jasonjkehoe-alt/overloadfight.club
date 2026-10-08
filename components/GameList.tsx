@@ -11,8 +11,9 @@ import LiveMatchCard from './LiveMatchCard';
 import CalendarWidget from './CalendarWidget';
 import { Database, Copy, Check, Server, Search } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
-import Link from './Link';
-import { useQueryParam, rowLink } from '../hooks/useLocation';
+import Link, { CellLink, LinkCell } from './Link';
+import SortHeader from './SortHeader';
+import { useQueryParam } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
 
 interface GameListProps {
@@ -48,8 +49,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     const setShowIdleServers = (show: boolean) => setIdleParam(show ? '1' : '');
     const [copiedIp, setCopiedIp] = useState<string | null>(null);
 
-    const handleCopyIp = (ip: string, e: React.MouseEvent) => {
-        e.stopPropagation();
+    const handleCopyIp = (ip: string) => {
         navigator.clipboard.writeText(ip);
         setCopiedIp(ip);
         setTimeout(() => setCopiedIp(null), 2000);
@@ -147,8 +147,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
         setQuery(term);
     };
 
-    const toggleFavorite = (ip: string, e: React.MouseEvent) => {
-        e.stopPropagation();
+    const toggleFavorite = (ip: string) => {
         let newFavs = [];
         if (favorites.includes(ip)) {
             newFavs = favorites.filter(f => f !== ip);
@@ -242,10 +241,10 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
         setSortConfig({ key, direction });
     };
 
-    const SortIndicator = ({ column }: { column: string }) => {
-        if (sortConfig.key !== column) return <span className="ml-1 text-gray-700 opacity-0 group-hover:opacity-50">↕</span>;
-        return <span className="ml-1 text-brand">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
-    };
+    const sortProps = (key: string) => ({
+        direction: sortConfig.key === key ? sortConfig.direction : null,
+        onSort: () => requestSort(key)
+    });
 
     const activeCount = activeGames ? activeGames.filter(g => g.game && !g.game.inLobby).length : 0;
     const lobbyCount = activeGames ? activeGames.filter(g => g.game && g.game.inLobby).length : 0;
@@ -276,9 +275,9 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
     const getHealthBadge = (lastSeen: string) => {
         const diff = new Date().getTime() - new Date(lastSeen).getTime();
         const minutes = Math.floor(diff / 60000);
-        if (minutes < 5) return <span className="w-2 h-2 bg-green-500 rounded-full" title="Healthy"></span>;
-        if (minutes < 60) return <span className="w-2 h-2 bg-yellow-500 rounded-full" title="Stale"></span>;
-        return <span className="w-2 h-2 bg-red-500 rounded-full" title="Offline"></span>;
+        if (minutes < 5) return <span className="w-2 h-2 shrink-0 bg-green-500 rounded-full" title="Healthy"></span>;
+        if (minutes < 60) return <span className="w-2 h-2 shrink-0 bg-yellow-500 rounded-full" title="Stale"></span>;
+        return <span className="w-2 h-2 shrink-0 bg-red-500 rounded-full" title="Offline"></span>;
     };
 
     return (
@@ -315,7 +314,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                         to={urlFor('cold-storage')}
                         className="mb-3 mr-4 text-xs font-mono text-blue-500 hover:text-blue-400 uppercase font-bold flex items-center gap-2 transition-colors"
                     >
-                        <span className="flex items-center gap-1"><Database size={12} /> Historical Archive</span>
+                        <span className="flex items-center gap-1"><Database size={12} /> Archive</span>
                         <span>→</span>
                     </Link>
                 )}
@@ -329,7 +328,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-brand font-bold text-lg uppercase tracking-widest flex items-center gap-2">
                                     <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-                                    Games In Progress
+                                    Matches In Progress
                                 </h3>
                                 <span className="text-xs text-gray-600 font-mono animate-pulse">LIVE FEED ACTIVE</span>
                             </div>
@@ -392,22 +391,23 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                     {displayServers?.map((item) => {
                                         const isGameActive = item.game && !item.game.inLobby;
                                         const isLobby = item.game && item.game.inLobby;
+                                        const starred = favorites.includes(item.server.ip);
                                         return (
                                             <div
                                                 key={item.server.ip}
-                                                {...rowLink(urlFor('live-game-detail', item.server.ip))}
-                                                className="bg-surface-card border border-line rounded-card p-3 cursor-pointer hover:border-brand transition-colors"
+                                                className="relative bg-surface-card border border-line rounded-card p-3 hover:border-brand transition-colors"
                                             >
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div className="flex items-center gap-2 min-w-0">
-                                                        <button onClick={(e) => toggleFavorite(item.server.ip, e)} className={`text-sm ${favorites.includes(item.server.ip) ? 'text-yellow-500' : 'text-gray-700'}`}>★</button>
+                                                        <button onClick={() => toggleFavorite(item.server.ip)} aria-label={starred ? `Unstar ${item.server.name}` : `Star ${item.server.name}`} aria-pressed={starred} className={`relative z-10 text-sm ${starred ? 'text-yellow-500' : 'text-gray-700'}`}>★</button>
                                                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isGameActive ? 'bg-green-500 animate-pulse' : isLobby ? 'bg-yellow-500' : 'bg-gray-700'}`}></span>
-                                                        <Link to={urlFor('live-game-detail', item.server.ip)} className="font-bold text-gray-200 text-sm truncate">{item.server.name}</Link>
+                                                        <Link to={urlFor('live-game-detail', item.server.ip)} className="stretched-link font-bold text-gray-200 text-sm truncate">{item.server.name}</Link>
                                                     </div>
                                                     <div className="flex items-center gap-2 flex-shrink-0">
                                                         <button
-                                                            onClick={(e) => handleCopyIp(item.server.ip, e)}
-                                                            className="text-gray-500 hover:text-brand p-1 text-xs"
+                                                            onClick={() => handleCopyIp(item.server.ip)}
+                                                            aria-label={`Copy join IP ${item.server.ip}`}
+                                                            className="relative z-10 text-gray-500 hover:text-brand p-1 text-xs"
                                                             title={`Copy IP: ${item.server.ip}`}
                                                         >
                                                             {copiedIp === item.server.ip ? <span className="text-green-400 text-2xs font-mono">Copied</span> : <Copy size={12} />}
@@ -436,40 +436,43 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                         <table className="w-full text-left text-sm font-mono">
                                             <thead className="bg-surface-raised text-gray-500 text-xs uppercase select-none">
                                                 <tr>
-                                                    <th className="p-3 border-b border-line w-10 text-center">★</th>
-                                                    <th className="p-3 border-b border-line w-10 text-center cursor-pointer hover:text-gray-300" onClick={() => requestSort('activity')}>ST <SortIndicator column="activity" /></th>
-                                                    <th className="p-3 border-b border-line cursor-pointer hover:text-gray-300 group" onClick={() => requestSort('name')}>Server Name <SortIndicator column="name" /></th>
-                                                    <th className="p-3 border-b border-line w-32 cursor-pointer hover:text-gray-300 group" onClick={() => requestSort('activity_24h')}>Activity <SortIndicator column="activity_24h" /></th>
-                                                    <th className="p-3 border-b border-line w-28 text-center cursor-pointer hover:text-gray-300 group" onClick={() => requestSort('players')}>Players <SortIndicator column="players" /></th>
-                                                    <th className="p-3 border-b border-line cursor-pointer hover:text-gray-300 group" onClick={() => requestSort('map')}>Mode / Map <SortIndicator column="map" /></th>
+                                                    <th className="p-3 border-b border-line w-10 text-center"><span aria-hidden>★</span><span className="sr-only">Favorite</span></th>
+                                                    <SortHeader className="p-3 border-b border-line w-10 text-center" title="Status" {...sortProps('activity')}>ST</SortHeader>
+                                                    <SortHeader className="p-3 border-b border-line" {...sortProps('name')}>Server Name</SortHeader>
+                                                    <SortHeader className="p-3 border-b border-line w-32" {...sortProps('activity_24h')}>Activity</SortHeader>
+                                                    <SortHeader className="p-3 border-b border-line w-28 text-center" {...sortProps('players')}>Pilots</SortHeader>
+                                                    <SortHeader className="p-3 border-b border-line" {...sortProps('map')}>Mode / Map</SortHeader>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-line">
                                                 {displayServers?.map((item) => {
                                                     const isGameActive = item.game && !item.game.inLobby;
                                                     const isLobby = item.game && item.game.inLobby;
+                                                    const starred = favorites.includes(item.server.ip);
                                                     const mapImage = item.game ? getMapImage(item.game.mapName) : null;
+                                                    const url = urlFor('live-game-detail', item.server.ip);
 
                                                     return (
-                                                        <tr key={item.server.ip} {...rowLink(urlFor('live-game-detail', item.server.ip))} className="hover:bg-surface-raised transition-colors group cursor-pointer">
+                                                        <tr key={item.server.ip} className="hover:bg-surface-raised transition-colors group">
                                                             <td className="p-3 text-center">
-                                                                <button onClick={(e) => toggleFavorite(item.server.ip, e)} className={`hover:scale-125 transition-transform ${favorites.includes(item.server.ip) ? 'text-yellow-500' : 'text-gray-700 hover:text-gray-500'}`}>★</button>
+                                                                <button onClick={() => toggleFavorite(item.server.ip)} aria-label={starred ? `Unstar ${item.server.name}` : `Star ${item.server.name}`} aria-pressed={starred} className={`hover:scale-125 transition-transform ${starred ? 'text-yellow-500' : 'text-gray-700 hover:text-gray-500'}`}>★</button>
                                                             </td>
-                                                            <td className="p-3 text-center">
+                                                            <LinkCell to={url} className="p-3">
                                                                 {isGameActive ? <div className="w-2 h-2 bg-green-500 rounded-full mx-auto animate-pulse shadow-[0_0_5px_#22c55e]" title="Active"></div> :
                                                                     isLobby ? <div className="w-2 h-2 bg-yellow-500 rounded-full mx-auto" title="Lobby"></div> :
                                                                         <div className="w-2 h-2 bg-gray-700 rounded-full mx-auto" title="Idle"></div>}
-                                                            </td>
-                                                            <td className="p-3">
+                                                            </LinkCell>
+                                                            <td className="p-0">
                                                                 <div className="flex items-center gap-2">
-                                                                    <Link to={urlFor('live-game-detail', item.server.ip)} className="font-bold text-gray-300 group-hover:text-white truncate">
-                                                                        {item.server.name}
+                                                                    <Link to={url} className="font-bold text-gray-300 group-hover:text-white truncate flex items-center gap-2 min-w-0 self-stretch pl-3 pt-3">
+                                                                        <span className="truncate">{item.server.name}</span>
+                                                                        {getHealthBadge(item.server.lastSeen)}
                                                                     </Link>
-                                                                    {getHealthBadge(item.server.lastSeen)}
                                                                     <button
-                                                                        onClick={(e) => handleCopyIp(item.server.ip, e)}
-                                                                        className="text-gray-500 hover:text-brand transition-colors p-1 rounded-control hover:bg-gray-800/60 inline-flex items-center gap-1"
+                                                                        onClick={() => handleCopyIp(item.server.ip)}
+                                                                        className="text-gray-500 hover:text-brand transition-colors p-1 mt-3 rounded-control hover:bg-gray-800/60 inline-flex items-center gap-1"
                                                                         title={`Click to copy join IP: ${item.server.ip}`}
+                                                                        aria-label={`Copy join IP ${item.server.ip}`}
                                                                     >
                                                                         {copiedIp === item.server.ip ? (
                                                                             <span className="text-2xs text-green-400 font-mono font-bold flex items-center gap-0.5">
@@ -479,8 +482,10 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                                             <Copy size={11} className="opacity-50 hover:opacity-100" />
                                                                         )}
                                                                     </button>
+                                                                    {/* the rest of the line opens the server too */}
+                                                                    <CellLink to={url} aria-hidden className="flex-1 self-stretch" />
                                                                 </div>
-                                                                <div className="text-2xs text-gray-600 flex gap-2 items-center mt-0.5">
+                                                                <CellLink to={url} className="text-2xs text-gray-600 flex gap-2 items-center px-3 pb-3 pt-0.5">
                                                                     <span className="border border-line px-1 rounded-control">{item.server.version || 'v?'}</span>
                                                                     <span className="font-mono text-gray-500">{item.server.ip}</span>
                                                                     {item.server.serverNotes && (
@@ -488,15 +493,15 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                                             {item.server.serverNotes}
                                                                         </span>
                                                                     )}
-                                                                </div>
+                                                                </CellLink>
                                                             </td>
-                                                            <td className="p-3">
+                                                            <LinkCell to={url} className="p-3">
                                                                 <ServerActivitySparkline
                                                                     serverIp={item.server.ip}
                                                                     activityData={globalStats?.serverActivity}
                                                                 />
-                                                            </td>
-                                                            <td className="p-3 w-28 text-center whitespace-nowrap">
+                                                            </LinkCell>
+                                                            <LinkCell to={url} className="p-3 text-center whitespace-nowrap">
                                                                 {item.game ? (
                                                                     <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-control bg-surface-raised border border-line text-xs font-mono">
                                                                         <span className={item.game.currentPlayers > 0 ? "text-green-400 font-bold" : "text-gray-500"}>
@@ -513,8 +518,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                                 ) : (
                                                                     <span className="text-gray-600 text-xs font-mono">0 / 8</span>
                                                                 )}
-                                                            </td>
-                                                            <td className="p-3">
+                                                            </LinkCell>
+                                                            <LinkCell to={url} className="p-3">
                                                                 {item.game ? (
                                                                     <div className="flex items-center gap-2">
                                                                         {mapImage ? (
@@ -528,7 +533,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                                         </div>
                                                                     </div>
                                                                 ) : <span className="text-gray-700 text-xs">-</span>}
-                                                            </td>
+                                                            </LinkCell>
                                                         </tr>
                                                     );
                                                 })}
@@ -546,7 +551,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                     {historyGames && historyGames.length > 0 && (
                         <div className="pt-2">
                             <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-gray-500 font-bold text-xs uppercase tracking-widest">Recent Bouts</h3>
+                                <h3 className="text-gray-500 font-bold text-xs uppercase tracking-widest">Recent Matches</h3>
                                 <button
                                     onClick={() => setActiveTab('history')}
                                     className="text-xs font-mono text-brand hover:underline"
@@ -609,7 +614,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             <form onSubmit={handleSearch} className="flex gap-2 w-full md:w-auto">
                                 <input
                                     type="text"
-                                    placeholder="Search Player, Map, Server, ID..."
+                                    placeholder="Search pilot, map, server, match ID..."
+                                    aria-label="Search matches"
                                     className="bg-surface-page border border-gray-700 text-white text-sm px-4 py-2 rounded-control w-full md:w-64 focus:border-brand outline-none font-mono"
                                     value={searchId}
                                     onChange={(e) => setSearchId(e.target.value)}
@@ -625,18 +631,18 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
 
                             <div className="flex items-center gap-4">
                                 <div className="text-right">
-                                    <div className="text-xs text-gray-500 uppercase tracking-widest">Total Games Archived</div>
+                                    <div className="text-xs text-gray-500 uppercase tracking-widest">Matches (365 Days)</div>
                                     <div className="text-2xl font-bold text-white font-mono leading-none">{totalGamesTracked > 0 ? totalGamesTracked.toLocaleString() : (historyGames?.length || 0)}</div>
                                 </div>
                             </div>
                         </div>
 
                         {historyGames === null && (isLoadingHistory || isSearching) ? (
-                            <Loading compact label="Fetching archival data..." />
+                            <Loading compact label="Loading match history..." />
                         ) : historyError ? (
                             <ErrorState
                                 compact
-                                title="Archive unavailable"
+                                title="Match history unavailable"
                                 message="Could not load the match history."
                                 onRetry={() => (query ? runSearch(query) : loadFirstPage())}
                             />
@@ -652,16 +658,16 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                 {historyGames.map((game) => {
                                     const thumb = getMapImage(game.settings?.level);
                                     return (
-                                        <div key={game.id} {...rowLink(urlFor('game-detail', game.id))} className="bg-surface-card border border-line hover:border-brand rounded-card overflow-hidden cursor-pointer transition-all group relative">
+                                        <div key={game.id} className="bg-surface-card border border-line hover:border-brand rounded-card overflow-hidden transition-all group relative">
                                             {thumb && (
                                                 <div className="absolute inset-0 opacity-10 group-hover:opacity-20 bg-cover bg-center transition-opacity" style={{ backgroundImage: `url(${thumb})` }}></div>
                                             )}
-                                            <div className="p-3 relative z-10">
+                                            <div className="p-3 relative">
                                                 <div className="flex justify-between items-center mb-2">
                                                     <span className="text-2xs text-gray-500 font-mono bg-black px-1.5 py-0.5 rounded-control border border-line">{game.date ? new Date(game.date).toLocaleDateString() : 'Unknown'}</span>
                                                     <span className="text-2xs text-brand font-bold uppercase">{game.settings?.matchMode}</span>
                                                 </div>
-                                                <h3 className="font-bold text-gray-300 truncate text-sm mb-1 group-hover:text-white"><Link to={urlFor('game-detail', game.id)}>{game.server?.name || "Unknown"}</Link></h3>
+                                                <h3 className="font-bold text-gray-300 truncate text-sm mb-1 group-hover:text-white"><Link to={urlFor('game-detail', game.id)} className="stretched-link">{game.server?.name || "Unknown"}</Link></h3>
                                                 <div className="text-xs text-gray-500 mb-3">Map: {game.settings?.level}</div>
                                                 <div className="pt-2 border-t border-line/50 flex flex-wrap gap-2 text-2xs font-mono">
                                                     {game.teamScore && Object.keys(game.teamScore).length > 0 ?
@@ -670,7 +676,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                             <Link
                                                                 key={p.name}
                                                                 to={urlFor('pilot', p.name)}
-                                                                className={`hover:underline hover:text-brand transition-colors ${i === 0 ? 'text-white font-bold' : 'text-gray-400'}`}
+                                                                className={`relative z-10 hover:underline hover:text-brand transition-colors ${i === 0 ? 'text-white font-bold' : 'text-gray-400'}`}
                                                                 title={`View ${p.name}'s pilot dossier`}
                                                             >
                                                                 {p.name}({p.kills})
@@ -690,7 +696,7 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                     disabled={isLoadingHistory}
                                     className="text-gray-500 hover:text-brand text-xs font-mono underline"
                                 >
-                                    {isLoadingHistory ? 'Fetching archival data...' : 'Load older games...'}
+                                    {isLoadingHistory ? 'Loading match history...' : 'Load older matches...'}
                                 </button>
                             </div>
                             </>

@@ -103,7 +103,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
                 <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
                     <span>Join at <span className="text-white">{serverIp}</span></span>
                 </div>
-                <button onClick={copyIp} className="text-gray-500 hover:text-brand transition-colors" title="Copy IP">
+                <button onClick={copyIp} className="text-gray-500 hover:text-brand transition-colors" title="Copy IP" aria-label={`Copy join IP ${serverIp}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                     </svg>
@@ -111,7 +111,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
             </div>
 
             {/* Player List */}
-            <div className="flex-grow bg-black p-2 overflow-y-auto max-h-[200px]">
+            <div className="flex-grow bg-black p-2 overflow-auto max-h-[200px]">
                 <table className="w-full text-left text-sm font-mono">
                     <thead className="text-2xs text-gray-600 uppercase border-b border-line">
                         <tr>
@@ -147,7 +147,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
                                     {server.game?.currentPlayers ? (
                                         <Loading compact label={`Scanning ${server.game.currentPlayers} active pilots...`} />
                                     ) : (
-                                        <EmptyState compact title="Waiting for players..." />
+                                        <EmptyState compact title="Waiting for pilots..." />
                                     )}
                                 </td>
                             </tr>
@@ -159,7 +159,7 @@ const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ server }) => {
             {/* Footer Info */}
             <div className="bg-surface-page border-t border-line p-2 text-2xs font-mono text-gray-500 flex flex-col gap-1">
                 <div className="flex justify-between items-center">
-                    <span>{playerList.length}/{gameData?.settings?.maxPlayers || server.game?.maxPlayers || '?'} Players</span>
+                    <span>{playerList.length}/{gameData?.settings?.maxPlayers || server.game?.maxPlayers || '?'} Pilots</span>
 
                     {timeString ? (
                         <span className="font-bold text-white">{timeString}</span>

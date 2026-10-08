@@ -2,9 +2,20 @@ import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
 import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X, Users } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
-import Link from './Link';
-import { useQueryParam, useQueryText, rowLink } from '../hooks/useLocation';
+import Link, { LinkCell } from './Link';
+import SortHeader from './SortHeader';
+import Pager, { usePage } from './Pager';
+import { useQueryParam, useQueryText } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
+import { combatRatio, COMBAT_RATIO_HINT, LETHALITY_HINT } from '../server/lib/gameParse.js';
+
+// Pilots per page of the roster, kept in ?page=
+const ROSTER_PAGE_SIZE = 50;
+const FIRST_PAGE = { page: null };
+// Columns the roster sorts by, kept in ?sort= (with ?dir=asc), so a page
+// number in the URL always means the same pilots
+const SORT_KEYS = ['name', 'games', 'kills', 'deaths', 'kd', 'kda', 'kpm', 'win_rate', 'suicides', 'lastSeen'] as const;
+type SortKey = typeof SORT_KEYS[number];
 
 // The browser API also sends a player list, which types.ts does not declare.
 type BrowserGame = NonNullable<BrowserApiResponse['game']> & { players?: (string | { name?: string })[] };
@@ -38,13 +49,15 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
     // The tab and the filters live in the URL: ?tab=online, ?q=, ?min=, ?active=1
     const [activeTab, setActiveTab] = useQueryParam('tab', 'roster', ['roster', 'online'] as const);
     const [searchTerm, setSearchTerm] = useQueryText('q');
-    const [sortConfig, setSortConfig] = useState<{ key: keyof PilotStats; direction: 'asc' | 'desc' }>({ key: 'games', direction: 'desc' });
+    // A new filter, sort or search starts the roster at page 1 (FIRST_PAGE).
+    const [sortKey, setSortKey] = useQueryParam<SortKey>('sort', 'games', SORT_KEYS);
+    const [sortDir] = useQueryParam('dir', 'desc', ['asc', 'desc'] as const);
     const [activeParam, setActiveParam] = useQueryParam('active');
     const activeOnly = activeParam === '1';
-    const setActiveOnly = (on: boolean) => setActiveParam(on ? '1' : '');
+    const setActiveOnly = (on: boolean) => setActiveParam(on ? '1' : '', FIRST_PAGE);
     const [minParam, setMinParam] = useQueryParam('min', '50');
     const minGamesThreshold = parseInt(minParam, 10) || 50;
-    const setMinGamesThreshold = (min: number) => setMinParam(String(min));
+    const setMinGamesThreshold = (min: number) => setMinParam(String(min), FIRST_PAGE);
 
 
     // Generate Online Pilots List from Active Games
@@ -96,7 +109,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
         if (isActiveWindow) {
             const d = new Date();
             d.setDate(d.getDate() - 90);
-            d.setMinutes(0, 0, 0, 0);
+            d.setMinutes(0, 0, 0);
             url = `/api/stats/pilots?startDate=${encodeURIComponent(d.toISOString())}&source=hot`;
         }
 
@@ -112,7 +125,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                     lastSeen: new Date(p.lastSeen || p.last_updated),
                     suicides: p.suicides || 0,
                     kd: p.kd !== undefined ? p.kd : (p.kills / Math.max(1, p.deaths)),
-                    kda: p.kda !== undefined ? p.kda : ((p.kills + p.assists * 0.5) / Math.max(1, p.deaths)),
+                    kda: p.kda !== undefined ? p.kda : combatRatio(p.kills, p.assists, p.deaths),
                     win_rate: p.win_rate !== undefined ? p.win_rate : (p.games > 0 && p.wins !== undefined ? ((p.wins / p.games) * 100) : undefined),
                     wins: p.wins,
                     losses: p.losses,
@@ -151,20 +164,30 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
         }
 
         return data.sort((a, b) => {
-            const valA = a[sortConfig.key];
-            const valB = b[sortConfig.key];
+            // a missing number (Lethality before the stats cache exists) sorts as lowest
+            const valA = a[sortKey] ?? -Infinity;
+            const valB = b[sortKey] ?? -Infinity;
 
-            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+            if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDir === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [pilotRoster, searchTerm, sortConfig, minGamesThreshold]);
+    }, [pilotRoster, searchTerm, sortKey, sortDir, minGamesThreshold]);
 
-    const handleSort = (key: keyof PilotStats) => {
-        setSortConfig(prev => ({
-            key,
-            direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
-        }));
+    const paging = usePage(sortedRoster, ROSTER_PAGE_SIZE);
+
+    // A click on the sorted column flips it; another column starts descending.
+    const handleSort = (key: SortKey) => {
+        const flip = key === sortKey && sortDir === 'desc';
+        setSortKey(key, { ...FIRST_PAGE, dir: flip ? 'asc' : null });
+    };
+    const sortProps = (key: SortKey) => ({
+        direction: sortKey === key ? sortDir : null,
+        onSort: () => handleSort(key)
+    });
+    const search = (text: string) => {
+        setSearchTerm(text);
+        paging.setPage(1);
     };
 
 
@@ -243,7 +266,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
             {activeTab === 'online' && (
                 <div className="space-y-4">
                     {onlinePilots.length > 0 ? (
-                        <div className="bg-surface-card border border-line rounded-card overflow-hidden">
+                        <div className="bg-surface-card border border-line rounded-card overflow-x-auto">
                             <table className="w-full text-left text-sm font-mono">
                                 <thead className="bg-surface-raised text-gray-500 text-xs uppercase">
                                     <tr>
@@ -294,7 +317,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                             card
                             icon={Users}
                             title="No identified pilots in active matches."
-                            message="Connect to a server to see the full player manifest."
+                            message="Pilots show here while they are in a match on a listed server."
                         />
                     )}
                 </div>
@@ -311,12 +334,12 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                         <Trophy size={64} />
                                     </div>
                                     <div className="relative z-10">
-                                        <h3 className="text-brand text-xs font-bold uppercase mb-2 flex items-center gap-2 group cursor-help" title={`Pilot with highest KDA Ratio (Min ${Math.max(minGamesThreshold > 1 ? minGamesThreshold : 25, 25)} games) • Formula: (Kills + 0.5 × Assists) ÷ Deaths`}>
-                                            <Trophy size={14} /> Top Gun (Highest KDA) <Info size={10} className="text-gray-600 group-hover:text-brand" />
+                                        <h3 className="text-brand text-xs font-bold uppercase mb-2 flex items-center gap-2 group cursor-help" title={`Pilot with the best Combat Ratio (min ${Math.max(minGamesThreshold > 1 ? minGamesThreshold : 25, 25)} matches). ${COMBAT_RATIO_HINT}`}>
+                                            <Trophy size={14} /> Top Gun (Best Combat Ratio) <Info size={10} className="text-gray-600 group-hover:text-brand" />
                                         </h3>
                                         <div className="text-2xl font-bold text-white mb-1">{highlights.topGun.name}</div>
                                         <div className="text-sm text-gray-400 font-mono">
-                                            <span className="text-brand font-bold">{highlights.topGun.kda.toFixed(2)}</span> KDA / {highlights.topGun.games} Games
+                                            <span className="text-brand font-bold">{highlights.topGun.kda.toFixed(2)}</span> Combat Ratio / {highlights.topGun.games} Matches
                                         </div>
                                     </div>
                                 </div>
@@ -327,7 +350,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                         <TrendingUp size={64} />
                                     </div>
                                     <div className="relative z-10">
-                                        <h3 className="text-blue-400 text-xs font-bold uppercase mb-2 flex items-center gap-2 group cursor-help" title="Pilot with most games played">
+                                        <h3 className="text-blue-400 text-xs font-bold uppercase mb-2 flex items-center gap-2 group cursor-help" title="Pilot with the most matches played">
                                             <TrendingUp size={14} /> Enforcer (Most Active) <Info size={10} className="text-gray-600 group-hover:text-blue-400" />
                                         </h3>
                                         <div className="text-2xl font-bold text-white mb-1">{highlights.mostActive.name}</div>
@@ -363,7 +386,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                     <div className="flex items-center gap-2">
                                         <h3 className="text-white font-bold text-sm uppercase tracking-wider">Pilot Roster</h3>
                                         <span className="text-xs text-gray-400 font-mono bg-gray-800/80 px-2 py-0.5 rounded-control border border-gray-700">
-                                            {searchTerm.trim() ? `${sortedRoster.length} matches` : `${sortedRoster.length} pilots`}
+                                            {searchTerm.trim() ? `${sortedRoster.length} found` : `${sortedRoster.length} pilots`}
                                         </span>
                                     </div>
                                     {freshnessText && (
@@ -424,12 +447,14 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                         placeholder={`Search all ${pilotRoster.length > 0 ? pilotRoster.length.toLocaleString() : '4,510'} pilots...`}
                                         className="bg-surface-page border border-gray-700 text-white text-xs px-3 py-2 pl-9 pr-7 rounded-control w-full focus:border-brand outline-none font-mono"
                                         value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onChange={(e) => search(e.target.value)}
+                                        aria-label="Search pilots"
                                     />
                                     <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                                     {searchTerm && (
                                         <button
-                                            onClick={() => setSearchTerm('')}
+                                            onClick={() => search('')}
+                                            aria-label="Clear search"
                                             className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
                                         >
                                             <X size={12} />
@@ -446,7 +471,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                     <Info size={12} className="text-blue-400" />
                                     <span>Sample size threshold bypassed &mdash; searching across all {pilotRoster.length.toLocaleString()} pilots.</span>
                                 </span>
-                                <button onClick={() => setSearchTerm('')} className="underline hover:text-white text-blue-400">
+                                <button onClick={() => search('')} className="underline hover:text-white text-blue-400">
                                     Clear Search
                                 </button>
                             </div>
@@ -456,7 +481,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                             <Loading compact label="Loading pilot data..." />
                         ) : rosterError ? (
                             <div className="p-4">
-                                <ErrorState compact title="Roster unavailable" message="Could not load pilot stats." onRetry={loadRoster} />
+                                <ErrorState compact title="Roster unavailable" message="Could not load pilot stats." onRetry={() => loadRoster()} />
                             </div>
                         ) : sortedRoster.length === 0 ? (
                             <EmptyState
@@ -465,7 +490,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                 message="Try selecting a lower matches threshold or switching to All Time."
                                 action={
                                     <button
-                                        onClick={() => { setMinGamesThreshold(1); setActiveOnly(false); setSearchTerm(''); }}
+                                        onClick={() => { setMinParam('1', { ...FIRST_PAGE, active: null }); setSearchTerm(''); }}
                                         className="text-xs text-brand underline hover:text-brand-hover font-bold"
                                     >
                                         Reset Filters
@@ -473,84 +498,51 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                 }
                             />
                         ) : (
+                            <div id="pilot-roster" className="scroll-mt-20">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm font-mono">
                                     <thead className="bg-surface-raised text-gray-500 text-xs uppercase">
                                         <tr>
                                             <th className="p-3 text-center w-10">#</th>
-                                            <th className="p-3 cursor-pointer hover:text-white" onClick={() => handleSort('name')}>
-                                                Pilot {sortConfig.key === 'name' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                            </th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('games')}>
-                                                Matches {sortConfig.key === 'games' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                            </th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kills')}>
-                                                Frags (K) {sortConfig.key === 'kills' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                            </th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('deaths')}>
-                                                Deaths (D) {sortConfig.key === 'deaths' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                            </th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kd')}>
-                                                <span className="inline-flex items-center gap-1 cursor-help group/kd" title="Frags ÷ Deaths. Frags are the in-game kill count, which already loses 1 per suicide; a match that ends below zero counts as 0. With no deaths, K/D equals frags.">
-                                                    <span>K/D</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/kd:text-brand inline-block transition-colors" />
-                                                    {sortConfig.key === 'kd' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                                </span>
-                                            </th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('kda')}>
-                                                <span className="inline-flex items-center gap-1 cursor-help group/kda" title="Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths. Assists receive a 0.5 weighting to reflect combat contribution without inflating scores.">
-                                                    <span>Combat Ratio (KDA)</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/kda:text-brand inline-block transition-colors" />
-                                                    {sortConfig.key === 'kda' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                                </span>
-                                            </th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('win_rate')}>
-                                                <span className="inline-flex items-center gap-1 cursor-help group/win" title="Wins ÷ (Wins + Losses + Ties). Ties count as non-wins. In free-for-all, only 1st place earns a win; all others take a loss (shared top = tie).">
-                                                    <span>Win Rate</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/win:text-brand inline-block transition-colors" />
-                                                    {sortConfig.key === 'win_rate' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                                </span>
-                                            </th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('suicides')}>
-                                                <span className="inline-flex items-center gap-1 cursor-help group/suicide" title="The game subtracts 1 frag per suicide (game rule); tracked separately here.">
-                                                    <span>Suicides</span>
-                                                    <Info size={11} className="text-gray-500 group-hover/suicide:text-brand inline-block transition-colors" />
-                                                    {sortConfig.key === 'suicides' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                                </span>
-                                            </th>
-                                            <th className="p-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('lastSeen')}>
-                                                Last Seen {sortConfig.key === 'lastSeen' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-                                            </th>
+                                            <SortHeader className="p-3" {...sortProps('name')}>Pilot</SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('games')}>Matches</SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('kills')}>Kills (K)</SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('deaths')}>Deaths (D)</SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('kd')} title="Kills ÷ Deaths. Kills are the in-game count, which already loses 1 per suicide; a match that ends below zero counts as 0. With no deaths, K/D equals kills.">
+                                                K/D <Info size={11} className="text-gray-500" aria-hidden />
+                                            </SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('kda')} title={COMBAT_RATIO_HINT}>
+                                                Combat Ratio <Info size={11} className="text-gray-500" aria-hidden />
+                                            </SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('kpm')} title={LETHALITY_HINT}>
+                                                Lethality <Info size={11} className="text-gray-500" aria-hidden />
+                                            </SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('win_rate')} title="Wins ÷ (Wins + Losses + Ties). Ties count as non-wins. In free-for-all, only 1st place earns a win; all others take a loss (shared top = tie).">
+                                                Win Rate <Info size={11} className="text-gray-500" aria-hidden />
+                                            </SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('suicides')} title="The game subtracts 1 kill per suicide (game rule); tracked separately here.">
+                                                Suicides <Info size={11} className="text-gray-500" aria-hidden />
+                                            </SortHeader>
+                                            <SortHeader className="p-3 text-right" {...sortProps('lastSeen')}>Last Seen</SortHeader>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-line">
-                                        {sortedRoster.map((pilot, index) => (
-                                            <tr
-                                                key={pilot.name}
-                                                className="hover:bg-surface-raised cursor-pointer group transition-colors"
-                                                {...rowLink(urlFor('pilot', pilot.name))}
-                                            >
-                                                <td className="p-3 text-center text-gray-600 font-bold">{index + 1}</td>
-                                                <td className="p-3 font-bold text-white">
-                                                    <div className="flex items-center gap-2">
-                                                        <User size={14} className="text-gray-600" />
-                                                        <Link to={urlFor('pilot', pilot.name)}>{pilot.name}</Link>
-                                                    </div>
-                                                </td>
-                                                <td className="p-3 text-right text-gray-400">{pilot.games.toLocaleString()}</td>
-                                                <td className="p-3 text-right font-bold text-gray-200">
-                                                    {Math.max(0, pilot.kills).toLocaleString()}
-                                                </td>
-                                                <td className="p-3 text-right font-mono text-red-400">
-                                                    {pilot.deaths.toLocaleString()}
-                                                </td>
-                                                <td className="p-3 text-right font-mono text-gray-300">
-                                                    {Math.max(0, pilot.kd).toFixed(2)}
-                                                </td>
-                                                <td className="p-3 text-right">
-                                                    <span className="font-bold text-brand text-sm">{Math.max(0, pilot.kda).toFixed(2)}</span>
-                                                </td>
-                                                <td className="p-3 text-right">
+                                        {paging.items.map((pilot, index) => {
+                                            const url = urlFor('pilot', pilot.name);
+                                            return (
+                                            <tr key={pilot.name} className="hover:bg-surface-raised group transition-colors">
+                                                <LinkCell to={url} className="p-3 text-center text-gray-600 font-bold">{paging.start + index + 1}</LinkCell>
+                                                <LinkCell main to={url} className="p-3 flex items-center gap-2 font-bold text-white hover:text-brand">
+                                                    <User size={14} className="text-gray-600" aria-hidden />
+                                                    {pilot.name}
+                                                </LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right text-gray-400">{pilot.games.toLocaleString()}</LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right font-bold text-gray-200">{Math.max(0, pilot.kills).toLocaleString()}</LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right font-mono text-red-400">{pilot.deaths.toLocaleString()}</LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right font-mono text-gray-300">{Math.max(0, pilot.kd).toFixed(2)}</LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right font-bold text-brand text-sm">{Math.max(0, pilot.kda).toFixed(2)}</LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right font-mono text-gray-300">{pilot.kpm != null ? pilot.kpm.toFixed(2) : '—'}</LinkCell>
+                                                <LinkCell to={url} className="p-3 text-right">
                                                     <div className="font-bold text-emerald-400 text-sm">
                                                         {pilot.win_rate !== undefined ? `${pilot.win_rate.toFixed(1)}%` : '—'}
                                                     </div>
@@ -559,22 +551,25 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                                             {pilot.wins}W - {pilot.losses}L
                                                         </div>
                                                     )}
-                                                </td>
-                                                <td className="p-3 text-right">
-                                                    <span className={`font-mono text-xs ${pilot.suicides > 0 ? 'text-amber-400 font-bold' : 'text-gray-600'}`}>
-                                                        {pilot.suicides.toLocaleString()}
-                                                    </span>
-                                                </td>
-                                                <td className="p-3 text-right text-gray-500 text-xs">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Calendar size={12} />
-                                                        {pilot.lastSeen.toLocaleDateString()}
-                                                    </div>
-                                                </td>
+                                                </LinkCell>
+                                                <LinkCell to={url} className={`p-3 text-right font-mono text-xs ${pilot.suicides > 0 ? 'text-amber-400 font-bold' : 'text-gray-600'}`}>
+                                                    {pilot.suicides.toLocaleString()}
+                                                </LinkCell>
+                                                <LinkCell to={url} className="p-3 text-gray-500 text-xs flex items-center justify-end gap-1">
+                                                    <Calendar size={12} aria-hidden />
+                                                    {pilot.lastSeen.toLocaleDateString()}
+                                                </LinkCell>
                                             </tr>
-                                        ))}
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
+                            </div>
+                            {paging.pageCount > 1 && (
+                                <div className="px-4 pb-4">
+                                    <Pager paging={paging} listId="pilot-roster" />
+                                </div>
+                            )}
                             </div>
                         )}
                     </div>

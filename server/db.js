@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { Worker } from 'worker_threads';
-import { OUTCOME_FIELD, durationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, winnerOf } from './lib/gameParse.js';
+import { OUTCOME_FIELD, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, winnerOf } from './lib/gameParse.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -952,8 +952,8 @@ function getPilotTelemetry(name, startDate, matchMode) {
         const { wins, losses, ties } = record;
         const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 1000) / 10 : 0;
         const pureKd = totalDeaths > 0 ? Math.round((totalKills / totalDeaths) * 100) / 100 : totalKills;
-        const kda = totalDeaths > 0 ? Math.round(((totalKills + totalAssists * 0.5) / totalDeaths) * 100) / 100 : totalKills;
-        const kpm = flightMinutes > 0 ? Math.round((totalKills / flightMinutes) * 100) / 100 : 0;
+        const kda = combatRatio(totalKills, totalAssists, totalDeaths);
+        const kpm = lethality(totalKills, totalPlaytimeSec);
         const aci = totalGames > 0 ? Math.round(((totalKills + totalAssists * 0.5 - totalDeaths) / totalGames) * 100) / 100 : 0;
         const dpm = flightMinutes > 0 ? Math.round((totalDamageDealt / flightMinutes)) : 0;
         const flightHours = Math.round((totalPlaytimeSec / 3600) * 10) / 10;
@@ -1744,7 +1744,7 @@ const db = {
         const deaths = r.deaths || 0;
         const assists = r.assists || 0;
         const kd = deaths > 0 ? Math.round((kills / deaths) * 100) / 100 : kills;
-        const kda = deaths > 0 ? Math.round(((kills + assists * 0.5) / deaths) * 100) / 100 : kills;
+        const kda = combatRatio(kills, assists, deaths);
 
         if (!startDate) {
           return {

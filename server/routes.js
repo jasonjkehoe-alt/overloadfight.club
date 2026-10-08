@@ -838,8 +838,10 @@ router.get('/pilot/:name/stats', async (req, res) => {
         let stats = db.getPilotDetailedStats.get({ name, startDate, mode });
 
         // If pilot has no games in the 365d window, fallback to all-time record
+        let allTimeFallback = false;
         if ((!stats || !stats.games) && startDate) {
             stats = db.getPilotDetailedStats.get({ name, startDate: null, mode });
+            allTimeFallback = true;
         }
 
         if (stats) {
@@ -859,7 +861,7 @@ router.get('/pilot/:name/stats', async (req, res) => {
                     stats.flight_hours = stats.career_flight_hours ?? stats.flight_hours;
                 }
             }
-            stats.scope = isDefault365 ? 'recent' : 'all';
+            stats.scope = isDefault365 && !allTimeFallback ? 'recent' : 'all';
             await cacheService.set(cacheKey, stats, 300);
         }
 

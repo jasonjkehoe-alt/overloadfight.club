@@ -502,7 +502,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
         t: fb.t,
         type: 'first-blood',
         label: 'First Blood',
-        description: `First Blood — ${fb.killer} frags ${fb.victim}`
+        description: `First Blood — ${fb.killer} kills ${fb.victim}`
       });
     }
 
@@ -547,7 +547,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
           label: 'Lead Change',
           description: isTeamMode
             ? `Lead change — ${newLeader} takes the lead`
-            : `Lead change — ${newLeader} takes the lead (${runningScores[newLeader]} frags)`
+            : `Lead change — ${newLeader} takes the lead (${runningScores[newLeader]} kills)`
         });
       }
 
@@ -563,7 +563,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
             t: ev.t,
             type: 'spree',
             label: `Spree x${count}`,
-            description: `${ev.killer} Spree (${count} frags in 20s)`
+            description: `${ev.killer} Spree (${count} kills in 20s)`
           });
         }
       }
@@ -941,7 +941,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
       ctx.restore();
 
       // Faint Arena Watermark
-      const arenaName = (game.settings?.level || 'OVERLOAD ARENA').toUpperCase();
+      const arenaName = (game.settings?.level || 'UNKNOWN MAP').toUpperCase();
       ctx.save();
       ctx.font = '900 24px monospace';
       ctx.textAlign = 'center';
@@ -1639,7 +1639,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
             className="flex items-center gap-2 px-3.5 py-1.5 bg-[#ff6600]/10 hover:bg-[#ff6600]/20 text-[#ff6600] border border-[#ff6600]/40 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95"
           >
             <span>{isOpen ? '▼ HIDE REPLAY' : '▶ WATCH REPLAY'}</span>
-            <span className="text-[10px] text-gray-400 font-normal">({normalizedEvents.length} frags)</span>
+            <span className="text-[10px] text-gray-400 font-normal">({normalizedEvents.length} kills)</span>
           </button>
 
           {isOpen && (
@@ -1892,7 +1892,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
               <button
                 onClick={jumpPrevKill}
                 className="min-h-[36px] px-2.5 py-2 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 text-gray-200 rounded text-xs font-bold transition-colors cursor-pointer select-none"
-                title="Jump to previous frag"
+                title="Jump to previous kill"
               >
                 ⏮ PREV
               </button>
@@ -1911,7 +1911,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
               <button
                 onClick={jumpNextKill}
                 className="min-h-[36px] px-3 py-2 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 text-gray-200 rounded text-xs font-bold transition-colors cursor-pointer select-none"
-                title="Jump to next frag"
+                title="Jump to next kill"
               >
                 NEXT ⏭
               </button>

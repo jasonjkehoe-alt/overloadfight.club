@@ -146,7 +146,7 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ globalActivity }) => {
               cursor={{ fill: '#222' }}
               contentStyle={{ ...chartTooltip, fontSize: '12px' }}
               labelFormatter={(label) => `${formatTimeLabel(label)} - ${formatTimeLabel(label + 1)}`}
-              formatter={(value) => [value, 'Games Played']}
+              formatter={(value) => [value, 'Matches Played']}
               itemStyle={{ color: '#fff' }}
               labelStyle={{ color: '#ccc' }}
             />
