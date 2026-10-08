@@ -22,7 +22,8 @@ export async function fetchServerBrowser() {
 export async function takeSnapshot(now = Date.now()) {
     try {
         const servers = await fetchServerBrowser();
-        if (Array.isArray(servers)) return db.saveServerSnapshot(now, servers);
+        // a fetch still out when shutdown began must not write to a closed database
+        if (Array.isArray(servers) && !stopped) return db.saveServerSnapshot(now, servers);
     } catch (error) {
         console.error('[Snapshots] Server browser not stored:', error.message);
     }
@@ -30,10 +31,12 @@ export async function takeSnapshot(now = Date.now()) {
 }
 
 let timer = null;
+let stopped = false;
 
 // Every SNAPSHOT.everyMs whether or not anyone has the site open.
 export function startSnapshots() {
     if (timer) return;
+    stopped = false;
     takeSnapshot();
     timer = setInterval(takeSnapshot, SNAPSHOT.everyMs);
 }
@@ -42,4 +45,5 @@ export function startSnapshots() {
 export function stopSnapshots() {
     clearInterval(timer);
     timer = null;
+    stopped = true;
 }

@@ -9,7 +9,8 @@ const upsertServer = hotDb.prepare(`
   INSERT INTO servers (ip, name, notes, version, first_seen, last_seen, last_online)
   VALUES (@ip, @name, @notes, @version, @seen, @seen, @last_online)
   ON CONFLICT(ip) DO UPDATE SET
-    name = excluded.name, notes = excluded.notes, version = excluded.version,
+    name = COALESCE(excluded.name, name), notes = COALESCE(excluded.notes, notes),
+    version = COALESCE(excluded.version, version),
     last_seen = excluded.last_seen, last_online = COALESCE(excluded.last_online, last_online)
 `);
 const insertTick = hotDb.prepare(`
@@ -25,25 +26,37 @@ const addToHour = hotDb.prepare(`
     match_pilots = match_pilots + excluded.match_pilots, peak = MAX(peak, excluded.peak)
 `);
 
+// Servers listed within the raw window, for the ticks of those an answer leaves out.
+const recentServers = hotDb.prepare('SELECT ip FROM servers WHERE last_seen >= ?').pluck();
+
 /**
  * Stores one tick of the server browser taken at `at` (ms): each server's
  * listing, its raw row, and the tick added to its hour, in one transaction. A
- * server listed twice in one answer, or a tick already stored at the same
- * `at`, counts once (the raw row's key is (at, ip)). Returns the number of
- * ticks stored.
+ * server the tracker listed in the last SNAPSHOT.keepDays days that this
+ * answer leaves out gets an offline tick, so dropping off the list counts
+ * against its uptime. A server listed twice in one answer, or a tick already
+ * stored at the same `at`, counts once (the raw row's key is (ip, at)).
+ * Returns the number of ticks stored.
  */
 export const saveServerSnapshot = hotDb.transaction((at, entries) => {
   const seen = new Date(at).toISOString();
   const hour = Math.floor(at / HOUR_MS);
-  let stored = 0;
+  const rows = new Map();
   for (const entry of entries || []) {
     const row = snapshotRow(entry);
-    if (!row) continue;
+    if (!row || rows.has(row.ip)) continue;
+    rows.set(row.ip, row);
     const { server } = entry;
     upsertServer.run({
       ip: row.ip, name: server.name ?? null, notes: server.serverNotes ?? null, version: server.version ?? null,
       seen, last_online: server.lastSeen ?? null
     });
+  }
+  for (const ip of recentServers.all(new Date(at - SNAPSHOT.keepDays * DAY_MS).toISOString())) {
+    if (!rows.has(ip)) rows.set(ip, { ip, online: 0, players: 0, max_players: null, state: SERVER_STATE.idle });
+  }
+  let stored = 0;
+  for (const row of rows.values()) {
     if (insertTick.run({ at, ...row }).changes === 0) continue;
     stored++;
     addToHour.run({

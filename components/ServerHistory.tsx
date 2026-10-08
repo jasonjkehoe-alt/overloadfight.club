@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ArrowLeft, Radio, ServerOff } from 'lucide-react';
 import { Loading, EmptyState, ErrorState, secondaryButtonClass } from './States';
 import JoinIp from './JoinIp';
@@ -10,7 +10,7 @@ import { useQueryParam } from '../hooks/useLocation';
 import { useLoad } from '../hooks/useLoad';
 import { useServerBrowser } from '../hooks/useServerBrowser';
 import { fetchServerHistory, ServerHistory as History } from '../services/apiService';
-import { urlFor } from '../server/lib/siteRoutes.js';
+import { pageTitle, urlFor } from '../server/lib/siteRoutes.js';
 import { regionLabel } from '../server/lib/serverRegions.js';
 import { FIGHT_NIGHT_DAY, FIGHT_NIGHT_DAY_TEXT, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, clockHour, localClock, shiftDay } from '../server/lib/gameParse.js';
 import { dayLabel } from '../server/lib/matchResult.js';
@@ -45,7 +45,7 @@ const WindowStats: React.FC<{ data: History }> = ({ data }) => {
     return (
         <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card label="Uptime" value={share(data.uptime)} detail="of minutes listed online" title="The share of the minutes the site checked that the tracker listed this server online." />
+                <Card label="Uptime" value={share(data.uptime)} detail="of checked minutes online" title="The minutes the tracker listed this server online, over every minute the site checked it. A minute it was missing from the list counts as offline." />
                 <Card label="In use" value={share(data.inUse)} detail="of online minutes in a match" title="The share of the online minutes with a match being played (not a lobby)." />
                 <Card label="Pilots" value={data.avgPilots === null ? '–' : data.avgPilots.toFixed(1)} detail="on average in a match" title="Pilots on the server per minute, over the minutes a match was being played." />
                 <Card label="Peak" value={data.peak ? String(data.peak.pilots) : '–'} detail={data.peak ? atHour(data.peak.at) : 'no pilots'} title="The most pilots in one minute, and the latest hour it happened." />
@@ -78,7 +78,15 @@ const WindowStats: React.FC<{ data: History }> = ({ data }) => {
 const ServerHistory: React.FC<{ ip: string; onBack: () => void }> = ({ ip, onBack }) => {
     const [days, setDays] = useQueryParam('days', String(SERVER_WINDOW_DEFAULT), WINDOWS);
     const { data, failed, retry } = useLoad(() => fetchServerHistory(ip, Number(days)), [ip, days]);
-    const live = useServerBrowser().games?.find(s => s.server.ip === ip);
+    // the last answer, so the header stays while another window loads
+    const shown = useRef<History | null>(null);
+    if (data) shown.current = data;
+    const listing = data ?? shown.current;
+    const live = useServerBrowser().games?.find(s => s.server?.ip === ip);
+    // App titles the page from the live list; a server that has left it still has its stored name
+    useEffect(() => {
+        if (listing?.name) document.title = pageTitle({ view: 'server', param: ip }, listing.name);
+    }, [ip, listing?.name]);
     const playing = Boolean(live?.game && !live.game.inLobby);
 
     const back = (
@@ -90,8 +98,8 @@ const ServerHistory: React.FC<{ ip: string; onBack: () => void }> = ({ ip, onBac
         return <ErrorState title="Server history unavailable" message="Could not load this server's history." onRetry={retry}
             action={<button onClick={onBack} className={secondaryButtonClass}><ArrowLeft className="w-4 h-4" /> Back</button>} />;
     }
-    if (!data && !live) return <Loading label="Loading server history..." />;
-    if (data && !data.firstSeen) {
+    if (!listing && !live) return <Loading label="Loading server history..." />;
+    if (listing && !listing.firstSeen) {
         return (
             <div className="space-y-6">
                 <div className="flex items-center gap-4">{back}<h1 className="text-2xl font-bold text-white break-all">{ip}</h1></div>
@@ -101,7 +109,7 @@ const ServerHistory: React.FC<{ ip: string; onBack: () => void }> = ({ ip, onBac
         );
     }
 
-    const name = data?.name || live?.server.name || ip;
+    const name = listing?.name || live?.server?.name || ip;
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -110,10 +118,10 @@ const ServerHistory: React.FC<{ ip: string; onBack: () => void }> = ({ ip, onBac
                     <div className="min-w-0">
                         <h1 className="text-2xl font-bold text-white tracking-tight break-words">{name}</h1>
                         <div className="text-sm text-gray-400 mt-1 flex flex-wrap gap-x-2">
-                            {data && <span>{regionLabel(data.region)}</span>}
-                            {data?.version && <span className="font-mono"><span aria-hidden>· </span>{data.version}</span>}
+                            {listing && <span>{regionLabel(listing.region)}</span>}
+                            {listing?.version && <span className="font-mono"><span aria-hidden>· </span>{listing.version}</span>}
                         </div>
-                        {data?.notes && <p className="text-xs text-gray-500 mt-1 break-words">{data.notes}</p>}
+                        {listing?.notes && <p className="text-xs text-gray-500 mt-1 break-words">{listing.notes}</p>}
                         <div className="mt-2"><JoinIp ip={ip} /></div>
                     </div>
                 </div>
@@ -138,7 +146,7 @@ const ServerHistory: React.FC<{ ip: string; onBack: () => void }> = ({ ip, onBac
                         <h3 id="last-day-title" className="text-gray-500 font-bold text-xs uppercase tracking-widest mb-2">Last 24 hours</h3>
                         {data.lastDay.length === 0
                             ? <EmptyState compact icon={ServerOff} title="No ticks in the last 24 hours" />
-                            : <LastDayChart ticks={data.lastDay} now={Date.now()} />}
+                            : <LastDayChart ticks={data.lastDay} now={data.asOf} />}
                     </section>
                 </>
             )}

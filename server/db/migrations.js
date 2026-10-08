@@ -236,7 +236,8 @@ ensurePilotMonths();
 // derived tables above, nothing can rebuild these: they are the only copy, and
 // the nightly backup carries them. In tracker.db only; the hot/cold split is for
 // games. `servers` is each server's latest listing; `server_snapshots` one row
-// per server per tick (`at` in ms), kept SNAPSHOT.keepDays days; `server_hours`
+// per server per tick (`at` in ms), kept SNAPSHOT.keepDays days, keyed by server
+// so a page reads one server's day by key; `server_hours`
 // the ticks added up per server per UTC hour (`hour` = ms / 3600000), kept for
 // good. A tick writes all three in one transaction.
 export function ensureServerTables() {
@@ -257,7 +258,7 @@ export function ensureServerTables() {
       players INTEGER NOT NULL,
       max_players INTEGER,
       state INTEGER NOT NULL,
-      PRIMARY KEY (at, ip)
+      PRIMARY KEY (ip, at)
     ) WITHOUT ROWID;
     CREATE TABLE IF NOT EXISTS server_hours (
       ip TEXT NOT NULL,

@@ -3417,6 +3417,150 @@ Not counted in the 28 sessions.
   rating card's "Rating by day" and the career's "Career by month" are one
   `DetailsTable`. The activity timeline's day labels now
   format in UTC, so a day shows as itself in any viewer's zone.
+- 2026-10-08 (S15): The owner's answers at the start of S15. The server
+  stores the tracker's server browser every 60 s. Raw rows are kept 30
+  days, and an hourly rollup per server is kept for good. The regional
+  share counts stored matches per region per month over the whole
+  history, hot and cold, not pilots online from the snapshots. The
+  fight-night thresholds stay at 16 matches, plus 14 pilots or 1,600
+  kills (see the S14 flag, which now carries a deploy warning). Constants:
+  `SNAPSHOT = { everyMs: 60000, keepDays: 30 }` in `gameParse.js`.
+- 2026-10-08 (S15): Where the ticks come from. Before S15 the server only
+  fetched `tracker.otl.gg/api/browser` when a page asked `/api/browser`,
+  so nothing was fetched while nobody had the site open.
+  `services/serverSnapshots.js` now owns that fetch and its 15 s cache
+  (`fetchServerBrowser`); `/api/browser` and a 60 s timer both call it,
+  so the site still asks the tracker at most once per 15 s. The timer
+  starts at `listen` beside the ingest poll, takes its first tick at once,
+  and stops before `db.close()` on shutdown. A fetch that fails, or an
+  answer that is not a list, stores nothing, so a tracker outage or a
+  down site counts against no server's uptime; those minutes are simply
+  missing. `snapshotRow` in `gameParse.js` reads one entry: online is
+  the tracker's `server.online`, pilots `game.currentPlayers`, and the
+  state idle (no `game`), lobby (`game.inLobby`) or match, which is what
+  the server browser already calls Active, Lobby and Idle.
+- 2026-10-08 (S15): The tables, in `tracker.db` beside `games`
+  (`ensureServerTables` in `migrations.js`). `servers(ip, name, notes,
+  version, first_seen, last_seen, last_online)` is each server's latest
+  listing. `server_snapshots(at, ip, online, players, max_players,
+  state)`, key `(at, ip)`, `WITHOUT ROWID`, is one row per server per
+  tick. `server_hours(ip, hour, samples, online, lobby, match, pilots,
+  match_pilots, peak)`, key `(ip, hour)`, `WITHOUT ROWID`, is the ticks
+  added up per server per UTC hour (`hour` = ms / 3,600,000). A tick
+  writes all three in one transaction, and the raw row's key makes a
+  repeated tick, or a server listed twice in one answer, count once.
+  Unlike `rating_snapshots` and `pilot_months`, these are primary data:
+  nothing can rebuild them, and the nightly backup carries them. First
+  build: created empty at startup; the first tick fills them. A restart
+  needs no repair: a tick is all or nothing, and the minutes the server
+  was down are missing, as above. The 03:00 job deletes raw rows older
+  than 30 days (`pruneServerSnapshots`, a range on the key's first
+  column); the hours stay. Size at 21 servers: about 30,000 raw rows a
+  day, about 0.9 million kept, and about 180,000 hourly rows a year.
+  `restoreHot` creates them empty when the restored file predates S15.
+  Rollback: revert, pull the old image, and `DROP TABLE servers; DROP
+  TABLE server_snapshots; DROP TABLE server_hours;` on `tracker.db`, or
+  leave them (nothing older reads them). Dropping them loses the record
+  for good. Rejected: rolling the hours up from the raw rows in a nightly
+  job (the hour would lag a day and a failed night would need a
+  catch-up), and one table of raw rows kept for good (about 11 million
+  rows a year, read on every page view).
+- 2026-10-08 (S15): How the server page counts, in `gameParse.js`
+  (`serverSummary`), over the hours of the window. Uptime is the ticks
+  the tracker listed the server online over all its ticks. In use is the
+  ticks with a match being played over the online ticks; a lobby is
+  online but not in use. Pilots is the pilots per tick over the ticks
+  with a match being played, so idle minutes do not drag it to zero. The
+  peak is the most pilots in one tick and the latest hour it happened.
+  Peak hours are the pilots per tick, all ticks counted (idle ones too,
+  so the grid shows when a server is busy, not how full its matches
+  are), for each weekday and clock hour, the weekday being the
+  fight-night day's and the hour Chicago's, from `localClock` on each
+  UTC hour. Chicago's offset changes only on the hour, so an hour of the
+  rollup is one clock hour and one day; on the day DST ends both 01:00s
+  land in one cell (tested). A rate with nothing to divide by is null
+  and shows "–". The window is whole fight-night days before today
+  (`serverWindow`, the heatmap's rule), 7, 30, 90 or 365 of them, so
+  today's hours count from tomorrow; the last 24 hours come from the raw
+  rows instead.
+- 2026-10-08 (S15): Regions. Neither the server browser nor a stored
+  match names a region, so it comes from words in the server's name and
+  notes: `server/lib/serverRegions.js`, the keyword table ServerStats
+  kept for its map dots, moved there with a region on each row. The map
+  reads the same table. Regions, in stacking order: North America West,
+  Central and East, Europe, Oceania, Asia, South America, Unknown.
+  Added: `US-MN`, `MINNESOTA` and `MINNEAPOLIS` (US-MN-STEFFL is in
+  today's browser). One visible change: a server the table does not
+  place now gets the same small nudge as the others, so two unknown
+  servers no longer sit on one dot. On the 21 servers listed on
+  2026-10-08, two are Unknown ("My Overload Server", "The Silken Sad
+  Uncertain Server"). A stored match takes the region from the server
+  name and notes stored with it; failing that, from another stored match
+  on the same IP that has one; failing that, from the server's latest
+  listing in `servers`; failing that, Unknown. On the 40 local matches
+  that leaves one Unknown (114.75.24.117, "My Overload Server"); the two
+  Ashburn matches without a stored server come from their IP's other
+  matches. Rejected: a GeoIP lookup (a new dependency or an outside
+  service for each IP, and a hosting provider's address is not where its
+  players are).
+- 2026-10-08 (S15): `region_months(region, month, matches)`, key
+  `(region, month)`, `WITHOUT ROWID`, in `tracker.db`: derived, like
+  `pilot_months`. The stats worker counts every stored match in the same
+  scan (`regionPass` in `statsPasses.js`; the month is the fight-night
+  day's, `careerMonth`), reads `servers` once for the listing fallback,
+  and sends only the rows that changed (`tableChanges`); the main thread
+  writes them with `writeChanges`. First build: created empty; the
+  startup check in `maintenance.js` refreshes when it (or
+  `rating_snapshots` or `pilot_months`) is empty. Every refresh brings it
+  in line. `restoreHot` creates it. Rollback: revert, `DROP TABLE
+  region_months;` or leave it.
+- 2026-10-08 (S15): Endpoints. `GET /api/server/:ip/history?days=` (in
+  `server/routes/browser.js`, beside `/api/browser`) answers the
+  listing, the region, the window (`days`, `since`, `until`), the
+  `serverSummary` numbers and `lastDay`, the raw ticks of the last 24
+  hours. `days` other than 7, 30, 90 or 365 reads as 30. A server never
+  stored answers the same shape with a null `firstSeen`, not a 404, so
+  the page tells "never seen" from a failure (the S13 rule). It reads
+  one server's hours by key (at most 8,760) and a day of ticks, so it has
+  no route cache. `GET /api/stats/regions` (in `stats.js`) answers `{
+  regions, months }`, every month from the first stored match to this
+  one; no route cache either, so it is never older than the table. The
+  client reads them through `fetchServerHistory` and `fetchRegionShare`
+  (null on failure) and `useLoad`.
+- 2026-10-08 (S15): The page. `/server/:ip` is a route in `siteRoutes.js`
+  (view `server`, title `Server: <name>`, the nav lights Live), with a
+  share description in `pageMeta.js` ("Overloader: Dallas, TX (North
+  America Central): online 100% of the last 30 days, a match running 50%
+  of that time, 6.0 pilots in a match on average. Join at <ip>.").
+  `/live/:ip`'s share title now names the server from `servers` (the S8
+  flag). The view (`components/ServerHistory.tsx`, lazy) shows the name,
+  region, version, notes, `JoinIp` and a link to the live page ("Watch
+  the match live" while one runs, from the shared poll); the window as
+  four buttons, in the URL as `?days=` through `useQueryParam` (30 left
+  out); cards for uptime, in use, pilots and the peak; the peak hours;
+  and the last 24 hours. The peak hours are the dashboard heatmap's
+  table, now `components/HourGrid.tsx`, which both use; a cell with no
+  tick is left empty, not coloured as zero. The last 24 hours
+  (`serverHistory/LastDayChart.tsx`) are hand-drawn SVG: pilots as a 2px
+  `chart.series` line broken where ticks are missing, the minutes with a
+  match as a band under it, a title per hour, and the hours as a table
+  (`DetailsTable`, moved from `pilotDetail/` to `components/` now that
+  three places use it). Loading, failure, a server never seen and a
+  window with no ticks use the shared states. The server browser's rows
+  and cards gain a history icon link beside the copy button; the live
+  page links to the history from its header and its error view.
+- 2026-10-08 (S15): The dashboard's "Matches by region" card
+  (`gameList/RegionShare.tsx`) sits under the heatmap: 100% stacked
+  columns per month, 10 px wide with 2 px gaps, hand-drawn SVG (the
+  dashboard's first visit still loads no Recharts), a title per month
+  with each region's share, a legend of the regions present, the
+  latest month's shares in words above it, and a per-month table. Below
+  the history's width it scrolls and opens on the latest month.
+  Colours are `chart.region`: the seven palette slots of `chart.weapon`
+  in the same order, so neighbouring regions are the pairs the validator
+  passed (`--mode dark --surface "#111111"`: worst adjacent CVD ΔE 8.4,
+  normal-vision ΔE 19.3, contrast above 3:1), and Unknown is the chart
+  grey.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -4075,7 +4219,16 @@ Not counted in the 28 sessions.
   On the local data no fight-night day qualifies any more (the best,
   2026-10-06, has 18 matches, 11 pilots, 1,102 kills), where the UTC day
   2026-10-07 did. Whether to lower them is the owner's call; the dashboard
-  teaser shows nothing until a night qualifies.
+  teaser shows nothing until a night qualifies. Asked again at the start
+  of S15; the owner chose to leave them. Before the first start of the
+  S14 (or later) image on the NAS, check real nights against them: that
+  start rebuilds the last 365 days of recaps once under the 06:00 day and
+  deletes the recap of any night that no longer passes, then writes
+  `fight_night_day_rule` to `admin_settings` so the rebuild never runs
+  again. Lowering the thresholds afterwards does not bring those recaps
+  back until that row is deleted and the server restarted. (On the local
+  data the dashboard does show a teaser for 2026-10-06: S14 forced that
+  recap for its checks.)
 - (S14) Recaps older than hot storage keep their UTC dates (see the recap
   decision): their matches are in cold storage.
 - (S14) Links shared to a recap from before S14 inside the rebuilt year
@@ -4120,6 +4273,58 @@ Not counted in the 28 sessions.
   `last_played` column from an early S13 build, so `/api/stats/rankings`
   answers it there. A table made by `migrations.js` has no such column.
 
+- (S15) Earlier flags that name servers, the server browser, the live
+  page, regions or peak hours, decided:
+  - (S8) The live page's share title shows the IP: covered. It names the
+    server from the `servers` table once a tick has stored it.
+  - (S7, S9) An idle server's live page says "Unable to load match": still
+    open (the tracker answers an idle server and a failure the same way),
+    but the error view now links to the server's history, which shows
+    what the server has been doing.
+  - (S7) The server browser's and the live cards' copy buttons skip
+    `JoinIp`'s clipboard check; (S7, S10) the live page has no team score,
+    a dead OFFLINE branch with its sentence twice, and `maxPlayers || 16`
+    where the browser uses `|| 8`; (S8) the server browser's sort is not
+    in the URL; (S4) `Layout`'s and the live cards' polls run while the
+    tab is hidden: still open, none on S15's list.
+  - (S12, S14) `ServerActivitySparkline` and ServerStats' mode bars are
+    still hex: still open.
+- (S15) The server browser's Activity sparkline (`getServerActivityStats`)
+  is not "the last 24 hours". It compares the stored ISO dates
+  (`2026-10-08T01:00:00.000Z`) with SQLite's `datetime('now', '-24
+  hours')` (`2026-10-07 20:00:00`) as strings, and `T` sorts after a
+  space, so every match on the cut-off's UTC date passes: the window
+  runs from 00:00 UTC yesterday, up to 48 hours. The bars are UTC hours
+  (`strftime('%H')`), so the same hour of two days adds up. Found by
+  reading; S15 left it, since the server page now has the real last 24
+  hours. The ticks could replace it.
+- (S15) `getActiveServerIps` in `analytics/global.js` (a `db` key) has
+  no caller.
+- (S15) History starts at the deploy: the tracker keeps no past server
+  browser, so uptime, use and peak hours fill from the first tick on.
+  Until a window's whole days have passed, the page says how long the
+  site has stored the server.
+- (S15) The region keywords are substrings of the name and notes, so a
+  word can mislead (a notes line mentioning "Virginia" puts a European
+  server in North America East), and short keys like `AU ` or `NJ ` need
+  the space after them. Servers whose name and notes name no place are
+  Unknown. A per-IP override in `admin_settings` would let the owner fix
+  one without a code change.
+- (S15) What the tracker means by `online` was not checked. Today's feed
+  lists two servers offline whose `lastSeen` is days old; whether a
+  server that crashes stays "online" until some timeout is the tracker's
+  rule.
+- (S15) The raw ticks are pruned only by the 03:00 job. If it fails
+  (it runs after the backup and the cold move), the raw table grows by
+  about 30,000 rows a night until a night succeeds.
+- (S15) The page title on `/server/:ip` takes the name from the shared
+  poll, as the live page does, so a server that has left the browser
+  shows its IP in the tab while the page header (from the database)
+  shows its name. The share tags read the database and name it.
+- (S15) The last 24 hours chart and the region columns have `title`
+  tooltips per hour and per month and a table behind a `<details>`, the
+  S14 pattern; no crosshair tooltip and no screen reader was tried.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -4134,6 +4339,10 @@ leave it (nothing older reads it). S14 adds `pilot_months` the same way
 (`DROP TABLE pilot_months;`, or leave it). After an S14 revert the rating
 days go back to Chicago calendar days at the next refresh, and fight
 nights back to UTC days.
+S15 adds `servers`, `server_snapshots`, `server_hours` and
+`region_months` to `tracker.db`. After its revert they can stay (nothing
+older reads them); `DROP TABLE` on the first three throws away the only
+record of the server browser, so keep them if S15 may come back.
 
 ## Open questions
 

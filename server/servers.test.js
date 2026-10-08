@@ -152,3 +152,21 @@ describe('region share (region_months)', () => {
         expect(table()).toEqual(before);
     });
 });
+
+describe('a server the answer leaves out', () => {
+    it('gets an offline tick while it was listed in the raw window, and a partial listing keeps the stored name', () => {
+        const at = t0 + 5 * SNAPSHOT.everyMs;
+        const unnamed = { server: { ip: DALLAS, online: true } };
+        expect(db.saveServerSnapshot(at, [unnamed])).toBe(3);
+        const ticks = hot.prepare('SELECT ip, online, players, state FROM server_snapshots WHERE at = ? ORDER BY ip').all(at);
+        expect(ticks).toEqual([
+            { ip: DALLAS, online: 1, players: 0, state: 0 },
+            { ip: SYDNEY, online: 0, players: 0, state: 0 },
+            { ip: AMSTERDAM, online: 0, players: 0, state: 0 }
+        ].sort((a, b) => (a.ip < b.ip ? -1 : 1)));
+        expect(hourRow(AMSTERDAM, at)).toMatchObject({ samples: 3, online: 2 });
+        expect(db.getServerListing(DALLAS)).toMatchObject({ name: 'Overloader: Dallas, TX', notes: 'Big things happen in the big D', last_seen: new Date(at).toISOString() });
+        // past the raw window since Amsterdam was last listed, it gets no tick
+        expect(db.saveServerSnapshot(t0 + SNAPSHOT.keepDays * DAY_MS + 2 * SNAPSHOT.everyMs, [unnamed])).toBe(1);
+    });
+});

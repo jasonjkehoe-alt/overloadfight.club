@@ -562,6 +562,8 @@ export interface ServerHistory {
     // 7 rows (Monday first) of 24 average pilots by clock hour, null without a tick
     cells: (number | null)[][];
     busiest: { weekday: number; hour: number; pilots: number } | null;
+    // when the answer was made (ms); lastDay is the 24 hours up to it
+    asOf: number;
     lastDay: ServerTick[];
 }
 

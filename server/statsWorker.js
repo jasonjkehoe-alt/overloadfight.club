@@ -13,21 +13,25 @@ import { regionOf } from './lib/serverRegions.js';
 const PAGE_SIZE = 500;
 const { hotPath, coldPath, thirtyDaysAgo } = workerData;
 
+// A pass that throws stops on its own; the others carry on, as when each pass
+// ran its own scan.
+const errors = {};
+
 // Each stored server's region by IP, for matches stored without a server name
-// (S15). Read once, before the scan.
+// (S15). Read once, before the scan; a failure here stops the region pass only.
 function regionsByIp() {
     const conn = new Database(hotPath, { readonly: true, fileMustExist: true });
     try {
         return new Map(conn.prepare('SELECT ip, name, notes FROM servers').all().map(s => [s.ip, regionOf(s.name, s.notes)]));
+    } catch (err) {
+        errors.regions = err.message;
+        return new Map();
     } finally {
         conn.close();
     }
 }
 
 const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass(), regions: regionPass(regionsByIp()) };
-// A pass that throws stops on its own; the others carry on, as when each pass
-// ran its own scan.
-const errors = {};
 // Ids read from hot storage. The pages are separate reads, so a game moved to
 // cold storage mid-pass (or left in both files by a crash) would otherwise be
 // read twice.

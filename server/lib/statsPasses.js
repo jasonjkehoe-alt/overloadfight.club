@@ -300,22 +300,24 @@ export const REGION_MONTH_COLUMNS = ['region', 'month', 'matches'];
 // region_months rows (S15): every stored match, hot and cold, counted by the
 // region of its server and the month of its fight-night day. The region comes
 // from the server name and notes stored with the match; for a match without
-// them (or with no place in them), from another stored match on the same IP
+// them (or with no place in them), from the latest stored match on the same IP
 // that has one, else from the server's latest listing (`regionByIp`, from the
 // servers table), else Unknown.
 export function regionPass(regionByIp = new Map()) {
     const counts = new Map();
     // matches whose region waits on their IP: `${ip}\n${month}` -> count
     const pending = new Map();
+    // ip -> { region, date } of its latest match with a region
     const learned = new Map();
     const count = (key, n = 1) => counts.set(key, (counts.get(key) || 0) + n);
     function add(row, g) {
         const month = careerMonth(row.date || g?.date);
         if (!month) return;
         const ip = row.ip || g?.server?.ip || '';
+        const date = row.date || g?.date || '';
         const region = g?.server ? regionOf(g.server.name, g.server.notes) : UNKNOWN_REGION;
         if (region !== UNKNOWN_REGION) {
-            if (ip) learned.set(ip, region);
+            if (ip && !(learned.get(ip)?.date > date)) learned.set(ip, { region, date });
             count(`${region}\n${month}`);
         } else {
             const key = `${ip}\n${month}`;
@@ -325,7 +327,7 @@ export function regionPass(regionByIp = new Map()) {
     function rows() {
         for (const [key, n] of pending) {
             const [ip, month] = key.split('\n');
-            count(`${learned.get(ip) || regionByIp.get(ip) || UNKNOWN_REGION}\n${month}`, n);
+            count(`${learned.get(ip)?.region || regionByIp.get(ip) || UNKNOWN_REGION}\n${month}`, n);
         }
         pending.clear();
         return [...counts].map(([key, matches]) => {

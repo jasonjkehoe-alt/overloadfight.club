@@ -52,7 +52,7 @@ const percent = share => `${Math.round(share * 100)}%`;
 // days, a match running 12% of that time, 6.5 pilots in a match on average.
 // Join at 192.227.193.172." The parts with no ticks behind them are left out.
 function serverMeta(ip) {
-    const s = db.getServerHistory(ip, SERVER_WINDOW_DEFAULT);
+    const s = db.getServerSummary(ip, SERVER_WINDOW_DEFAULT);
     if (!s.firstSeen) return {};
     const parts = [
         s.uptime !== null && `online ${percent(s.uptime)} of the last ${s.days} days`,

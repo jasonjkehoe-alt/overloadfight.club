@@ -31,6 +31,16 @@ describe('server regions', () => {
         expect(serverLocation('Mystery', '')).toEqual({ x: 38, y: 40, region: 'unknown' });
     });
 
+    it('takes an IP\'s region from its latest named match, whatever order they are read in', () => {
+        const pass = regionPass();
+        const at = (date, name) => ({ ...sample[0], date, server: name ? { ...sample[0].server, name, notes: '' } : undefined });
+        // hot storage is read first: the newer match (Dallas) comes before the older one (Amsterdam)
+        for (const g of [at('2025-11-24T03:00:00Z', 'Overloader: Dallas, TX'), at('2019-07-03T04:00:00Z', 'Amsterdam 1'), at('2025-11-24T05:00:00Z', null)]) {
+            pass.add({ id: 1, date: g.date, ip: g.ip }, g);
+        }
+        expect(pass.rows().find(r => r.month === '2025-11' && r.matches === 2)).toMatchObject({ region: 'na-central' });
+    });
+
     it('labels every region and lists Unknown last', () => {
         expect(REGIONS.at(-1).id).toBe('unknown');
         expect(regionLabel('na-east')).toBe('North America East');

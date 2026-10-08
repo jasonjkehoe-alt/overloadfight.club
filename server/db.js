@@ -41,7 +41,7 @@ import {
 } from './db/analytics/pilotTelemetry.js';
 import { clearRankings, getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
-import { getServerHistory, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
+import { getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -202,6 +202,7 @@ const db = {
 
   // analytics/servers.js
   getServerHistory,
+  getServerSummary,
   getRegionShare,
   hasRegionMonths,
 
