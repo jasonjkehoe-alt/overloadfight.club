@@ -126,12 +126,6 @@ router.post('/maintenance/refresh-stats', (req, res) => {
                 if (typeof db.refreshPilotStats === 'function') {
                     await db.refreshPilotStats();
                 }
-                if (typeof db.buildColdStorageStatsCache === 'function') {
-                    await db.buildColdStorageStatsCache();
-                }
-                if (typeof db.buildMapStatsCache === 'function') {
-                    await db.buildMapStatsCache();
-                }
                 console.log('[Admin] Stats cache refresh finished.');
             } catch (err) {
                 console.error('[Admin] Error refreshing stats caches:', err);
