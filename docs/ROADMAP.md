@@ -140,6 +140,21 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11.
   was rewritten); a draw scored as a win fails 1; no 28-day window fails
   2; the weight of 1 / (sides - 1) removed fails 2; `clearRankings()`
   removed from the refresh fails 1.
+- S13, review fixes (/pr-review, three reviewer agents), tests: 4 added
+  and 3 tightened. `gameParse.test.js`: Glickman's volatility to six
+  places (0.059996); the RD at 350 before a match two years off, as one
+  year off; matches on one date replayed in id order; a side's RD the
+  root mean square of its pilots' (checked through `glicko2`); a tie on
+  rating and matches broken by pilot. `db.test.js`: reads seen between
+  the 4,500-row chunks; a 2020 match from cold.db rated with BALLER's hot
+  ones; a restore of a copy without `rating_snapshots` leaving the table
+  empty and no ranking held in memory. Ten mutations, each failing the
+  test written for it: no volatility step, no RD cap, no id order, the
+  side's RD a plain mean, the name order reversed, one transaction, no
+  yield between chunks, cold.db skipped by the rating pass, and either
+  line removed from `restoreHot`. `npx vitest run`: 14 files, 193 tests.
+  `npx vite build`: entry 231.49 KB raw / 74.16 KB gzip, `PilotDetail-*.js`
+  40.33 KB / 9.99 KB gzip. `npx tsc --noEmit` exits 0.
 - S13, real data from a script run by plain `node` (so the ES-module
   import is checked outside vitest), on the 40 local matches: 39 rated
   (78741 had one pilot), 5 with teams (one CTF), up to 6 sides; its 29
@@ -1354,9 +1369,9 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 14 files, 189 tests pass (S13) | 2026-10-08 |
+| `npx vitest run` | all pass | 14 files, 193 tests pass (S13) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.49 KB raw / 74.17 KB gzip, pilot page `PilotDetail` 40.21 KB / 9.94 KB gzip (S13; 73.91 and 8.84 at S13's start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.49 KB raw / 74.16 KB gzip, pilot page `PilotDetail` 40.33 KB / 9.99 KB gzip (S13; 73.91 and 8.84 at S13's start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S13) | 2026-10-08 |
 | `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 40`, dev mode without secrets; `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats` 23 games and 380 kills, `/api/health` ok (S13) | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
@@ -1587,7 +1602,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       5. A `PowerRankings` view at `/rankings` (route and title in
          `siteRoutes.js`, share description in `pageMeta.js`, lazy in
          `App.tsx`, linked from the leaderboard): rank, ▲▼ movement or NEW,
-         pilot link, rating ± RD, rated matches and last match, with the
+         pilot link, rating, RD, rated matches and last match, with the
          shared states, 390 px wide at 390 px.
       6. Charts stay out of the entry chunk; entry and pilot-page chunk
          sizes recorded before and after.
@@ -2681,7 +2696,10 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   once; a team-game pilot without a team sits out. Between matches a
   pilot's RD grows by their volatility for every day sat out (φ² + σ² ×
   days), up to 350, and the RD shown on the page and in the rankings has
-  grown the same way up to today (`rdOn`). Rejected: every pilot against
+  grown the same way up to today (`rdOn`). With τ 0.5 and the weight,
+  the volatility hardly moves (at most 0.0601 in the synthetic history),
+  so idle RD growth is close to 108.6 RD² a day: about 1,070 days from
+  RD 80 back to 350. Rejected: every pilot against
   every opponent pilot in team games (a 4v4 would be 4 copies of one team
   result), and the pilot's own rating against the other team's mean (a
   strong pilot on a weak team would lose most for a loss their team was
@@ -2695,8 +2713,10 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   spelling, `day` the calendar day in America/Chicago (the container's
   TZ, as `backup.js` names its folders; `RATING.timeZone`), `matches` the
   rated matches so far. First build: `migrations.js` creates it empty at
-  startup; the first stats refresh fills it. A restart needs no repair,
-  because every refresh replays every rated match and brings the table in
+  startup, and the startup check in `maintenance.js` runs a stats refresh
+  while it is empty, as it does for an empty `pilot_stats_cache`
+  (without it, the first boot on a warm database waited for the 6-hour
+  refresh). Otherwise a restart needs no repair, because every refresh replays every rated match and brings the table in
   line. `restoreHot` creates it if the restored file predates S13.
   Rollback: revert, pull the old image, and `DROP TABLE rating_snapshots;`
   on `tracker.db` (or leave it; nothing older reads it). The entry said a
@@ -2761,8 +2781,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   the nav marks Leaderboards on it (a `section` on its row in
   `siteRoutes.js`, read through `navSection`), and a pilot's rank on the profile
   links to it when it is in the top 25. Columns: rank, movement (▲n in
-  emerald, ▼n in red, – for none, a NEW badge; each with an
-  `aria-label`), pilot, rating, RD and last match (both hidden below
+  emerald, ▼n in red, – for none, a NEW badge; each read out
+  by `sr-only` text), pilot, rating, RD and last match (both hidden below
   640 px), rated matches. Rows are `LinkCell` links as on the roster;
   `LinkCell` gained `cellClassName` for the hidden columns. Last match is
   the snapshot day, the day the rankings count, not the viewer's local
@@ -3883,7 +3903,12 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   2,000-row chunks, the day formatted once per hour, `idlePhi` and
   `DAY_MS` shared. Skipped: deleting the two `db` alias keys (db.js
   keeps its keys) and two worker-only memory trims. PR #13 opened
-  against `main`, not merged.
+  against `main`, not merged. A /pr-review pass (three reviewer agents)
+  then found the first boot on a warm database leaving the ratings empty
+  until the 6-hour refresh, a failed chunk leaving old ranks in memory,
+  a failed chart chunk taking the whole pilot page, and tests that could
+  not fail for their stated reason; all fixed (the review-fixes entry
+  under Validated).
 
 ## Next session prompt
 
@@ -3928,7 +3953,7 @@ Binding decisions, do not re-derive:
 - Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js and any new series colour or sequential ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12).
 - Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S13 left 231.49 KB raw / 74.17 KB gzip), the pilot page chunk (40.21 KB / 9.94 KB gzip) and whatever the dashboard loads, before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S13 left 231.49 KB raw / 74.16 KB gzip), the pilot page chunk (40.33 KB / 9.99 KB gzip) and whatever the dashboard loads, before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
 - Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library.
@@ -3946,6 +3971,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S13 left 14 files, 189 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|GameList)-.*\.js"` (the Verification table records the entry at 74.17 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the time-zone question, then write the S14 Done-when list into the tracker.
+First move: run `npx vitest run` (S13 left 14 files, 193 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|GameList)-.*\.js"` (the Verification table records the entry at 74.16 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the time-zone question, then write the S14 Done-when list into the tracker.
 Done when: every item of the S14 Done-when list is true and checked on fixture games and in headless Chrome (the dashboard's heatmap and a pilot page with its career block, at 1,280 and 390 px), the dashboard, leaderboard, rankings, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S14 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings` and `/api/health`, and the PR is open with the tracker updated.
 ```

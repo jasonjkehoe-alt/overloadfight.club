@@ -421,7 +421,7 @@ describe('glicko2', () => {
         const next = glicko2({ mu: 0, phi: 200 / S, sigma: 0.06 }, games);
         expect(1500 + S * next.mu).toBeCloseTo(1464.06, 1);
         expect(S * next.phi).toBeCloseTo(151.52, 1);
-        expect(next.sigma).toBeCloseTo(0.05999, 4);
+        expect(next.sigma).toBeCloseTo(0.059996, 6); // e^(A/2) for the paper's A = -5.62694
     });
 
     it('only grows the RD with no games, up to the starting RD', () => {
@@ -433,6 +433,7 @@ describe('glicko2', () => {
 describe('ratingSnapshots', () => {
     const rated = (game, id = game.id) => ({ id, date: game.date, sides: ratingSides(game) });
     const row = (rows, pilot) => rows.find(r => r.pilot === pilot);
+    const side = (score, ...names) => ({ score, pilots: names.map(name => ({ key: name.toLowerCase(), name })) });
 
     it('moves two new pilots by the textbook amount for one win', () => {
         const rows = ratingSnapshots([rated(byId(72090))]); // OKSTER 5, WD-40 3
@@ -523,6 +524,29 @@ describe('ratingSnapshots', () => {
         const yearLater = rdAfter('2026-11-24T07:58:31.969Z');
         expect(yearLater).toBeGreaterThan(nextDay);
         expect(yearLater).toBeLessThan(350);
+        // a year off already reaches 350 before the match, so two years off give the same
+        expect(rdAfter('2027-11-24T07:58:31.969Z')).toBe(yearLater);
+    });
+
+    it('replays matches on the same date in id order', () => {
+        const duel = (id, winner, loser) => ({ id, date: '2025-11-24T07:58:31.969Z', sides: [side(1, winner), side(0, loser)] });
+        const matches = [duel(1, 'P', 'Q'), duel(2, 'Q', 'P'), duel(3, 'P', 'R')];
+        expect(ratingSnapshots([...matches].reverse())).toEqual(ratingSnapshots(matches));
+    });
+
+    it("takes a side's RD as the root mean square of its pilots' RDs", () => {
+        // A beats 30 new pilots, then A and a new pilot lose a 2v2 to two new
+        // pilots, all at one time so no RD grows in between
+        const at = '2025-11-24T07:58:31.969Z';
+        const grind = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, date: at, sides: [side(1, 'A'), side(0, `X${i}`)] }));
+        const a = row(ratingSnapshots(grind), 'a');
+        const rows = ratingSnapshots([...grind, { id: 31, date: at, sides: [side(0, 'A', 'N'), side(1, 'B', 'C')] }]);
+        const S = RATING.scale;
+        const phiA = a.rd / S;
+        const phiNew = RATING.rd / S;
+        const losers = { mu: (a.rating - RATING.start) / S / 2, phi: Math.sqrt((phiA * phiA + phiNew * phiNew) / 2) };
+        const b = glicko2({ mu: 0, phi: phiNew, sigma: RATING.volatility }, [{ mu: 0, opponent: losers, score: 1 }]);
+        expect(row(rows, 'b').rating).toBeCloseTo(RATING.start + S * b.mu, 0);
     });
 
     it('takes the latest spelling and skips a match without a date', () => {
@@ -561,6 +585,10 @@ describe('powerRankings and rankingMovement', () => {
         ], '2026-10-08');
         // c has 9 rated matches; e last played 29 days before; f ties a on rating with more matches
         expect(ranked.map(r => [r.pilot, r.rank])).toEqual([['b', 1], ['d', 2], ['f', 3], ['a', 4]]);
+    });
+
+    it('breaks a tie on rating and rated matches by pilot', () => {
+        expect(powerRankings([snap('b', 1600), snap('a', 1600)], '2026-10-08').map(r => r.pilot)).toEqual(['a', 'b']);
     });
 
     it('grows the RD shown for the days since the last rated match, up to 350', () => {

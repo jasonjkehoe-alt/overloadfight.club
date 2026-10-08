@@ -37,7 +37,7 @@ import {
   getPilotDetailedStats, getPilotBreakdown, getPilotTelemetry, normalizeWeaponName,
   PRIMARY_WEAPONS, SECONDARY_WEAPONS
 } from './db/analytics/pilotTelemetry.js';
-import { clearRankings, getPilotRating, getPowerRankings } from './db/analytics/ratings.js';
+import { clearRankings, getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -176,6 +176,7 @@ const db = {
 
   // analytics/ratings.js
   getPilotRating,
+  hasRatingSnapshots,
   getPowerRankings,
 
   // analytics/refresh.js

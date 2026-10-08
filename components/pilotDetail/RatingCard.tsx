@@ -9,8 +9,12 @@ import { useLoad } from '../../hooks/useLoad';
 
 // Recharts is a large chunk the rest of the pilot page does not need, so the
 // chart renders behind its own Suspense (not the views' one). Its download
-// starts with the pilot page instead of after the rating arrives.
-const chartModule = import('./RatingChart');
+// starts with the pilot page instead of after the rating arrives. If it fails
+// (after index.tsx's one reload), only the chart gives way.
+const ChartUnavailable: React.FC<{ history: RatingPoint[] }> = () => (
+    <ErrorState compact title="Chart unavailable" message="The days are in the table below." />
+);
+const chartModule = import('./RatingChart').catch(() => ({ default: ChartUnavailable }));
 const RatingChart = lazy(() => chartModule);
 
 // The days behind the chart, newest first; built only while open.

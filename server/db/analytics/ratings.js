@@ -26,6 +26,10 @@ const rankedOn = day => {
 };
 export const clearRankings = () => rankedByDay.clear();
 
+// False until a refresh has written a snapshot.
+const anySnapshot = hotDb.prepare('SELECT 1 FROM rating_snapshots LIMIT 1');
+export const hasRatingSnapshots = () => Boolean(anySnapshot.get());
+
 // { day, since, total, pilots }: the top RATING.listed on `day` (today in
 // RATING.timeZone by default), each with its `change` since RATING.movementDays
 // earlier (null = NEW), and how many pilots are ranked in all.

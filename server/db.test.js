@@ -156,10 +156,17 @@ describe('ratings (rating_snapshots)', () => {
         log.mockRestore();
         expect(table()).toEqual(before);
 
-        // 4,500 stray days take three chunks of the write
+        // 4,500 stray days take three chunks of the write, with reads let in between
         const ghost = hot.prepare("INSERT INTO rating_snapshots (pilot, day, name, rating, rd, volatility, matches) VALUES ('ghost', ?, 'GHOST', 1500, 350, 0.06, 1)");
         hot.transaction(() => { for (let i = 0; i < 4500; i++) ghost.run(shiftDay('2001-01-01', i)); })();
+        const ghosts = hot.prepare("SELECT COUNT(*) AS n FROM rating_snapshots WHERE pilot = 'ghost'");
+        const seen = new Set();
+        let refreshing = true;
+        const poll = () => { seen.add(ghosts.get().n); if (refreshing) setImmediate(poll); };
+        poll();
         await db.refreshPilotStats();
+        refreshing = false;
+        expect([...seen]).toEqual(expect.arrayContaining([4500, 2500, 500]));
         expect(table()).toEqual(before);
     });
 
@@ -284,6 +291,13 @@ describe('backup and restore (backupHot, restoreHot)', () => {
     it('copies the live database and writes the copy back into it', async () => {
         const copy = path.join(dataDir, 'copy.db');
         await db.backupHot(copy);
+        // as a backup from before S13
+        const old = new Database(copy);
+        old.exec('DROP TABLE rating_snapshots');
+        old.close();
+        const today = ratingDay(Date.now());
+        expect(db.hasRatingSnapshots()).toBe(true);
+        expect(db.getPowerRankings(today).total).toBeGreaterThan(0);
         const before = db.countGames(null, null).count;
         db.saveGames([{ ...onDay(byId(72099)), id: 99999 }]);
         expect(db.countGames(null, null).count).toBe(before + 1);
@@ -293,6 +307,10 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.getGameById.get(99999)).toBeFalsy();
         expect(db.getGameById.get(72099)).toBeTruthy();
         expect(db.countGamesByPilot.get({ name: 'JFTP', startDate: null }).count).toBe(10);
+        // the table is back, empty until the next refresh, and the rankings held in memory are gone
+        expect(db.hasRatingSnapshots()).toBe(false);
+        expect(db.getPilotRating('JFTP').history).toEqual([]);
+        expect(db.getPowerRankings(today).total).toBe(0);
     });
 });
 
@@ -305,5 +323,15 @@ describe('ratings after a refresh', () => {
         await db.refreshPilotStats();
         expect(ranked()).toContain('phoenix');
         expect(db.getPilotRating('PHOENIX').matches).toBe(10);
+    });
+
+    it('rates a match from cold storage with the hot ones', async () => {
+        // BALLER's fourth win, from 2020, so saveGames files it in cold.db
+        const date = '2020-06-01T20:00:00.000Z';
+        db.saveGames([{ ...monsterball[0], id: 90030, date, settings: { ...monsterball[0].settings, start: date } }]);
+        await db.refreshPilotStats();
+        const baller = db.getPilotRating('BALLER');
+        expect(baller.matches).toBe(4);
+        expect(baller.history[0]).toMatchObject({ day: '2020-06-01', matches: 1 });
     });
 });

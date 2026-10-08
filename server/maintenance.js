@@ -54,6 +54,10 @@ function scheduleMaintenance() {
                 if (maxGameDate && (!maxCacheDate || maxGameDate > maxCacheDate)) {
                     console.log(`[Maintenance] Data is newer than cache on startup (${maxGameDate} > ${maxCacheDate}), refreshing stats...`);
                     await refreshPilotStats();
+                } else if (db.hasRatingSnapshots && !db.hasRatingSnapshots()) {
+                    // the first start with ratings, or a restored backup from before them
+                    console.log('[Maintenance] No rating snapshots on startup, refreshing stats...');
+                    await refreshPilotStats();
                 } else {
                     console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');
                 }

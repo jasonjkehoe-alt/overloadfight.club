@@ -189,8 +189,8 @@ migrateGamePlayers();
 // they played a rated match (gameParse.js ratingSnapshots). Derived from both
 // files, so it lives in tracker.db only, like pilot_stats_cache. Every stats
 // refresh replays every rated match and brings it in line (analytics/refresh.js),
-// so it starts empty and needs no repair at startup; dropping it loses
-// nothing the next refresh does not rebuild. `pilot` is the pilotKey(), `day` YYYY-MM-DD in America/Chicago.
+// so it starts empty and a refresh fills it, at startup when it is empty;
+// dropping it loses nothing the next refresh does not rebuild. `pilot` is the pilotKey(), `day` YYYY-MM-DD in America/Chicago.
 export function ensureRatingSnapshots() {
   hotDb.exec(`
     CREATE TABLE IF NOT EXISTS rating_snapshots (

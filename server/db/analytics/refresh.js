@@ -6,7 +6,8 @@ import { clearRankings } from './ratings.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
-// the run in progress. Never rejects: a failure is logged and the old caches stay.
+// the run in progress. Never rejects: a failure is logged and the old caches stay,
+// except rating_snapshots, whose chunks already written stay until the next refresh.
 let refreshing = null;
 // rating_snapshots rows written per transaction (see refreshCaches)
 const RATING_WRITE_CHUNK = 2000;
@@ -109,11 +110,15 @@ async function refreshCaches() {
       // the event loop on the NAS. A read between chunks sees some days new and
       // some old; the rankings kept in memory are cleared once all are written.
       const ops = [...ratings.deletes, ...ratings.upserts];
-      for (let i = 0; i < ops.length; i += RATING_WRITE_CHUNK) {
-        if (i > 0) await new Promise(resolve => setImmediate(resolve));
-        apply(ops.slice(i, i + RATING_WRITE_CHUNK));
+      try {
+        for (let i = 0; i < ops.length; i += RATING_WRITE_CHUNK) {
+          if (i > 0) await new Promise(resolve => setImmediate(resolve));
+          apply(ops.slice(i, i + RATING_WRITE_CHUNK));
+        }
+      } finally {
+        // also after a failed chunk, so the ranks agree with the days written
+        clearRankings();
       }
-      clearRankings();
       console.log(`[Ratings] ${ratings.total} daily rating snapshots: ${ratings.upserts.length} written, ${ratings.deletes.length} removed.`);
     }
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);

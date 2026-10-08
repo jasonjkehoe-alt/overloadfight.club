@@ -11,11 +11,11 @@ import { useLoad } from '../hooks/useLoad';
 // arrow and the word carry it, so the colour is never the only cue.
 const Movement: React.FC<{ change: number | null }> = ({ change }) => {
     if (change === null) return <span className="text-2xs font-bold text-brand border border-brand/50 rounded-control px-1.5 py-0.5">NEW</span>;
-    if (change === 0) return <span className="text-gray-600" aria-label="No change">–</span>;
+    if (change === 0) return <span className="text-gray-600"><span aria-hidden>–</span><span className="sr-only">No change</span></span>;
     const up = change > 0;
     return (
-        <span className={`font-bold ${up ? 'text-emerald-400' : 'text-red-400'}`} aria-label={`${up ? 'Up' : 'Down'} ${Math.abs(change)}`}>
-            {up ? '▲' : '▼'}{Math.abs(change)}
+        <span className={`font-bold ${up ? 'text-emerald-400' : 'text-red-400'}`}>
+            <span aria-hidden>{up ? '▲' : '▼'}{Math.abs(change)}</span><span className="sr-only">{up ? 'Up' : 'Down'} {Math.abs(change)}</span>
         </span>
     );
 };
@@ -30,7 +30,7 @@ const PowerRankings: React.FC = () => {
             <div className="bg-gradient-to-r from-surface-raised to-black p-5 sm:p-8 rounded-card border border-line">
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 brand-font">Power Rankings</h1>
                 <p className="text-gray-400 max-w-2xl text-sm font-mono">
-                    The top {RATING.listed} pilots by Glicko-2 rating{rankings ? <>, {rankings.day}, with movement since {rankings.since}</> : null}.
+                    The top {Math.min(rankings?.total || RATING.listed, RATING.listed)} pilots by Glicko-2 rating{rankings ? <>, {rankings.day}, with movement since {rankings.since}</> : null}.
                 </p>
                 <p className="text-gray-500 max-w-2xl text-xs font-mono mt-2">{RANKING_HINT}</p>
             </div>
