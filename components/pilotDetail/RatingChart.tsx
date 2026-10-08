@@ -35,9 +35,10 @@ const RatingChart: React.FC<{ history: RatingPoint[] }> = ({ history }) => {
         const last = points[points.length - 1].t;
         // a single day gets a day either side, so its point is not on the edge
         const domain = first === last ? [first - DAY_MS, last + DAY_MS] : [first, last];
-        // ticks on a round step, so the axis does not end on odd values
-        const min = Math.min(...points.map(p => p.band[0]));
-        const max = Math.max(...points.map(p => p.band[1]));
+        // ticks on a round step, so the axis does not end on odd values, and
+        // the 1500 start always inside, so its dashed line is always drawn
+        const min = Math.min(RATING.start, ...points.map(p => p.band[0]));
+        const max = Math.max(RATING.start, ...points.map(p => p.band[1]));
         const step = max - min <= 400 ? 100 : max - min <= 1000 ? 200 : 500;
         const low = Math.floor(min / step) * step;
         const high = Math.ceil(max / step) * step;

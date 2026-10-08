@@ -1,6 +1,6 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
-import { RATING, pilotKey, powerRankings, rankingMovement, ratingDay, shiftDay } from '../../lib/gameParse.js';
+import { RATING, pilotKey, powerRankings, rankingMovement, ratingDay, rdOn, shiftDay } from '../../lib/gameParse.js';
 
 // Ratings from rating_snapshots, which every stats refresh rewrites: one
 // pilot's history and the power rankings. Nothing here computes a rating.
@@ -17,8 +17,14 @@ const pilotHistory = hotDb.prepare(`
   WHERE pilot = ? ORDER BY day
 `);
 
-// Every pilot ranked on `day`, by rank.
-const rankedOn = day => powerRankings(latestOnOrBefore.all(day), day);
+// Every pilot ranked on `day`, by rank. Kept per day until the next refresh
+// changes the snapshots (clearRankings), so a page view does not rescan them.
+const rankedByDay = new Map();
+const rankedOn = day => {
+  if (!rankedByDay.has(day)) rankedByDay.set(day, powerRankings(latestOnOrBefore.all(day), day));
+  return rankedByDay.get(day);
+};
+export const clearRankings = () => rankedByDay.clear();
 
 // { day, since, total, pilots }: the top RATING.listed on `day` (today in
 // RATING.timeZone by default), each with its `change` since RATING.movementDays
@@ -29,20 +35,23 @@ export const getPowerRankings = (day = ratingDay(Date.now())) => {
   return { day, since, total: ranked.length, pilots: rankingMovement(ranked, rankedOn(since)) };
 };
 
-// A pilot's rating now and at the end of every day they played; `history` is
-// empty for a pilot with no rated match. `rank` is null when not ranked today.
+// A pilot's rating on `day` (today by default) and at the end of every day
+// they played; `history` is empty for a pilot with no rated match. `rd` has
+// grown for the days since the last one; `rank` is null when not ranked.
 export const getPilotRating = (name, day = ratingDay(Date.now())) => {
-  const history = pilotHistory.all(pilotKey(name));
+  const pilot = pilotKey(name);
+  const history = pilotHistory.all(pilot);
   const last = history[history.length - 1];
   if (!last) return { name: null, rating: null, rd: null, matches: 0, lastPlayed: null, rank: null, history: [] };
-  const ranked = rankedOn(day).find(r => r.pilot === pilotKey(name));
+  // the full ranking only for a pilot the ranking rule lets in
+  const rankable = powerRankings([{ ...last, pilot }], day).length > 0;
   return {
     name: last.name,
     rating: last.rating,
-    rd: last.rd,
+    rd: rdOn(last, day),
     matches: last.matches,
     lastPlayed: last.last_played,
-    rank: ranked ? ranked.rank : null,
+    rank: rankable ? rankedOn(day).find(r => r.pilot === pilot)?.rank ?? null : null,
     history: history.map(({ day: d, rating, rd, matches }) => ({ day: d, rating, rd, matches }))
   };
 };

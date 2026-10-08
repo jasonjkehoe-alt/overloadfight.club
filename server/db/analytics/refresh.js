@@ -2,6 +2,7 @@ import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
 import { RATING_SNAPSHOT_COLUMNS } from '../../lib/statsPasses.js';
+import { clearRankings } from './ratings.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
@@ -101,6 +102,7 @@ async function refreshCaches() {
         for (const [pilot, day] of deletes) deleteStmt.run(pilot, day);
         for (const row of upserts) upsertStmt.run(row);
       })(ratings);
+      clearRankings();
       console.log(`[Ratings] ${ratings.total} daily rating snapshots: ${ratings.upserts.length} written, ${ratings.deletes.length} removed.`);
     }
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);

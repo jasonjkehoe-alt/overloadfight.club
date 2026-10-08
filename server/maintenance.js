@@ -32,13 +32,8 @@ async function runDailyMaintenance() {
 async function refreshPilotStats() {
     console.log('[Maintenance] Refreshing stats caches...');
     try {
+        // One pass builds every cache, the archive and map stats and the ratings included.
         await db.refreshPilotStats();
-        if (typeof db.buildColdStorageStatsCache === 'function') {
-            await db.buildColdStorageStatsCache();
-        }
-        if (typeof db.buildMapStatsCache === 'function') {
-            await db.buildMapStatsCache();
-        }
         console.log('[Maintenance] Stats caches refreshed successfully.');
     } catch (error) {
         console.error('[Maintenance] Error refreshing stats caches:', error);

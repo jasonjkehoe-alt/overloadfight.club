@@ -1,10 +1,11 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { Info, TrendingUp } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from '../States';
 import Link from '../Link';
 import { urlFor } from '../../server/lib/siteRoutes.js';
 import { RATING, RATING_HINT } from '../../server/lib/gameParse.js';
 import { fetchPilotRating, PilotRating, RatingPoint } from '../../services/apiService';
+import { useLoad } from '../../hooks/useLoad';
 
 // Recharts is a large chunk the rest of the pilot page does not need, so the
 // chart loads after the page, behind its own Suspense (not the views' one).
@@ -45,31 +46,19 @@ const RatingTable: React.FC<{ history: RatingPoint[] }> = ({ history }) => {
 };
 
 // Where the pilot stands in the power rankings, or why they are not in them.
+// The rankings page lists the top RATING.listed, so only those link to it.
 const standing = (rating: PilotRating) => {
-    if (rating.rank !== null) return <Link to={urlFor('rankings')} className="text-brand hover:text-brand-hover underline">#{rating.rank} in the power rankings</Link>;
+    if (rating.rank !== null && rating.rank <= RATING.listed) return <Link to={urlFor('rankings')} className="text-brand hover:text-brand-hover underline">#{rating.rank} in the power rankings</Link>;
+    if (rating.rank !== null) return `#${rating.rank} in the power rankings`;
     if (rating.matches < RATING.rankedAfter) return `Provisional: ${rating.matches} of ${RATING.rankedAfter} rated matches`;
     return `Not ranked: no rated match in the last ${RATING.activeDays} days`;
 };
 
 // The pilot page's Glicko-2 rating: the number, its RD, the standing and the history.
 const RatingCard: React.FC<{ pilotName: string }> = ({ pilotName }) => {
-    const [rating, setRating] = useState<PilotRating | null>(null);
-    const [failed, setFailed] = useState(false);
-    const [retries, setRetries] = useState(0);
+    const { data: rating, failed, retry } = useLoad(() => fetchPilotRating(pilotName), [pilotName]);
 
-    useEffect(() => {
-        let current = true;
-        setFailed(false);
-        setRating(null);
-        fetchPilotRating(pilotName).then(data => {
-            if (!current) return;
-            setRating(data);
-            setFailed(data === null);
-        });
-        return () => { current = false; };
-    }, [pilotName, retries]);
-
-    if (failed) return <ErrorState compact title="Rating unavailable" message="Could not load this pilot's rating." onRetry={() => setRetries(n => n + 1)} />;
+    if (failed) return <ErrorState compact title="Rating unavailable" message="Could not load this pilot's rating." onRetry={retry} />;
 
     return (
         <div className="bg-surface-card border border-line rounded-card p-4 font-mono">

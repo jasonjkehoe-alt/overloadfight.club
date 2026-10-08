@@ -37,7 +37,7 @@ import {
   getPilotDetailedStats, getPilotBreakdown, getPilotTelemetry, normalizeWeaponName,
   PRIMARY_WEAPONS, SECONDARY_WEAPONS
 } from './db/analytics/pilotTelemetry.js';
-import { getPilotRating, getPowerRankings } from './db/analytics/ratings.js';
+import { clearRankings, getPilotRating, getPowerRankings } from './db/analytics/ratings.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -65,6 +65,7 @@ const db = {
     migrateGamePlayers();
     // A backup from before S13 has no rating_snapshots; the next refresh fills it.
     ensureRatingSnapshots();
+    clearRankings();
   },
   migrateGamePlayers,
   // For the healthcheck: throws unless both files answer a query.

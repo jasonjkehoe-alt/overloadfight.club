@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Info, Trophy } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
 import { RATING, RATING_HINT, RANKING_HINT } from '../server/lib/gameParse.js';
-import { fetchPowerRankings, PowerRankings as Rankings } from '../services/apiService';
+import { fetchPowerRankings } from '../services/apiService';
+import { useLoad } from '../hooks/useLoad';
 
 // Places gained or lost since a week earlier, NEW when not ranked then. The
 // arrow and the word carry it, so the colour is never the only cue.
@@ -22,21 +23,7 @@ const Movement: React.FC<{ change: number | null }> = ({ change }) => {
 // The top pilots by Glicko-2 rating today, with each one's movement over the
 // last week. The ratings come from the stats refresh; this page only reads them.
 const PowerRankings: React.FC = () => {
-    const [rankings, setRankings] = useState<Rankings | null>(null);
-    const [failed, setFailed] = useState(false);
-    const [retries, setRetries] = useState(0);
-
-    useEffect(() => {
-        let current = true;
-        setFailed(false);
-        setRankings(null);
-        fetchPowerRankings().then(data => {
-            if (!current) return;
-            setRankings(data);
-            setFailed(data === null);
-        });
-        return () => { current = false; };
-    }, [retries]);
+    const { data: rankings, failed, retry } = useLoad(fetchPowerRankings, []);
 
     return (
         <div className="space-y-6">
@@ -49,7 +36,7 @@ const PowerRankings: React.FC = () => {
             </div>
 
             {failed ? (
-                <ErrorState title="Rankings unavailable" message="Could not load the power rankings." onRetry={() => setRetries(n => n + 1)} />
+                <ErrorState title="Rankings unavailable" message="Could not load the power rankings." onRetry={retry} />
             ) : !rankings ? (
                 <Loading label="Loading rankings..." />
             ) : rankings.pilots.length === 0 ? (
@@ -74,7 +61,7 @@ const PowerRankings: React.FC = () => {
                                     </th>
                                     <th className="p-3 text-right hidden sm:table-cell" title="Rating Deviation: the rating's uncertainty. About 95% of the time the true rating is within 2 RD.">RD</th>
                                     <th className="p-3 text-right">Matches</th>
-                                    <th className="p-3 text-right hidden sm:table-cell">Last match</th>
+                                    <th className="p-3 text-right hidden sm:table-cell" title="The day of the last rated match, Chicago time, as the rankings count days.">Last match</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-line">
@@ -88,7 +75,7 @@ const PowerRankings: React.FC = () => {
                                             <LinkCell to={url} className="p-3 text-right font-bold text-brand">{Math.round(pilot.rating)}</LinkCell>
                                             <LinkCell to={url} cellClassName="hidden sm:table-cell" className="p-3 text-right text-gray-400">{Math.round(pilot.rd)}</LinkCell>
                                             <LinkCell to={url} className="p-3 text-right text-gray-300">{pilot.matches.toLocaleString()}</LinkCell>
-                                            <LinkCell to={url} cellClassName="hidden sm:table-cell" className="p-3 text-right text-gray-500 text-xs">{new Date(pilot.last_played).toLocaleDateString()}</LinkCell>
+                                            <LinkCell to={url} cellClassName="hidden sm:table-cell" className="p-3 text-right text-gray-500 text-xs">{pilot.day}</LinkCell>
                                         </tr>
                                     );
                                 })}

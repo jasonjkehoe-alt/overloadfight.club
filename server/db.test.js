@@ -112,7 +112,9 @@ describe('ratings (rating_snapshots)', () => {
     it('rates every match in the refresh, one row per pilot per day, spellings merged', () => {
         const jftp = db.getPilotRating('jftp');
         expect(jftp).toMatchObject({ matches: 10 });
-        expect(jftp.history).toEqual([{ day: jftpDay, rating: jftp.rating, rd: jftp.rd, matches: 10 }]);
+        expect(jftp.history).toEqual([{ day: jftpDay, rating: jftp.rating, rd: expect.any(Number), matches: 10 }]);
+        // the RD now has grown for the days since that one
+        expect(jftp.rd).toBeGreaterThan(jftp.history[0].rd);
         expect(db.getPilotRating('JFTP ').history).toEqual(jftp.history);
         // BALLER won three 1v1 Monsterball matches on goals while scoring fewer kills
         expect(db.getPilotRating('BALLER').rating).toBeGreaterThan(1500);
@@ -133,6 +135,12 @@ describe('ratings (rating_snapshots)', () => {
         expect(pilots.map(p => p.change)).toEqual([null, null, null]);
         expect(pilots.map(p => p.rating)).toEqual(pilots.map(p => p.rating).sort((a, b) => b - a));
         expect(db.getPilotRating('STITCH').rank).toBe(pilots.find(p => p.pilot === 'stitch').rank);
+    });
+
+    it('shows the RD grown for the days since, and no rank for a pilot who cannot be ranked', () => {
+        const phoenix = db.getPilotRating('PHOENIX'); // 9 rated matches
+        expect(phoenix.rank).toBeNull();
+        expect(db.getPilotRating('PHOENIX', shiftDay(today, 100)).rd).toBeGreaterThan(phoenix.rd);
     });
 
     it('writes only the days that differ on the next refresh', async () => {
@@ -278,5 +286,17 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.getGameById.get(99999)).toBeFalsy();
         expect(db.getGameById.get(72099)).toBeTruthy();
         expect(db.countGamesByPilot.get({ name: 'JFTP', startDate: null }).count).toBe(10);
+    });
+});
+
+describe('ratings after a refresh', () => {
+    it('ranks a pilot whose new match is his tenth once the refresh lands', async () => {
+        const today = ratingDay(Date.now());
+        const ranked = () => db.getPowerRankings(today).pilots.map(p => p.pilot);
+        expect(ranked()).not.toContain('phoenix'); // 9 rated matches, and the rankings are now memoised
+        db.saveGames([{ ...onDay(byId(72096)), id: 90020 }]);
+        await db.refreshPilotStats();
+        expect(ranked()).toContain('phoenix');
+        expect(db.getPilotRating('PHOENIX').matches).toBe(10);
     });
 });

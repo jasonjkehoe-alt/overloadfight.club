@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { pilotPass } from './statsPasses.js';
 import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
-import { RATING, glicko2, powerRankings, rankedMatch, rankingMovement, ratingDay, ratingSides, ratingSnapshots, shiftDay } from './gameParse.js';
+import { RATING, glicko2, powerRankings, rankedMatch, rankingMovement, ratingDay, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
 import { ffaWithLog, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -555,6 +555,15 @@ describe('powerRankings and rankingMovement', () => {
         ], '2026-10-08');
         // c has 9 rated matches; e last played 29 days before; f ties a on rating with more matches
         expect(ranked.map(r => [r.pilot, r.rank])).toEqual([['b', 1], ['d', 2], ['f', 3], ['a', 4]]);
+    });
+
+    it('grows the RD shown for the days since the last rated match, up to 350', () => {
+        const s = { ...snap('a', 1600), volatility: 0.06 };
+        expect(rdOn(s, '2026-10-08')).toBe(80);
+        // sqrt(80^2 + (173.7178 * 0.06)^2 * 20) = 92.6
+        expect(rdOn(s, '2026-10-28')).toBe(92.6);
+        expect(rdOn(s, '2036-10-08')).toBe(350);
+        expect(powerRankings([s], '2026-10-28')[0].rd).toBe(92.6);
     });
 
     it('gives each listed pilot the places gained since, or null for NEW, and lists 25', () => {

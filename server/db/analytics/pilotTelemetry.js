@@ -108,7 +108,7 @@ export function getPilotTelemetry(name, startDate, matchMode) {
 
             const durationSec = durationOf(g);
 
-            if (!rankedMatch(g)) continue;
+            if (!rankedMatch(g, durationSec)) continue;
 
             // Mode filter if requested
             if (matchMode && matchMode.toUpperCase() !== 'ALL') {

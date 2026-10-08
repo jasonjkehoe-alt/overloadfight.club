@@ -13,9 +13,9 @@ export function pilotPass() {
 
     function add(row, g) {
         if (!g) return;
-        if (!rankedMatch(g)) return;
-        const players = g.players;
         const durationSec = durationOf(g);
+        if (!rankedMatch(g, durationSec)) return;
+        const players = g.players;
 
         const result = winnerOf(g);
 
