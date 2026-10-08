@@ -242,23 +242,27 @@ export const getDatabaseStats = {
     return getDatabaseStatsStmt.get();
   }
 };
+
 export const getColdDatabaseStats = {
   get: () => {
     return getColdDatabaseStatsStmt.get();
   }
 };
+
 export const getGlobalMapStats = {
   all: (startDate) => {
     if (startDate) return getGlobalMapStatsFiltered.all(startDate);
     return getGlobalMapStatsStmt.all();
   }
 };
+
 export const getGlobalModeStats = {
   all: (startDate) => {
     if (startDate) return getGlobalModeStatsFiltered.all(startDate);
     return getGlobalModeStatsStmt.all();
   }
 };
+
 export const getGlobalActivityStats = {
   all: (startDate) => {
     if (startDate) return getGlobalActivityStatsFiltered.all(startDate);
@@ -278,6 +282,7 @@ json_extract(details, '$.server.port') as port
 `).all();
   return raw.map(r => ({ ip: r.ip, port: r.port || 7000 }));
 };
+
 export const getActivePilotCount = {
   get: () => getActivePilotCountStmt.get()
 };
@@ -285,9 +290,11 @@ export const getActivePilotCount = {
 export const getAllTimeMapStats = {
   all: () => getMapStatsAllTime().all()
 };
+
 export const getAllTimeGlobalStats = {
   get: () => getGlobalStatsAllTime().get()
 };
+
 export const getAllTimeGlobalKills = {
   get: () => getGlobalKillsAllTime().get()
 };

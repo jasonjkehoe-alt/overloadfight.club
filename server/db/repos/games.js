@@ -215,6 +215,7 @@ export const getGames = (limit, offset, search, startDate) => {
   }
   return getGamesStmt.all(limit, offset);
 };
+
 export const countGames = (search, startDate) => {
   if (search) {
     if (startDate) {
@@ -227,18 +228,21 @@ export const countGames = (search, startDate) => {
   }
   return countGamesStmt.get();
 };
+
 export const getColdGames = (limit, offset, search) => {
   if (search) {
     return searchColdGamesStmt.all({ limit, offset, search: `%${search}%` });
   }
   return getColdGamesStmt.all(limit, offset);
 };
+
 export const countColdGames = (search) => {
   if (search) {
     return countSearchColdGamesStmt.get({ search: `%${search}%` });
   }
   return countColdGamesStmt.get();
 };
+
 export const countColdGamesInMonth = (monthStr) => {
   const bounds = utcMonthBounds(monthStr);
   if (!bounds) return 0;
