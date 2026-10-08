@@ -24,3 +24,34 @@ export const chartTooltip = {
   border: `1px solid ${colors.line}`,
   borderRadius: borderRadius.control,
 };
+
+// Chart colours. Not Tailwind classes: Recharts and canvas code take strings.
+// The series hues are the dataviz reference palette's dark steps, in its order,
+// and pass its validator against surface.card (#111111): lightness band, chroma
+// floor, 3:1 contrast, worst adjacent CVD ΔE 8.4 and normal-vision ΔE 19.3 for
+// the seven weapon families; BLUE and ORANGE are its first two slots (ΔE 26.8).
+// Chrome and ink are its dark chart greys.
+export const chart = {
+  grid: '#2c2c2a', // gridlines
+  axis: '#383835', // baselines and axis lines
+  label: '#898781', // tick labels and other muted text
+  text: '#c3c2b7', // secondary text in tooltips
+  ink: '#ffffff', // values in tooltips, markers
+  team: { BLUE: '#3987e5', ORANGE: '#d95926' },
+  // FFA charts: the winner, and everyone else as one side
+  ffa: { winner: '#d95926', field: '#3987e5' },
+  // keyed by gameParse.js WEAPON_FAMILIES ids, in that order
+  weapon: {
+    laser: '#3987e5',
+    thunderbolt: '#d95926',
+    flak: '#199e70',
+    driller: '#c98500',
+    missile: '#d55181',
+    mine: '#008300',
+    heavy: '#9085e9',
+    other: '#898781',
+  },
+};
+
+// Text in a Recharts tooltip, with chartTooltip as its box
+export const chartTooltipText = { itemStyle: { color: chart.ink }, labelStyle: { color: chart.text } };

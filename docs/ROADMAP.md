@@ -68,7 +68,10 @@ arguments); S10's branch fixes it.
 S10 is merged into `main` (PR #10, squash-merged 2026-10-08 00:05 UTC
 as `96f2710`), with no owner commits after it.
 
-S11 is on branch `ofc/s11-split-giants`, based on `96f2710`, PR #11 open
+S11 is merged into `main` (PR #11, squash-merged 2026-10-08 03:39 UTC
+as `5a09e5c`), with no owner commits after it.
+
+S12 is on branch `ofc/s12-fight-card`, based on `5a09e5c`, PR #12 open
 against `main` and not merged, 2026-10-08 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
@@ -80,10 +83,100 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 11 of 28 sessions done (S1 to S10 merged, PR for S11 open).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 0/6. Phase 4: 0/11.
+Counts: 12 of 28 sessions done (S1 to S11 merged, PR for S12 open).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 1/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S10 merged into `main`, `main` at 96f2710, S11 on `ofc/s11-split-giants`)
+## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S11 merged into `main`, `main` at 5a09e5c, S12 on `ofc/s12-fight-card`)
+
+- S12, first move on Node 22.17.0, on `main` at `5a09e5c` (PR #11
+  merged): `npx vitest run` passed 14 files, 136 tests. `npx vite build`
+  wrote the entry `index-D50PdjZf.js` at 230.84 KB raw / 73.94 KB gzip
+  and the match page's `GameDetail-*.js` at 135.67 KB raw / 42.25 KB
+  gzip. `npx tsc --noEmit` exited 0. All three match the S11 records.
+  `wc -l`: `GameDetail` 307, `MatchAnalysis` 190, `ScoreChart` 120,
+  `MatchReplay` 1,970, `gameParse.js` 180, `designTokens.js` 26.
+- S12, the kill-log rules on real data, from a script run by plain `node`
+  (so the ES-module import is checked outside vitest) on the stored
+  details of the four local matches with kill logs: 78735 (Team Anarchy,
+  86 entries, 1 suicide), 78760 (Anarchy, 148), 78761 (Team Anarchy,
+  125, 2 suicides), 78764 (Team Anarchy, 169, 1 suicide). For all four,
+  `scoreboardAt(game)` gives every pilot's `kills`, `deaths` and
+  `assists` and every team's `teamScore` exactly as the tracker stored
+  them. Verdicts: 78735 split decision (43–41), 78760 decision, 78761
+  decision (ORANGE 64–57), 78764 split decision (87–80). Lead changes:
+  4, 0, 1, 3. First blood: KAUMRAPSEL (Thunderbolt, 0:08), BADASS
+  (Hunter, 0:05), BADASS (Thunderbolt, 0:07), BADASS (Flak, 0:14).
+- S12, tests: `npx vitest run` passes 14 files, 156 tests (20 new). In
+  `server/lib/gameParse.test.js`: `killPoints` for a kill, a suicide
+  (case and spaces ignored), a team kill, the same team label in FFA, no
+  attacker; the 72099 and 72098 kill logs replay to their players' kills,
+  deaths and assists and to BLUE 6–4; the order of the log does not
+  matter; the scoreboard at second 55 and at 0; a kill at 52.5 counts at
+  second 52; RONCLI's suicide in the detail sample gives -1 to him and to
+  BLUE; a team kill; lead changes at 0:40, 1:10 and 2:30 in 72099 and at
+  0:45 in 72098; two FFA pilots trading the lead while the winner trails;
+  momentum margins after every kill, and against 0 before a second
+  side has scored; null momentum and lead changes with no log and for
+  Monsterball; first blood skipping a suicide; weapon
+  families (16 weapons, none twice); `replayLengthOf`; the verdict on
+  seven fixture games and two variants. In `matchResult.test.js`:
+  `clock`. The kill logs are written by hand onto fixtures 72099 and
+  72098 in `server/testFixtures.js` (the samples have none).
+- S12, chart colours: the dataviz skill's `validate_palette.js` with
+  `--mode dark --surface "#111111"`: the seven weapon-family hues pass
+  every check (worst adjacent CVD ΔE 8.4 protan, normal-vision ΔE 19.3,
+  all in the L 0.48–0.67 band, chroma ≥ 0.1, ≥ 3:1 contrast); BLUE
+  `#3987e5` and ORANGE `#d95926` pass (ΔE 26.8); Tailwind's `#60a5fa` and
+  `#fb923c` fail the lightness band as marks.
+- S12, headless Chrome 154 over CDP against `PORT=3100
+  DATA_DIR=/tmp/ofc-data npm start` serving the built `dist/` (35
+  matches by the end), `checks.mjs`: 71 of 71 before the review, then 76
+  of 76 (five checks added for the review's findings) after the review
+  fixes and again after /simplify:
+  - On 78764 (Team Anarchy) and 78760 (FFA), each at 1,280 and 390 px:
+    the final table equals the tracker's numbers; Home on the focused
+    slider goes to 0:00 (`?t=0`, every row 0, Damage and DPM "–");
+    setting 300 gives the table `scoreboardAt(game, 300)` computes in
+    `node` (names, order, kills, assists, deaths, Combat Ratio) and
+    `?t=300`; five ArrowRight presses give `?t=305`; a reload of
+    `?t=305` keeps the label ("5:05, BLUE 26–26 ORANGE", "5:05, BADASS
+    leads on 15") and the table; the cursor sits on the plot at 305 s
+    (within 0.02 px of the grid's x for 305 s, from its top to its
+    bottom); a click at 60% of the chart moves `t` to a kill's second and
+    the clicked kill is on the scoreboard; Final score clears `t`; the
+    fight card reads, for 78764, "Verdict Split decision · Lead changes 3
+    · First blood BADASS (Flak, 0:14)" and, for 78760, "Decision · 0 ·
+    BADASS (Hunter, 0:05)"; one marker per lead change; the page is no
+    wider than the window.
+  - On 78764 at `?t=330`: "5:30, BLUE 29–28 ORANGE"; the deep dive,
+    damage, timeline (169 rows) and analysis tabs open and keep `t`; the
+    deep dive's pie has one slice per weapon family, each its own token
+    colour, and its first blood is BADASS. MatchReplay opens with "(5
+    beats)" (first blood, three lead changes, final minute), its clock
+    runs, its length reads 15:11 like the header, a ticker badge for
+    Thunderbolt is `rgb(217, 89, 38)` (`chart.weapon.thunderbolt`), the
+    scrubber's first-blood marker is there, and the ticker shows FIRST
+    BLOOD on BADASS → LORD JOHN WARFIN at 0:14.
+  - 78758 with its kill log taken out of `/api/game/78758` through the
+    Fetch domain: no slider, the "No kill log for this match"
+    EmptyState, the fight card shows the verdict (KO) only, "RAZOR wins
+    on 30, 17 ahead of WD-40." and 13:11 as in S7. The same match with
+    `?t=30` shows the final table. 78735: "BLUE wins 43–41.", 15:09, as
+    in S7.
+  - No console errors or exceptions. Full-page shots at 1,280 and 390 px
+    of both matches, scrubbed and not, were looked at.
+- S12, sizes on Node 22.17.0 after /simplify: entry `index-*.js` 230.81
+  KB raw / 73.91 KB gzip (73.94 before); match page `GameDetail-*.js`
+  127.92 KB raw / 40.57 KB gzip (42.25 before: `ScoreChart` and
+  MatchReplay's copied rules went, the new components came). Recharts
+  stays in its shared chunks (`Area-*.js`, `BarChart-*.js`); the entry
+  has none of it. `npx tsc --noEmit` exits 0. `wc -l`: `GameDetail` 191,
+  `MatchReplay` 1,897, `MomentumChart` 221, `Scoreboard` 112,
+  `FightCard` 97, `MatchScrubber` 75, `useMatchTime` 17.
+- S12, server (same command, after `Startup sync complete`):
+  `/api/health` `{"status":"ok"}`, `/api/stats/global` `total_games: 35`,
+  `/api/stats/pilots` 24 pilots (top WD-40, 23 matches),
+  `/api/pilot/WD-40/stats` 23 matches and 380 kills.
 
 - S11, first move on Node 22.17.0, on `main` at `96f2710` (PR #10
   merged): `npx vitest run` passed 13 files, 129 tests (the prompt said
@@ -864,6 +957,22 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 0/6. Phase 4: 0/11.
 
 ## NOT validated, do not claim these work
 
+- S12 ran on four real kill logs (the local data) and hand-written logs
+  on two fixture games. No team kill, no death without an attacker, and
+  no CTF or Monsterball kill log was seen, so those rules are untested
+  against the tracker.
+- Checked in headless Chrome 154 on macOS only, at 1,280 and 390 px. Not
+  Safari or Firefox (their range input styling and `accent-color`), not a
+  real phone's touch drag on the slider, not a screen reader on the
+  slider's `aria-valuetext`.
+- Dragging the slider was not timed on a slow phone. Each step replays
+  the log once (about 200 entries) and redraws the table and one cursor
+  line; nothing was profiled.
+- MatchReplay was opened, played, stepped and its first blood and colours
+  read; its story mode, theater mode and speeds were not run after the
+  change.
+- The CI workflow on the S12 PR before it opened; see the PR's checks.
+
 - S11 compared the four components in headless Chrome 154 on macOS with
   mocked `/api/overload/*`, `/api/import/*` and admin answers. Not run:
   an actual taunt export or install, a YouTube or archive import that
@@ -1098,11 +1207,11 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 14 files, 136 tests pass (S11) | 2026-10-08 |
+| `npx vitest run` | all pass | 14 files, 156 tests pass (S12) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.84 KB raw / 73.94 KB gzip (S11 after the PR review; 73.76 KB at S11's start, one 351.07 KB chunk before S4) | 2026-10-08 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S11) | 2026-10-08 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 30`, dev mode without secrets; `/api/stats/pilots` 21 pilots, `/api/pilot/WD-40/stats` 23 games, `/api/health` ok (S11) | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.81 KB raw / 73.91 KB gzip, match page `GameDetail` 127.92 KB / 40.57 KB gzip (S12; 73.94 and 42.25 at S12's start, one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S12) | 2026-10-08 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 35`, dev mode without secrets; `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats` 23 games, `/api/health` ok (S12) | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | healthy in about 9 s, uid 1000, 567 MB (S6) | 2026-10-07 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | under 1 s, exit 0, no `-wal` left (S6) | 2026-10-07 |
@@ -1119,6 +1228,9 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 0/6. Phase 4: 0/11.
 | S11 `routelist.mjs`: stubs `listen`, imports `server/index.js`, walks `app._router` (routes and middleware); `firstmatch.cjs` on two lists | same set; no URL whose first match changes | 97 entries, same set; 1,931 sample URLs, 0 ambiguous, 0 changed (S11) | 2026-10-08 |
 | S11 `capture.sh`: the server on a copy of a frozen data snapshot with `https_proxy` at a closed port, then five API answers plus `/api/health` and `/api/stats/pilots` | byte-identical between two builds | identical, baseline `96f2710` and the branch back to back (S11) | 2026-10-08 |
 | S11 `ui.mjs`: headless Chrome over CDP, taunt tabs, editor, the four dialogs from the keyboard, pilot settings tabs, admin with a mocked session, `/api/overload/*`, `/api/import/*`, `/api/admin/*` mocked; `adminreal.mjs` for a real dev login | DOM snapshots, dialog checks and request log the same as the baseline build | 20 of 20 snapshots, every dialog check and the request multiset identical (S11) | 2026-10-08 |
+| S12 `real.mjs`, run by `node`: `scoreboardAt`, `leadChanges`, `firstBloodOf`, `verdictOf` on the stored details of every local match with a kill log | each pilot's kills, deaths, assists and each team score as the tracker stored them | 4 of 4 matches exact (78735, 78760, 78761, 78764) (S12) | 2026-10-08 |
+| S12 `checks.mjs`: headless Chrome over CDP, a team and an FFA match at 1,280 and 390 px (slider by keyboard and value, `?t=` across reload, chart click, Final score, fight card, cursor position), the other tabs, MatchReplay, a log-less match through the Fetch domain | the table equals `scoreboardAt` at each second, the URL holds `t`, no console errors | 76 of 76 (S12) | 2026-10-08 |
+| dataviz `validate_palette.js --mode dark --surface "#111111"` on `chart.weapon` (7 families) and `chart.team` | every check passes | passes, worst adjacent CVD ΔE 8.4 (S12) | 2026-10-08 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -1250,9 +1362,46 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 
 ### Phase 3: show the data like a fight
 
-- [ ] **S12 Fight card, momentum, scrubber** (M). Match page: momentum chart
+- [x] **S12 Fight card, momentum, scrubber** (M). PR #12. Match page: momentum chart
       with lead changes and weapon-colored kills; a time scrubber that replays
-      the scoreboard from `kills[].time`.
+      the scoreboard from `kills[].time`. Done when (written at the start of
+      S12):
+      1. `server/lib/gameParse.js` owns the kill-log rules, each tested on
+         fixture games: what one kill is worth (`killPoints`), the
+         scoreboard replayed to any second (`scoreboardAt`), lead changes
+         (`leadChanges`), the momentum series (`momentumOf`), first blood
+         (`firstBloodOf`), weapon families (`weaponFamily`) and the verdict
+         (`verdictOf`: KO, decision, split decision, draw). Replaying a
+         whole kill log gives each pilot's kills, deaths and assists and
+         each team's score as the tracker reports them.
+      2. The result panel reads as a fight card: the verdict, the number of
+         lead changes and first blood (pilot, weapon, time) sit beside the
+         S7 winner, score or podium and result line. Lead changes and first
+         blood show only for a match with a kill log.
+      3. A momentum chart replaces "Score Progression": the eventual
+         winner's margin over the best other side after every kill, lead
+         changes marked, every kill drawn in its weapon family's colour
+         with a legend, a tooltip with time, margin and score. A match
+         without a kill log, or in a mode whose score is not kills (CTF,
+         Monsterball), gets an EmptyState instead.
+      4. A scrubber on the overview tab: a slider from 0:00 to the match
+         length (`durationOf`) that replays the scoreboard (kills, assists,
+         deaths, Combat Ratio, order) and the team score or the leader at
+         that second. It works from the keyboard, its position is in the
+         URL as `?t=<seconds>` (left out at the end), the momentum chart
+         marks it, and a click on the chart moves it.
+      5. MatchReplay reads the points per kill, lead changes and match
+         length from `gameParse.js` and its weapon colours from
+         `designTokens.js`, so the page has one copy of each. Not split.
+      6. Chart colours live in `designTokens.js`, checked with the dataviz
+         palette validator against `surface-card`; the momentum chart,
+         MatchReplay and the deep-dive tab's charts read them. `ScoreChart`
+         and the first-blood copy in `utils/statCalculators.ts` are gone.
+      7. Charts stay out of the entry chunk; entry and match-page chunk
+         sizes recorded before and after.
+      8. Checked in headless Chrome on a team match and an FFA match with
+         kill logs, at 1,280 and 390 px; the existing tabs, result line,
+         duration and MatchReplay still work.
 - [ ] **S13 Rating and power rankings** (M). Glicko-2 from placement and
       corrected team results; nightly snapshot table; rating history line on
       the profile; `PowerRankings` view with weekly movement.
@@ -2203,6 +2352,117 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   module for the admin calls, which the Done-when list's "uses
   apiService" reads against. `axios` stays in `package.json` for the
   server and `services/geminiService.ts`.
+- 2026-10-08 (S12): Kill-log rules live in `server/lib/gameParse.js`,
+  beside `winnerOf`, and the match page imports them as S7 did. One kill
+  is worth +1 to the attacker. A suicide (attacker and defender the same
+  pilot by `pilotKey`) or, in a team game, a team kill (both sides on one
+  team) is -1 to the attacker. The team score moves with the attacker's
+  team. A death with no attacker scores nothing for anyone, which matches
+  `playerRows`'s suicide count. Every death counts for the defender and
+  every `assisted` for the assister. `killPoints` is that rule for one
+  entry; `scoreboardAt(game, t)` replays the log in time order (log order
+  for equal times) through second `t` inclusive. On the four local
+  matches with logs (78735, 78761, 78764 Team Anarchy; 78760 Anarchy;
+  148 to 169 entries each) the full replay gives every pilot's `kills`,
+  `deaths` and `assists` and both teams' `teamScore` exactly, suicides
+  included. None of the four has a team kill, so the team-kill rule is
+  the old ScoreChart's, not checked against the tracker. The old
+  MatchReplay took a team kill off the victim; it now takes it off the
+  attacker.
+- 2026-10-08 (S12): A lead change is the outright lead passing from one
+  side to another, sides as in `winnerOf` (teams in a team game, pilots in
+  FFA). A level score leaves the lead with whoever had it: A, level, A
+  again is no change; A, level, B is one change, timed at B's go-ahead
+  kill. Taking the first lead is not a change. A suicide can make one (it
+  can drop the leader below someone). In FFA two trailing pilots can trade
+  the lead while the eventual winner is behind; that counts. Momentum is
+  the eventual winner's margin over the best other side after every kill,
+  from 0:00 (`momentumOf`); the winner is `winnerOf`'s first-ranked side,
+  so in a draw it is the side ranked first. Both apply only where the
+  score is kills (`killScored`: Anarchy, Team Anarchy, or no mode set). For
+  CTF and Monsterball the chart shows an EmptyState and the fight card
+  leaves out lead changes (`leadChanges` returns null there, and for a
+  match with no log, so "none apply" differs from "none happened"); the scoreboard replay still runs, because
+  kills, deaths and assists are in the log whatever the mode. First blood
+  is the first kill on an opponent: not a suicide, not a team kill
+  (`firstBloodOf`); it replaces `calculateFirstBlood` in
+  `utils/statCalculators.ts`, which counted team kills.
+- 2026-10-08 (S12): Fight card. `verdictOf` reads the final `winnerOf`
+  result, so it works for every match, kill log or not: draw for a shared
+  top score; split decision when the winner's margin is at most a tenth
+  of their score, or 1 point; KO when the runner-up scored less than two
+  thirds of the winner; decision otherwise. The thresholds are a choice,
+  picked so the fixtures spread across all four (72096 and 72108 KO,
+  72102 and 72097 decision, 72098 and the Monsterball sample draw; the
+  local 78735 at 43–41 and 78764 at 87–80 are split decisions). The
+  verdict's tooltip states the rule (`VERDICT_HINT`). The result panel
+  moved into `components/gameDetail/FightCard.tsx` unchanged and gained
+  one row: verdict, lead changes (kill-scored matches with a log) and
+  first blood (pilot link, weapon, time). The share description
+  (`resultLine` in `og:description`) is unchanged.
+- 2026-10-08 (S12): The scrubber sits beside MatchReplay, and both run on
+  the same rules. MatchReplay is a dramatised radar with its own clock,
+  play, speeds and story mode, collapsed until opened; the S12 scrubber
+  replays the overview's scoreboard, which MatchReplay does not draw, and
+  needs to work without opening the replay. Extending MatchReplay would
+  have put the scoreboard behind its open button and grown a 1,970-line
+  file. What was shared is the timeline logic: MatchReplay works out each
+  kill's points and side with `killPoints` once, when it sorts the log,
+  and its score at a moment adds those up; its team mode is
+  `winnerOf().team`, its suicides are `killPoints`'s, its FIRST BLOOD
+  callout is `firstBloodOf`'s kill, its lead-change story beats come from
+  `leadChanges`, and its length is `replayLengthOf` (the match length, or
+  the last kill's time if later; 300 s when neither exists), which the
+  scrubber spans too. Its revenge and spree callouts, its leader
+  tie-break and its radar are untouched, and it was not split (1,897
+  lines). Its BLUE and ORANGE pilot colours are now `chart.team`. The two are
+  not synced: scrubbing the page does not move the replay's clock, and
+  playing the replay does not move the scrubber. Its unused
+  `initialTime` and `onTimeUpdate` props would allow it later.
+- 2026-10-08 (S12): The scrubber is a native range input (0 to
+  `replayLengthOf`, 1 s steps), so arrow keys, Home, End and Page keys
+  work and the focus ring rule applies. Its position is `?t=<whole
+  seconds>` through `useQueryText` (the slider follows at once, the URL
+  300 ms later) in `hooks/useMatchTime.ts`; the far right is the final
+  scoreboard and leaves `t` out. At the end the table shows the
+  tracker's own numbers; scrubbed back, kills, assists, deaths and Combat
+  Ratio are replayed and the rows re-sort by kills. Damage and DPM show
+  "–" while scrubbed because damage events carry no time. A click on the
+  momentum chart moves the scrubber to the nearest kill; it is a pointer
+  shortcut, and the slider is the keyboard path. `?t=` survives tab
+  changes.
+- 2026-10-08 (S12): Chart colours are a `chart` export in
+  `designTokens.js`, outside Tailwind's theme. Series hues are the dataviz
+  reference palette's dark steps in its fixed order; its validator, run
+  against `surface-card` (`#111111`), passes the seven weapon families
+  (worst adjacent CVD ΔE 8.4, normal-vision ΔE 19.3, all inside the
+  lightness band and above 3:1) and the team pair (slots 1 and 2, ΔE
+  26.8). Tailwind's blue-400 and orange-400, which the page uses for team
+  names, fail the band as mark colours, so they stay text colours. Chrome
+  (grid, axis, labels, tooltip text) is the palette's dark greys. Weapons
+  are grouped into seven families by `weaponFamily` (`WEAPON_FAMILIES` in
+  `gameParse.js`: Impulse, Cyclone, Reflex; Thunderbolt; Flak, Crusher;
+  Driller, Lancer; Falcon, Missile Pod, Hunter; Creeper, Time Bomb; Nova,
+  Devastator, Vortex), plus a grey "other", because 16 weapon hues cannot
+  be told apart. The kills are drawn on one strip per family under the
+  momentum chart (all seven always shown, in palette order, so neighbours
+  are the validated pairs), not as coloured dots on the line, where any
+  two hues could touch. MatchReplay's tracer and ticker colours and the
+  deep dive's weapon scatter and pie now read the family colour too, so a
+  weapon has one colour on the page; that changes the owner's neon
+  tracer colours. The deep dive's axes and tooltips read the chart greys
+  and its intensity bars are `brand`. The momentum chart colours the
+  margin by the side ahead: BLUE and ORANGE in team games, the winner
+  against the field in FFA.
+- 2026-10-08 (S12): No new endpoint. The page already holds the stored
+  details with their kill log from `/api/game/:id`, and the rules run on
+  them in the browser. `/api/match/:id/kills` (the owner's) is unused by
+  the client and keeps its own suicide rule (flagged).
+- 2026-10-08 (S12): `clock()` (m:ss) moved from `server/pageMeta.js` to
+  `server/lib/matchResult.js`; the share preview, the match header, the
+  timeline tab and the new components use it. `ScoreChart.tsx` is gone:
+  the momentum chart replaces it, and its client-side lead-change rule
+  went with it.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -2685,6 +2945,59 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   `adminLogout` and `pauseBackfill` call the routes the flagged logout and
   Pause bugs need.
 
+- (S12) The sample fixtures hold no kill log (the detail sample has one
+  suicide), although the S12 prompt said 72102 had one. The kill-log tests
+  use 72099 and 72098 with logs written by hand in `server/testFixtures.js`
+  to reproduce their tracker totals; the check against real logs (78735,
+  78760, 78761, 78764) ran from a scratch script on the local data. A real
+  tracker match with its log as a third fixture file needs the owner's
+  say-so (canonical contract).
+- (S12) Team kills: none of the real logs has one, so "-1 to the attacker
+  and the team" is unverified against the tracker.
+- (S12) CTF and Monsterball get no momentum chart and no lead changes. The
+  Monsterball sample's `goals` carry times (and `blunder`), and CTF has
+  `flagStats`; replaying those would give those modes a score timeline.
+- (S12) MatchReplay still draws a death with no attacker as a
+  self-destruct, though it scores nothing; its revenge and spree callouts
+  and its leader tie-break (earliest to reach the score) are its own; it
+  formats time as mm:ss. The scrubber and the replay do not follow each
+  other's clock (`initialTime`, `onTimeUpdate` unused).
+  `/api/match/:id/kills` (unused by the client) still calls the weapon
+  names "Suicide" and "Self-Destruct" and a missing attacker suicides, and
+  the owner's `match-replay.test.js` tests copies of the rules written
+  inline.
+- (S12) Chart chrome elsewhere is still hex: `ServerStats`,
+  `ActivityGraph`, `GlobalActivityChart`, `ServerActivitySparkline`, the
+  pilot page's charts, Archive and Admin. They could read `chart` from
+  `designTokens.js`. ServerStats' stock Recharts palette colours bars by
+  rank.
+- (S12) The momentum chart's click is pointer-only and its kill strips
+  have `title` tooltips only; the keyboard path is the slider, and the
+  timeline tab lists every kill. No screen reader was tried.
+- (S12) The verdict thresholds are a choice (see the decision). They are
+  not in the share description; S19's cards could use them.
+- (S12) m:ss formatters left: `LiveMatchCard`, `LiveGameDetail`,
+  `MatchTimer` and MatchReplay's padded one; `clock()` in
+  `server/lib/matchResult.js` could serve them.
+- (S12) `teamColor` is now `components/gameDetail/teamColor.ts`;
+  `GameList`, `MatchAnalysis`'s teamwork list and `LiveMatchCard` still
+  inline the ternary (S7 flag).
+- (S12) The other client rules in `utils/statCalculators.ts` (streaks,
+  nemesis, play styles) are copies MatchReplay partly repeats (its spree
+  callout); moving them to `gameParse.js` would follow the S7 rule.
+- (S12) The overview table's damage fallback (summing `game.damage` by
+  exact name when a player has no `damage`) is the old GameDetail code,
+  moved unchanged. It counts self-damage; `playerRows` does not. Not
+  changed (a different number on the page).
+- (S12) Covered from earlier flags: the S9 chart theme on the match page
+  (`chart` in `designTokens.js`; other pages re-flagged above), the S8
+  m:ss copies in `pageMeta.js`, `GameDetail` and `ScoreChart` (now
+  `clock()`). Re-flagged unchanged: MatchReplay's hex classes and
+  `text-[10px]`, its window-level Space handler and its theater overlay
+  without `role="dialog"` (S10); MatchReplay not split, now 1,897 lines
+  (S11); "Unknown Server" on hydrated matches (S7); the analysis tab's
+  "Unauthorized" text (S1, S9; S25 removes the route).
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -3116,12 +3429,50 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   `server/db`, a `markSaved()` in the pilot settings, the preview player
   rework in the web import. PR #11 opened against `main`, not merged.
 
+- 2026-10-08, S12 (Claude Opus 5.5): the kill-log rules in
+  `gameParse.js` (points per kill, the scoreboard at a second, lead
+  changes, momentum, first blood, weapon families, the verdict); the
+  match page's result panel as a fight card (verdict, lead changes,
+  first blood); a slider that replays the overview's scoreboard, in
+  `?t=`; a momentum chart with kills on one strip per weapon family in
+  place of Score Progression; MatchReplay and the deep dive on the same
+  rules and chart colours. Status line checked first: it said PR #11
+  was open, but it had merged (`5a09e5c`, nothing after it), so S12
+  branched from `origin/main`; `10223be` is not an object here. First
+  move: 14 files, 136 tests; entry 73.94 KB gzip; tsc 0. The prompt said
+  fixture 72102 has a kill log; neither sample file has one (the detail
+  sample has a single suicide), so the tests write logs onto 72099 and
+  72098 that reproduce their totals, and the rules were checked on the
+  four local matches that have real logs, where the replay matched the
+  tracker exactly. I picked the colours with the dataviz skill's
+  validator: its dark palette passes on `surface-card`, Tailwind's
+  team text colours do not as marks, and 16 weapons could not each get
+  a hue, so they became seven families on stacked strips. MatchReplay's
+  `/api/game/:id` path hydrated 78758 from the tracker during the
+  checks, so the log-less case ran on a Fetch-domain mock. /code-review
+  found 10 issues: a kill at 52.5 s missing from second 52 (fixed:
+  whole seconds), `?t=` zeroing a log-less table (fixed at the source),
+  the pie merging a family's weapons (now by family), missing-name
+  fallbacks, a flat or zero-length chart (guards), chart data rebuilt
+  on every slider step (memoised), MatchReplay's name keying and zero
+  length (fixed); kept: a death with no attacker scoring nothing (the
+  rule, flagged) and several replays per page load (under a
+  millisecond). /simplify (four agents): one `scoreboardAt` per slider
+  step shared by the table and the slider, the cursor as an overlay so
+  the chart does not redraw, `React.memo` on the replay, MatchReplay's
+  points computed once per kill and its team mode, suicides and first
+  blood from `gameParse`, one weapon-family list with "other",
+  `hasKillLog`, `leadChanges` null where it does not apply. Skipped:
+  the table's damage fallback (moved code, a different number),
+  MatchAnalysis's inline team colour, `soleLeader` for the slider's FFA
+  wording. PR #12 opened against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S12: fight card, momentum, scrubber.
+Continue the overloadfight.club roadmap. This session is S13: rating and power rankings.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -3130,51 +3481,51 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S11 is on branch ofc/s11-split-giants, PR #11. PRs #1 to #10 are merged.
-  If PR #11 is merged:
-    git checkout -B ofc/s12-fight-card origin/main
-  If PR #11 is still open:
-    git checkout -B ofc/s12-fight-card origin/ofc/s11-split-giants
-    and open the S12 PR against main anyway; say in its description that it sits on PR #11.
-  Check again before opening the PR: if PR #11 merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #11 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  S12 is on branch ofc/s12-fight-card, PR #12. PRs #1 to #11 are merged.
+  If PR #12 is merged:
+    git checkout -B ofc/s13-rating origin/main
+  If PR #12 is still open:
+    git checkout -B ofc/s13-rating origin/ofc/s12-fight-card
+    and open the S13 PR against main anyway; say in its description that it sits on PR #12.
+  Check again before opening the PR: if PR #12 merged during the session, rebase onto origin/main first.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #12 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s11-split-giants has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s12-fight-card has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S12 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the match page already has, and quote it in the PR description. Also "Canonical contract", the S2 and S7 decisions (gameParse owns winnerOf, durationOf, measuredDurationOf; the match page reads them; resultLine in server/lib/matchResult.js), S8 (URL state, the match page's `tab`), S9 (tokens, chartTooltip, the flagged chart theme), S10 (Combat Ratio and Lethality, useDialog, the focus and tap rules), the S11 entries (server/db/ and server/routes/ layout, the hooks and child folders, apiService and adminRequest), every "Flagged, not fixed" item that names S12, the match page, MatchReplay, ScoreChart, charts or the chart theme (decide for each whether S12 covers it; flag the rest again), and the Postmortems.
-- components/GameDetail.tsx, components/MatchAnalysis.tsx, components/ScoreChart.tsx, components/MatchReplay.tsx (1,970 lines, the owner's Tactical Replay v3 on the overview and timeline tabs, fed by /api/match/:id/kills in server/routes/games.js), server/lib/gameParse.js, designTokens.js and the two sample files. Re-count with wc -l before quoting any. MatchReplay already replays a match's kills over time: decide whether the S12 scrubber extends it or sits beside it, say which in a decision entry, and do not build a second copy of its timeline logic. Do not split MatchReplay unless I say so.
+- docs/ROADMAP.md, the S13 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the pilot page and leaderboard already have, and quote it in the PR description. Also "Canonical contract", the S2 decisions (winnerOf, outcomeOf, pairOutcome; a team game is decided by teamScore, FFA by in-game score; a team game without teamScore has no result), S5 (game_players, its migration and user_version, the stats worker, the hot/cold split and the cold move), S6 (the 03:00 nightly job in server/backup.js, TZ=America/Chicago), S8 (URL state, siteRoutes for a new view and its title), S9 (tokens, States), S10 (Combat Ratio and Lethality, the roster's paging and sort in the URL, useDialog, the focus and tap rules), S11 (server/db/ and server/routes/ layout, the hooks and child folders, apiService), S12 (the `chart` colours in designTokens.js and the dataviz validator, the kill-log rules in gameParse.js), every "Flagged, not fixed" item that names S13, ELO or rating, the leaderboard, head-to-head or the ranked filter (decide for each whether S13 covers it; flag the rest again), and the Postmortems.
+- server/lib/gameParse.js, server/db/analytics/pilots.js, server/db/migrations.js, server/db/analytics/refresh.js and server/lib/statsPasses.js, server/backup.js, components/PilotsList.tsx, components/PilotDetail.tsx, the S12 components in components/gameDetail/ for the chart pattern, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
 - gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every stat or chart number ships with a test on fixture games.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
-- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules, including combatRatio, lethality and match length; server/lib/siteRoutes.js owns page URLs and titles; server/lib/matchResult.js the result sentence. A lead change, a momentum value or a replayed score is a game rule: put it in gameParse.js with a test, and have the client import it, as S7 did. Never copy a rule.
-- Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams; a scrubber position worth sharing goes in the URL the same way (S8, S10).
-- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `colors` from designTokens.js; the focus ring and tap state are the rules in index.css (S9, S10).
+- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. New tables go in server/db/migrations.js beside `games`, with a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
+- server/lib/gameParse.js owns the game rules: a rating update, a placement, a corrected team result and weekly movement are game rules, so they go there with tests and the server and client import them, as S7 and S12 did. Never copy a rule. Rating runs over every stored match, hot and cold, so it belongs in the stats worker or the nightly job, not on a request.
+- server/lib/siteRoutes.js owns page URLs and titles; a new view gets its route, title and share description there and in server/pageMeta.js. Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
+- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js and any new series colour passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12).
 - Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx; keep both error boundaries (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S11 left 230.84 KB raw / 73.94 KB gzip) and the match page chunk before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S12 left 230.81 KB raw / 73.91 KB gzip) and the pilot page chunk before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
-- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library, and add none without a decision entry. Tailwind utility classes, functional React, ES modules on the server.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4 and S7 to S11 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Few stored matches have kill logs: find ones that do (fixture 72102 has one; S10 and S11 used the 30-match local data), and mock /api/game/<id> from the fixtures through CDP's Fetch domain where you need a richer match. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo.
+- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library. A Glicko-2 package needs a decision entry against writing the update in gameParse.js; prefer the latter if it is short and tested.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (35 local matches at the end of S12). Check the UI in headless Chrome over CDP, as S4 and S7 to S12 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more pilots or matches than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo.
 
 Rules for this session:
-- One PR, scope is the S12 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the momentum and lead-change rules (where they live, what counts as a lead change in FFA and team games, suicides), the scrubber's relation to MatchReplay, the chart colours, and any new endpoint.
+- One PR, scope is the S13 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the rating system (Glicko-2 parameters, how FFA placement and team results feed it, what a draw is, which matches count), the snapshot table and its migration, when ratings are recomputed, the PowerRankings route and its weekly window, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S12 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S13 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S13.
+- Before ending: tick S13 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S14 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S14.
 
-Load these skills: unslop, code-review, simplify.
+Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S11 left 14 files, 136 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameDetail)-.*\.js"` (the Verification table records the entry at 73.94 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then write the S12 Done-when list into the tracker.
-Done when: every item of the S12 Done-when list is true and checked on fixture games and in headless Chrome (a team match and an FFA match, at 1,280 and 390 px), the match page's existing tabs, result line, duration and MatchReplay still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S12 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S12 left 14 files, 156 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|PilotsList)-.*\.js"` (the Verification table records the entry at 73.91 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then write the S13 Done-when list into the tracker.
+Done when: every item of the S13 Done-when list is true and checked on fixture games and in headless Chrome (the rankings view and a pilot page with a rating history, at 1,280 and 390 px), the leaderboard, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S13 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```

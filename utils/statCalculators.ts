@@ -107,13 +107,6 @@ export const calculateKillHeatmap = (kills: KillEvent[] = [], durationMinutes: n
     return buckets;
 };
 
-export const calculateFirstBlood = (kills: KillEvent[] = []) => {
-    const sorted = [...kills].sort((a, b) => a.time - b.time);
-    // Filter out suicides for first blood
-    const validKills = sorted.filter(k => k.attacker !== k.defender);
-    return validKills.length > 0 ? validKills[0] : null;
-};
-
 export const calculateTeamSynergy = (players: PlayerData[]) => {
     const teams: Record<string, number> = {};
     players.forEach(p => {

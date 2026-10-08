@@ -4,12 +4,11 @@
 import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
 import { winnerOf, measuredDurationOf } from './lib/gameParse.js';
-import { resultLine } from './lib/matchResult.js';
+import { clock, resultLine } from './lib/matchResult.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
 const count = n => Number(n || 0).toLocaleString('en-US');
-const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
 // "WD-40: 20 matches, 325 kills, last match 2026-10-07."
 function pilotMeta(name) {

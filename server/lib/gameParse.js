@@ -178,3 +178,198 @@ export function playerRows(game) {
     }
     return rows;
 }
+
+// The kill log (S12). Replaying it with killPoints() reproduces the tracker's
+// own `kills`, `deaths`, `assists` and `teamScore`, checked on four Anarchy
+// and Team Anarchy matches with logs (none of them had a team kill).
+
+const KILL_SCORED_MODES = new Set(['ANARCHY', 'TEAM ANARCHY']);
+
+export function hasKillLog(game) {
+    return Array.isArray(game?.kills) && game.kills.length > 0;
+}
+
+// True when the match's score is its kills, so the kill log replays the
+// score. CTF and Monsterball score captures and goals, and Race laps.
+export function killScored(game) {
+    const mode = String(game?.settings?.matchMode ?? '').trim().toUpperCase();
+    return !mode || KILL_SCORED_MODES.has(mode);
+}
+
+// What one kill-log entry does to the score. `scorer` (the attacker's name)
+// gains `points`: +1 for a kill, -1 for a suicide or, in a team game, a team
+// kill. `side` is the attacker's team in a team game (read from
+// `attackerTeam`), its pilotKey() in FFA, as in winnerOf(). A death with no
+// attacker scores nothing for anyone.
+export function killPoints(kill, team = false) {
+    const scorer = String(kill?.attacker ?? '').trim();
+    if (!scorer) return { scorer: null, side: null, points: 0, suicide: false };
+    const suicide = pilotKey(scorer) === pilotKey(kill.defender);
+    const side = team ? teamOf({ team: kill.attackerTeam }) : pilotKey(scorer);
+    const teamKill = team && !suicide && side !== null && side === teamOf({ team: kill.defenderTeam });
+    return { scorer, side, points: suicide || teamKill ? -1 : 1, suicide };
+}
+
+// Walks the kill log in time order (log order for equal times) through whole
+// second `until` (a kill at 52.5 counts at second 52), keeping a scoreboard
+// row per pilot and a score per side, and calls visit(t, kill, points, sides)
+// after each entry, `sides` being the live map. Entries missing a team in a
+// team game take the pilot's team from game.players.
+function replayLog(game, until, visit) {
+    const { team, ranking } = winnerOf(game);
+    const rows = new Map();
+    const sides = new Map(ranking.map(r => [r.side, { side: r.side, name: r.name, score: 0 }]));
+    const rowFor = (name, teamName) => {
+        const key = pilotKey(name);
+        if (!key) return null;
+        if (!rows.has(key)) rows.set(key, { name: String(name).trim(), team: teamOf({ team: teamName }), kills: 0, deaths: 0, assists: 0 });
+        return rows.get(key);
+    };
+    for (const p of Array.isArray(game?.players) ? game.players : []) rowFor(p?.name, p?.team);
+    const teamOfPilot = name => rows.get(pilotKey(name))?.team ?? null;
+
+    const log = (Array.isArray(game?.kills) ? game.kills : [])
+        .map(kill => ({ kill, t: Number(kill?.time) || 0 }))
+        .sort((a, b) => a.t - b.t);
+    for (const { kill, t } of log) {
+        if (Math.floor(t) > until) break;
+        const entry = team
+            ? { ...kill, attackerTeam: kill.attackerTeam || teamOfPilot(kill.attacker), defenderTeam: kill.defenderTeam || teamOfPilot(kill.defender) }
+            : kill;
+        const points = killPoints(entry, team);
+        const scorer = points.scorer && rowFor(points.scorer, entry.attackerTeam);
+        if (scorer) scorer.kills += points.points;
+        if (points.side) {
+            if (!sides.has(points.side)) sides.set(points.side, { side: points.side, name: team ? points.side : scorer.name, score: 0 });
+            sides.get(points.side).score += points.points;
+        }
+        const victim = rowFor(kill.defender, entry.defenderTeam);
+        if (victim) victim.deaths += 1;
+        const assister = kill.assisted && rowFor(kill.assisted, kill.assistedTeam);
+        if (assister) assister.assists += 1;
+        visit?.(t, kill, points, sides);
+    }
+    return { team, players: [...rows.values()], sides: [...sides.values()] };
+}
+
+// The scoreboard after every kill up to and including whole second `t` (all
+// of them by default): `players` has one row per pilot, in game.players order,
+// with { name, team, kills, deaths, assists }; `sides` has each side's
+// { side, name, score }, sides as in winnerOf().
+export function scoreboardAt(game, t = Infinity) {
+    return replayLog(game, t);
+}
+
+// The side holding the outright lead, or null when the top is shared.
+function soleLeader(sides) {
+    let best = null;
+    let shared = false;
+    for (const s of sides.values()) {
+        if (!best || s.score > best.score) {
+            best = s;
+            shared = false;
+        } else if (s.score === best.score) {
+            shared = true;
+        }
+    }
+    return shared ? null : best;
+}
+
+// Every time the outright lead passes from one side to another, as
+// [{ t, from, to, score }] with display names and the new leader's score. A
+// level score leaves the lead where it was, so A, level, A again is no
+// change, and A, level, B is one, at B's go-ahead kill. Taking the first lead
+// is not a change. Null when the match has no kill log or is not
+// killScored(), so "none apply" differs from "there were none".
+export function leadChanges(game) {
+    if (!hasKillLog(game) || !killScored(game)) return null;
+    const changes = [];
+    let leader = null;
+    replayLog(game, Infinity, (t, kill, points, sides) => {
+        const now = soleLeader(sides);
+        if (!now) return;
+        if (leader && now.side !== leader.side) changes.push({ t, from: leader.name, to: now.name, score: now.score });
+        leader = { side: now.side, name: now.name };
+    });
+    return changes;
+}
+
+// The eventual winner's margin over the best other side, from 0:00 and after
+// every kill: { side, name, runnerUp, team, points: [{ t, margin, kill, scores }] },
+// where `runnerUp` is winnerOf()'s second-ranked side (or null), and
+// `scores` lists every side's { name, score } at that moment, best first. The
+// winner is winnerOf()'s first-ranked side, so in a draw it is the side ranked
+// first. Null for a match that is not killScored(), has no kill log or has
+// fewer than two sides.
+export function momentumOf(game) {
+    if (!hasKillLog(game) || !killScored(game)) return null;
+    const { team, ranking } = winnerOf(game);
+    const winner = ranking[0];
+    if (!winner) return null;
+    const snapshot = sides => [...sides.values()].map(s => ({ name: s.name, score: s.score })).sort((a, b) => b.score - a.score);
+    const marginOf = sides => {
+        let rest = -Infinity;
+        for (const s of sides.values()) if (s.side !== winner.side) rest = Math.max(rest, s.score);
+        // a side joins `sides` at its first score, so before any other has, the best of them is on 0
+        return (sides.get(winner.side)?.score ?? 0) - (rest === -Infinity ? 0 : rest);
+    };
+    const points = [];
+    const { sides } = replayLog(game, Infinity, (t, kill, _, live) => {
+        points.push({ t, margin: marginOf(live), kill, scores: snapshot(live) });
+    });
+    if (sides.length < 2) return null;
+    const start = sides.map(s => ({ name: s.name, score: 0 }));
+    return { side: winner.side, name: winner.name, runnerUp: ranking[1] ?? null, team, points: [{ t: 0, margin: 0, kill: null, scores: start }, ...points] };
+}
+
+// The first kill on an opponent (not a suicide, not a team kill), or null.
+export function firstBloodOf(game) {
+    let first = null;
+    replayLog(game, Infinity, (t, kill, points) => {
+        if (!first && points.points > 0) first = kill;
+    });
+    return first;
+}
+
+// Weapon families for the charts: one colour each (designTokens.js `chart.weapon`),
+// in this order. A weapon not listed is 'other', the last entry.
+export const WEAPON_FAMILIES = [
+    { id: 'laser', label: 'Impulse, Cyclone, Reflex', weapons: ['IMPULSE', 'CYCLONE', 'REFLEX'] },
+    { id: 'thunderbolt', label: 'Thunderbolt', weapons: ['THUNDERBOLT'] },
+    { id: 'flak', label: 'Flak, Crusher', weapons: ['FLAK', 'CRUSHER'] },
+    { id: 'driller', label: 'Driller, Lancer', weapons: ['DRILLER', 'LANCER'] },
+    { id: 'missile', label: 'Falcon, Missile Pod, Hunter', weapons: ['FALCON', 'MISSILE POD', 'HUNTER'] },
+    { id: 'mine', label: 'Creeper, Time Bomb', weapons: ['CREEPER', 'TIME BOMB'] },
+    { id: 'heavy', label: 'Nova, Devastator, Vortex', weapons: ['NOVA', 'DEVASTATOR', 'VORTEX'] },
+    { id: 'other', label: 'Other', weapons: [] },
+];
+
+const FAMILY_OF_WEAPON = new Map(WEAPON_FAMILIES.flatMap(f => f.weapons.map(w => [w, f.id])));
+
+export function weaponFamily(weapon) {
+    return FAMILY_OF_WEAPON.get(String(weapon ?? '').trim().toUpperCase()) ?? 'other';
+}
+
+// How long a replay of the kill log runs: the match length, or the last kill's
+// time when that is later or the length is unknown.
+export function replayLengthOf(game) {
+    let last = 0;
+    for (const kill of Array.isArray(game?.kills) ? game.kills : []) last = Math.max(last, Number(kill?.time) || 0);
+    return Math.max(durationOf(game), last);
+}
+
+// The fight card's verdict from a winnerOf() result, or null when the match
+// has no result: 'draw' for a shared top score; 'split' when the winner's
+// margin is at most a tenth of their score (or 1 point); 'ko' when the
+// runner-up scored less than two thirds of the winner; 'decision' otherwise.
+export function verdictOf(result) {
+    if (!result?.winners?.length) return null;
+    if (result.winners.length > 1) return 'draw';
+    const [top, next] = result.ranking;
+    if (top.score - next.score <= Math.max(1, top.score / 10)) return 'split';
+    if (next.score < (top.score * 2) / 3) return 'ko';
+    return 'decision';
+}
+
+export const VERDICT_LABEL = { ko: 'KO', decision: 'Decision', split: 'Split decision', draw: 'Draw' };
+export const VERDICT_HINT = 'KO: the runner-up scored less than two thirds of the winner. Split decision: won by a tenth of the winner\'s score or less, or by 1. Decision: any other win. Draw: a tie for first.';

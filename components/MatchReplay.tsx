@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GameData, KillEvent, PlayerData } from '../types';
+// The page's one copy of the kill-log rules and weapon colours (S12).
+import { firstBloodOf, killPoints, leadChanges, replayLengthOf, weaponFamily, winnerOf } from '../server/lib/gameParse.js';
+import { chart } from '../designTokens.js';
 
 export interface MatchReplayProps {
   game: GameData;
@@ -15,6 +18,9 @@ interface NormalizedKill {
   victim: string;
   weapon: string;
   suicide: boolean;
+  // what the kill did to the score (gameParse killPoints): the killer's points and side
+  points: number;
+  side: string | null;
   killerTeam?: string;
   victimTeam?: string;
   callouts: string[];
@@ -59,18 +65,9 @@ const FFA_PALETTE = [
   '#a855f7'  // Violet
 ];
 
-// Weapon tracer color mapping
+// Weapon tracer color mapping: the weapon family's chart colour, as on the momentum chart
 function getWeaponColor(weapon: string): string {
-  const w = (weapon || '').toLowerCase();
-  if (w.includes('impulse') || w.includes('laser')) return '#00f0ff';
-  if (w.includes('reflex')) return '#ff007f';
-  if (w.includes('cyclone')) return '#00ff88';
-  if (w.includes('flak') || w.includes('crusher')) return '#ff6600';
-  if (w.includes('thunderbolt')) return '#b026ff';
-  if (w.includes('falcon') || w.includes('missile') || w.includes('hunter')) return '#ffcc00';
-  if (w.includes('driller') || w.includes('drill')) return '#38bdf8';
-  if (w.includes('nova') || w.includes('devastator')) return '#f43f5e';
-  return '#ff8800';
+  return chart.weapon[weaponFamily(weapon)];
 }
 
 function formatTime(seconds: number): string {
@@ -212,11 +209,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
   const hasKills = Boolean(rawKills && rawKills.length > 0);
 
   // Extract pilots and mode
-  const isTeamMode = useMemo(() => {
-    const mode = (game.settings?.matchMode || '').toLowerCase();
-    const hasTeams = Boolean(game.players?.some(p => p.team === 'BLUE' || p.team === 'ORANGE'));
-    return mode.includes('team') || hasTeams;
-  }, [game]);
+  const isTeamMode = useMemo(() => winnerOf(game).team, [game]);
 
   const allPilotNames = useMemo(() => {
     const names = new Set<string>();
@@ -255,9 +248,9 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
     allPilotNames.forEach((name, idx) => {
       const team = pilotTeamMap[name];
       if (isTeamMode && team === 'BLUE') {
-        map[name] = '#3b82f6';
+        map[name] = chart.team.BLUE;
       } else if (isTeamMode && team === 'ORANGE') {
-        map[name] = '#f97316';
+        map[name] = chart.team.ORANGE;
       } else {
         map[name] = FFA_PALETTE[idx % FFA_PALETTE.length];
       }
@@ -269,44 +262,36 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
   const normalizedEvents: NormalizedKill[] = useMemo(() => {
     if (!rawKills || rawKills.length === 0) return [];
 
+    const firstBlood = firstBloodOf(game);
     const sorted = [...rawKills]
       .map((k, idx) => {
         const killer = k.attacker || '';
         const victim = k.defender || '';
         const weapon = k.weapon || 'Unknown';
-        const isSuicide = Boolean(
-          (killer && victim && killer === victim) ||
-          weapon === 'Suicide' ||
-          weapon === 'Self-Destruct' ||
-          !killer
-        );
+        const killerTeam = k.attackerTeam || pilotTeamMap[killer];
+        const victimTeam = k.defenderTeam || pilotTeamMap[victim];
+        const { points, side, suicide } = killPoints({ attacker: killer, defender: victim, attackerTeam: killerTeam, defenderTeam: victimTeam }, isTeamMode);
         return {
           id: idx,
           t: typeof k.time === 'number' ? k.time : parseFloat(String(k.time)) || 0,
           killer,
           victim,
           weapon,
-          suicide: isSuicide,
-          killerTeam: k.attackerTeam || pilotTeamMap[killer],
-          victimTeam: k.defenderTeam || pilotTeamMap[victim],
-          callouts: [] as string[],
-          isFirstBlood: false
+          // a death with no killer is drawn as a self-destruct, though it scores nothing
+          suicide: suicide || !killer,
+          points,
+          side,
+          killerTeam,
+          victimTeam,
+          callouts: k === firstBlood ? ['FIRST BLOOD'] : [],
+          isFirstBlood: k === firstBlood
         };
       })
       .sort((a, b) => a.t - b.t);
 
     // Compute Auto Callouts
-    let firstBloodFound = false;
-
     for (let i = 0; i < sorted.length; i++) {
       const ev = sorted[i];
-
-      // First Blood: first non-suicide kill
-      if (!firstBloodFound && !ev.suicide && ev.killer && ev.killer !== ev.victim) {
-        ev.isFirstBlood = true;
-        ev.callouts.push('FIRST BLOOD');
-        firstBloodFound = true;
-      }
 
       if (!ev.suicide && ev.killer) {
         // Revenge: pilot frags their killer within 30 seconds
@@ -340,20 +325,10 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
     }
 
     return sorted;
-  }, [rawKills, pilotTeamMap]);
+  }, [game, rawKills, pilotTeamMap, isTeamMode]);
 
-  // Total match duration
-  const matchDuration = useMemo(() => {
-    if (game.start && game.end) {
-      const d = (new Date(game.end).getTime() - new Date(game.start).getTime()) / 1000;
-      if (d > 0) return d;
-    }
-    if (game.settings?.timeLimit && game.settings.timeLimit > 0) {
-      return game.settings.timeLimit;
-    }
-    const lastKill = normalizedEvents.length > 0 ? normalizedEvents[normalizedEvents.length - 1].t : 0;
-    return Math.max(300, Math.ceil(lastKill + 5));
-  }, [game, normalizedEvents]);
+  // Total match duration, the same span as the page's scrubber (300 s when nothing gives one)
+  const matchDuration = useMemo(() => replayLengthOf(game) || 300, [game]);
 
   // Full score & match state calculation at timestamp t
   const getFullStateAtTime = useCallback(
@@ -377,28 +352,13 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
         // Death tracking
         lastDeathT[ev.victim] = ev.t;
 
-        const kTeam = ev.killerTeam || pilotTeamMap[ev.killer];
-        const vTeam = ev.victimTeam || pilotTeamMap[ev.victim];
-        const isTeamKill = isTeamMode && kTeam && vTeam && kTeam === vTeam && kTeam !== 'ANARCHY';
-
-        if (ev.suicide || isTeamKill) {
-          if (pilotScores[ev.victim] !== undefined) {
-            pilotScores[ev.victim] -= 1;
-            scoreReachedAt[ev.victim] = ev.t;
-          }
-          if (isTeamMode && vTeam && (vTeam === 'BLUE' || vTeam === 'ORANGE')) {
-            teamScores[vTeam] -= 1;
-            teamScoreReachedAt[vTeam] = ev.t;
-          }
-        } else {
-          if (pilotScores[ev.killer] !== undefined) {
-            pilotScores[ev.killer] += 1;
-            scoreReachedAt[ev.killer] = ev.t;
-          }
-          if (isTeamMode && kTeam && (kTeam === 'BLUE' || kTeam === 'ORANGE')) {
-            teamScores[kTeam] += 1;
-            teamScoreReachedAt[kTeam] = ev.t;
-          }
+        if (ev.points && pilotScores[ev.killer] !== undefined) {
+          pilotScores[ev.killer] += ev.points;
+          scoreReachedAt[ev.killer] = ev.t;
+        }
+        if (isTeamMode && (ev.side === 'BLUE' || ev.side === 'ORANGE')) {
+          teamScores[ev.side] += ev.points;
+          teamScoreReachedAt[ev.side] = ev.t;
         }
       }
 
@@ -507,52 +467,19 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
     }
 
     // Lead Changes
-    const runningScores: Record<string, number> = {};
-    allPilotNames.forEach(p => (runningScores[p] = 0));
-    const runningTeamScores: Record<string, number> = { BLUE: 0, ORANGE: 0 };
-    let currentLeader = '';
+    (leadChanges(game) ?? []).forEach((change, i) => {
+      beats.push({
+        id: `beat-lead-${i}`,
+        t: change.t,
+        type: 'lead-change',
+        label: 'Lead Change',
+        description: isTeamMode
+          ? `Lead change — ${change.to} takes the lead`
+          : `Lead change — ${change.to} takes the lead (${change.score} kills)`
+      });
+    });
 
     normalizedEvents.forEach(ev => {
-      const kTeam = ev.killerTeam || pilotTeamMap[ev.killer];
-      const vTeam = ev.victimTeam || pilotTeamMap[ev.victim];
-      const isTeamKill = isTeamMode && kTeam && vTeam && kTeam === vTeam && kTeam !== 'ANARCHY';
-
-      if (ev.suicide || isTeamKill) {
-        if (runningScores[ev.victim] !== undefined) runningScores[ev.victim] -= 1;
-        if (isTeamMode && vTeam && (vTeam === 'BLUE' || vTeam === 'ORANGE')) runningTeamScores[vTeam] -= 1;
-      } else {
-        if (runningScores[ev.killer] !== undefined) runningScores[ev.killer] += 1;
-        if (isTeamMode && kTeam && (kTeam === 'BLUE' || kTeam === 'ORANGE')) runningTeamScores[kTeam] += 1;
-      }
-
-      let newLeader = '';
-      if (isTeamMode) {
-        if (runningTeamScores.BLUE > runningTeamScores.ORANGE) newLeader = 'BLUE';
-        else if (runningTeamScores.ORANGE > runningTeamScores.BLUE) newLeader = 'ORANGE';
-      } else {
-        let maxVal = -Infinity;
-        allPilotNames.forEach(p => {
-          if (runningScores[p] > maxVal) {
-            maxVal = runningScores[p];
-            newLeader = p;
-          }
-        });
-      }
-
-      if (newLeader && currentLeader && newLeader !== currentLeader) {
-        beats.push({
-          id: `beat-lead-${ev.id}`,
-          t: ev.t,
-          type: 'lead-change',
-          label: 'Lead Change',
-          description: isTeamMode
-            ? `Lead change — ${newLeader} takes the lead`
-            : `Lead change — ${newLeader} takes the lead (${runningScores[newLeader]} kills)`
-        });
-      }
-
-      if (newLeader) currentLeader = newLeader;
-
       // Spree x4+
       const spreeCallout = ev.callouts.find(c => c.startsWith('SPREE x'));
       if (spreeCallout) {
@@ -583,7 +510,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
 
     // Sort ascending by timestamp
     return beats.sort((a, b) => a.t - b.t);
-  }, [normalizedEvents, allPilotNames, isTeamMode, pilotTeamMap, matchDuration]);
+  }, [game, normalizedEvents, isTeamMode, matchDuration]);
 
   // Exit story mode helper
   const exitStoryMode = useCallback(() => {
