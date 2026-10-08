@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 import { pilotPass } from './statsPasses.js';
 import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
+import { firstBloodOf, killPoints, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
+import { ffaWithLog, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
@@ -191,5 +193,149 @@ describe('combatRatio and lethality', () => {
     it('gives the kills with no deaths and 0 per minute with no match time', () => {
         expect(combatRatio(7, 4, 0)).toBe(7);
         expect(lethality(7, 0)).toBe(0);
+    });
+});
+
+describe('kill log replay', () => {
+    const totals = rows => rows.map(r => [r.name, r.kills, r.deaths, r.assists]);
+    const tracker = game => game.players.map(p => [p.name, p.kills, p.deaths, p.assists]);
+
+    it('scores a kill +1 and a suicide or a team kill -1 for the attacker', () => {
+        expect(killPoints({ attacker: 'A', defender: 'B' })).toMatchObject({ scorer: 'A', side: 'a', points: 1, suicide: false });
+        expect(killPoints({ attacker: 'A', defender: ' a ' })).toMatchObject({ scorer: 'A', points: -1, suicide: true });
+        expect(killPoints({ attacker: 'A', attackerTeam: 'blue', defender: 'B', defenderTeam: 'ORANGE' }, true)).toMatchObject({ side: 'BLUE', points: 1 });
+        expect(killPoints({ attacker: 'A', attackerTeam: 'BLUE', defender: 'B', defenderTeam: 'BLUE' }, true)).toMatchObject({ side: 'BLUE', points: -1, suicide: false });
+        // In FFA a shared team label means nothing.
+        expect(killPoints({ attacker: 'A', attackerTeam: 'BLUE', defender: 'B', defenderTeam: 'BLUE' })).toMatchObject({ points: 1 });
+        expect(killPoints({ attacker: '', defender: 'B' })).toMatchObject({ scorer: null, points: 0 });
+    });
+
+    it('replays a team kill log to the tracker\'s totals and team score', () => {
+        const board = scoreboardAt(teamWithLog);
+        expect(totals(board.players)).toEqual(tracker(teamWithLog));
+        expect(Object.fromEntries(board.sides.map(s => [s.side, s.score]))).toEqual({ BLUE: 6, ORANGE: 4 });
+        expect(board.players.map(p => p.team)).toEqual(['ORANGE', 'BLUE', 'BLUE', 'ORANGE']);
+    });
+
+    it('replays an FFA log, and keeps the order whatever order the log is in', () => {
+        expect(totals(scoreboardAt(ffaWithLog).players)).toEqual(tracker(ffaWithLog));
+        const shuffled = { ...teamWithLog, kills: [...teamWithLog.kills].reverse() };
+        expect(scoreboardAt(shuffled, 60)).toEqual(scoreboardAt(teamWithLog, 60));
+    });
+
+    it('replays the scoreboard to a given second, that second included', () => {
+        const board = scoreboardAt(teamWithLog, 55);
+        expect(totals(board.players)).toEqual([['STITCH', 2, 1, 0], ['PHOENIX', 0, 1, 1], ['INSANER', 2, 1, 0], ['MAESTRO', 0, 1, 0]]);
+        expect(board.sides.map(s => [s.side, s.score])).toEqual([['BLUE', 2], ['ORANGE', 2]]);
+        expect(totals(scoreboardAt(teamWithLog, 0).players).every(([, k, d, a]) => k === 0 && d === 0 && a === 0)).toBe(true);
+    });
+
+    it('takes a suicide off the pilot and the team (detail sample: RONCLI -1)', () => {
+        const board = scoreboardAt(detailSample);
+        expect(totals(board.players)).toEqual([['RONCLI', -1, 1, 0]]);
+        expect(board.sides.find(s => s.side === 'BLUE').score).toBe(-1);
+    });
+
+    it('takes a team kill off the attacker and the team', () => {
+        const game = { ...teamWithLog, kills: [...teamWithLog.kills, { time: 200, attacker: 'STITCH', defender: 'MAESTRO', weapon: 'Flak' }] };
+        const board = scoreboardAt(game);
+        expect(board.players.find(p => p.name === 'STITCH').kills).toBe(2);
+        expect(board.players.find(p => p.name === 'MAESTRO').deaths).toBe(5);
+        expect(board.sides.find(s => s.side === 'ORANGE').score).toBe(3);
+    });
+
+    it('marks every change of the outright lead, not ties', () => {
+        expect(leadChanges(teamWithLog)).toEqual([
+            { t: 40, from: 'ORANGE', to: 'BLUE', score: 2 },
+            { t: 70, from: 'BLUE', to: 'ORANGE', score: 3 },
+            { t: 150, from: 'ORANGE', to: 'BLUE', score: 5 }
+        ]);
+        expect(leadChanges(ffaWithLog)).toEqual([{ t: 45, from: 'JFTP', to: '.', score: 2 }]);
+    });
+
+    it('counts a lead passing between two FFA pilots while the winner trails', () => {
+        const game = {
+            settings: { matchMode: 'ANARCHY' },
+            players: [{ name: 'A', kills: 3 }, { name: 'B', kills: 1 }, { name: 'C', kills: 1 }],
+            kills: [
+                { time: 1, attacker: 'B', defender: 'A' },
+                { time: 2, attacker: 'C', defender: 'A' },
+                { time: 3, attacker: 'C', defender: 'B' },
+                { time: 4, attacker: 'A', defender: 'B' },
+                { time: 5, attacker: 'C', defender: 'C' },
+                { time: 6, attacker: 'A', defender: 'C' },
+                { time: 7, attacker: 'A', defender: 'B' }
+            ]
+        };
+        expect(leadChanges(game).map(c => [c.t, c.from, c.to])).toEqual([[3, 'B', 'C'], [6, 'C', 'A']]);
+        expect(momentumOf(game).points.map(p => p.margin)).toEqual([0, -1, -1, -2, -1, 0, 1, 2]);
+    });
+
+    it('gives the winner\'s margin over the best other side after every kill', () => {
+        const momentum = momentumOf(teamWithLog);
+        expect(momentum).toMatchObject({ side: 'BLUE', name: 'BLUE' });
+        expect(momentum.points.map(p => [p.t, p.margin])).toEqual([
+            [0, 0], [10, -1], [25, 0], [40, 1], [55, 0], [70, -1], [90, -2], [110, -1], [130, 0], [150, 1], [180, 2]
+        ]);
+        expect(momentum.points[6].scores).toEqual([{ name: 'ORANGE', score: 4 }, { name: 'BLUE', score: 2 }]);
+        expect(momentum.points[6].kill.weapon).toBe('Missile Pod');
+        // A draw follows the side winnerOf ranks first.
+        expect(momentumOf(ffaWithLog).points.map(p => p.margin)).toEqual([0, 1, 0, -1, 0]);
+    });
+
+    it('has no momentum or lead changes without a kill log or for a mode not scored by kills', () => {
+        expect(momentumOf(byId(72102))).toBeNull();
+        expect(leadChanges(byId(72102))).toEqual([]);
+        expect(killScored(detailSample)).toBe(false); // MONSTERBALL
+        expect(momentumOf(detailSample)).toBeNull();
+        expect(leadChanges(detailSample)).toEqual([]);
+        expect(killScored(teamWithLog)).toBe(true);
+        expect(killScored({ settings: { matchMode: 'CTF' } })).toBe(false);
+    });
+
+    it('finds first blood, skipping suicides and team kills', () => {
+        expect(firstBloodOf(teamWithLog)).toMatchObject({ time: 10, attacker: 'STITCH', defender: 'PHOENIX', weapon: 'Impulse' });
+        const game = { ...teamWithLog, kills: [{ time: 2, attacker: 'STITCH', defender: 'STITCH' }, { time: 5, attacker: 'STITCH', defender: 'MAESTRO' }, ...teamWithLog.kills] };
+        expect(firstBloodOf(game).time).toBe(10);
+        expect(firstBloodOf(detailSample)).toBeNull();
+        expect(firstBloodOf(byId(72102))).toBeNull();
+    });
+
+    it('sorts weapons into families, with anything unknown as other', () => {
+        expect(weaponFamily('Missile Pod')).toBe('missile');
+        expect(weaponFamily(' thunderbolt ')).toBe('thunderbolt');
+        expect(weaponFamily('Miscellaneous')).toBe('other');
+        expect(weaponFamily(undefined)).toBe('other');
+        const listed = WEAPON_FAMILIES.flatMap(f => f.weapons);
+        expect(new Set(listed).size).toBe(listed.length);
+        expect(listed).toHaveLength(16);
+    });
+});
+
+describe('verdictOf', () => {
+    const verdict = game => verdictOf(winnerOf(game));
+
+    it('calls a win by a third or more a KO', () => {
+        expect(verdict(byId(72096))).toBe('ko'); // BLUE 14-5
+        expect(verdict(byId(72095))).toBe('ko'); // BLUE 11-5
+        expect(verdict(byId(72108))).toBe('ko'); // ZERGLING 48, RAPTOR 31
+    });
+
+    it('calls a clear but closer win a decision', () => {
+        expect(verdict(byId(72102))).toBe('decision'); // BLUE 42-35
+        expect(verdict(byId(72097))).toBe('decision'); // BLUE 64-49
+        expect(verdict(byId(72099))).toBe('decision'); // BLUE 6-4
+        expect(verdict(byId(72106))).toBe('decision'); // STITCH 29, XB1 23
+    });
+
+    it('calls a win by a tenth of the score or by 1 a split decision', () => {
+        expect(verdict({ ...byId(72102), teamScore: { BLUE: 43, ORANGE: 41 } })).toBe('split');
+        expect(verdict({ ...byId(72102), teamScore: { BLUE: 3, ORANGE: 2 } })).toBe('split');
+    });
+
+    it('calls a shared top score a draw, and has nothing for no result', () => {
+        expect(verdict(byId(72098))).toBe('draw');
+        expect(verdict(detailSample)).toBe('draw'); // Monsterball 1-1
+        expect(verdict({ ...byId(72102), teamScore: {} })).toBeNull();
     });
 });
