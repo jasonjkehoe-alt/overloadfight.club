@@ -74,8 +74,13 @@ as `5a09e5c`), with no owner commits after it.
 S12 is merged into `main` (PR #12, squash-merged 2026-10-08 13:21 UTC
 as `6bdeb97`), with no owner commits after it.
 
-S13 is on branch `ofc/s13-rating`, based on `6bdeb97`, PR #13 open
-against `main` and not merged, 2026-10-08 UTC.
+S13 is merged into `main` (PR #13, squash-merged 2026-10-08 15:28 UTC
+as `d7a81eb`), with no owner commits after it.
+
+A maintenance PR outside the numbered sessions moves the project to
+Node 26 and better-sqlite3 13 (see "Maintenance" in the queue): branch
+`ofc/node26`, based on `d7a81eb`, PR #14 open against `main` and not
+merged, 2026-10-08 UTC. S14 comes after it.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -86,10 +91,79 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 13 of 28 sessions done (S1 to S12 merged, PR for S13 open).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11.
+Counts: 13 of 28 sessions done (S1 to S13 merged).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 3/6. Phase 4: 0/11. The Node 26
+maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S12 merged into `main`, `main` at 6bdeb97, S13 on `ofc/s13-rating`)
+## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S13 merged into `main`, `main` at d7a81eb, Node 26 maintenance on `ofc/node26`)
+
+- Node 26, first move: `nvm install 26` reported v26.11.1 already
+  installed. `origin/main` was `d7a81eb` (2026-10-08T10:28:17-05:00), as
+  expected.
+- Node 26, install, on 26.11.1 (npm 11.20.0): `npm install
+  better-sqlite3@^13.0.3 @types/node@^26` resolved 13.0.3 and 26.6.4.
+  The lockfile lost 30 entries (`prebuild-install`, `bindings` and their
+  dependencies) and gained `node-addon-api`. Then `rm -rf node_modules
+  && npm ci` exited 0. better-sqlite3 13 has no install script of its
+  own, so npm ran its implicit `node-gyp rebuild` (the package has a
+  `binding.gyp`). Nothing compiled: `binding.gyp` makes both targets
+  empty when `lib/binding.js` finds a matching prebuild, and
+  `build/Release` held two stamp files, no `.node` and no `.o`. The
+  module loaded `prebuilds/darwin-arm64.node` and `select
+  sqlite_version()` returned 3.53.4. npm warns that the install scripts
+  of better-sqlite3, esbuild and fsevents are "not yet covered by
+  allowScripts" and runs them anyway.
+- Node 26, tests on `d57a852` (the code commit; the same files were
+  tested before it was made): `npx vitest run` passed 14 files, 193
+  tests on 26.11.1 (705 ms), then without reinstalling on 24.6.0 (954
+  ms) and on 22.17.0 (751 ms). Each run was under `timeout 300`; after
+  them `pgrep -fl vitest` showed no process from this worktree. It did
+  show two vitest fork workers (PIDs 82600 and 84696, Node 24.6.0) from
+  the `lush-sun-807e9623` worktree, at 99% CPU after 1 h 19 min. They
+  are not from this branch and were left running; cause not
+  investigated (flagged).
+- Node 26, types and build on 26.11.1: `npx tsc --noEmit` exited 0 with
+  `@types/node` 26.6.4 and TypeScript 5.8.3. `npx vite build` wrote the
+  entry `index-DHFRW1S6.js` at 231.49 KB raw / 74.16 KB gzip and
+  `PilotDetail-*.js` at 40.33 KB / 9.99 KB gzip, the same as S13.
+- Node 26, server on 26.11.1: `PORT=3100 DATA_DIR=/tmp/ofc-node26 npm
+  start` on an empty folder logged `Startup sync complete.` after about
+  2 s (25 matches from the tracker's page 1). `/api/health` answered
+  `{"status":"ok"}`, `/api/stats/global` `total_games: 25`,
+  `/api/stats/pilots` 18 pilots and `/api/stats/rankings` day
+  2026-10-08 with 2 ranked pilots; the stats worker wrote 20 rating
+  snapshots. SIGTERM logged `[Shutdown] Done.`
+- Node 26, image, on this Mac (Docker 29.2.1, arm64): `docker build
+  --no-cache -t ofc-node26 .` exited 0 on `node:26-alpine` (Node 26.10.0
+  in the image). In the build stage `npm ci` ran the same implicit
+  `node-gyp rebuild` and compiled nothing: the image has 0 `.o` files
+  under better-sqlite3's `build/` and loads
+  `prebuilds/linuxmusl-arm64.node` (SQLite 3.53.4). Three scratch builds
+  of `node:26-alpine` plus `npm ci` showed which tools that step needs:
+  with no toolchain `npm ci` fails with "gyp ERR! configure error ...
+  Could not find any Python installation to use"; with python3 alone it
+  fails with "gyp ERR! stack Error: not found: make"; with python3 and
+  make it exits 0, make enters and leaves the empty build folder, and no
+  object file is written. So python3 and make are used and g++ is not
+  (flagged).
+- Node 26, container: `docker run` with `ADMIN_PASSWORD` and
+  `SESSION_SECRET` set was `healthy` 5 s after start, `id` gave
+  `uid=1000(node)`, `/api/health` answered ok. `docker stop` exited 0
+  in 0.21 s, the exit code was 0 and the log ended `[Shutdown] Done.`
+  The image is 599 MB (598,778,245 bytes) against S6's 567 MB:
+  `node:26-alpine` is 180 MB against 164 MB for `node:22-alpine`, and
+  better-sqlite3 13 carries 16 MB of prebuilds for eight platforms.
+  Container and image removed afterwards.
+- Node 26, the step 5 `git grep` (Node versions, `nvm`,
+  `NODE_MODULE`, better-sqlite3 versions): outside this file it now
+  finds Node 26 in `README.md`, `ci.yml` and the Dockerfile, and Node
+  22 only in `docs/overload-fight-club-roadmap.html` (the plan dated
+  2026-10-06, left as written). In this file Node 22 and 24 remain only
+  in dated records: session-log lines, Validated entries, the S6
+  Done-when, the S6 decisions (marked superseded) and the resolved
+  postmortems.
+- Node 26, `npm audit`: 30 findings (1 low, 7 moderate, 19 high, 3
+  critical), the same count as `main`'s lockfile.
 
 - S13, first move on Node 22.17.0, on `main` at `6bdeb97` (PR #12
   merged): `npx vitest run` passed 14 files, 156 tests. `npx vite build`
@@ -1101,6 +1175,17 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11.
 
 ## NOT validated, do not claim these work
 
+- Node 26: nobody has run the new image on the NAS or opened its real
+  databases with better-sqlite3 13 (SQLite 3.53.4). The amd64 image is
+  checked only by docker-publish's pull-request build; this Mac builds
+  arm64.
+- Node 26: `npm run dev` was not run, on 26 or on the default 24.6.0.
+  The tests loading the same binary on 22, 24 and 26 suggest the
+  "Connection failed" postmortem is gone; nobody looked at the page.
+- Node 26: `node:26-alpine` is a Current release until 2026-10-28 and
+  the tag moves to each new 26.x; a later 26.x was not tried.
+- Node 26: `scripts/deploy-synology.ps1` and
+  `scripts/rebuild_and_deploy_nas.py` were not run.
 - S13 ran on the 40 local matches (39 rated, 5 with teams, one CTF),
   the sample fixtures and a synthetic history. Nobody has rated the
   NAS's 75,000 or so real matches: the ratings, who is ranked, the
@@ -1344,10 +1429,11 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11.
 - Repo: `git@github.com:jasonjkehoe-alt/overloadfight.club.git`. The local
   clone at `~/Repositories/claude/overloadfight.club` may be stale; always
   `git fetch origin` and base work on `origin/main`.
-- Node: use 22 (`nvm use 22`; 22.17.0 is installed). Node 24 cannot compile
-  `better-sqlite3`.
-- Install: `npm ci`. For a client-only build on Node 24, `npm ci
-  --ignore-scripts` works.
+- Node: use 26 (`nvm use` reads `.nvmrc`; 26.11.1 is installed). The nvm
+  default is 24.6.0. better-sqlite3 13 is one N-API binary, so the same
+  install also runs on 24.6.0 and 22.17.0, but check things on 26.
+- Install: `npm ci`. Nothing compiles: better-sqlite3 13 ships prebuilds
+  for darwin, linux and linuxmusl on x64 and arm64.
 - Build: `npx vite build` (do not use `npm run build`; its `prebuild` rewrites
   the tracked `public/version.json`).
 - Run locally: `PORT=3100 DATA_DIR=/tmp/ofc-data npm start`. The server creates
@@ -1368,15 +1454,15 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11.
 | Command | Expected | Last result | Date |
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
-| `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 14 files, 193 tests pass (S13) | 2026-10-08 |
+| `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
+| `npx vitest run` | all pass | 14 files, 193 tests pass on 26.11.1, then on 24.6.0 and 22.17.0 with the same install; no worker left (Node 26) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.49 KB raw / 74.16 KB gzip, pilot page `PilotDetail` 40.33 KB / 9.99 KB gzip (S13; 73.91 and 8.84 at S13's start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S13) | 2026-10-08 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 40`, dev mode without secrets; `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats` 23 games and 380 kills, `/api/health` ok (S13) | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.49 KB raw / 74.16 KB gzip, pilot page `PilotDetail` 40.33 KB / 9.99 KB gzip on 26.11.1 (Node 26, unchanged from S13; 73.91 and 8.84 at S13's start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed, `@types/node` 26.6.4 on 26.11.1 (Node 26) | 2026-10-08 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1 with a fresh `DATA_DIR=/tmp/ofc-node26`: `total_games: 25`, `/api/stats/pilots` 18 pilots, `/api/stats/rankings` 2 ranked, `/api/health` ok (Node 26). S13: `total_games: 40`, 24 pilots, `/api/pilot/WD-40/stats` 23 games and 380 kills | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
-| `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | healthy in about 9 s, uid 1000, 567 MB (S6) | 2026-10-07 |
-| Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | under 1 s, exit 0, no `-wal` left (S6) | 2026-10-07 |
+| `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine`, arm64: healthy in 5 s, uid 1000, 599 MB (Node 26; S6 on `node:22-alpine`: about 9 s, 567 MB) | 2026-10-08 |
+| Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
 | `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
 | Same server, `curl -w "%{time_total}" "localhost:3100/api/games?page=1"` more than 30 s after the last sync | answers from the DB, sync logged after | 200 in 0.0019 s, `[Sync] Fetching page 1` logged after it (S4) | 2026-10-06 |
 | Same server, `curl -D - -H "Accept-Encoding: gzip, deflate, br" localhost:3100/ffmpeg/ffmpeg-core.wasm` | `Content-Encoding: br`, short cache | br, 8,367,469 bytes, `public, max-age=3600` (S4) | 2026-10-06 |
@@ -1640,6 +1726,24 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 - [ ] **S26 Season Wrapped** (L).
 - [ ] **S27 Discord login, pilot claim, aliases** (L).
 - [ ] **S28 Taunt library, RSVP, nemesis push** (L). Depends on S27.
+
+### Maintenance (outside the phases)
+
+Not counted in the 28 sessions.
+
+- [ ] **Node 26 and better-sqlite3 13** (S). PR #14, branch `ofc/node26`.
+      Done when: package.json and the lockfile have better-sqlite3 13.x
+      and @types/node 26.x; `npm ci` on Node 26 installs with no native
+      compile; vitest passes on Node 26, 24.6.0 and 22.17.0 with no hung
+      workers; tsc is 0 errors; vite build passes; the local server
+      answers the four curls; the node:26-alpine image builds, reports
+      healthy as uid 1000 and stops cleanly; ci.yml uses Node 26; .nvmrc
+      says 26; the git grep in step 5 returns no present-tense claim of
+      Node 22 or 24; docs/ROADMAP.md has the status, the maintenance
+      item, the decision, the postmortems, Validated / NOT validated,
+      Verification rows and the session log updated; the S14 prompt names
+      Node 26; and the PR is open with CI and the docker-publish build
+      green.
 
 ## Decisions and deviations
 
@@ -1922,7 +2026,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   that deploy path needs no manual step; a pull of the GHCR image through
   `docker-compose.prod.yml` does (a [HUMAN] task). Rejected: an entrypoint
   that starts as root, chowns and drops to `node` (the container would
-  still start as root).
+  still start as root). (Superseded 2026-10-08 by the Node 26 decision.)
 - 2026-10-07 (S6): Dockerfile. The build stage has python3, make and g++
   (no git: `.dockerignore` leaves `.git` out of the context, so
   `generate-version.js` keeps the hash already in `public/version.json`),
@@ -1949,7 +2053,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   --noEmit`, `npx vite build` (not `npm run build`, which rewrites a
   tracked file), `npx vitest run`. `docker-publish.yml` already builds the
   image on pull requests without pushing, and the Dockerfile pins
-  `node:22-alpine`, so both workflows run on Node 22.
+  `node:22-alpine`, so both workflows run on Node 22. (Superseded
+  2026-10-08 by the Node 26 decision.)
 - 2026-10-07 (S6): Scripts. Of 28 scripts, `generate-version.js` stays
   (`prebuild` runs it), and so do the owner's two deploy scripts:
   `rebuild_and_deploy_nas.py` (added in `44e4792`, after the audit) and
@@ -2810,6 +2915,34 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   four requests and passes it to the card, so a mode change does not ask
   again. The thresholds in the card's words come from `gameParse.js`
   (`RANKED`, `RATED_MATCH_TEXT`, `RD_HINT`).
+- 2026-10-08 (Node 26, maintenance outside the sessions): The project
+  runs on Node 26 with better-sqlite3 13. From github.com/nodejs/Release
+  `schedule.json`, read 2026-10-08: Node 22 is in maintenance and reaches
+  end of life on 2027-04-30; Node 24 enters maintenance on 2026-10-20
+  and reaches end of life on 2028-04-30; Node 26 is Current (26.11.1
+  came out 2026-10-07), becomes LTS on 2026-10-28 and reaches end of
+  life on 2029-04-30. better-sqlite3 13.0.3 (2026-08-05) is the first
+  N-API release: one binary per platform loads on any Node from 22 up,
+  and the package ships prebuilds for darwin, linux and linuxmusl on
+  x64 and arm64, so nothing compiles. The same darwin-arm64 binary ran
+  the tests on 22.17.0, 24.6.0 and 26.11.1. The 12.0 and 13.0 release
+  notes list no API removals (12.0 dropped Node 18; 13.0 added
+  `db.explain()` and `statement.toString()`), and no server file
+  changed. `.nvmrc` says `26`, so a bare `nvm use` picks it; the nvm
+  default on the owner's Mac stays the owner's call. `@types/node` is
+  26 (26.6.4, which supports the pinned TypeScript ~5.8.2) so the types
+  match the runtime. Both Dockerfile stages use `node:26-alpine` and CI
+  uses Node 26. Until 2026-10-28 that image is a Current release, not
+  LTS, and the tag follows each 26.x. The build stage keeps python3,
+  make and g++: npm's implicit `node-gyp rebuild` needs python3 and make
+  even when it compiles nothing, and g++ is the fallback if no prebuild
+  matches. Rejected: staying on Node 22 with `nvm use 22` (end of life
+  in under seven months, and every shell on the default Node 24 fails to
+  load an 11.x binary built for 22); Node 24 (maintenance from
+  2026-10-20); `npm rebuild` on 11.x (11.10.0 has no Node 24 prebuild,
+  and compiling fails on Node 24 and in this Mac's Command Line Tools
+  linker). Rollback: revert the PR and pull the image; a Node 22 image
+  reads the same database files.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -3396,6 +3529,25 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   or below 10 matches during the week, and no ranks past 25.
 - (S13) The rating card's chart is pointer-only for its tooltip; the
   "Rating by day" table is the keyboard and screen-reader path.
+- (Node 26) g++ in the Dockerfile's build stage is unused: the build
+  loads better-sqlite3's linuxmusl prebuild and writes no object file.
+  Proposal: install python3 and make only. Both must stay, because npm's
+  implicit `node-gyp rebuild` fails without python3 (configure) or make
+  (build) even with nothing to compile. The cost is that a future
+  better-sqlite3 without a prebuild for the platform would fail the
+  build instead of compiling.
+- (Node 26) The runtime image carries better-sqlite3's prebuilds for the
+  seven other platforms (about 14 MB) and the SQLite source in `deps/`
+  (9.8 MB); `npm prune` keeps both. Deleting them in the build stage
+  would win back most of the 32 MB the image grew.
+- (Node 26) Two vitest fork workers from the `lush-sun-807e9623`
+  worktree (PIDs 82600 and 84696, Node 24.6.0) were at 99% CPU after
+  1 h 19 min on 2026-10-08. No run in this branch hung, on 26, 24 or 22.
+  Cause not investigated. The owner may want to kill them.
+- (Node 26) npm 11.19 and 11.20 warn that the install scripts of
+  better-sqlite3, esbuild and fsevents are "not yet covered by
+  allowScripts" and still run them. npm 12.2.0 is out; whether it runs
+  them unasked was not checked.
 
 ## Rollback
 
@@ -3434,18 +3586,46 @@ leave it (nothing older reads it).
 
 ## Postmortems
 
-### better-sqlite3 11.8 on Node 24
+### better-sqlite3 11.8 on Node 24 (resolved 2026-10-08)
 
 `npm ci` fails compiling `better-sqlite3@11.8.1` on Node 24.6. Use `nvm use 22`
 (22.17.0 installed) or `npm ci --ignore-scripts` for a client-only build.
 Measured 2026-10-06.
 
-### `nvm use 22` does not carry over between tool calls
+Resolved 2026-10-08 by the Node 26 maintenance PR: better-sqlite3 13 ships
+N-API prebuilds, so `npm ci` compiles nothing on Node 22, 24 or 26.
+
+### `nvm use 22` does not carry over between tool calls (resolved 2026-10-08)
 
 Each Bash tool call starts a fresh shell on the default Node (24). Running
 vitest there fails to load `better-sqlite3` (`NODE_MODULE_VERSION 127` vs
 `137`). Prefix every command that needs Node with `source ~/.nvm/nvm.sh &&
 nvm use 22 &&`. Seen 2026-10-06 in S3.
+
+Resolved 2026-10-08 by the Node 26 maintenance PR: the N-API binary loads on
+22, 24 and 26, so a shell left on the default Node no longer fails to load
+it. nvm still does not carry over; to run on the project's version, prefix
+with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
+
+### An ABI mismatch shows up as "Connection failed" under `npm run dev`
+
+With `node_modules` installed under Node 22 (better-sqlite3 11.10.0),
+`node server/index.js` on Node 24 dies at startup: `better_sqlite3.node`
+"was compiled against ... NODE_MODULE_VERSION 127. This version of Node.js
+requires NODE_MODULE_VERSION 137." Under `npm run dev`, concurrently keeps
+Vite up, so the page loads and every `/api` call fails; GameList shows
+"Connection failed". When the client says the server is down, read the
+server's half of the dev output first. Measured 2026-10-08 on 24.6.0.
+better-sqlite3 13 is N-API and does not depend on `NODE_MODULE_VERSION`.
+
+### The Command Line Tools on this Mac cannot link native modules
+
+Compiling better-sqlite3 11.10.0 for Node 24 fails in the linker: "tapi
+error: malformed file ... MacOSX27.0.sdk/usr/lib/libSystem.B.tbd ...
+unknown architecture". Nothing native builds here until the Command Line
+Tools are fixed. better-sqlite3 13 avoids it while its darwin prebuild
+matches; any new dependency that compiles will hit it. Measured 2026-10-08,
+not fixed.
 
 ### `npm run build` rewrites a tracked file
 
@@ -3909,6 +4089,20 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   a failed chart chunk taking the whole pilot page, and tests that could
   not fail for their stated reason; all fixed (the review-fixes entry
   under Validated).
+- 2026-10-08, Node 26 maintenance (Claude Opus 5.5), outside the
+  numbered sessions: better-sqlite3 13.0.3 and `@types/node` 26.6.4,
+  `node:26-alpine` in both Dockerfile stages, Node 26 in CI, `.nvmrc`,
+  README and this file's Environment, Verification and S14 prompt. No
+  server or client source changed. `origin/main` was `d7a81eb` as
+  expected. One install ran the tests on 26, 24 and 22. The user's
+  brief expected the Docker toolchain might turn out unused; a build
+  without it failed, because npm's implicit `node-gyp rebuild` needs
+  python3 and make even with nothing to compile, so only g++ is flagged
+  for removal. The image grew from 567 to 599 MB (base image and
+  prebuilds). The two hung vitest workers seen earlier belong to another
+  worktree; none hung here. `docs/overload-fight-club-roadmap.html` still
+  says the image uses Node 22 and stays as written (a dated plan). PR
+  #14 opened against `main`, not merged.
 
 ## Next session prompt
 
@@ -3924,6 +4118,7 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
+  If the Node 26 PR (ofc/node26) is still open, tell me before starting S14.
   S13 is on branch ofc/s13-rating, PR #13. PRs #1 to #12 are merged.
   If PR #13 is merged:
     git checkout -B ofc/s14-time-career origin/main
@@ -3932,9 +4127,9 @@ Set up:
     and open the S14 PR against main anyway; say in its description that it sits on PR #13.
   Check again before opening the PR: if PR #13 merged during the session, rebase onto origin/main first.
   The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #13 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
-  source ~/.nvm/nvm.sh && nvm use 22
+  source ~/.nvm/nvm.sh && nvm use 26
   npm ci
-`nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
+`nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
 If neither origin/main nor origin/ofc/s13-rating has docs/ROADMAP.md, stop and tell me.
 
 Before building, ask me the open question in the tracker: which time zone fight-night days (and so the heatmap, the calendar and the rating's snapshot day) are counted in. The tracker suggests US Central. Do not pick one silently.
@@ -3955,7 +4150,7 @@ Binding decisions, do not re-derive:
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
 - Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S13 left 231.49 KB raw / 74.16 KB gzip), the pilot page chunk (40.33 KB / 9.99 KB gzip) and whatever the dashboard loads, before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
-- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
+- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI): better-sqlite3 13 loads its N-API prebuild with no compile (see the Node 26 decision).
 - Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library.
 - No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (40 local matches at the end of S13). Check the UI in headless Chrome over CDP, as S4 and S7 to S13 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more pilots, matches or days than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy, not with `git checkout`, which also discards uncommitted work.
 
