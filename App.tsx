@@ -17,6 +17,7 @@ const LiveGameDetail = lazy(() => import('./components/LiveGameDetail'));
 const PilotDetail = lazy(() => import('./components/PilotDetail'));
 const PilotsList = lazy(() => import('./components/PilotsList'));
 const PowerRankings = lazy(() => import('./components/PowerRankings'));
+const ServerHistory = lazy(() => import('./components/ServerHistory'));
 const MapLibrary = lazy(() => import('./components/MapLibrary'));
 const OlmodInfo = lazy(() => import('./components/OlmodInfo'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
@@ -33,11 +34,13 @@ const App: React.FC = () => {
   const currentView = route.view;
   const selectedGameId = currentView === 'game-detail' ? Number(route.param) : null;
   const activeServerIp = currentView === 'live-game-detail' ? String(route.param) : null;
+  const historyServerIp = currentView === 'server' && route.param ? String(route.param) : null;
   const selectedPilot = currentView === 'pilot' ? String(route.param) : null;
   const selectedFightNightDate = currentView === 'fight-night' && route.param ? String(route.param) : undefined;
 
   const { games: activeGames, updatedAt: lastRefreshed, settled: browserSettled } = useServerBrowser();
   const activeServer = activeServerIp ? activeGames?.find(s => s.server?.ip === activeServerIp) : undefined;
+  const historyServer = historyServerIp ? activeGames?.find(s => s.server?.ip === historyServerIp) : undefined;
   const [archivedGames, setArchivedGames] = useState<GameData[] | null>(null);
   // The last match fetched, with its id: a page shows it only when the id is
   // its own, so match B never shows match A while B loads. data null = failed.
@@ -118,6 +121,7 @@ const App: React.FC = () => {
 
   const titleName = currentView === 'game-detail' ? selectedGameData?.settings?.level
     : currentView === 'live-game-detail' ? activeServer?.server?.name
+    : currentView === 'server' ? historyServer?.server?.name
     : undefined;
   useEffect(() => {
     document.title = pageTitle(route, titleName);
@@ -239,6 +243,14 @@ const App: React.FC = () => {
           ip={activeServerIp}
           serverData={activeServer}
           archivedGames={archivedGames}
+          onBack={() => goBack(urlFor('dashboard'))}
+        />
+      )}
+
+      {currentView === 'server' && historyServerIp && (
+        <ServerHistory
+          key={historyServerIp}
+          ip={historyServerIp}
           onBack={() => goBack(urlFor('dashboard'))}
         />
       )}

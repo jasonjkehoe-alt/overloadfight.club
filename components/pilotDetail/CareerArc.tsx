@@ -3,7 +3,7 @@ import { chart } from '../../designTokens.js';
 import { COMBAT_RATIO_HINT, LETHALITY_HINT, RANKED, WIN_RATE_HINT } from '../../server/lib/gameParse.js';
 import { monthLabel } from '../../server/lib/matchResult.js';
 import { CareerMonth } from '../../services/apiService';
-import DetailsTable from './DetailsTable';
+import DetailsTable from '../DetailsTable';
 
 type Field = 'matches' | 'winRate' | 'combatRatio' | 'lethality';
 const SERIES: { field: Field; label: string; format: (n: number) => string; hint?: string }[] = [

@@ -6,7 +6,7 @@ import { urlFor } from '../../server/lib/siteRoutes.js';
 import { RATING, RATING_HINT, RATED_MATCH_TEXT } from '../../server/lib/gameParse.js';
 import { PilotRating, RatingPoint } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
-import DetailsTable from './DetailsTable';
+import DetailsTable from '../DetailsTable';
 
 // Recharts is a large chunk the rest of the pilot page does not need, so the
 // chart renders behind its own Suspense (not the views' one). Its download

@@ -38,18 +38,22 @@ describe('server regions', () => {
     });
 
     it('counts the sample games by region and month, by IP when a match has no server', () => {
-        const pass = regionPass(new Map([[detailSample.ip, 'na-west']]));
-        for (const g of [...sample, detailSample]) pass.add({ id: g.id, date: g.date, ip: g.ip }, g);
-        pass.add({ id: 1, date: 'not a date', ip: null }, null);
+        const pass = regionPass(new Map([[detailSample.ip, 'na-west'], [sample[0].ip, 'asia']]));
+        // 72107 again without its server: Amsterdam 1's other matches name the IP, ahead of the listing
+        const { server, ...bare } = sample.find(g => g.id === 72107);
+        // and one Dallas match with the place-less notes of a fresh server
+        const dallas = { ...sample[0], id: 1, server: { ...sample[0].server, name: 'My Overload Server', notes: '' } };
+        for (const g of [...sample, detailSample, bare, dallas]) pass.add({ id: g.id, date: g.date, ip: g.ip }, g);
+        pass.add({ id: 2, date: 'not a date', ip: null }, null);
         const rows = pass.rows().sort((a, b) => (a.region + a.month < b.region + b.month ? -1 : 1));
         // the samples were played on the evening of 2025-11-23 and the day after (Chicago time)
         expect(rows).toEqual([
-            { region: 'europe', month: '2025-11', matches: 13 },
-            { region: 'na-central', month: '2025-11', matches: 3 },
+            { region: 'europe', month: '2025-11', matches: 14 },
+            { region: 'na-central', month: '2025-11', matches: 4 },
             { region: 'na-west', month: '2019-07', matches: 1 },
             { region: 'na-west', month: '2025-11', matches: 8 },
             { region: 'oceania', month: '2025-11', matches: 1 }
         ]);
-        expect(rows.reduce((a, r) => a + r.matches, 0)).toBe(sample.length + 1);
+        expect(rows.reduce((a, r) => a + r.matches, 0)).toBe(sample.length + 3);
     });
 });

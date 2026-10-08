@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Clock, Users, Trophy, Activity } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Trophy, Activity, History } from 'lucide-react';
 import { GameData, GameEvent, GameSettings } from '../types';
 import { apiService } from '../services/apiService';
 import JoinIp from './JoinIp';
@@ -125,12 +125,18 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                     <p>{error || "Match not found"}</p>
                     {ip && <div className="flex justify-center mt-4"><JoinIp ip={ip} /></div>}
                 </>}
-                action={
+                action={<>
                     <button onClick={onBack} className={secondaryButtonClass}>
                         <ArrowLeft className="w-4 h-4" />
                         Back
                     </button>
-                }
+                    {ip && (
+                        <Link to={urlFor('server', ip)} className={secondaryButtonClass}>
+                            <History className="w-4 h-4" />
+                            Server history
+                        </Link>
+                    )}
+                </>}
             />
         );
     }
@@ -170,7 +176,14 @@ const LiveGameDetail: React.FC<LiveGameDetailProps> = ({ ip, onBack, serverData 
                             <span className="w-1 h-1 rounded-full bg-gray-600" />
                             <span>{game.settings?.level || "Unknown Map"}</span>
                         </div>
-                        {ip && <div className="mt-2"><JoinIp ip={ip} /></div>}
+                        {ip && (
+                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                                <JoinIp ip={ip} />
+                                <Link to={urlFor('server', ip)} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-brand">
+                                    <History className="w-3.5 h-3.5" /> Server history
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 </div>
 

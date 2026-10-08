@@ -8,7 +8,8 @@ import MatchTimer from './MatchTimer';
 import LiveMatchCard from './LiveMatchCard';
 import CalendarWidget from './CalendarWidget';
 import ActivityHeatmap from './gameList/ActivityHeatmap';
-import { Database, Copy, Check, Server, Search } from 'lucide-react';
+import RegionShare from './gameList/RegionShare';
+import { Database, Copy, Check, Server, Search, History } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { CellLink, LinkCell } from './Link';
 import SortHeader from './SortHeader';
@@ -414,6 +415,14 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                         >
                                                             {copiedIp === item.server.ip ? <span className="text-green-400 text-2xs font-mono">Copied</span> : <Copy size={12} />}
                                                         </button>
+                                                        <Link
+                                                            to={urlFor('server', item.server.ip)}
+                                                            aria-label={`History of ${item.server.name}`}
+                                                            title="Server history"
+                                                            className="relative z-10 text-gray-500 hover:text-brand p-1"
+                                                        >
+                                                            <History size={12} />
+                                                        </Link>
                                                         <span className="text-xs font-mono px-2 py-0.5 rounded-control bg-surface-raised border border-line text-gray-400">
                                                             {item.game?.currentPlayers || 0}/{item.game?.maxPlayers || 8}
                                                         </span>
@@ -484,6 +493,14 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                                                                             <Copy size={11} className="opacity-50 hover:opacity-100" />
                                                                         )}
                                                                     </button>
+                                                                    <Link
+                                                                        to={urlFor('server', item.server.ip)}
+                                                                        aria-label={`History of ${item.server.name}`}
+                                                                        title="Server history"
+                                                                        className="text-gray-500 hover:text-brand transition-colors p-1 mt-3 rounded-control hover:bg-gray-800/60 inline-flex items-center"
+                                                                    >
+                                                                        <History size={11} className="opacity-50 hover:opacity-100" />
+                                                                    </Link>
                                                                     {/* the rest of the line opens the server too */}
                                                                     <CellLink to={url} aria-hidden className="flex-1 self-stretch" />
                                                                 </div>
@@ -550,6 +567,8 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                     {afterLive}
 
                     <ActivityHeatmap />
+
+                    <RegionShare />
 
                     {/* Recently Completed Matches (Top 3) */}
                     {historyGames && historyGames.length > 0 && (
