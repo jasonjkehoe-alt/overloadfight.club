@@ -230,6 +230,11 @@ describe('kill log replay', () => {
         expect(totals(scoreboardAt(teamWithLog, 0).players).every(([, k, d, a]) => k === 0 && d === 0 && a === 0)).toBe(true);
     });
 
+    it('counts a kill at a fraction of a second in that whole second', () => {
+        expect(scoreboardAt(detailSample, 51).players[0].deaths).toBe(0);
+        expect(scoreboardAt(detailSample, 52).players[0].deaths).toBe(1); // the suicide at 52.5000839
+    });
+
     it('takes a suicide off the pilot and the team (detail sample: RONCLI -1)', () => {
         const board = scoreboardAt(detailSample);
         expect(totals(board.players)).toEqual([['RONCLI', -1, 1, 0]]);

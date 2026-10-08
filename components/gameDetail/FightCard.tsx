@@ -84,7 +84,7 @@ const FightCard: React.FC<{ game: GameData }> = ({ game }) => {
                                 <Link to={urlFor('pilot', firstBlood.attacker)} className="text-white font-bold hover:text-brand hover:underline">
                                     {firstBlood.attacker}
                                 </Link>
-                                {' '}({firstBlood.weapon}, {clock(Number(firstBlood.time) || 0)})
+                                {' '}({firstBlood.weapon || 'unknown weapon'}, {clock(Number(firstBlood.time) || 0)})
                             </dd>
                         </div>
                     )}

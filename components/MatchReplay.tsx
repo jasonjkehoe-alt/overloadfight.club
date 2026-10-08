@@ -336,8 +336,8 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
     return sorted;
   }, [rawKills, pilotTeamMap]);
 
-  // Total match duration, the same span as the page's scrubber
-  const matchDuration = useMemo(() => replayLengthOf(game), [game]);
+  // Total match duration, the same span as the page's scrubber (300 s when nothing gives one)
+  const matchDuration = useMemo(() => replayLengthOf(game) || 300, [game]);
 
   // Full score & match state calculation at timestamp t
   const getFullStateAtTime = useCallback(
@@ -370,9 +370,10 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
           },
           isTeamMode
         );
-        if (scorer && pilotScores[scorer] !== undefined) {
-          pilotScores[scorer] += points;
-          scoreReachedAt[scorer] = ev.t;
+        // scorer is ev.killer trimmed; the replay keys pilots by the name as logged
+        if (scorer && pilotScores[ev.killer] !== undefined) {
+          pilotScores[ev.killer] += points;
+          scoreReachedAt[ev.killer] = ev.t;
         }
         if (isTeamMode && (side === 'BLUE' || side === 'ORANGE')) {
           teamScores[side] += points;

@@ -7,7 +7,7 @@ import {
     calculatePlayStyles, calculateKillHeatmap,
     calculateTeamSynergy
 } from '../utils/statCalculators';
-import { durationOf, firstBloodOf, weaponFamily } from '../server/lib/gameParse.js';
+import { durationOf, firstBloodOf, weaponFamily, WEAPON_FAMILIES } from '../server/lib/gameParse.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis } from 'recharts';
 import { colors, chart, chartTooltip, chartTooltipText } from '../designTokens.js';
 
@@ -18,6 +18,15 @@ interface MatchAnalysisProps {
 const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
     const nemesis = useMemo(() => calculateNemesis(game.kills), [game.kills]);
     const weaponStats = useMemo(() => calculateWeaponStats(game), [game]);
+    // Damage per weapon family, so each slice has its own colour, the family's
+    // colour on the momentum chart.
+    const familyDamage = useMemo(() => {
+        const damage = new Map<string, number>();
+        for (const w of weaponStats) damage.set(weaponFamily(w.name), (damage.get(weaponFamily(w.name)) || 0) + w.damage);
+        return [...WEAPON_FAMILIES, { id: 'other', label: 'Other' }]
+            .map(f => ({ id: f.id, name: f.label, damage: Math.round(damage.get(f.id) || 0) }))
+            .filter(f => f.damage > 0);
+    }, [weaponStats]);
     const streak = useMemo(() => calculateStreaks(game.kills), [game.kills]);
     const styles = useMemo(() => calculatePlayStyles(game), [game]);
     const firstBlood = useMemo(() => firstBloodOf(game), [game]);
@@ -104,11 +113,11 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
 
                 {/* Damage Distribution */}
                 <div className="bg-surface-card border border-line p-4 rounded-card h-80">
-                    <h3 className="text-white font-bold mb-4 text-sm uppercase">Damage Meta</h3>
+                    <h3 className="text-white font-bold mb-4 text-sm uppercase">Damage Meta (Weapon Families)</h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
-                                data={weaponStats}
+                                data={familyDamage}
                                 cx="50%"
                                 cy="50%"
                                 innerRadius={60}
@@ -116,8 +125,8 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                                 paddingAngle={5}
                                 dataKey="damage"
                             >
-                                {weaponStats.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={weaponColor(entry.name)} />
+                                {familyDamage.map(entry => (
+                                    <Cell key={entry.id} fill={chart.weapon[entry.id]} />
                                 ))}
                             </Pie>
                             <Tooltip 

@@ -206,8 +206,8 @@ export function killPoints(kill, team = false) {
     return { scorer, side, points: suicide || teamKill ? -1 : 1, suicide };
 }
 
-// Walks the kill log in time order (log order for equal times) up to second
-// `until`, keeping a scoreboard row per pilot and a score per side, and calls
+// Walks the kill log in time order (log order for equal times) through whole
+// second `until` (a kill at 52.5 counts at second 52), keeping a scoreboard row per pilot and a score per side, and calls
 // visit(t, kill, points) after each entry. Entries missing a team in a team
 // game take the pilot's team from game.players.
 function replayLog(game, until, visit) {
@@ -227,7 +227,7 @@ function replayLog(game, until, visit) {
         .map(kill => ({ kill, t: Number(kill?.time) || 0 }))
         .sort((a, b) => a.t - b.t);
     for (const { kill, t } of log) {
-        if (t > until) break;
+        if (Math.floor(t) > until) break;
         const entry = team
             ? { ...kill, attackerTeam: kill.attackerTeam || teamOfPilot(kill.attacker), defenderTeam: kill.defenderTeam || teamOfPilot(kill.defender) }
             : kill;
@@ -247,8 +247,8 @@ function replayLog(game, until, visit) {
     return { team, players: [...rows.values()], sides: [...sides.values()] };
 }
 
-// The scoreboard after every kill up to and including second `t` (all of
-// them by default): `players` has one row per pilot, in game.players order,
+// The scoreboard after every kill up to and including whole second `t` (all
+// of them by default): `players` has one row per pilot, in game.players order,
 // with { name, team, kills, deaths, assists }; `sides` has each side's
 // { side, name, score }, sides as in winnerOf().
 export function scoreboardAt(game, t = Infinity) {

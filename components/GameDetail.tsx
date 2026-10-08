@@ -163,7 +163,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
                 {activeTab === 'overview' && (
                     <>
                         {hasKillLog && <MatchScrubber game={game} end={replayEnd} time={time} onChange={setTime} />}
-                        <Scoreboard game={game} durationSec={durationSec} time={time} />
+                        <Scoreboard game={game} durationSec={durationSec} time={hasKillLog ? time : null} />
                         <MomentumChart game={game} end={replayEnd} time={time} onSeek={setTime} />
                         <MatchReplay game={game} mapImage={mapImage} />
                     </>

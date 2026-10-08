@@ -37,7 +37,7 @@ function MomentumTooltip({ active, payload, winner }: { active?: boolean; payloa
             {kill && (
                 <div className="flex items-center gap-2">
                     <span className="inline-block w-3 h-0.5" style={{ backgroundColor: chart.weapon[weaponFamily(kill.weapon)] }} />
-                    <span>{kill.attacker || 'Unknown'} → {kill.defender}, {kill.weapon || 'unknown weapon'}</span>
+                    <span>{kill.attacker || 'Unknown'} → {kill.defender || 'Unknown'}, {kill.weapon || 'unknown weapon'}</span>
                 </div>
             )}
         </div>
@@ -51,7 +51,50 @@ const MomentumChart: React.FC<MomentumChartProps> = ({ game, end, time, onSeek }
     const momentum = useMemo(() => momentumOf(game), [game]);
     const changes = useMemo(() => leadChanges(game), [game]);
 
-    if (!momentum) {
+    // Everything but the scrubber's line depends on the match alone, so a
+    // slider move redraws the cursor without rebuilding the chart's data.
+    const view = useMemo(() => {
+        if (!momentum) return null;
+        const { points } = momentum;
+        // a match whose length is unknown and whose kills carry no time spans 0 s
+        const span = Math.max(end, 1);
+        const data = [...points, { ...points[points.length - 1], t: span, kill: null }];
+        const margins = points.map(p => p.margin);
+        const top = Math.max(...margins);
+        const bottom = Math.min(...margins);
+        // where zero sits in the gradient, from the top of the plotted range
+        const zero = top <= 0 ? 0 : bottom >= 0 ? 1 : top / (top - bottom);
+
+        // Team games colour each side by its team; FFA has the winner against the field.
+        const result = winnerOf(game);
+        const other = result.team && result.ranking.length === 2 ? result.ranking[1] : null;
+        const teamColors: Record<string, string> = chart.team;
+        const winnerColor = (result.team && teamColors[momentum.side]) || chart.ffa.winner;
+        const otherColor = (other && teamColors[other.side]) || chart.ffa.field;
+        // A flat line has no height, and SVG does not paint a gradient over an empty box.
+        const flatColor = top === bottom ? (top < 0 ? otherColor : winnerColor) : null;
+
+        const killsByFamily = new Map<string, Point[]>(FAMILIES.map(f => [f.id, []]));
+        for (const p of points) if (p.kill) killsByFamily.get(weaponFamily(p.kill.weapon))!.push(p);
+        // the last margin at each time, for the lead-change markers
+        const marginAt = new Map(points.map(p => [p.t, p.margin]));
+
+        return {
+            span,
+            data,
+            zero,
+            winnerColor,
+            otherColor,
+            flatColor,
+            otherName: result.team ? (other?.name ?? 'the other teams') : 'the next best pilot',
+            ticks: Array.from({ length: Math.floor(span / 60) + 1 }, (_, i) => i * 60),
+            strips: FAMILIES.filter(f => f.id !== 'other' || killsByFamily.get('other')!.length > 0)
+                .map(f => ({ ...f, kills: killsByFamily.get(f.id)! })),
+            markers: changes.map(c => ({ t: c.t, margin: marginAt.get(c.t) ?? 0 })),
+        };
+    }, [momentum, changes, game, end]);
+
+    if (!momentum || !view) {
         const hasLog = Boolean(game.kills?.length);
         return (
             <EmptyState
@@ -65,28 +108,8 @@ const MomentumChart: React.FC<MomentumChartProps> = ({ game, end, time, onSeek }
         );
     }
 
-    const { points } = momentum;
-    const data = [...points, { ...points[points.length - 1], t: end, kill: null }];
-    const margins = points.map(p => p.margin);
-    const top = Math.max(...margins);
-    const bottom = Math.min(...margins);
-    // where zero sits in the gradient, from the top of the plotted range
-    const zero = top <= 0 ? 0 : bottom >= 0 ? 1 : top / (top - bottom);
-
-    // Team games colour each side by its team; FFA has the winner against the field.
-    const result = winnerOf(game);
-    const other = result.team && result.ranking.length === 2 ? result.ranking[1] : null;
-    const teamColors: Record<string, string> = chart.team;
-    const winnerColor = (result.team && teamColors[momentum.side]) || chart.ffa.winner;
-    const otherColor = (other && teamColors[other.side]) || chart.ffa.field;
-    const otherName = result.team ? (other?.name ?? 'the other teams') : 'the next best pilot';
-    const ticks = Array.from({ length: Math.floor(end / 60) + 1 }, (_, i) => i * 60);
-
-    const killsByFamily = new Map<string, Point[]>(FAMILIES.map(f => [f.id, []]));
-    for (const p of points) if (p.kill) killsByFamily.get(weaponFamily(p.kill.weapon))!.push(p);
-    const strips = FAMILIES.filter(f => f.id !== 'other' || killsByFamily.get('other')!.length > 0);
-    const at = (t: number) => `${Math.min(100, Math.max(0, (t / end) * 100))}%`;
-    const marginAt = (t: number) => [...points].reverse().find(p => p.t === t)?.margin ?? 0;
+    const { span, winnerColor, otherColor, otherName } = view;
+    const at = (t: number) => `${Math.min(100, Math.max(0, (t / span) * 100))}%`;
 
     return (
         <div className="bg-surface-card border border-line rounded-card p-4 font-mono">
@@ -106,7 +129,7 @@ const MomentumChart: React.FC<MomentumChartProps> = ({ game, end, time, onSeek }
             <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
-                        data={data}
+                        data={view.data}
                         margin={{ top: 8, right: RIGHT_GAP, bottom: 0, left: 0 }}
                         onClick={(state: { activeLabel?: string | number } | null) => {
                             const t = Number(state?.activeLabel);
@@ -116,20 +139,20 @@ const MomentumChart: React.FC<MomentumChartProps> = ({ game, end, time, onSeek }
                     >
                         <defs>
                             <linearGradient id={`${gradientId}-line`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset={zero} stopColor={winnerColor} />
-                                <stop offset={zero} stopColor={otherColor} />
+                                <stop offset={view.zero} stopColor={winnerColor} />
+                                <stop offset={view.zero} stopColor={otherColor} />
                             </linearGradient>
                             <linearGradient id={`${gradientId}-fill`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset={zero} stopColor={winnerColor} stopOpacity={0.12} />
-                                <stop offset={zero} stopColor={otherColor} stopOpacity={0.12} />
+                                <stop offset={view.zero} stopColor={winnerColor} stopOpacity={0.12} />
+                                <stop offset={view.zero} stopColor={otherColor} stopOpacity={0.12} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid stroke={chart.grid} vertical={false} />
                         <XAxis
                             dataKey="t"
                             type="number"
-                            domain={[0, end]}
-                            ticks={ticks}
+                            domain={[0, span]}
+                            ticks={view.ticks}
                             minTickGap={24}
                             tickFormatter={clock}
                             stroke={chart.axis}
@@ -141,14 +164,14 @@ const MomentumChart: React.FC<MomentumChartProps> = ({ game, end, time, onSeek }
                         <Area
                             type="stepAfter"
                             dataKey="margin"
-                            stroke={`url(#${gradientId}-line)`}
+                            stroke={view.flatColor ?? `url(#${gradientId}-line)`}
                             strokeWidth={2}
                             fill={`url(#${gradientId}-fill)`}
                             isAnimationActive={false}
                             activeDot={{ r: 4, fill: chart.ink, stroke: colors.surface.card, strokeWidth: 2 }}
                         />
-                        {changes.map(c => (
-                            <ReferenceDot key={c.t} x={c.t} y={marginAt(c.t)} r={4} fill={chart.ink} stroke={colors.surface.card} strokeWidth={2} />
+                        {view.markers.map(m => (
+                            <ReferenceDot key={m.t} x={m.t} y={m.margin} r={4} fill={chart.ink} stroke={colors.surface.card} strokeWidth={2} />
                         ))}
                         {time !== null && <ReferenceLine x={time} stroke={colors.brand.DEFAULT} strokeWidth={1} />}
                     </ComposedChart>
@@ -157,8 +180,7 @@ const MomentumChart: React.FC<MomentumChartProps> = ({ game, end, time, onSeek }
 
             <div className="mt-4 space-y-1.5" style={{ paddingLeft: AXIS_WIDTH, paddingRight: RIGHT_GAP }}>
                 <div className="text-2xs text-gray-500 uppercase tracking-widest">Kills by weapon</div>
-                {strips.map(f => {
-                    const kills = killsByFamily.get(f.id)!;
+                {view.strips.map(({ kills, ...f }) => {
                     const color = chart.weapon[f.id];
                     return (
                         <div key={f.id}>
@@ -173,7 +195,7 @@ const MomentumChart: React.FC<MomentumChartProps> = ({ game, end, time, onSeek }
                                         key={i}
                                         className="absolute top-0 bottom-0 w-0.5 -ml-px"
                                         style={{ left: at(p.t), backgroundColor: color }}
-                                        title={`${clock(p.t)} ${p.kill.attacker || 'Unknown'} → ${p.kill.defender}, ${p.kill.weapon}`}
+                                        title={`${clock(p.t)} ${p.kill.attacker || 'Unknown'} → ${p.kill.defender || 'Unknown'}, ${p.kill.weapon || 'unknown weapon'}`}
                                     />
                                 ))}
                                 {time !== null && <span className="absolute -top-0.5 -bottom-0.5 w-px bg-brand" style={{ left: at(time) }} />}
