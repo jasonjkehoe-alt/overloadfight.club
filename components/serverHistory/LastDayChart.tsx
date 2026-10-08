@@ -18,10 +18,18 @@ const LastDayChart: React.FC<{ ticks: ServerTick[]; now: number }> = ({ ticks, n
     const max = Math.max(4, ...ticks.map(t => t.players));
     const y = (players: number) => H - 2 - (players / max) * (H - 4);
 
+    // the line, and under it one area per run of minutes with a match running
     let path = '';
+    let band = '';
     ticks.forEach((t, i) => {
         const gap = i === 0 || t.at - ticks[i - 1].at > 2 * SNAPSHOT.everyMs;
         path += `${gap ? 'M' : 'L'}${x(t.at)},${y(t.players)}`;
+        const match = t.state === SERVER_STATE.match;
+        const inRun = !gap && ticks[i - 1].state === SERVER_STATE.match;
+        if (match && !inRun) band += `M${x(t.at)},${H - 1}`;
+        if (match) band += `L${x(t.at)},${y(t.players)}`;
+        const ends = i === ticks.length - 1 || ticks[i + 1].at - t.at > 2 * SNAPSHOT.everyMs || ticks[i + 1].state !== SERVER_STATE.match;
+        if (match && ends) band += `L${x(t.at)},${H - 1}Z`;
     });
 
     // per Chicago clock hour, oldest first: the most pilots and the minutes with a match
@@ -44,9 +52,7 @@ const LastDayChart: React.FC<{ ticks: ServerTick[]; now: number }> = ({ ticks, n
                 aria-label={`Pilots on the server over the last 24 hours, at most ${Math.max(0, ...ticks.map(t => t.players))}.`}>
                 <line x1="0" x2={MINUTES} y1={H - 1} y2={H - 1} stroke={chart.axis} strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 <line x1="0" x2={MINUTES} y1={y(max)} y2={y(max)} stroke={chart.grid} strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                {ticks.map(t => t.state === SERVER_STATE.match ? (
-                    <rect key={t.at} x={x(t.at)} y={y(t.players)} width={SNAPSHOT.everyMs / 60000} height={H - 1 - y(t.players)} fill={chart.series} opacity={0.2} />
-                ) : null)}
+                <path d={band} fill={chart.series} opacity={0.2} />
                 <path d={path} fill="none" stroke={chart.series} strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                 {hours.map(h => (
                     <rect key={h.hour} x={x(h.hour * HOUR_MS)} width={60} y="0" height={H} fill="transparent">

@@ -111,7 +111,7 @@ const ServerHistory: React.FC<{ ip: string; onBack: () => void }> = ({ ip, onBac
                         <h1 className="text-2xl font-bold text-white tracking-tight break-words">{name}</h1>
                         <div className="text-sm text-gray-400 mt-1 flex flex-wrap gap-x-2">
                             {data && <span>{regionLabel(data.region)}</span>}
-                            {data?.version && <span className="font-mono">{data.version}</span>}
+                            {data?.version && <span className="font-mono"><span aria-hidden>· </span>{data.version}</span>}
                         </div>
                         {data?.notes && <p className="text-xs text-gray-500 mt-1 break-words">{data.notes}</p>}
                         <div className="mt-2"><JoinIp ip={ip} /></div>
