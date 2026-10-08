@@ -12,12 +12,15 @@ import MatchScrubber from './gameDetail/MatchScrubber';
 import MomentumChart from './gameDetail/MomentumChart';
 import { getMapImage } from '../services/mapService';
 // The server's rules, so this page shows the result and length the stats count.
-import { durationOf, measuredDurationOf, replayLengthOf } from '../server/lib/gameParse.js';
+import { durationOf, hasKillLog, measuredDurationOf, replayLengthOf, scoreboardAt } from '../server/lib/gameParse.js';
 import { clock } from '../server/lib/matchResult.js';
 import { useQueryParam } from '../hooks/useLocation';
 import { useMatchTime } from '../hooks/useMatchTime';
 
 const TABS = ['overview', 'deep-dive', 'damage', 'timeline', 'analysis'] as const;
+
+// The replay ignores the scrubber, so a slider move need not re-render it.
+const Replay = React.memo(MatchReplay);
 
 interface GameDetailProps {
     game: GameData;
@@ -33,10 +36,12 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
     const durationSec = useMemo(() => durationOf(game), [game]);
     const durationIsLimit = durationSec > 0 && !measuredDurationOf(game);
 
-    // The scrubber's second (null at the end), shared by the scoreboard and the momentum chart.
+    // The scrubber's second (null at the end, and always null without a kill
+    // log), shared by the scoreboard and the momentum chart.
+    const hasLog = hasKillLog(game);
     const replayEnd = useMemo(() => replayLengthOf(game), [game]);
-    const [time, setTime] = useMatchTime(replayEnd);
-    const hasKillLog = Boolean(game.kills?.length);
+    const [time, setTime] = useMatchTime(hasLog ? replayEnd : 0);
+    const board = useMemo(() => (time === null ? null : scoreboardAt(game, time)), [game, time]);
 
     const renderTimeline = () => {
         let timelineEvents = [];
@@ -162,10 +167,10 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
             <div className="space-y-6">
                 {activeTab === 'overview' && (
                     <>
-                        {hasKillLog && <MatchScrubber game={game} end={replayEnd} time={time} onChange={setTime} />}
-                        <Scoreboard game={game} durationSec={durationSec} time={hasKillLog ? time : null} />
+                        {hasLog && <MatchScrubber game={game} end={replayEnd} time={time} board={board} onChange={setTime} />}
+                        <Scoreboard game={game} durationSec={durationSec} board={board} />
                         <MomentumChart game={game} end={replayEnd} time={time} onSeek={setTime} />
-                        <MatchReplay game={game} mapImage={mapImage} />
+                        <Replay game={game} mapImage={mapImage} />
                     </>
                 )}
 
@@ -173,7 +178,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
                 {activeTab === 'damage' && <DamageMatrix game={game} />}
                 {activeTab === 'timeline' && (
                     <div className="space-y-6">
-                        <MatchReplay game={game} mapImage={mapImage} />
+                        <Replay game={game} mapImage={mapImage} />
                         {renderTimeline()}
                     </div>
                 )}

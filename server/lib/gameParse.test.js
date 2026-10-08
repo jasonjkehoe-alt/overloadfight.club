@@ -278,7 +278,7 @@ describe('kill log replay', () => {
 
     it('gives the winner\'s margin over the best other side after every kill', () => {
         const momentum = momentumOf(teamWithLog);
-        expect(momentum).toMatchObject({ side: 'BLUE', name: 'BLUE' });
+        expect(momentum).toMatchObject({ side: 'BLUE', name: 'BLUE', team: true, runnerUp: { side: 'ORANGE' } });
         expect(momentum.points.map(p => [p.t, p.margin])).toEqual([
             [0, 0], [10, -1], [25, 0], [40, 1], [55, 0], [70, -1], [90, -2], [110, -1], [130, 0], [150, 1], [180, 2]
         ]);
@@ -290,10 +290,11 @@ describe('kill log replay', () => {
 
     it('has no momentum or lead changes without a kill log or for a mode not scored by kills', () => {
         expect(momentumOf(byId(72102))).toBeNull();
-        expect(leadChanges(byId(72102))).toEqual([]);
+        expect(leadChanges(byId(72102))).toBeNull();
         expect(killScored(detailSample)).toBe(false); // MONSTERBALL
         expect(momentumOf(detailSample)).toBeNull();
-        expect(leadChanges(detailSample)).toEqual([]);
+        expect(leadChanges(detailSample)).toBeNull();
+        expect(leadChanges({ ...ffaWithLog, kills: ffaWithLog.kills.slice(0, 2) })).toEqual([]);
         expect(killScored(teamWithLog)).toBe(true);
         expect(killScored({ settings: { matchMode: 'CTF' } })).toBe(false);
     });

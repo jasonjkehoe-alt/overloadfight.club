@@ -5,19 +5,21 @@ import { teamColor } from './teamColor';
 import { urlFor } from '../../server/lib/siteRoutes.js';
 import { combatRatio, netKills, pilotKey, scoreboardAt, COMBAT_RATIO_HINT } from '../../server/lib/gameParse.js';
 
+type Board = ReturnType<typeof scoreboardAt>;
+
 const NO_DAMAGE_TIMES = 'The damage log has no times, so damage shows for the whole match only.';
 
 interface ScoreboardProps {
     game: GameData;
     durationSec: number;
-    // the scrubber's second, or null for the final scoreboard
-    time: number | null;
+    // scoreboardAt() at the scrubber's second, or null for the final scoreboard
+    board: Board | null;
 }
 
 // The overview tab's table. At the end it shows the tracker's own numbers;
 // scrubbed back, kills, assists, deaths and Combat Ratio come from the kill
 // log replayed to that second, and the order follows them.
-const Scoreboard: React.FC<ScoreboardProps> = ({ game, durationSec, time }) => {
+const Scoreboard: React.FC<ScoreboardProps> = ({ game, durationSec, board }) => {
     const finalRows = useMemo(() => {
         if (!game.players) return [];
 
@@ -45,15 +47,15 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ game, durationSec, time }) => {
     }, [game, durationSec]);
 
     const rows = useMemo(() => {
-        if (time === null) return finalRows;
-        const replayed = new Map(scoreboardAt(game, time).players.map(r => [pilotKey(r.name), r]));
+        if (!board) return finalRows;
+        const replayed = new Map(board.players.map(r => [pilotKey(r.name), r]));
         return finalRows.map(p => {
             const r = replayed.get(pilotKey(p.name)) ?? { kills: 0, assists: 0, deaths: 0 };
             return { ...p, kills: r.kills, assists: r.assists, deaths: r.deaths, kda: combatRatio(netKills(r), r.assists, r.deaths) };
         }).sort((a, b) => b.kills - a.kills);
-    }, [game, time, finalRows]);
+    }, [board, finalRows]);
 
-    const scrubbed = time !== null;
+    const scrubbed = board !== null;
 
     return (
         <div className="bg-surface-card border border-line rounded-card overflow-hidden overflow-x-auto">

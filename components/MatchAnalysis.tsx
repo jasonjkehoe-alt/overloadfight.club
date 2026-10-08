@@ -23,7 +23,7 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
     const familyDamage = useMemo(() => {
         const damage = new Map<string, number>();
         for (const w of weaponStats) damage.set(weaponFamily(w.name), (damage.get(weaponFamily(w.name)) || 0) + w.damage);
-        return [...WEAPON_FAMILIES, { id: 'other', label: 'Other' }]
+        return WEAPON_FAMILIES
             .map(f => ({ id: f.id, name: f.label, damage: Math.round(damage.get(f.id) || 0) }))
             .filter(f => f.damage > 0);
     }, [weaponStats]);

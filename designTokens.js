@@ -40,7 +40,7 @@ export const chart = {
   team: { BLUE: '#3987e5', ORANGE: '#d95926' },
   // FFA charts: the winner, and everyone else as one side
   ffa: { winner: '#d95926', field: '#3987e5' },
-  // keyed by gameParse.js WEAPON_FAMILIES ids, in that order, plus 'other'
+  // keyed by gameParse.js WEAPON_FAMILIES ids, in that order
   weapon: {
     laser: '#3987e5',
     thunderbolt: '#d95926',

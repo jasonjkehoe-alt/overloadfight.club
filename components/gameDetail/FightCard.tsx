@@ -3,7 +3,7 @@ import { GameData } from '../../types';
 import Link from '../Link';
 import { teamColor } from './teamColor';
 import { urlFor } from '../../server/lib/siteRoutes.js';
-import { winnerOf, verdictOf, leadChanges, firstBloodOf, killScored, VERDICT_LABEL, VERDICT_HINT } from '../../server/lib/gameParse.js';
+import { winnerOf, verdictOf, leadChanges, firstBloodOf, VERDICT_LABEL, VERDICT_HINT } from '../../server/lib/gameParse.js';
 import { clock, resultLine } from '../../server/lib/matchResult.js';
 
 const PODIUM = [['1st', 'text-yellow-400'], ['2nd', 'text-gray-300'], ['3rd', 'text-amber-600']];
@@ -13,8 +13,8 @@ const PODIUM = [['1st', 'text-yellow-400'], ['2nd', 'text-gray-300'], ['3rd', 't
 const FightCard: React.FC<{ game: GameData }> = ({ game }) => {
     const result = useMemo(() => winnerOf(game), [game]);
     const verdict = verdictOf(result);
-    const hasLog = Boolean(game.kills?.length);
-    const changes = useMemo(() => (hasLog && killScored(game) ? leadChanges(game).length : null), [game, hasLog]);
+    // null when the match has no kill log or is not scored by kills
+    const changes = useMemo(() => leadChanges(game)?.length ?? null, [game]);
     const firstBlood = useMemo(() => firstBloodOf(game), [game]);
 
     return (

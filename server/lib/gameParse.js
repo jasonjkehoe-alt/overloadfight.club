@@ -185,6 +185,10 @@ export function playerRows(game) {
 
 const KILL_SCORED_MODES = new Set(['ANARCHY', 'TEAM ANARCHY']);
 
+export function hasKillLog(game) {
+    return Array.isArray(game?.kills) && game.kills.length > 0;
+}
+
 // True when the match's score is its kills, so the kill log replays the
 // score. CTF and Monsterball score captures and goals, and Race laps.
 export function killScored(game) {
@@ -207,9 +211,10 @@ export function killPoints(kill, team = false) {
 }
 
 // Walks the kill log in time order (log order for equal times) through whole
-// second `until` (a kill at 52.5 counts at second 52), keeping a scoreboard row per pilot and a score per side, and calls
-// visit(t, kill, points) after each entry. Entries missing a team in a team
-// game take the pilot's team from game.players.
+// second `until` (a kill at 52.5 counts at second 52), keeping a scoreboard
+// row per pilot and a score per side, and calls visit(t, kill, points, sides)
+// after each entry, `sides` being the live map. Entries missing a team in a
+// team game take the pilot's team from game.players.
 function replayLog(game, until, visit) {
     const { team, ranking } = winnerOf(game);
     const rows = new Map();
@@ -274,9 +279,10 @@ function soleLeader(sides) {
 // [{ t, from, to, score }] with display names and the new leader's score. A
 // level score leaves the lead where it was, so A, level, A again is no
 // change, and A, level, B is one, at B's go-ahead kill. Taking the first lead
-// is not a change. Empty unless the match is killScored().
+// is not a change. Null when the match has no kill log or is not
+// killScored(), so "none apply" differs from "there were none".
 export function leadChanges(game) {
-    if (!killScored(game)) return [];
+    if (!hasKillLog(game) || !killScored(game)) return null;
     const changes = [];
     let leader = null;
     replayLog(game, Infinity, (t, kill, points, sides) => {
@@ -289,14 +295,16 @@ export function leadChanges(game) {
 }
 
 // The eventual winner's margin over the best other side, from 0:00 and after
-// every kill: { side, name, points: [{ t, margin, kill, scores }] }, where
+// every kill: { side, name, runnerUp, team, points: [{ t, margin, kill, scores }] },
+// where `runnerUp` is winnerOf()'s second-ranked side (or null), and
 // `scores` lists every side's { name, score } at that moment, best first. The
 // winner is winnerOf()'s first-ranked side, so in a draw it is the side ranked
 // first. Null for a match that is not killScored(), has no kill log or has
 // fewer than two sides.
 export function momentumOf(game) {
-    if (!killScored(game) || !Array.isArray(game?.kills) || game.kills.length === 0) return null;
-    const winner = winnerOf(game).ranking[0];
+    if (!hasKillLog(game) || !killScored(game)) return null;
+    const { team, ranking } = winnerOf(game);
+    const winner = ranking[0];
     if (!winner) return null;
     const snapshot = sides => [...sides.values()].map(s => ({ name: s.name, score: s.score })).sort((a, b) => b.score - a.score);
     const marginOf = sides => {
@@ -310,7 +318,7 @@ export function momentumOf(game) {
     });
     if (sides.length < 2) return null;
     const start = sides.map(s => ({ name: s.name, score: 0 }));
-    return { side: winner.side, name: winner.name, points: [{ t: 0, margin: 0, kill: null, scores: start }, ...points] };
+    return { side: winner.side, name: winner.name, runnerUp: ranking[1] ?? null, team, points: [{ t: 0, margin: 0, kill: null, scores: start }, ...points] };
 }
 
 // The first kill on an opponent (not a suicide, not a team kill), or null.
@@ -323,7 +331,7 @@ export function firstBloodOf(game) {
 }
 
 // Weapon families for the charts: one colour each (designTokens.js `chart.weapon`),
-// in this order. A weapon not listed is 'other'.
+// in this order. A weapon not listed is 'other', the last entry.
 export const WEAPON_FAMILIES = [
     { id: 'laser', label: 'Impulse, Cyclone, Reflex', weapons: ['IMPULSE', 'CYCLONE', 'REFLEX'] },
     { id: 'thunderbolt', label: 'Thunderbolt', weapons: ['THUNDERBOLT'] },
@@ -332,6 +340,7 @@ export const WEAPON_FAMILIES = [
     { id: 'missile', label: 'Falcon, Missile Pod, Hunter', weapons: ['FALCON', 'MISSILE POD', 'HUNTER'] },
     { id: 'mine', label: 'Creeper, Time Bomb', weapons: ['CREEPER', 'TIME BOMB'] },
     { id: 'heavy', label: 'Nova, Devastator, Vortex', weapons: ['NOVA', 'DEVASTATOR', 'VORTEX'] },
+    { id: 'other', label: 'Other', weapons: [] },
 ];
 
 const FAMILY_OF_WEAPON = new Map(WEAPON_FAMILIES.flatMap(f => f.weapons.map(w => [w, f.id])));

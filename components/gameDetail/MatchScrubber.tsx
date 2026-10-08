@@ -1,6 +1,6 @@
-import React, { useId, useMemo } from 'react';
+import React, { useId } from 'react';
 import { GameData } from '../../types';
-import { scoreboardAt, killScored, winnerOf } from '../../server/lib/gameParse.js';
+import { scoreboardAt, killScored } from '../../server/lib/gameParse.js';
 import { clock } from '../../server/lib/matchResult.js';
 import { secondaryButtonClass } from '../States';
 
@@ -9,22 +9,20 @@ interface MatchScrubberProps {
     // seconds the slider spans, from replayLengthOf()
     end: number;
     time: number | null;
+    // scoreboardAt() at `time`, null at the end
+    board: ReturnType<typeof scoreboardAt> | null;
     onChange: (seconds: number | null) => void;
 }
 
-// "BLUE 23–18 ORANGE", or "ZERGLING leads on 20", at the given second, with
-// teams in the order the final result ranks them. Empty for modes whose
-// score is not kills.
-function scoreAt(game: GameData, time: number): string {
+// "BLUE 23–18 ORANGE", or "ZERGLING leads on 20", from a scoreboardAt()
+// result, whose sides come in the order the final result ranks them. Empty
+// for modes whose score is not kills.
+function scoreLine(game: GameData, { team, sides }: NonNullable<MatchScrubberProps['board']>): string {
     if (!killScored(game)) return '';
-    const { team, sides } = scoreboardAt(game, time);
     if (team) {
-        const order = winnerOf(game).ranking.map(r => r.side);
-        const rank = (side: string) => (order.indexOf(side) + 1) || order.length + 1;
-        const ranked = [...sides].sort((a, b) => rank(a.side) - rank(b.side));
-        return ranked.length === 2
-            ? `${ranked[0].name} ${ranked[0].score}–${ranked[1].score} ${ranked[1].name}`
-            : ranked.map(s => `${s.name} ${s.score}`).join(', ');
+        return sides.length === 2
+            ? `${sides[0].name} ${sides[0].score}–${sides[1].score} ${sides[1].name}`
+            : sides.map(s => `${s.name} ${s.score}`).join(', ');
     }
     const top = Math.max(...sides.map(s => s.score));
     const leaders = sides.filter(s => s.score === top).map(s => s.name);
@@ -34,11 +32,11 @@ function scoreAt(game: GameData, time: number): string {
 
 // The slider that replays the scoreboard through the match. Its far right is
 // the final scoreboard (time null).
-const MatchScrubber: React.FC<MatchScrubberProps> = ({ game, end, time, onChange }) => {
+const MatchScrubber: React.FC<MatchScrubberProps> = ({ game, end, time, board, onChange }) => {
     const id = useId();
     const max = Math.ceil(end);
     const position = time ?? max;
-    const score = useMemo(() => (time === null ? '' : scoreAt(game, time)), [game, time]);
+    const score = time === null || !board ? '' : scoreLine(game, board);
     const label = time === null ? 'Final scoreboard' : `${clock(time)}${score ? `, ${score}` : ''}`;
 
     return (
@@ -55,10 +53,7 @@ const MatchScrubber: React.FC<MatchScrubberProps> = ({ game, end, time, onChange
                 step={1}
                 value={position}
                 aria-valuetext={label}
-                onChange={e => {
-                    const seconds = Number(e.target.value);
-                    onChange(seconds >= max ? null : seconds);
-                }}
+                onChange={e => onChange(Number(e.target.value))}
                 className="w-full accent-brand cursor-pointer"
             />
             <div className="flex items-center justify-between gap-2 mt-2 text-2xs text-gray-500">
