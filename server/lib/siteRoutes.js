@@ -23,7 +23,8 @@ const ROUTES = [
     // detail pages: always a parameter; without one they fall back to `bare`
     { view: 'pilot', path: '/pilot', param: true, bare: 'pilot-manager' },
     { view: 'game-detail', path: '/game', param: true, bare: 'history' },
-    { view: 'live-game-detail', path: '/live', param: true, bare: 'dashboard' }
+    { view: 'live-game-detail', path: '/live', param: true, bare: 'dashboard' },
+    { view: 'server', path: '/server', param: true, bare: 'dashboard', section: 'dashboard' }
 ];
 const byView = new Map(ROUTES.map(r => [r.view, r]));
 
@@ -69,7 +70,7 @@ export function urlFor(view, param) {
 
 /**
  * "<page> | overloadfight.club". `name` is what the page shows that the URL
- * may not: a match's map, a live server's name.
+ * may not: a match's map, a server's name.
  * @param {{ view: string, param?: string | number }} route
  * @param {string} [name]
  * @returns {string}
@@ -81,6 +82,7 @@ export function pageTitle({ view, param }, name) {
     else if (view === 'fight-night' && param) page = `Fight Night ${param}`;
     else if (view === 'game-detail') page = `Match ${param}${name ? `: ${name}` : ''}`;
     else if (view === 'live-game-detail') page = `Live: ${name || param}`;
+    else if (view === 'server') page = `Server: ${name || param}`;
     return page ? `${page} | ${SITE_NAME}` : SITE_NAME;
 }
 

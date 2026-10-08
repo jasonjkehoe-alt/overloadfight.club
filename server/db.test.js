@@ -479,9 +479,9 @@ describe('backup and restore (backupHot, restoreHot)', () => {
     it('copies the live database and writes the copy back into it', async () => {
         const copy = path.join(dataDir, 'copy.db');
         await db.backupHot(copy);
-        // as a backup from before S13 and S14
+        // as a backup from before S13, S14 and S15
         const old = new Database(copy);
-        old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months');
+        old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months; DROP TABLE region_months; DROP TABLE servers; DROP TABLE server_snapshots; DROP TABLE server_hours');
         old.close();
         const today = fightNightDay(Date.now());
         expect(db.hasRatingSnapshots()).toBe(true);
@@ -498,6 +498,9 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         // the table is back, empty until the next refresh, and the rankings held in memory are gone
         expect(db.hasRatingSnapshots()).toBe(false);
         expect(db.hasPilotMonths()).toBe(false);
+        expect(db.hasRegionMonths()).toBe(false);
+        expect(db.getRegionShare().months).toEqual([]);
+        expect(db.getServerHistory('143.110.230.67', 30)).toMatchObject({ firstSeen: null, samples: 0 });
         expect(db.getPilotCareer('JFTP').months).toEqual([]);
         expect(db.getPilotRating('JFTP').history).toEqual([]);
         expect(db.getPowerRankings(today).total).toBe(0);

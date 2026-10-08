@@ -2,7 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import cacheService from '../services/cacheService.js';
 
-// /stats/*: site totals, the archive's deep stats, the leaderboard, the power rankings, the active-pilot count, map stats, the activity timeline and heatmap.
+// /stats/*: site totals, the archive's deep stats, the leaderboard, the power rankings, the active-pilot count, map stats, the activity timeline and heatmap, the region share.
 const router = express.Router();
 
 // GET /api/stats/global - Global Database Statistics
@@ -159,6 +159,18 @@ router.get('/stats/heatmap', async (req, res) => {
     } catch (e) {
         console.error("Heatmap Error:", e);
         res.status(500).json({ error: "Failed to fetch activity heatmap" });
+    }
+});
+
+// GET /api/stats/regions - Stored matches per server region per month (S15),
+// from region_months, which each stats refresh brings in line; no route cache,
+// so the answer is never older than the table.
+router.get('/stats/regions', (req, res) => {
+    try {
+        res.json(db.getRegionShare());
+    } catch (e) {
+        console.error("Region share Error:", e);
+        res.status(500).json({ error: "Failed to fetch region share" });
     }
 });
 

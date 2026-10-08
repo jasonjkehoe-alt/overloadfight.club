@@ -7,12 +7,24 @@
 import fs from 'fs';
 import { parentPort, workerData } from 'worker_threads';
 import Database from 'better-sqlite3';
-import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS, archivePass, mapPass, pilotPass, ratingPass } from './lib/statsPasses.js';
+import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS, REGION_MONTH_COLUMNS, archivePass, mapPass, pilotPass, ratingPass, regionPass } from './lib/statsPasses.js';
+import { regionOf } from './lib/serverRegions.js';
 
 const PAGE_SIZE = 500;
 const { hotPath, coldPath, thirtyDaysAgo } = workerData;
 
-const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass() };
+// Each stored server's region by IP, for matches stored without a server name
+// (S15). Read once, before the scan.
+function regionsByIp() {
+    const conn = new Database(hotPath, { readonly: true, fileMustExist: true });
+    try {
+        return new Map(conn.prepare('SELECT ip, name, notes FROM servers').all().map(s => [s.ip, regionOf(s.name, s.notes)]));
+    } finally {
+        conn.close();
+    }
+}
+
+const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass(), regions: regionPass(regionsByIp()) };
 // A pass that throws stops on its own; the others carry on, as when each pass
 // ran its own scan.
 const errors = {};
@@ -52,7 +64,7 @@ for (const file of [hotPath, coldPath]) {
 }
 
 // What the main thread must write to bring a derived table (rating_snapshots,
-// pilot_months) in line with the rows this pass built: the rows that are new or
+// pilot_months, region_months) in line with the rows this pass built: the rows that are new or
 // differ, and the keys (two columns, `columns[0]` and `columns[1]`) the pass no
 // longer has. Most refreshes change only the latest days or months, so this
 // keeps a rewrite of every row off the main thread.
@@ -93,11 +105,20 @@ if (!errors.pilots) {
         errors.months = err.message;
     }
 }
+let regions = null;
+if (!errors.regions) {
+    try {
+        regions = tableChanges('region_months', REGION_MONTH_COLUMNS, passes.regions.rows());
+    } catch (err) {
+        errors.regions = err.message;
+    }
+}
 parentPort.postMessage({
     errors,
     pilots,
     archive: errors.archive || errors.pilots ? null : passes.archive.payload(pilots, { hotDbSize: size(hotPath), coldDbSize: size(coldPath) }),
     maps: errors.maps ? null : passes.maps.rows(),
     ratings,
-    months
+    months,
+    regions
 });

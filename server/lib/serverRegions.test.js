@@ -1,0 +1,55 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { describe, expect, it } from 'vitest';
+import { REGIONS, regionLabel, regionOf, serverLocation } from './serverRegions.js';
+import { regionPass } from './statsPasses.js';
+
+const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const sample = JSON.parse(fs.readFileSync(path.join(repoRoot, 'gamelist_sample.json'), 'utf8')).games;
+const detailSample = JSON.parse(fs.readFileSync(path.join(repoRoot, 'game_detail_sample.json'), 'utf8'));
+
+describe('server regions', () => {
+    it('names the region of every server in the sample games from its name and notes', () => {
+        const byName = Object.fromEntries(sample.map(g => [g.server.name, regionOf(g.server.name, g.server.notes)]));
+        expect(byName).toEqual({
+            'Overloader: Dallas, TX': 'na-central',
+            'Amsterdam 1': 'europe',
+            'A-Garage-server': 'europe', // nothing in its notes; the name
+            'Overloader: Amsterdam': 'europe',
+            'San Francisco 1': 'na-west',
+            'Overloader: San Jose, CA': 'na-west',
+            'Sydney 1': 'oceania'
+        });
+    });
+
+    it('reads the notes when the name says nothing, and calls the rest Unknown', () => {
+        expect(regionOf('Descent Forum box', 'Real Dedi in Europe, Germany')).toBe('europe');
+        expect(regionOf('US-MN-STEFFL Overload', '')).toBe('na-central');
+        expect(regionOf('My Overload Server', 'Change these notes to give information about your server')).toBe('unknown');
+        expect(regionOf(null, undefined)).toBe('unknown');
+        expect(serverLocation('Mystery', '')).toEqual({ x: 38, y: 40, region: 'unknown' });
+    });
+
+    it('labels every region and lists Unknown last', () => {
+        expect(REGIONS.at(-1).id).toBe('unknown');
+        expect(regionLabel('na-east')).toBe('North America East');
+        expect(regionLabel('nowhere')).toBe('Unknown');
+    });
+
+    it('counts the sample games by region and month, by IP when a match has no server', () => {
+        const pass = regionPass(new Map([[detailSample.ip, 'na-west']]));
+        for (const g of [...sample, detailSample]) pass.add({ id: g.id, date: g.date, ip: g.ip }, g);
+        pass.add({ id: 1, date: 'not a date', ip: null }, null);
+        const rows = pass.rows().sort((a, b) => (a.region + a.month < b.region + b.month ? -1 : 1));
+        // the samples were played on the evening of 2025-11-23 and the day after (Chicago time)
+        expect(rows).toEqual([
+            { region: 'europe', month: '2025-11', matches: 13 },
+            { region: 'na-central', month: '2025-11', matches: 3 },
+            { region: 'na-west', month: '2019-07', matches: 1 },
+            { region: 'na-west', month: '2025-11', matches: 8 },
+            { region: 'oceania', month: '2025-11', matches: 1 }
+        ]);
+        expect(rows.reduce((a, r) => a + r.matches, 0)).toBe(sample.length + 1);
+    });
+});

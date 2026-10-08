@@ -5,7 +5,7 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureGamePlayersTable, ensurePilotMonths, ensureRatingSnapshots, migrateGamePlayers } from './db/migrations.js';
+import { ensureGamePlayersTable, ensurePilotMonths, ensureRatingSnapshots, ensureRegionMonths, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
@@ -21,6 +21,7 @@ import {
   incrementMapDownloads, updateMapLocalPaths, deleteMap
 } from './db/repos/maps.js';
 import { getFightNightRecaps, getFightNightRecapByDate, saveFightNightRecap, deleteFightNightRecapsSince } from './db/repos/fightNights.js';
+import { saveServerSnapshot, pruneServerSnapshots, getServerListing } from './db/repos/servers.js';
 import {
   getDatabaseStats, getColdDatabaseStats, getGlobalMapStats, getGlobalModeStats, getGlobalActivityStats,
   getGameCountsByDate, getMonthlyGameCounts, getTopPlayedMaps, getRecentTopMaps, getMostActiveMaps,
@@ -40,6 +41,7 @@ import {
 } from './db/analytics/pilotTelemetry.js';
 import { clearRankings, getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
+import { getServerHistory, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -66,9 +68,12 @@ const db = {
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
     // A backup from before S13 has no rating_snapshots, one from before S14 no
-    // pilot_months; the next refresh fills them.
+    // pilot_months, one from before S15 no region_months; the next refresh
+    // fills them. Nor does it have the server tables, which start empty again.
     ensureRatingSnapshots();
     ensurePilotMonths();
+    ensureRegionMonths();
+    ensureServerTables();
     clearRankings();
   },
   migrateGamePlayers,
@@ -134,6 +139,11 @@ const db = {
   saveFightNightRecap,
   deleteFightNightRecapsSince,
 
+  // repos/servers.js
+  saveServerSnapshot,
+  pruneServerSnapshots,
+  getServerListing,
+
   // analytics/global.js
   getDatabaseStats,
   getColdDatabaseStats,
@@ -189,6 +199,11 @@ const db = {
   // analytics/career.js
   getPilotCareer,
   hasPilotMonths,
+
+  // analytics/servers.js
+  getServerHistory,
+  getRegionShare,
+  hasRegionMonths,
 
   // analytics/refresh.js
   refreshPilotStats,

@@ -26,6 +26,7 @@ async function runDailyMaintenance() {
         } else {
             console.log('[Maintenance] No games needed moving to Cold Storage.');
         }
+        console.log(`[Maintenance] Deleted ${db.pruneServerSnapshots()} server-browser ticks older than the raw window.`);
     } catch (error) {
         console.error('[Maintenance] Error running maintenance:', error);
     }
@@ -56,10 +57,10 @@ function scheduleMaintenance() {
                 if (maxGameDate && (!maxCacheDate || maxGameDate > maxCacheDate)) {
                     console.log(`[Maintenance] Data is newer than cache on startup (${maxGameDate} > ${maxCacheDate}), refreshing stats...`);
                     await refreshPilotStats();
-                } else if (!db.hasRatingSnapshots() || !db.hasPilotMonths()) {
-                    // the first start with ratings (S13) or career months (S14), or a
-                    // restored backup from before them
-                    console.log('[Maintenance] No rating snapshots or career months on startup, refreshing stats...');
+                } else if (!db.hasRatingSnapshots() || !db.hasPilotMonths() || !db.hasRegionMonths()) {
+                    // the first start with ratings (S13), career months (S14) or region
+                    // months (S15), or a restored backup from before them
+                    console.log('[Maintenance] No rating snapshots, career months or region months on startup, refreshing stats...');
                     await refreshPilotStats();
                 } else {
                     console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');

@@ -4,6 +4,7 @@ import { BrowserApiResponse, GameData } from '../types';
 import Link from './Link';
 import { urlFor } from '../server/lib/siteRoutes.js';
 import { colors } from '../designTokens.js';
+import { serverLocation } from '../server/lib/serverRegions.js';
 
 interface ServerStatsProps {
     activeGames?: BrowserApiResponse[] | null;
@@ -28,46 +29,15 @@ const ServerMapCard: React.FC<ServerMapCardProps> = ({ activeGames }) => {
     // Show full map if active players exist OR if user clicked to expand it
     const shouldShowFullMap = totalActivePlayers > 0 || userExpandedMap;
 
-    // Precise location mapping based on user data
+    // The place named in the server's name or notes (server/lib/serverRegions.js),
+    // nudged so servers in one city do not cover each other.
     const getServerLocation = (server: BrowserApiResponse) => {
-        const combinedText = (server.server.name + " " + (server.server.serverNotes || "")).toUpperCase();
-
-        const LOCATION_LOOKUP = [
-            { keys: ["OTL.GG US-CENTRAL", "DES MOINES"], x: 19, y: 30 },
-            { keys: ["OTL.GG AU-SOUTHEAST", "MELBOURNE"], x: 88, y: 82 },
-            { keys: ["DESCENTFORUM.NET", "D.CENT", "A-GARAGE", "FRANKFURT", "GERMANY", "DEUTSCHLAND"], x: 50, y: 23 },
-            { keys: ["NERD NAVY", "ASHBURN", "VIRGINIA"], x: 27, y: 31 },
-            { keys: ["SEATTLE", "WASHINGTON"], x: 9, y: 26 },
-            { keys: ["SAN FRANCISCO", "SAN JOSE", "CALIFORNIA", "BAY AREA"], x: 8, y: 33 },
-            { keys: ["PHOENIX", "ARIZONA"], x: 12, y: 35 },
-            { keys: ["DENVER", "COLORADO"], x: 15, y: 32 },
-            { keys: ["DALLAS", "TEXAS"], x: 18, y: 36 },
-            { keys: ["CHICAGO", "ILLINOIS"], x: 21, y: 30 },
-            { keys: ["ATLANTA", "GEORGIA"], x: 23, y: 36 },
-            { keys: ["NEW YORK", "BUFFALO", "PISCATAWAY", "JERSEY", "NJ ", "NY "], x: 27, y: 29 },
-            { keys: ["TORONTO", "MONTREAL", "QUEBEC", "ONTARIO", "CANADA"], x: 25, y: 27 },
-            { keys: ["LONDON", "UK ", "ENGLAND", "BRITAIN"], x: 46, y: 21 },
-            { keys: ["AMSTERDAM", "NETHERLANDS", "NL "], x: 48, y: 22 },
-            { keys: ["PARIS", "FRANCE"], x: 47, y: 25 },
-            { keys: ["MOSCOW", "RUSSIA"], x: 60, y: 18 },
-            { keys: ["SINGAPORE", "SG "], x: 76, y: 55 },
-            { keys: ["TOKYO", "JAPAN", "JP "], x: 88, y: 35 },
-            { keys: ["SYDNEY", "AUSTRALIA", "AU "], x: 91, y: 78 },
-            { keys: ["SEOUL", "KOREA"], x: 84, y: 33 },
-            { keys: ["BRAZIL", "SAO PAULO", "CHILE"], x: 30, y: 65 },
-        ];
-
-        for (const loc of LOCATION_LOOKUP) {
-            if (loc.keys.some(k => combinedText.includes(k))) {
-                const ipParts = server.server.ip.split('.');
-                const lastOctet = parseInt(ipParts[ipParts.length - 1] || '0');
-                const jitterX = ((lastOctet % 7) - 3) * 0.3;
-                const jitterY = ((server.server.name.length % 7) - 3) * 0.3;
-                return { x: loc.x + jitterX, y: loc.y + jitterY };
-            }
-        }
-
-        return { x: 38, y: 40 };
+        const { x, y } = serverLocation(server.server.name, server.server.serverNotes);
+        const ipParts = server.server.ip.split('.');
+        const lastOctet = parseInt(ipParts[ipParts.length - 1] || '0');
+        const jitterX = ((lastOctet % 7) - 3) * 0.3;
+        const jitterY = ((server.server.name.length % 7) - 3) * 0.3;
+        return { x: x + jitterX, y: y + jitterY };
     };
 
     const WorldMapPath = () => (

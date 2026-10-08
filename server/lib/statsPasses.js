@@ -4,6 +4,7 @@
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
 import { OUTCOME_FIELD, addToLine, careerMonth, emptyLine, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winRate, winnerOf } from './gameParse.js';
+import { regionOf, UNKNOWN_REGION } from './serverRegions.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
 // per pilot per career month for pilot_months.
@@ -291,6 +292,30 @@ export function ratingPass() {
         if (sides) matches.push({ id: row.id, date: row.date || g.date, sides });
     }
     return { add, rows: () => ratingSnapshots(matches) };
+}
+
+// region_months columns, in table order.
+export const REGION_MONTH_COLUMNS = ['region', 'month', 'matches'];
+
+// region_months rows (S15): every stored match, hot and cold, counted by the
+// region of its server and the month of its fight-night day. The region comes
+// from the server name and notes stored with the match, else from the
+// server's latest listing (`regionByIp`, from the servers table), else Unknown.
+export function regionPass(regionByIp = new Map()) {
+    const counts = new Map();
+    function add(row, g) {
+        const month = careerMonth(row.date || g?.date);
+        if (!month) return;
+        let region = g?.server ? regionOf(g.server.name, g.server.notes) : UNKNOWN_REGION;
+        if (region === UNKNOWN_REGION) region = regionByIp.get(row.ip || g?.server?.ip) || UNKNOWN_REGION;
+        const key = `${region}\n${month}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    const rows = () => [...counts].map(([key, matches]) => {
+        const [region, month] = key.split('\n');
+        return { region, month, matches };
+    });
+    return { add, rows };
 }
 
 // The cold_storage_stats_cache payload. The pilot totals come from the rows

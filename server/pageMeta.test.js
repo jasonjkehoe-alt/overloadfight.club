@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { day, onDay, sample, veteranSoup } from './testFixtures.js';
-import { netKills } from './lib/gameParse.js';
+import { HOUR_MS, dayStart, netKills } from './lib/gameParse.js';
 
 const template = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
 const origin = 'https://overloadfight.club';
@@ -90,5 +90,21 @@ describe('withPageMeta', () => {
         const tags = tagsFor('/pilot/%3Cscript%3E%22%24%26');
         expect(tags.title).toBe('&#60;script&#62;&#34;$&#38; | overloadfight.club');
         expect(tags.html).not.toContain('<script>');
+    });
+
+    it('names a stored server on its live page and its server page', () => {
+        // two ticks of Dallas on the fixtures' day, 20:00 Chicago time: one in a match of 6, one in its lobby
+        const { ip, name, notes, version } = sample[0].server;
+        const server = { ip, name, serverNotes: notes, version, online: true };
+        const at = Date.parse(dayStart(day)) + 14 * HOUR_MS;
+        db.saveServerSnapshot(at, [{ server, game: { currentPlayers: 6, maxPlayers: 16, inLobby: false } }]);
+        db.saveServerSnapshot(at + 60000, [{ server, game: { currentPlayers: 2, maxPlayers: 16, inLobby: true } }]);
+        expect(tagsFor(`/live/${ip}`)).toMatchObject({ title: 'Live: Overloader: Dallas, TX | overloadfight.club', description: `Live Overload match. Join at ${ip}.` });
+        expect(tagsFor(`/server/${ip}`)).toMatchObject({
+            title: 'Server: Overloader: Dallas, TX | overloadfight.club',
+            description: `Overloader: Dallas, TX (North America Central): online 100% of the last 30 days, a match running 50% of that time, 6.0 pilots in a match on average. Join at ${ip}.`
+        });
+        expect(tagsFor('/server/10.0.0.1')).toMatchObject({ title: 'Server: 10.0.0.1 | overloadfight.club', description: 'Live Overload servers, match results and pilot stats.' });
+        expect(tagsFor('/live/10.0.0.1').title).toBe('Live: 10.0.0.1 | overloadfight.club');
     });
 });
