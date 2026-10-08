@@ -449,22 +449,24 @@ function newVolatility(phi, sigma, v, delta) {
 }
 
 // One Glicko-2 rating period on the internal scale. `player` is { mu, phi,
-// sigma }; each game is { mu, opponent: { mu, phi }, score }, where `mu` is
-// the strength the player brings (their own, or their team's mean) and
-// `score` is 1, 0.5 or 0. With no games only the RD grows.
+// sigma }; each game is { mu, opponent: { mu, phi }, score, weight? }, where
+// `mu` is the strength the player brings (their own, or their team's mean),
+// `score` is 1, 0.5 or 0 and `weight` (1 by default) scales the game's say
+// in v and the update. With no games only the RD grows. The RD never passes
+// the starting RD.
 export function glicko2(player, games) {
     let vInverse = 0;
     let sum = 0;
-    for (const { mu, opponent, score } of games) {
+    for (const { mu, opponent, score, weight = 1 } of games) {
         const g = gOf(opponent.phi);
         const expected = 1 / (1 + Math.exp(-g * (mu - opponent.mu)));
-        vInverse += g * g * expected * (1 - expected);
-        sum += g * (score - expected);
+        vInverse += weight * g * g * expected * (1 - expected);
+        sum += weight * g * (score - expected);
     }
     if (!(vInverse > 0)) return { ...player, phi: Math.min(Math.hypot(player.phi, player.sigma), PHI_MAX) };
     const v = 1 / vInverse;
     const sigma = newVolatility(player.phi, player.sigma, v, v * sum);
-    const phi = 1 / Math.sqrt(1 / (player.phi * player.phi + sigma * sigma) + vInverse);
+    const phi = Math.min(1 / Math.sqrt(1 / (player.phi * player.phi + sigma * sigma) + vInverse), PHI_MAX);
     return { mu: player.mu + phi * phi * sum, phi, sigma };
 }
 
@@ -521,12 +523,15 @@ export function ratingSnapshots(matches) {
             return { p, phi: Math.min(Math.sqrt(p.phi * p.phi + p.sigma * p.sigma * idleDays), PHI_MAX) };
         }));
         const strength = teams.map(team => ({ mu: mean(team.map(t => t.p.mu)), phi: Math.sqrt(mean(team.map(t => t.phi * t.phi))) }));
+        // a match counts as one game: an 8-pilot FFA is 7 results, but one
+        // placement, and counted whole they push the volatility up without end
+        const weight = 1 / (sides.length - 1);
         const updates = teams.flatMap((team, i) => team.map(({ p, phi }) => {
             const games = [];
             for (let j = 0; j < sides.length; j++) {
                 if (j === i) continue;
                 const score = sides[i].score > sides[j].score ? 1 : sides[i].score === sides[j].score ? 0.5 : 0;
-                games.push({ mu: strength[i].mu, opponent: strength[j], score });
+                games.push({ mu: strength[i].mu, opponent: strength[j], score, weight });
             }
             return [p, glicko2({ mu: p.mu, phi, sigma: p.sigma }, games)];
         }));

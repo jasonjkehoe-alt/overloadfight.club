@@ -452,6 +452,28 @@ describe('ratingSnapshots', () => {
         expect(rows[0].rd).toBeLessThan(350);
     });
 
+    it('counts a match as one game, so winning a 4-pilot FFA of new pilots is one win', () => {
+        const rows = ratingSnapshots([rated({ ...byId(72108), players: ['A', 'B', 'C', 'D'].map((name, i) => ({ name, kills: 10 - i })) })]);
+        expect(row(rows, 'a')).toMatchObject({ rating: 1662.3, rd: 290.3 });
+        expect(row(rows, 'd')).toMatchObject({ rating: 1337.7, rd: 290.3 });
+    });
+
+    it('keeps the volatility steady and the RD under 350 for a pilot who sweeps and is swept by turns', () => {
+        // the same pilot wins and then loses every 8-pilot FFA against new opponents, 300 times
+        const matches = Array.from({ length: 300 }, (_, i) => ({
+            id: i + 1,
+            date: new Date(Date.UTC(2025, 0, 1) + i * 3600000).toISOString(),
+            sides: ratingSides({
+                ...byId(72108),
+                players: [{ name: 'SWING', kills: i % 2 ? 20 : -1 }, ...Array.from({ length: 7 }, (_, j) => ({ name: `OPP${i}-${j}`, kills: j }))]
+            })
+        }));
+        const swing = ratingSnapshots(matches).filter(r => r.pilot === 'swing').pop();
+        expect(swing.volatility).toBeLessThan(0.07);
+        expect(swing.rd).toBeLessThan(350);
+        expect(Math.abs(swing.rating - 1500)).toBeLessThan(400);
+    });
+
     it('rates an FFA pilot against every other pilot by placement', () => {
         const rows = ratingSnapshots([rated(byId(72108))]); // ZERGLING, RAPTOR, SOUP, LORD JOHN WARFIN
         const ratings = ['zergling', 'raptor', 'soup', 'lord john warfin'].map(p => row(rows, p).rating);
