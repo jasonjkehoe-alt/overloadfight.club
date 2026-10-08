@@ -106,7 +106,7 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 1/6. Phase 4: 0/11.
   decision (ORANGE 64–57), 78764 split decision (87–80). Lead changes:
   4, 0, 1, 3. First blood: KAUMRAPSEL (Thunderbolt, 0:08), BADASS
   (Hunter, 0:05), BADASS (Thunderbolt, 0:07), BADASS (Flak, 0:14).
-- S12, tests: `npx vitest run` passes 14 files, 155 tests (19 new). In
+- S12, tests: `npx vitest run` passes 14 files, 156 tests (20 new). In
   `server/lib/gameParse.test.js`: `killPoints` for a kill, a suicide
   (case and spaces ignored), a team kill, the same team label in FFA, no
   attacker; the 72099 and 72098 kill logs replay to their players' kills,
@@ -115,8 +115,9 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 1/6. Phase 4: 0/11.
   second 52; RONCLI's suicide in the detail sample gives -1 to him and to
   BLUE; a team kill; lead changes at 0:40, 1:10 and 2:30 in 72099 and at
   0:45 in 72098; two FFA pilots trading the lead while the winner trails;
-  momentum margins after every kill; null momentum and lead changes with
-  no log and for Monsterball; first blood skipping a suicide; weapon
+  momentum margins after every kill, and against 0 before a second
+  side has scored; null momentum and lead changes with no log and for
+  Monsterball; first blood skipping a suicide; weapon
   families (16 weapons, none twice); `replayLengthOf`; the verdict on
   seven fixture games and two variants. In `matchResult.test.js`:
   `clock`. The kill logs are written by hand onto fixtures 72099 and
@@ -1206,7 +1207,7 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 1/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 14 files, 155 tests pass (S12) | 2026-10-08 |
+| `npx vitest run` | all pass | 14 files, 156 tests pass (S12) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.81 KB raw / 73.91 KB gzip, match page `GameDetail` 127.92 KB / 40.57 KB gzip (S12; 73.94 and 42.25 at S12's start, one 351.07 KB chunk before S4) | 2026-10-08 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S12) | 2026-10-08 |
@@ -3525,6 +3526,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S12 left 14 files, 155 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|PilotsList)-.*\.js"` (the Verification table records the entry at 73.91 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then write the S13 Done-when list into the tracker.
+First move: run `npx vitest run` (S12 left 14 files, 156 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|PilotsList)-.*\.js"` (the Verification table records the entry at 73.91 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then write the S13 Done-when list into the tracker.
 Done when: every item of the S13 Done-when list is true and checked on fixture games and in headless Chrome (the rankings view and a pilot page with a rating history, at 1,280 and 390 px), the leaderboard, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S13 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```

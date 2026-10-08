@@ -310,7 +310,8 @@ export function momentumOf(game) {
     const marginOf = sides => {
         let rest = -Infinity;
         for (const s of sides.values()) if (s.side !== winner.side) rest = Math.max(rest, s.score);
-        return (sides.get(winner.side)?.score ?? 0) - rest;
+        // a side joins `sides` at its first score, so before any other has, the best of them is on 0
+        return (sides.get(winner.side)?.score ?? 0) - (rest === -Infinity ? 0 : rest);
     };
     const points = [];
     const { sides } = replayLog(game, Infinity, (t, kill, _, live) => {

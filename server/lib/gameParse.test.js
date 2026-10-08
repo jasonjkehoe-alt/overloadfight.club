@@ -288,6 +288,16 @@ describe('kill log replay', () => {
         expect(momentumOf(ffaWithLog).points.map(p => p.margin)).toEqual([0, 1, 0, -1, 0]);
     });
 
+    it('measures the margin against 0 before any other side has scored', () => {
+        // players ranks one pilot; B comes from the log alone
+        const game = {
+            settings: { matchMode: 'ANARCHY' },
+            players: [{ name: 'A', kills: 1 }],
+            kills: [{ time: 5, attacker: 'A', defender: 'B' }, { time: 9, attacker: 'B', defender: 'A' }]
+        };
+        expect(momentumOf(game).points.map(p => p.margin)).toEqual([0, 1, 0]);
+    });
+
     it('has no momentum or lead changes without a kill log or for a mode not scored by kills', () => {
         expect(momentumOf(byId(72102))).toBeNull();
         expect(leadChanges(byId(72102))).toBeNull();
@@ -328,7 +338,7 @@ describe('kill log replay', () => {
 describe('verdictOf', () => {
     const verdict = game => verdictOf(winnerOf(game));
 
-    it('calls a win by a third or more a KO', () => {
+    it('calls a win by more than a third a KO', () => {
         expect(verdict(byId(72096))).toBe('ko'); // BLUE 14-5
         expect(verdict(byId(72095))).toBe('ko'); // BLUE 11-5
         expect(verdict(byId(72108))).toBe('ko'); // ZERGLING 48, RAPTOR 31
