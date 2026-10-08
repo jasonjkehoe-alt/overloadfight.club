@@ -164,6 +164,12 @@ maintenance item does not count toward the 28.
   in dated records: session-log lines, Validated entries, the S6
   Done-when, the S6 decisions (marked superseded) and the resolved
   postmortems.
+- Node 26, PR #14 checks on `16f6ba3`: CI (`check`) passed in 41 s on
+  Node 26.11.1 x64 from `actions/setup-node` (14 files, 193 tests).
+  docker-publish (`build`) passed in 2 min 26 s, building linux/amd64
+  with `push: false`. Its `npm ci` step took about 13 s and warned
+  about the same uncovered better-sqlite3 install script; the log does
+  not show whether that step compiled.
 - Node 26, `npm audit`: 30 findings (1 low, 7 moderate, 19 high, 3
   critical), the same count as `main`'s lockfile.
 
@@ -1733,7 +1739,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 
 Not counted in the 28 sessions.
 
-- [ ] **Node 26 and better-sqlite3 13** (S). PR #14, branch `ofc/node26`.
+- [x] **Node 26 and better-sqlite3 13** (S). PR #14, branch `ofc/node26`.
       Done when: package.json and the lockfile have better-sqlite3 13.x
       and @types/node 26.x; `npm ci` on Node 26 installs with no native
       compile; vitest passes on Node 26, 24.6.0 and 22.17.0 with no hung
