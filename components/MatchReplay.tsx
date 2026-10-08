@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GameData, KillEvent, PlayerData } from '../types';
+// The page's one copy of the kill-log rules and weapon colours (S12).
+import { killPoints, leadChanges, replayLengthOf, weaponFamily } from '../server/lib/gameParse.js';
+import { chart } from '../designTokens.js';
 
 export interface MatchReplayProps {
   game: GameData;
@@ -59,18 +62,9 @@ const FFA_PALETTE = [
   '#a855f7'  // Violet
 ];
 
-// Weapon tracer color mapping
+// Weapon tracer color mapping: the weapon family's chart colour, as on the momentum chart
 function getWeaponColor(weapon: string): string {
-  const w = (weapon || '').toLowerCase();
-  if (w.includes('impulse') || w.includes('laser')) return '#00f0ff';
-  if (w.includes('reflex')) return '#ff007f';
-  if (w.includes('cyclone')) return '#00ff88';
-  if (w.includes('flak') || w.includes('crusher')) return '#ff6600';
-  if (w.includes('thunderbolt')) return '#b026ff';
-  if (w.includes('falcon') || w.includes('missile') || w.includes('hunter')) return '#ffcc00';
-  if (w.includes('driller') || w.includes('drill')) return '#38bdf8';
-  if (w.includes('nova') || w.includes('devastator')) return '#f43f5e';
-  return '#ff8800';
+  return chart.weapon[weaponFamily(weapon)];
 }
 
 function formatTime(seconds: number): string {
@@ -342,18 +336,8 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
     return sorted;
   }, [rawKills, pilotTeamMap]);
 
-  // Total match duration
-  const matchDuration = useMemo(() => {
-    if (game.start && game.end) {
-      const d = (new Date(game.end).getTime() - new Date(game.start).getTime()) / 1000;
-      if (d > 0) return d;
-    }
-    if (game.settings?.timeLimit && game.settings.timeLimit > 0) {
-      return game.settings.timeLimit;
-    }
-    const lastKill = normalizedEvents.length > 0 ? normalizedEvents[normalizedEvents.length - 1].t : 0;
-    return Math.max(300, Math.ceil(lastKill + 5));
-  }, [game, normalizedEvents]);
+  // Total match duration, the same span as the page's scrubber
+  const matchDuration = useMemo(() => replayLengthOf(game), [game]);
 
   // Full score & match state calculation at timestamp t
   const getFullStateAtTime = useCallback(
@@ -377,28 +361,22 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
         // Death tracking
         lastDeathT[ev.victim] = ev.t;
 
-        const kTeam = ev.killerTeam || pilotTeamMap[ev.killer];
-        const vTeam = ev.victimTeam || pilotTeamMap[ev.victim];
-        const isTeamKill = isTeamMode && kTeam && vTeam && kTeam === vTeam && kTeam !== 'ANARCHY';
-
-        if (ev.suicide || isTeamKill) {
-          if (pilotScores[ev.victim] !== undefined) {
-            pilotScores[ev.victim] -= 1;
-            scoreReachedAt[ev.victim] = ev.t;
-          }
-          if (isTeamMode && vTeam && (vTeam === 'BLUE' || vTeam === 'ORANGE')) {
-            teamScores[vTeam] -= 1;
-            teamScoreReachedAt[vTeam] = ev.t;
-          }
-        } else {
-          if (pilotScores[ev.killer] !== undefined) {
-            pilotScores[ev.killer] += 1;
-            scoreReachedAt[ev.killer] = ev.t;
-          }
-          if (isTeamMode && kTeam && (kTeam === 'BLUE' || kTeam === 'ORANGE')) {
-            teamScores[kTeam] += 1;
-            teamScoreReachedAt[kTeam] = ev.t;
-          }
+        const { scorer, side, points } = killPoints(
+          {
+            attacker: ev.killer,
+            defender: ev.victim,
+            attackerTeam: ev.killerTeam || pilotTeamMap[ev.killer],
+            defenderTeam: ev.victimTeam || pilotTeamMap[ev.victim]
+          },
+          isTeamMode
+        );
+        if (scorer && pilotScores[scorer] !== undefined) {
+          pilotScores[scorer] += points;
+          scoreReachedAt[scorer] = ev.t;
+        }
+        if (isTeamMode && (side === 'BLUE' || side === 'ORANGE')) {
+          teamScores[side] += points;
+          teamScoreReachedAt[side] = ev.t;
         }
       }
 
@@ -507,52 +485,19 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
     }
 
     // Lead Changes
-    const runningScores: Record<string, number> = {};
-    allPilotNames.forEach(p => (runningScores[p] = 0));
-    const runningTeamScores: Record<string, number> = { BLUE: 0, ORANGE: 0 };
-    let currentLeader = '';
+    leadChanges(game).forEach((change, i) => {
+      beats.push({
+        id: `beat-lead-${i}`,
+        t: change.t,
+        type: 'lead-change',
+        label: 'Lead Change',
+        description: isTeamMode
+          ? `Lead change — ${change.to} takes the lead`
+          : `Lead change — ${change.to} takes the lead (${change.score} kills)`
+      });
+    });
 
     normalizedEvents.forEach(ev => {
-      const kTeam = ev.killerTeam || pilotTeamMap[ev.killer];
-      const vTeam = ev.victimTeam || pilotTeamMap[ev.victim];
-      const isTeamKill = isTeamMode && kTeam && vTeam && kTeam === vTeam && kTeam !== 'ANARCHY';
-
-      if (ev.suicide || isTeamKill) {
-        if (runningScores[ev.victim] !== undefined) runningScores[ev.victim] -= 1;
-        if (isTeamMode && vTeam && (vTeam === 'BLUE' || vTeam === 'ORANGE')) runningTeamScores[vTeam] -= 1;
-      } else {
-        if (runningScores[ev.killer] !== undefined) runningScores[ev.killer] += 1;
-        if (isTeamMode && kTeam && (kTeam === 'BLUE' || kTeam === 'ORANGE')) runningTeamScores[kTeam] += 1;
-      }
-
-      let newLeader = '';
-      if (isTeamMode) {
-        if (runningTeamScores.BLUE > runningTeamScores.ORANGE) newLeader = 'BLUE';
-        else if (runningTeamScores.ORANGE > runningTeamScores.BLUE) newLeader = 'ORANGE';
-      } else {
-        let maxVal = -Infinity;
-        allPilotNames.forEach(p => {
-          if (runningScores[p] > maxVal) {
-            maxVal = runningScores[p];
-            newLeader = p;
-          }
-        });
-      }
-
-      if (newLeader && currentLeader && newLeader !== currentLeader) {
-        beats.push({
-          id: `beat-lead-${ev.id}`,
-          t: ev.t,
-          type: 'lead-change',
-          label: 'Lead Change',
-          description: isTeamMode
-            ? `Lead change — ${newLeader} takes the lead`
-            : `Lead change — ${newLeader} takes the lead (${runningScores[newLeader]} kills)`
-        });
-      }
-
-      if (newLeader) currentLeader = newLeader;
-
       // Spree x4+
       const spreeCallout = ev.callouts.find(c => c.startsWith('SPREE x'));
       if (spreeCallout) {
@@ -583,7 +528,7 @@ const MatchReplay: React.FC<MatchReplayProps> = ({ game, initialTime = 0, onTime
 
     // Sort ascending by timestamp
     return beats.sort((a, b) => a.t - b.t);
-  }, [normalizedEvents, allPilotNames, isTeamMode, pilotTeamMap, matchDuration]);
+  }, [game, normalizedEvents, isTeamMode, matchDuration]);
 
   // Exit story mode helper
   const exitStoryMode = useCallback(() => {

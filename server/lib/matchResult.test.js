@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { winnerOf } from './gameParse.js';
-import { resultLine } from './matchResult.js';
+import { clock, resultLine } from './matchResult.js';
 import { byId, detailSample } from '../testFixtures.js';
 
 // The match page's result line, built from winnerOf() on the fixture games.
@@ -36,5 +36,14 @@ describe('resultLine', () => {
         const game = byId(72108);
         game.players = game.players.slice(0, 1);
         expect(resultLine(winnerOf(game))).toBe('No result: this match has no scores to compare.');
+    });
+});
+
+describe('clock', () => {
+    it('writes seconds as m:ss', () => {
+        expect(clock(0)).toBe('0:00');
+        expect(clock(910.849)).toBe('15:10'); // fixture 72108's length
+        expect(clock(59.99)).toBe('0:59');
+        expect(clock(-3)).toBe('0:00');
     });
 });

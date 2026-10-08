@@ -1,26 +1,23 @@
 
 import React, { useMemo } from 'react';
 import { GameData } from '../types';
-import ScoreChart from './ScoreChart';
 import DamageMatrix from './DamageMatrix';
 import Analysis from './Analysis';
 import MatchAnalysis from './MatchAnalysis';
 import { EmptyState } from './States';
 import MatchReplay from './MatchReplay';
+import FightCard from './gameDetail/FightCard';
+import Scoreboard from './gameDetail/Scoreboard';
+import MatchScrubber from './gameDetail/MatchScrubber';
+import MomentumChart from './gameDetail/MomentumChart';
 import { getMapImage } from '../services/mapService';
 // The server's rules, so this page shows the result and length the stats count.
-import { winnerOf, durationOf, measuredDurationOf, combatRatio, netKills, COMBAT_RATIO_HINT } from '../server/lib/gameParse.js';
-import { resultLine } from '../server/lib/matchResult.js';
-import Link from './Link';
+import { durationOf, measuredDurationOf, replayLengthOf } from '../server/lib/gameParse.js';
+import { clock } from '../server/lib/matchResult.js';
 import { useQueryParam } from '../hooks/useLocation';
-import { urlFor } from '../server/lib/siteRoutes.js';
+import { useMatchTime } from '../hooks/useMatchTime';
 
 const TABS = ['overview', 'deep-dive', 'damage', 'timeline', 'analysis'] as const;
-
-const teamColor = (team?: string | null) =>
-    team === 'BLUE' ? 'text-blue-400' : team === 'ORANGE' ? 'text-orange-400' : 'text-white';
-
-const PODIUM = [['1st', 'text-yellow-400'], ['2nd', 'text-gray-300'], ['3rd', 'text-amber-600']];
 
 interface GameDetailProps {
     game: GameData;
@@ -30,45 +27,16 @@ interface GameDetailProps {
 const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
     const [activeTab, setActiveTab] = useQueryParam('tab', 'overview', TABS);
 
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(Math.abs(seconds) / 60);
-        const secs = Math.floor(Math.abs(seconds) % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-
     const mapImage = getMapImage(game.settings?.level);
-    const result = useMemo(() => winnerOf(game), [game]);
     // durationOf is what the stats count; it falls back to the time limit
     // when the game does not record how long it ran.
     const durationSec = useMemo(() => durationOf(game), [game]);
     const durationIsLimit = durationSec > 0 && !measuredDurationOf(game);
 
-    // Calculate derived stats
-    const processedPlayers = useMemo(() => {
-        if (!game.players) return [];
-
-        const durationMinutes = durationSec / 60;
-
-        return game.players.map(p => {
-            // Calculate damage from events if not present in player object
-            let totalDamage = p.damage || 0;
-            if (!totalDamage && game.damage) {
-                totalDamage = game.damage
-                    .filter(d => d.attacker === p.name)
-                    .reduce((sum, d) => sum + d.damage, 0);
-            }
-
-            const dpm = durationMinutes > 0 ? totalDamage / durationMinutes : null;
-            const kda = combatRatio(netKills(p), p.assists, p.deaths);
-
-            return {
-                ...p,
-                totalDamage,
-                dpm,
-                kda
-            };
-        }).sort((a, b) => b.kills - a.kills);
-    }, [game, durationSec]);
+    // The scrubber's second (null at the end), shared by the scoreboard and the momentum chart.
+    const replayEnd = useMemo(() => replayLengthOf(game), [game]);
+    const [time, setTime] = useMatchTime(replayEnd);
+    const hasKillLog = Boolean(game.kills?.length);
 
     const renderTimeline = () => {
         let timelineEvents = [];
@@ -99,7 +67,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
                         {timelineEvents.map((evt, idx) => (
                             <tr key={idx} className="hover:bg-surface-raised group">
                                 <td className="p-3 text-center text-gray-600 font-bold group-hover:text-gray-400">
-                                    {formatTime(evt.time)}
+                                    {clock(evt.time)}
                                 </td>
                                 <td className="p-3">
                                     <span className={`
@@ -160,7 +128,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
                         </div>
                         <div className="text-right font-mono">
                             <div className="text-2xl font-bold text-white">
-                                {durationSec > 0 ? formatTime(durationSec) : 'Unknown'}
+                                {durationSec > 0 ? clock(durationSec) : 'Unknown'}
                             </div>
                             <div className="text-xs text-gray-500 uppercase tracking-widest">
                                 {durationIsLimit
@@ -172,50 +140,7 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
                 </div>
             </div>
 
-            {/* Result */}
-            <div className="bg-surface-card border border-line rounded-card p-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono">
-                <div>
-                    <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">
-                        {result.winners.length === 1 ? 'Winner' : 'Result'}
-                    </div>
-                    {result.winners.length === 1 && (
-                        <div className={`text-2xl font-bold brand-font ${result.team ? teamColor(result.ranking[0].side) : 'text-brand'}`}>
-                            {result.ranking[0].name}
-                        </div>
-                    )}
-                    <div className="text-sm text-gray-300 mt-1">{resultLine(result)}</div>
-                </div>
-                {result.winners.length > 0 && (
-                    result.team ? (
-                        <div className="flex items-center gap-3 text-3xl font-bold">
-                            {result.ranking.map((r, i) => (
-                                <React.Fragment key={r.side}>
-                                    {i > 0 && <span className="text-gray-600 text-xl">–</span>}
-                                    <span className="flex flex-col items-center">
-                                        <span className={teamColor(r.side)}>{r.score}</span>
-                                        <span className="text-2xs text-gray-500 tracking-widest">{r.name}</span>
-                                    </span>
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    ) : (
-                        <ol className="flex gap-4 text-sm">
-                            {result.ranking.slice(0, 3).map((r, i) => (
-                                <li key={r.side} className="flex flex-col items-center min-w-[72px]">
-                                    <span className={`text-xs font-bold ${PODIUM[i][1]}`}>{PODIUM[i][0]}</span>
-                                    <Link
-                                        to={urlFor('pilot', r.name)}
-                                        className="text-white font-bold hover:text-brand hover:underline truncate max-w-[140px]"
-                                    >
-                                        {r.name}
-                                    </Link>
-                                    <span className="text-gray-400 text-xs">{r.score}</span>
-                                </li>
-                            ))}
-                        </ol>
-                    )
-                )}
-            </div>
+            <FightCard game={game} />
 
             {/* Navigation Tabs */}
             <div className="flex border-b border-line mb-6 font-mono overflow-x-auto">
@@ -237,56 +162,10 @@ const GameDetail: React.FC<GameDetailProps> = ({ game, onBack }) => {
             <div className="space-y-6">
                 {activeTab === 'overview' && (
                     <>
-                        <div className="bg-surface-card border border-line rounded-card overflow-hidden overflow-x-auto">
-                            <table className="w-full text-left font-mono text-sm min-w-[800px]">
-                                <thead className="bg-surface-raised text-gray-400 text-xs uppercase font-bold">
-                                    <tr>
-                                        <th className="p-4">Pilot</th>
-                                        <th className="p-4 text-right">Kills</th>
-                                        <th className="p-4 text-right">Assists</th>
-                                        <th className="p-4 text-right">Deaths</th>
-                                        <th className="p-4 text-right">Damage</th>
-                                        <th className="p-4 text-right">DPM</th>
-                                        <th className="p-4 text-right cursor-help" title={COMBAT_RATIO_HINT}>Combat Ratio</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-line">
-                                    {processedPlayers.map((p, idx) => (
-                                         <tr key={p.name} className="hover:bg-surface-raised transition-colors">
-                                             <td className="p-4 font-bold text-white flex items-center gap-3">
-                                                 <span className="text-gray-600 w-4">{idx + 1}</span>
-                                                 <Link
-                                                     to={urlFor('pilot', p.name)}
-                                                     className={`hover:underline hover:text-brand transition-colors text-left font-bold ${teamColor(p.team)}`}
-                                                     title={`View ${p.name}'s pilot dossier`}
-                                                 >
-                                                     {p.name}
-                                                 </Link>
-                                             </td>
-                                             <td className="p-4 text-right text-lg">{p.kills}</td>
-                                             <td className="p-4 text-right text-gray-400">{p.assists}</td>
-                                             <td className="p-4 text-right text-red-400">{p.deaths}</td>
-                                             <td className="p-4 text-right text-gray-300">
-                                                 {Math.round(p.totalDamage).toLocaleString()}
-                                             </td>
-                                             <td className="p-4 text-right text-gray-500">
-                                                 {p.dpm === null ? '–' : Math.round(p.dpm).toLocaleString()}
-                                             </td>
-                                             <td className="p-4 text-right">
-                                                 <div className="flex flex-col items-end">
-                                                     <span className="text-brand font-bold text-base">{p.kda.toFixed(2)}</span>
-                                                     <span className="text-2xs text-gray-500">
-                                                         ({p.kills} K, {p.assists} A, {p.deaths} D)
-                                                     </span>
-                                                 </div>
-                                             </td>
-                                         </tr>
-                                     ))}
-                                 </tbody>
-                            </table>
-                        </div>
+                        {hasKillLog && <MatchScrubber game={game} end={replayEnd} time={time} onChange={setTime} />}
+                        <Scoreboard game={game} durationSec={durationSec} time={time} />
+                        <MomentumChart game={game} end={replayEnd} time={time} onSeek={setTime} />
                         <MatchReplay game={game} mapImage={mapImage} />
-                        <ScoreChart game={game} />
                     </>
                 )}
 

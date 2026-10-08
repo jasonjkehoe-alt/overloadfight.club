@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 import { pilotPass } from './statsPasses.js';
 import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
-import { firstBloodOf, killPoints, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
+import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
 import { ffaWithLog, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -299,6 +299,13 @@ describe('kill log replay', () => {
         expect(firstBloodOf(game).time).toBe(10);
         expect(firstBloodOf(detailSample)).toBeNull();
         expect(firstBloodOf(byId(72102))).toBeNull();
+    });
+
+    it('runs a replay for the match length, or to the last kill when that is later', () => {
+        expect(replayLengthOf(teamWithLog)).toBeCloseTo(214.114, 3); // date - settings.start
+        const noDates = { ...teamWithLog, date: undefined, settings: { matchMode: 'TEAM ANARCHY' } };
+        expect(replayLengthOf(noDates)).toBe(180);
+        expect(replayLengthOf(byId(72102))).toBeCloseTo(durationOf(byId(72102)), 6);
     });
 
     it('sorts weapons into families, with anything unknown as other', () => {

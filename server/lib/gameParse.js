@@ -340,6 +340,14 @@ export function weaponFamily(weapon) {
     return FAMILY_OF_WEAPON.get(String(weapon ?? '').trim().toUpperCase()) ?? 'other';
 }
 
+// How long a replay of the kill log runs: the match length, or the last kill's
+// time when that is later or the length is unknown.
+export function replayLengthOf(game) {
+    let last = 0;
+    for (const kill of Array.isArray(game?.kills) ? game.kills : []) last = Math.max(last, Number(kill?.time) || 0);
+    return Math.max(durationOf(game), last);
+}
+
 // The fight card's verdict from a winnerOf() result, or null when the match
 // has no result: 'draw' for a shared top score; 'split' when the winner's
 // margin is at most a tenth of their score (or 1 point); 'ko' when the

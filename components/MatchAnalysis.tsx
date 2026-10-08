@@ -4,12 +4,12 @@ import { GameData } from '../types';
 import { EmptyState } from './States';
 import { 
     calculateNemesis, calculateWeaponStats, calculateStreaks, 
-    calculatePlayStyles, calculateKillHeatmap, calculateFirstBlood,
+    calculatePlayStyles, calculateKillHeatmap,
     calculateTeamSynergy
 } from '../utils/statCalculators';
-import { durationOf } from '../server/lib/gameParse.js';
+import { durationOf, firstBloodOf, weaponFamily } from '../server/lib/gameParse.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis } from 'recharts';
-import { colors, chartTooltip } from '../designTokens.js';
+import { colors, chart, chartTooltip, chartTooltipText } from '../designTokens.js';
 
 interface MatchAnalysisProps {
     game: GameData;
@@ -20,12 +20,13 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
     const weaponStats = useMemo(() => calculateWeaponStats(game), [game]);
     const streak = useMemo(() => calculateStreaks(game.kills), [game.kills]);
     const styles = useMemo(() => calculatePlayStyles(game), [game]);
-    const firstBlood = useMemo(() => calculateFirstBlood(game.kills), [game.kills]);
+    const firstBlood = useMemo(() => firstBloodOf(game), [game]);
     // An unknown length (0) falls back to the helper's 15-minute default.
     const heatmap = useMemo(() => calculateKillHeatmap(game.kills, durationOf(game) / 60 || undefined), [game]);
     const synergy = useMemo(() => calculateTeamSynergy(game.players || []), [game.players]);
 
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+    // Each weapon in its family's colour, as on the momentum chart and the replay.
+    const weaponColor = (name: string) => chart.weapon[weaponFamily(name)];
 
     const notableStyles = styles.filter(s => s.style !== 'Balanced');
 
@@ -84,18 +85,17 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                     <h3 className="text-white font-bold mb-4 text-sm uppercase">Weapon Efficiency (Kills vs Damage)</h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 0 }}>
-                            <XAxis type="number" dataKey="damage" name="Damage" unit="dmg" stroke="#666" fontSize={10} />
-                            <YAxis type="number" dataKey="kills" name="Kills" unit="k" stroke="#666" fontSize={10} />
+                            <XAxis type="number" dataKey="damage" name="Damage" unit="dmg" stroke={chart.label} fontSize={10} />
+                            <YAxis type="number" dataKey="kills" name="Kills" unit="k" stroke={chart.label} fontSize={10} />
                             <ZAxis type="category" dataKey="name" name="Weapon" />
                             <Tooltip 
                                 cursor={{ strokeDasharray: '3 3' }} 
                                 contentStyle={chartTooltip} 
-                                itemStyle={{color: '#fff'}}
-                                labelStyle={{color: '#ccc'}}
+                                {...chartTooltipText}
                             />
                             <Scatter name="Weapons" data={weaponStats} fill={colors.brand.DEFAULT}>
                                 {weaponStats.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    <Cell key={`cell-${index}`} fill={weaponColor(entry.name)} />
                                 ))}
                             </Scatter>
                         </ScatterChart>
@@ -117,12 +117,12 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                                 dataKey="damage"
                             >
                                 {weaponStats.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    <Cell key={`cell-${index}`} fill={weaponColor(entry.name)} />
                                 ))}
                             </Pie>
                             <Tooltip 
                                 contentStyle={chartTooltip} 
-                                itemStyle={{color: '#fff'}}
+                                {...chartTooltipText}
                             />
                         </PieChart>
                     </ResponsiveContainer>
@@ -135,14 +135,13 @@ const MatchAnalysis: React.FC<MatchAnalysisProps> = ({ game }) => {
                     <h3 className="text-white font-bold mb-4 text-sm uppercase">Match Intensity (Kills/Min)</h3>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={heatmap}>
-                            <XAxis dataKey="minute" stroke="#666" fontSize={10} tickFormatter={val => `${val}'`} />
+                            <XAxis dataKey="minute" stroke={chart.label} fontSize={10} tickFormatter={val => `${val}'`} />
                             <Tooltip 
                                 contentStyle={chartTooltip} 
                                 cursor={{fill: colors.surface.raised}} 
-                                itemStyle={{color: '#fff'}}
-                                labelStyle={{color: '#ccc'}}
+                                {...chartTooltipText}
                             />
-                            <Bar dataKey="count" fill="#ef4444" radius={[2, 2, 0, 0]} />
+                            <Bar dataKey="count" fill={colors.brand.DEFAULT} radius={[2, 2, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
