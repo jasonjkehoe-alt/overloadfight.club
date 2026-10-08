@@ -7,6 +7,11 @@ export const clock = seconds => {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
+// "Sun, Oct 4, 2026" for a day (YYYY-MM-DD, a fight-night day), the same in
+// every viewer's time zone
+export const dayLabel = day =>
+    new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+
 // "A", "A and B", "A, B and C"
 const listNames = names =>
     names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join('');

@@ -3,14 +3,16 @@ import { GameData } from '../types';
 import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink, Zap, Clock, Flame, Filter } from 'lucide-react';
 import PilotPerformanceCard from './PilotPerformanceCard';
 import RatingCard from './pilotDetail/RatingCard';
+import CareerCard from './pilotDetail/CareerCard';
 import { useLoad } from '../hooks/useLoad';
-import { fetchPilotRating } from '../services/apiService';
+import { fetchPilotCareer, fetchPilotRating } from '../services/apiService';
 import { colors } from '../designTokens.js';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
 import { useQueryParam } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
-import { combatRatio, COMBAT_RATIO_HINT, LETHALITY_HINT } from '../server/lib/gameParse.js';
+import { combatRatio, fightNightDay, COMBAT_RATIO_HINT, LETHALITY_HINT } from '../server/lib/gameParse.js';
+import { dayLabel } from '../server/lib/matchResult.js';
 
 interface PilotStats {
     games: number;
@@ -135,6 +137,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     const [weaponView, setWeaponView] = useQueryParam('weapons', 'offense', ['offense', 'defense'] as const);
     // the rating does not depend on the mode, so it loads once beside the page's requests
     const rating = useLoad(() => fetchPilotRating(pilotName), [pilotName]);
+    const career = useLoad(() => fetchPilotCareer(pilotName), [pilotName]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -188,7 +191,9 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     const careerKda = stats?.career_kda ?? kda;
     const eff = stats ? stats.kills / Math.max(1, stats.games) : 0; // Kills per game
     const survival = stats ? stats.deaths / Math.max(1, stats.games) : 0; // Deaths per game
-    const lastActiveDate = stats ? new Date(stats.last_seen).toLocaleDateString() : 'Unknown';
+    // the fight-night day, as the career block and the rankings count days
+    const lastActiveDay = stats?.last_seen ? fightNightDay(stats.last_seen) : null;
+    const lastActiveDate = lastActiveDay ? dayLabel(lastActiveDay) : 'Unknown';
 
     return (
         <div className="w-full max-w-7xl mx-auto pb-12">
@@ -388,6 +393,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                     </span>
                                 </div>
                             )}
+
+                            <CareerCard load={career} />
 
                             {/* PPI Framework Dashboard */}
                             <PilotPerformanceCard pilotName={pilotName} />

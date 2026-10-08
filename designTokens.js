@@ -53,7 +53,21 @@ export const chart = {
     heavy: '#9085e9',
     other: '#898781',
   },
+  // How many (the dashboard heatmap and the pilot's activity calendar): the
+  // reference palette's sequential blue, steps 600 to 200, fewest to most. On
+  // the dark surface the fewest is the darkest; the validator's ordinal check
+  // passes it against surface.card (monotone lightness, the darkest at
+  // 2.33:1). A count of 0 is surface.raised.
+  ramp: ['#184f95', '#256abf', '#3987e5', '#6da7ec', '#9ec5f4'],
 };
+
+// The ramp colour for `count` against the largest count shown: each step
+// covers a fifth of the way to `max`.
+/** @type {(count: number, max: number) => string} */
+export const rampColor = (count, max) =>
+  count > 0 && max > 0
+    ? chart.ramp[Math.min(chart.ramp.length - 1, Math.ceil((count / max) * chart.ramp.length) - 1)]
+    : colors.surface.raised;
 
 // Text in a Recharts tooltip, with chartTooltip as its box
 export const chartTooltipText = { itemStyle: { color: chart.ink }, labelStyle: { color: chart.text } };
