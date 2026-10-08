@@ -1404,7 +1404,46 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          duration and MatchReplay still work.
 - [ ] **S13 Rating and power rankings** (M). Glicko-2 from placement and
       corrected team results; nightly snapshot table; rating history line on
-      the profile; `PowerRankings` view with weekly movement.
+      the profile; `PowerRankings` view with weekly movement. Done when
+      (written at the start of S13):
+      1. `server/lib/gameParse.js` owns the rating rules, each tested on
+         fixture games: which matches count (`rankedMatch`, the stats'
+         ranked filter of 2+ pilots and 60 s+, now one function for every
+         caller, plus a result from `winnerOf`, so a team game without
+         `teamScore` does not count); who plays whom (every pilot plays
+         every other side once: FFA pilots by in-game score, teams by
+         `teamScore`, equal scores a draw worth half); one Glicko-2 update,
+         checked against Glickman's worked example; the replay of every
+         rated match in date order, with RD growing over the days a pilot
+         sits out; and the power rankings with each pilot's movement
+         against seven days earlier.
+      2. The stats worker rates every stored match, hot and cold, on each
+         refresh, and the refresh rewrites a snapshot table in `tracker.db`
+         (one row per pilot per day with a rated match: rating, RD,
+         volatility, rated matches so far), created in
+         `server/db/migrations.js` with a migration decision entry. No
+         request computes a rating.
+      3. New endpoints `GET /api/pilot/:name/rating` (current rating, RD,
+         rated matches, rank and the daily history) and `GET
+         /api/stats/rankings` (the top 25 today, each with its movement or
+         NEW), read through `services/apiService.ts`. The existing
+         endpoints answer as before.
+      4. The pilot page shows the rating, its RD, the rank and a rating
+         history line with a ±2 RD band, in Recharts with colours from
+         `chart` in `designTokens.js` checked by the dataviz validator; a
+         pilot without a rated match gets an EmptyState, and loading and
+         failure use the shared states.
+      5. A `PowerRankings` view at `/rankings` (route and title in
+         `siteRoutes.js`, share description in `pageMeta.js`, lazy in
+         `App.tsx`, linked from the leaderboard): rank, ▲▼ movement or NEW,
+         pilot link, rating ± RD, rated matches and last match, with the
+         shared states, 390 px wide at 390 px.
+      6. Charts stay out of the entry chunk; entry and pilot-page chunk
+         sizes recorded before and after.
+      7. Checked in headless Chrome at 1,280 and 390 px: the rankings view
+         and a pilot page with a rating history (local data, plus
+         Fetch-domain mocks for a full table); the leaderboard, pilot pages
+         and match page still work.
 - [ ] **S14 Time and career** (M). 7×24 local-time heatmap on the dashboard;
       fight-night day boundary in the configured time zone; profile career
       arc sparklines, activity calendar and "last time out" block.
