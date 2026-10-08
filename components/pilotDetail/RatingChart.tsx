@@ -5,6 +5,8 @@ import { chart, chartTooltip, colors } from '../../designTokens.js';
 import { RatingPoint } from '../../services/apiService';
 
 const DAY_MS = 86400000;
+// up to this many days played, each one gets a dot
+const MAX_DOTS = 30;
 // each day's point sits at noon UTC, which is that date in every US time zone
 const timeOf = (day: string) => Date.parse(`${day}T12:00:00Z`);
 const shortDate = (t: number, long: boolean) =>
@@ -33,9 +35,14 @@ const RatingChart: React.FC<{ history: RatingPoint[] }> = ({ history }) => {
         const last = points[points.length - 1].t;
         // a single day gets a day either side, so its point is not on the edge
         const domain = first === last ? [first - DAY_MS, last + DAY_MS] : [first, last];
-        const low = Math.floor(Math.min(...points.map(p => p.band[0])) / 50) * 50;
-        const high = Math.ceil(Math.max(...points.map(p => p.band[1])) / 50) * 50;
-        return { points, domain, yDomain: [low, high], long: last - first > 120 * DAY_MS };
+        // ticks on a round step, so the axis does not end on odd values
+        const min = Math.min(...points.map(p => p.band[0]));
+        const max = Math.max(...points.map(p => p.band[1]));
+        const step = max - min <= 400 ? 100 : max - min <= 1000 ? 200 : 500;
+        const low = Math.floor(min / step) * step;
+        const high = Math.ceil(max / step) * step;
+        const yTicks = Array.from({ length: (high - low) / step + 1 }, (_, i) => low + i * step);
+        return { points, domain, yTicks, long: last - first > 120 * DAY_MS };
     }, [history]);
     const first = history[0];
     const last = history[history.length - 1];
@@ -59,18 +66,18 @@ const RatingChart: React.FC<{ history: RatingPoint[] }> = ({ history }) => {
                         stroke={chart.axis}
                         tick={{ fill: chart.label, fontSize: 10 }}
                     />
-                    <YAxis width={40} domain={view.yDomain} allowDecimals={false} stroke={chart.axis} tick={{ fill: chart.label, fontSize: 10 }} />
+                    <YAxis width={40} domain={[view.yTicks[0], view.yTicks[view.yTicks.length - 1]]} ticks={view.yTicks} stroke={chart.axis} tick={{ fill: chart.label, fontSize: 10 }} />
                     <ReferenceLine y={RATING.start} stroke={chart.axis} strokeDasharray="4 4" />
                     <Tooltip content={<RatingTooltip />} cursor={{ stroke: chart.label }} />
-                    <Area type="stepAfter" dataKey="band" stroke="none" fill={chart.series} fillOpacity={0.1} isAnimationActive={false} activeDot={false} />
+                    <Area type="linear" dataKey="band" stroke="none" fill={chart.series} fillOpacity={0.1} isAnimationActive={false} activeDot={false} />
                     {/* the line is an unfilled Area: Recharts' Line would add its own code to this page's chunk */}
                     <Area
-                        type="stepAfter"
+                        type="linear"
                         dataKey="rating"
                         stroke={chart.series}
                         strokeWidth={2}
                         fill="none"
-                        dot={history.length === 1 ? { r: 4, fill: chart.series, stroke: colors.surface.card, strokeWidth: 2 } : false}
+                        dot={history.length <= MAX_DOTS ? { r: 4, fill: chart.series, stroke: colors.surface.card, strokeWidth: 2 } : false}
                         activeDot={{ r: 4, fill: chart.ink, stroke: colors.surface.card, strokeWidth: 2 }}
                         isAnimationActive={false}
                     />

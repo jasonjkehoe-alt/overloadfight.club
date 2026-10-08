@@ -231,7 +231,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
     return (
         <div className="space-y-6">
 
-            <div className="flex justify-between items-center border-b border-line mb-6">
+            <div className="flex flex-wrap justify-between items-center border-b border-line mb-6">
                 <div className="flex">
                     <button
                         onClick={() => setActiveTab('online')}
