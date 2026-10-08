@@ -83,8 +83,11 @@ squash-merged 2026-10-08 16:01 UTC as `e35672a`, with no owner commits
 after it. (The tracker said it was still open when S14 started; it had
 merged.)
 
-S14 is on branch `ofc/s14-time-career`, based on `e35672a`, PR #15 open
-against `main` and not merged, 2026-10-08 UTC.
+S14 is merged into `main` (PR #15, squash-merged 2026-10-08 18:51 UTC
+as `aa05428`), with no owner commits after it.
+
+S15 is on branch `ofc/s15-server-history`, based on `aa05428`, PR #16
+open against `main` and not merged, 2026-10-08 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -95,11 +98,111 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 14 of 28 sessions done (S1 to S13 merged, S14 in PR #15).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 3/6. Phase 4: 0/11. The Node 26
+Counts: 15 of 28 sessions done (S1 to S14 merged, S15 in PR #16).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 4/6. Phase 4: 0/11. The Node 26
 maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S13 and Node 26 merged into `main`, `main` at e35672a, S14 on `ofc/s14-time-career`)
+## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S14 and Node 26 merged into `main`, `main` at aa05428, S15 on `ofc/s15-server-history`)
+
+- S15, first move on Node 26.11.1, on `main` at `aa05428` (PR #15
+  merged, no owner commits after it): `npx vitest run` passed 14 files,
+  220 tests. `npx vite build` wrote the entry at 231.71 KB raw / 74.26 KB
+  gzip, `GameList` 40.40 KB / 11.42 KB gzip and `LiveGameDetail` 12.11 KB
+  / 3.17 KB gzip. `npx tsc --noEmit` exited 0. All match the S14 records.
+  `wc -l`: `routes/browser.js` 28, `useServerBrowser.ts` 70, `GameList`
+  712, `ServerStats` 244, `ServerActivitySparkline` 44, `LiveGameDetail`
+  349, `analytics/global.js` 394, `gameParse.js` 788, `siteRoutes.js` 94,
+  `pageMeta.js` 85, `migrations.js` 357, `maintenance.js` 124,
+  `designTokens.js` 73; the two sample files are one line each.
+- S15, the tracker's feed on 2026-10-08: `GET
+  tracker.otl.gg/api/browser` listed 21 servers, 19 online, none with a
+  game at that minute, and no region field. The fixtures' servers and
+  today's feed place all but two ("My Overload Server", "The Silken Sad
+  Uncertain Server").
+- S15, the local data per fight-night day (a `node` script with
+  `fightNightDay`, `pilotKey`, `netKills`): 2026-10-05 6 matches, 6
+  pilots, 255 kills; 2026-10-06 18, 11, 1,102; 2026-10-07 14, 14, 1,069;
+  2026-10-08 2, 2, 71. None meets 16 matches plus 14 pilots or 1,600
+  kills; the owner chose to leave the thresholds.
+- S15 at the end: `npx vitest run` passes 16 files, 240 tests (220 at
+  the start). New: `server/servers.test.js` (ticks, hours, listings,
+  offline ticks for an unlisted server, the window, the prune, the region
+  share after a refresh and its repair), `server/lib/serverRegions.test.js`
+  (every fixture server's region, the region pass on the fixtures, by IP
+  and from the latest match), and `gameParse.test.js`'s server-history
+  block (`snapshotRow`, `serverSummary` on a Saturday night and across
+  the DST day, null rates, `serverWindow`, `regionShare`); the restore,
+  share-tag and route tests cover the new tables, `/server/:ip` and
+  `/live/:ip`'s name. `npx tsc --noEmit` exits 0. `npx vite build`: entry
+  232.38 KB raw / 74.46 KB gzip (+0.20 gzip: the route row, the two
+  fetchers), `GameList` 41.60 KB / 11.39 KB gzip (the region card in,
+  the heatmap's table out to `HourGrid`), `LiveGameDetail` 11.47 KB /
+  2.93 KB gzip (`JoinIp` became a shared chunk), the new `ServerHistory`
+  8.84 KB / 3.50 KB gzip, `HourGrid` 3.9 KB raw. The dashboard's first
+  visit requests no Recharts chunk (checked in Chrome).
+- S15 mutation checks (each source edit restored from a copy): uptime over
+  online ticks, in use over all ticks, pilots over all ticks, the earliest
+  peak, peak hours from match pilots only, the listing ahead of the
+  learned region, a repeated tick counted twice and today inside the
+  window each failed 1 to 4 tests. A server listed twice in one answer
+  did not, because the raw row's key already ignores the repeat; the
+  extra guard was removed.
+- S15, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start`: `Startup sync
+  complete`; the first start refreshed for the empty `region_months`
+  ("No rating snapshots, career months or region months on startup").
+  The timer stored 21 servers a minute (168 rows after 8 ticks). After a
+  refresh, `region_months` for 2026-10 holds North America West 22,
+  Oceania 7, North America East 6, Europe 2, North America Central 2,
+  Unknown 1 (114.75.24.117, "My Overload Server"); the two Ashburn
+  matches stored without a server took the region of that IP's other
+  matches, and the two Amsterdam 1 matches without one took the
+  listing's. `/api/stats/global` (40 matches), `/api/stats/pilots` (24),
+  `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`,
+  `/api/pilot/WD-40/career`, `/api/health`, `/api/stats/regions`,
+  `/api/server/143.110.230.67/history` and `/api/browser` all answer 200.
+  `/server/143.110.230.67` serves `og:title` "Server: San Francisco 1"
+  and `og:description` "San Francisco 1 (North America West). Join at
+  143.110.230.67." (no whole day of ticks yet); `/live/143.110.230.67`'s
+  `<title>` is "Live: San Francisco 1". SIGTERM logged `[Shutdown] Done.`
+  and no tick after it.
+- S15 `checks.mjs`, headless Chrome 154 over CDP at 1,280 and 390 px,
+  100 of 100: the server page on a real local server (header, region,
+  join IP, the tab title, "No ticks in the last 30 days", the 24 hours
+  drawn, `?days=7` by click and after a reload, 30 left out of the URL);
+  a mocked year at 30 and 365 days (each card equal to `serverSummary` on
+  the mock, 168 titled cells in ramp colours only, the busiest line, the
+  24-hour line broken at a 10-minute gap, the hours table); a server never
+  seen, a 500 and a held answer (EmptyState, ErrorState with Retry,
+  Loading); the dashboard's region card on local data (legend = regions
+  present) and on 88 mocked months (one column each, opens on the latest
+  month, only `chart.region` colours, titles with shares and "no
+  matches", the table's rows), failed, empty and held; no Recharts on the
+  dashboard's first visit; every server-browser row and card with a
+  history link (21 of 21 with idle servers shown); the live page's link
+  to the history in place, Back to the live page; then `/`, `/history`,
+  `/pilots`, `/rankings`, `/pilot/WD-40`, `/game/78735`, `/fight-night`
+  and `/live/143.110.230.67` rendering with no console errors and no
+  wider than the window. A separate run with the live list mocked empty
+  kept the stored name in the tab title and the header up while another
+  window loaded. Screenshots of the mocked year at both widths and the
+  dashboard read as expected.
+- S15 dataviz `validate_palette.js --mode dark --surface "#111111"` on
+  `chart.region`'s seven hues: every check passes (worst adjacent CVD ΔE
+  8.4, normal-vision ΔE 19.3).
+- S15 /code-review found 10 issues; all fixed: the 24-hour chart drawn
+  against the browser clock, the page blanked while a window loads, the
+  tab title losing the stored name, a server dropped from the list
+  keeping its uptime, a failed `servers` read stopping every pass, the
+  region learned from the last file read rather than the latest match, a
+  browser entry without `server`, a per-request scan of every server's
+  day (key now `(ip, at)`, a summary-only read for the share tags), a
+  tick written after shutdown, and a partial listing wiping the name.
+  /simplify (four agents): `monthsTo` and `atClock` in `gameParse.js`,
+  one `percent`, `chart.region` from `chart.weapon`, the hours table from
+  `server_hours`, summaries kept per day, a key-range prune, region names
+  read once per server in the worker, `App` the one title writer,
+  memoised page parts, unread fields and columns dropped; three skipped
+  (see the flags).
 
 - S14, first move on Node 26.11.1, on `main` at `e35672a` (PRs #13 and
   #14 merged): `npx vitest run` passed 14 files, 193 tests. `npx vite
@@ -1334,6 +1437,24 @@ maintenance item does not count toward the 28.
 
 ## NOT validated, do not claim these work
 
+- S15 ran on the 40 local matches, the fixtures, a few minutes of real
+  ticks from today's feed and mocked answers. Nobody has run it on the
+  NAS: the region share over 75,000 real matches (how many old archive
+  matches carry no server and come out Unknown), the first refresh's
+  extra pass time, and the size of a month of ticks there.
+- No whole fight-night day of real ticks exists yet, so uptime, in use,
+  pilots and the peak hours were only seen on mocked answers and unit
+  tests. The 03:00 prune and an offline tick for a server that really
+  dropped off the tracker's list were exercised by tests only.
+- What the tracker's `online` flag means (how long a crashed server stays
+  "online") was not checked.
+- Headless Chrome 154 on macOS only, at 1,280 and 390 px. Not Safari,
+  Firefox or a real phone (the region chart's horizontal scroll on
+  touch); no screen reader on the new tables, captions or `role="img"`
+  labels. The hour and month hovers are `title` tooltips, checked in the
+  DOM only.
+- The CI workflow on the S15 PR before it opened; see the PR's checks.
+
 - S14 ran on the 40 local matches (four days), the fixtures, mocked
   answers and a synthetic history. Nobody has run the first start on
   the NAS: how many rating days move, how long the recap rebuild takes
@@ -1636,11 +1757,11 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 14 files, 220 tests pass on 26.11.1 (S14; 193 at its start) | 2026-10-08 |
+| `npx vitest run` | all pass | 16 files, 240 tests pass on 26.11.1 (S15; 220 at its start) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.71 KB raw / 74.26 KB gzip, dashboard `GameList` 40.40 KB / 11.42 KB gzip and no Recharts on its first visit, pilot page `PilotDetail` 48.79 KB / 12.77 KB gzip on 26.11.1 (S14; 74.16, 15.48 and 9.99 at its start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S14) | 2026-10-08 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S14 on `/tmp/ofc-data`: `total_games: 40`, `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats` 23 games and 380 kills, `/api/stats/rankings` WD-40 first, `/api/health` ok, `/api/stats/heatmap` 38 matches, `/api/pilot/WD-40/career` 1 month and 3 days | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.38 KB raw / 74.46 KB gzip, dashboard `GameList` 41.60 KB / 11.39 KB gzip and no Recharts on its first visit, `LiveGameDetail` 11.47 KB / 2.93 KB gzip, server page `ServerHistory` 8.84 KB / 3.50 KB gzip on 26.11.1 (S15; 74.26, 11.42 and 3.17 at its start; pilot page `PilotDetail` 12.77 KB gzip in S14; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S15) | 2026-10-08 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S15 on `/tmp/ofc-data`: `total_games: 40`, `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/health`, `/api/stats/heatmap`, `/api/pilot/WD-40/career` all 200 as in S14; new `/api/stats/regions` (one month, 40 matches) and `/api/server/143.110.230.67/history` 200; 21 servers stored per minute | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine`, arm64: healthy in 5 s, uid 1000, 599 MB (Node 26; S6 on `node:22-alpine`: about 9 s, 567 MB) | 2026-10-08 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
@@ -1667,6 +1788,8 @@ maintenance item does not count toward the 28.
 | S14 `checks.mjs`: headless Chrome over CDP, the dashboard heatmap (local, a mocked year, held, failed, empty), `/history`, `/pilot/WD-40`'s career block (real and a mocked 30-month career; held, failed, empty, no ranked match), the same in Asia/Tokyo, then `/rankings`, `/pilots?min=1`, a match and a fight night, at 1,280 and 390 px | the heatmap equals the API by weekday and hour from 06:00, ramp colours, the career numbers equal the API, the shared states, no wider than the window, no console errors | 148 of 148 (S14) | 2026-10-08 |
 | S14 `real.mjs`, run by `node`: `pilotPass` months and `ratingPass` on every local match against `pilot_months` and `rating_snapshots`, months against `pilot_stats_cache`, and the new reads' query plans | the same rows; every pilot's months add up; index searches only | 23 of 23 and 32 of 32 rows, 23 of 23 pilots; covering index or primary key for every read (S14) | 2026-10-08 |
 | dataviz `validate_palette.js --ordinal --mode dark --surface "#111111"` on `chart.ramp` | every check passes | passes, darkest step 2.33:1 (S14) | 2026-10-08 |
+| S15 `checks.mjs`: headless Chrome over CDP, `/server/:ip` (a real local server; a mocked year at 30 and 365 days; never seen, failed, held), the dashboard's region card (local, 88 mocked months, failed, empty, held), the history links from the server browser and the live page, then the dashboard, `/history`, leaderboard, rankings, a pilot, a match, fight night and the live page, at 1,280 and 390 px | cards equal the answer, ramp and `chart.region` colours only, URL state across reload, shared states, no Recharts on the dashboard, no wider than the window, no console errors | 100 of 100 (S15) | 2026-10-08 |
+| dataviz `validate_palette.js --mode dark --surface "#111111"` on `chart.region` (7 hues) | every check passes | passes, worst adjacent CVD ΔE 8.4 (S15) | 2026-10-08 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -1933,7 +2056,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          pilot page with its career block, on local data plus Fetch-domain
          mocks for a full year; the dashboard, leaderboard, rankings, pilot
          pages and match page still work.
-- [ ] **S15 Server history** (S). Persist server-browser snapshots; `/server/:ip`
+- [x] **S15 Server history** (S). PR #16. Persist server-browser snapshots; `/server/:ip`
       page with uptime, peak hours, average players; regional share over time.
       The owner decided at the start of S15: a snapshot every 60 s; raw
       rows kept 30 days and an hourly rollup kept for good; the regional
@@ -3458,8 +3581,8 @@ Not counted in the 28 sessions.
   build: created empty at startup; the first tick fills them. A restart
   needs no repair: a tick is all or nothing, and the minutes the server
   was down are missing, as above. The 03:00 job deletes raw rows older
-  than 30 days (`pruneServerSnapshots`, a scan of about 0.9 million
-  rows once a night); the hours stay. Size at 21 servers: about 30,000 raw rows a
+  than 30 days (`pruneServerSnapshots`, one key range per server in one
+  transaction); the hours stay. Size at 21 servers: about 30,000 raw rows a
   day, about 0.9 million kept, and about 180,000 hourly rows a year.
   `restoreHot` creates them empty when the restored file predates S15.
   Rollback: revert, pull the old image, and `DROP TABLE servers; DROP
@@ -3524,21 +3647,30 @@ Not counted in the 28 sessions.
   listing, the region, the window (`days`, `since`, `until`), the
   `serverSummary` numbers, `asOf` (when the answer was made) and
   `lastDay`, the raw ticks of the 24 hours before `asOf`, which the page
-  draws against `asOf`, not the browser's clock. The share tags read the
-  summary alone (`getServerSummary`). `days` other than 7, 30, 90 or 365 reads as 30. A server never
+  draws against `asOf`, not the browser's clock, and `lastDayHours`, the
+  same hours' rows from `server_hours` for the table under the chart. The
+  window's hours all end before today's fight-night day starts, so a
+  summary is kept in memory per server and window until the day turns
+  (cleared by `restoreHot`); the share tags read the summary alone
+  (`getServerSummary`). `days` other than 7, 30, 90 or 365 reads as 30. A server never
   stored answers the same shape with a null `firstSeen`, not a 404, so
   the page tells "never seen" from a failure (the S13 rule). It reads
   one server's hours by key (at most 8,760) and a day of ticks, so it has
   no route cache. `GET /api/stats/regions` (in `stats.js`) answers `{
-  regions, months }`, every month from the first stored match to this
-  one; no route cache either, so it is never older than the table. The
+  months }`, every month from the first stored match to this one, each
+  with its count per region id; the client takes the order from
+  `REGIONS`. No route cache, so it is never older than the table. The
   client reads them through `fetchServerHistory` and `fetchRegionShare`
   (null on failure) and `useLoad`.
 - 2026-10-08 (S15): The page. `/server/:ip` is a route in `siteRoutes.js`
   (view `server`, title `Server: <name>`, the nav lights Live), with a
   share description in `pageMeta.js` ("Overloader: Dallas, TX (North
-  America Central): online 100% of the last 30 days, a match running 50%
-  of that time, 6.0 pilots in a match on average. Join at <ip>.").
+  America Central): online 100.0% of the last 30 days, a match running
+  50.0% of that time, 6.0 pilots in a match on average. Join at <ip>.",
+  one `percent` in `matchResult.js` for the page and the tags).
+  The view hands its stored name up to `App` (`onName`), which stays the
+  one writer of `document.title`, so a server that has left the live list
+  is not titled by its IP.
   `/live/:ip`'s share title now names the server from `servers` (the S8
   flag). The view (`components/ServerHistory.tsx`, lazy) shows the name,
   region, version, notes, `JoinIp` and a link to the live page ("Watch
@@ -3563,11 +3695,13 @@ Not counted in the 28 sessions.
   with each region's share, a legend of the regions present, the
   latest month's shares in words above it, and a per-month table. Below
   the history's width it scrolls and opens on the latest month.
-  Colours are `chart.region`: the seven palette slots of `chart.weapon`
-  in the same order, so neighbouring regions are the pairs the validator
-  passed (`--mode dark --surface "#111111"`: worst adjacent CVD ΔE 8.4,
-  normal-vision ΔE 19.3, contrast above 3:1), and Unknown is the chart
-  grey.
+  Colours are `chart.region`, built from `chart.weapon`'s values in
+  order against `REGIONS`, so neighbouring regions are the pairs the
+  validator passed (`--mode dark --surface "#111111"`: worst adjacent CVD ΔE 8.4,
+  normal-vision ΔE 19.3, contrast above 3:1; re-run 2026-10-08), and
+  Unknown takes the weapons' grey. The "night, 02:00" wording is one
+  `atClock` in `gameParse.js`, and `monthsTo` there fills the months for
+  both the career arc and the region share.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -4324,11 +4458,23 @@ Not counted in the 28 sessions.
 - (S15) The raw ticks are pruned only by the 03:00 job. If it fails
   (it runs after the backup and the cold move), the raw table grows by
   about 30,000 rows a night until a night succeeds.
-- (S15) Two writers of `document.title` on `/server/:ip`: `App` titles
-  it from the shared poll, as it does the live page, and the view sets it
-  again from the stored name once its answer arrives, so a server that
-  has left the browser is not titled by its IP. Moving the stored name
-  into `App` would make one writer again; the live page has the same gap.
+- (S15) The live page's tab title still comes from the shared poll
+  only, so a live page for a server that has left the browser shows its
+  IP in the tab while its share title (from `servers`) names it. The
+  server page hands its stored name to `App`; the live page could do the
+  same.
+- (S15) The server page names a server's region from its own listing
+  only, while the region share also learns an IP's region from its other
+  stored matches. A server named "My Overload Server" is Unknown on its
+  page and can count toward a region on the dashboard. Storing the
+  region the stats worker learns per IP and reading it on the page would
+  make one answer.
+- (S15, /simplify) Skipped: a separate request for the 24 hours so a
+  window change does not fetch the 1,440 ticks again (about 60 KB a
+  click; an endpoint change for little); one history-link component for
+  the four links (they differ to match the copy buttons beside them);
+  sharing `PilotDetail`'s `StatCard` (not exported; the server page has
+  its own four-card `Card`).
 - (S15) The last 24 hours chart and the region columns have `title`
   tooltips per hour and per month and a table behind a `<details>`, the
   S14 pattern; no crosshair tooltip and no screen reader was tried.
@@ -4357,6 +4503,9 @@ record of the server browser, so keep them if S15 may come back.
 - None open. The time zone for fight-night days was settled by the owner at
   the start of S14: America/Chicago, with the day rolling over at 06:00 (see
   the S14 decisions).
+- S15's three (snapshot cadence, retention, the regional share's source)
+  and the fight-night thresholds were settled by the owner at its start;
+  see the S15 decisions and the S14 thresholds flag.
 
 ## Skills to load
 
@@ -4940,12 +5089,39 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   counts on the admin page, a list of derived tables, a shared delta
   component (flagged). PR #15 opened against `main`, not merged.
 
+- 2026-10-08, S15 (Claude Opus 5.5): the server stores the tracker's
+  server browser every minute (raw ticks for 30 days, an hourly rollup
+  for good, the owner's answers at the start), a `/server/:ip` page with
+  uptime, use, pilots in a match, the peak, peak hours on the heatmap's
+  grid and the last 24 hours, and a "Matches by region" card on the
+  dashboard from a `region_months` table the stats worker builds over
+  every stored match. Status line checked first: PR #15 had merged
+  (`aa05428`, nothing after it), so S15 branched from `origin/main`;
+  `10223be` is not an object here. First move: 14 files, 220 tests;
+  entry 74.26 KB gzip; tsc 0. The owner kept the fight-night thresholds
+  after I laid out what the S14 rebuild does with them on the NAS's first
+  start; the flag now says so. Reading the code turned up that the site
+  only fetched the server browser while someone had it open, so the
+  ticks needed their own timer, sharing the route's fetch and cache; and
+  that no field anywhere names a region, so it comes from the keyword
+  table ServerStats used for its map, now one file. A local refresh
+  found two Ashburn matches stored without a server, so the region pass
+  learns an IP's region from its other matches. One mutation survived
+  (a server listed twice), which showed a redundant guard; it went.
+  /code-review found 10 issues, all fixed (the biggest: a server dropping
+  off the list kept 100% uptime, and the 24-hour chart followed the
+  browser clock). /simplify (four agents) shared the month range, the
+  night label and one percent formatter, derived `chart.region`, made
+  `App` the one title writer, kept summaries per day and skipped three
+  (flagged). Chrome checks: 100 of 100. PR #16 opened against `main`,
+  not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S15: server history.
+Continue the overloadfight.club roadmap. This session is S16: weapon meta and ladders.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -4954,54 +5130,54 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S14 is on branch ofc/s14-time-career, PR #15. PRs #1 to #14 are merged.
-  If PR #15 is merged:
-    git checkout -B ofc/s15-server-history origin/main
-  If PR #15 is still open:
-    git checkout -B ofc/s15-server-history origin/ofc/s14-time-career
-    and open the S15 PR against main anyway; say in its description that it sits on PR #15.
-  Check again before opening the PR: if PR #15 merged during the session, rebase onto origin/main first.
+  S15 is on branch ofc/s15-server-history, PR #16. PRs #1 to #15 are merged.
+  If PR #16 is merged:
+    git checkout -B ofc/s16-weapon-meta origin/main
+  If PR #16 is still open:
+    git checkout -B ofc/s16-weapon-meta origin/ofc/s15-server-history
+    and open the S16 PR against main anyway; say in its description that it sits on PR #16.
+  Check again before opening the PR: if PR #16 merged during the session, rebase onto origin/main first.
   `git checkout -B ... origin/...` sets the remote branch as upstream; run `git branch --unset-upstream` so a bare push cannot go to main.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #15 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #16 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 26
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
-If neither origin/main nor origin/ofc/s14-time-career has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s15-server-history has docs/ROADMAP.md, stop and tell me.
 
-Before building, ask me two questions the S15 entry leaves open: how often to snapshot the server browser (the shared poll runs every 10 s in the browser; the server's own fetch is what gets stored) and how long to keep the snapshots (raw rows against an hourly rollup). Also tell me, as S14 flagged, that no local fight-night day meets the thresholds under the 06:00 Chicago day, and ask whether to lower them in this session or leave them. Do not pick silently.
+Before building, ask me the questions the S16 entry leaves open: what counts as a 1v1 duel for the ladder (two pilots in an FFA match only, or also a 1v1 team match; ranked by the S13 Glicko-2 rules restricted to duels, or by wins and losses) and whether the "weapon mix radar vs community" should be a radar at all (the dataviz skill's form heuristic and anti-patterns apply; a radar would also be a new Recharts chunk on the pilot page). Do not pick silently.
 
 Read first:
-- docs/ROADMAP.md, the S15 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the dashboard, the live page and the server browser already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S4 decisions (the shared poll in hooks/useServerBrowser.ts, /api/browser), S5 (the stats worker, the hot/cold split), S6 (the 03:00 nightly job, backups, TZ=America/Chicago), S7 (the dashboard order, the live page and JoinIp, favorites), S8 (URL state, siteRoutes, share tags), S9 (tokens, States), S10 (focus and tap rules, tables in scroll wrappers), S11 (server/db/ and server/routes/ layout, hooks and child folders, apiService), S12 (`chart` in designTokens.js and the dataviz validator), S13 (useLoad, navSection, lazy chart chunks behind their own Suspense), S14 (fight-night days in gameParse.js: FIGHT_NIGHT_DAY, fightNightDay, dayBounds, dayStart, localClock, DAY_HOURS, heatmapCells; chart.ramp and rampColor; the dashboard heatmap; tableChanges/writeChanges for derived tables; the recap rebuild), every "Flagged, not fixed" item that names S15, servers, the server browser, the live page, regions or peak hours (decide for each whether S15 covers it; flag the rest again), and the Postmortems.
-- server/routes/browser.js, the server-browser fetch it proxies, hooks/useServerBrowser.ts, components/GameList.tsx (the server browser), components/ServerStats.tsx, components/ServerActivitySparkline.tsx, components/LiveGameDetail.tsx, server/db/analytics/global.js (getServerActivityStats, getActiveServerIps, the heatmap), server/lib/gameParse.js (the S14 day rules), server/lib/siteRoutes.js, server/pageMeta.js, server/db/migrations.js, server/maintenance.js, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S16 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the match page, the pilot page and the maps page already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S5 decisions (game_players, the stats worker, the hot/cold split), S8 (URL state, siteRoutes, share tags), S9 (tokens, States), S10 (Combat Ratio, Lethality, tables in scroll wrappers, focus and tap rules), S11 (server/db/ and server/routes/ layout, hooks and child folders, apiService), S12 (weapon families in gameParse.js: WEAPON_FAMILIES, weaponFamily; `chart.weapon` and the dataviz validator; kill-log rules), S13 (Glicko-2 rules, rating_snapshots, useLoad, navSection, lazy chart chunks behind their own Suspense), S14 (fight-night days: fightNightDay, dayBounds, localClock; tableChanges/writeChanges for derived tables; pilot_months), S15 (the region pass and region_months, HourGrid, DetailsTable in components/, `chart.region` from `chart.weapon`, monthsTo, atClock, percent in matchResult.js), every "Flagged, not fixed" item that names S16, weapons, maps, duels, head-to-head, CTF, Monsterball or the pilot page (decide for each whether S16 covers it; flag the rest again), and the Postmortems.
+- server/lib/gameParse.js (WEAPON_FAMILIES, weaponFamily, playerRows, killPoints, ratingSides, glicko2), server/lib/statsPasses.js, server/statsWorker.js, server/db/analytics/pilotTelemetry.js, server/db/analytics/pilots.js, server/db/analytics/global.js (the map stats), server/db/migrations.js, components/PilotDetail.tsx and components/pilotDetail/, components/MapLibrary.tsx, components/gameDetail/, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
 - gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every stat or chart number ships with a test on fixture data.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
 - server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. New tables go in server/db/migrations.js beside `games`, with a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules, the day rule included: a server's day, peak hour or uptime counts days and hours with fightNightDay, dayBounds and localClock (America/Chicago, 06:00 rollover, the owner's S14 answer). Never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
-- server/lib/siteRoutes.js owns page URLs, titles and the nav section; a new view (/server/:ip) gets its route, title and share description there and in server/pageMeta.js. Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
-- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js (chart.ramp for counts) and any new series colour or ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12, S14).
-- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9).
+- server/lib/gameParse.js owns the game rules: weapon families, the kill-log rules, the ranked filter, the rating and the day rule (America/Chicago, 06:00 rollover). Never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
+- server/lib/siteRoutes.js owns page URLs, titles and the nav section; a new view gets its route, title and share description there and in server/pageMeta.js, and App.tsx stays the one writer of document.title (a view hands it a name, as ServerHistory's onName does). Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
+- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js (`chart.weapon` for weapon families, `chart.ramp` for counts) and any new series colour or ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12, S14).
+- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9). A chart's keyboard path is a DetailsTable (components/DetailsTable.tsx).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, and the dashboard's first visit loads no Recharts chunk (S14); record the entry size (S14 left 231.71 KB raw / 74.26 KB gzip), the dashboard's GameList chunk (40.40 KB / 11.42 KB gzip) and any new view's chunk, before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, the dashboard's first visit loads no Recharts chunk (S14), and a page that did not load Recharts gets a chart as a lazy chunk behind its own Suspense or as hand-drawn SVG (S13, S14, S15). Record the entry size (S15 left 232.38 KB raw / 74.46 KB gzip), the pilot page's PilotDetail chunk (12.77 KB gzip in S14), the match page's GameDetail chunk and any new view's chunk, before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI).
-- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it, or hand-drawn SVG and tables as S14 did, to a new chart library.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (40 local matches and one forced recap for 2026-10-06 at the end of S14). Check the UI in headless Chrome over CDP, as S4 and S7 to S14 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more servers, snapshots or days than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy, not with `git checkout`, which also discards uncommitted work.
+- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it, or hand-drawn SVG and tables, to a new chart library.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (40 local matches, four with kill logs, at the end of S15; the server now also stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the UI in headless Chrome over CDP, as S4 and S7 to S15 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more matches, weapons, maps or duels than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy, not with `git checkout`, which also discards uncommitted work.
 
 Rules for this session:
-- One PR, scope is the S15 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the snapshot cadence and retention (the owner's answers), the new table and its migration, how uptime, peak hours and average players are counted (and in which day and hour), the regions and where each server's region comes from, the /server/:ip page and its URL state, and any new endpoint.
+- One PR, scope is the S16 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the owner's answers, any new table and its migration, how each weapon, map and duel number is counted (ranked filter or not, which kills, which day), the duel ladder's rule, the objective leaderboards' sources (Monsterball goals, CTF flagStats), any new view and its URL state, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S15 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S16 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S16.
+- Before ending: tick S16 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S17 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S17.
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S14 left 14 files, 220 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|LiveGameDetail)-.*\.js"` (the Verification table records the entry at 74.26 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S15 Done-when list into the tracker.
-Done when: every item of the S15 Done-when list is true and checked on fixture data and in headless Chrome (a /server/:ip page and whatever the dashboard gains, at 1,280 and 390 px), the dashboard, the server browser, the live page, leaderboard, rankings, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S15 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S15 left 16 files, 240 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|PilotDetail|GameDetail|MapLibrary)-.*\.js"` (the Verification table records the entry at 74.46 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S16 Done-when list into the tracker.
+Done when: every item of the S16 Done-when list is true and checked on fixture data and in headless Chrome (every new chart, table and view at 1,280 and 390 px), the dashboard, the server page, leaderboard, rankings, pilot pages, maps and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S16 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history` and `/api/health`, and the PR is open with the tracker updated.
 ```
