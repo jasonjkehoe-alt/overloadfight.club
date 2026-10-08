@@ -65,10 +65,6 @@ export const getMostActiveMaps = hotDb.prepare(`
     LIMIT 10
 `);
 
-const getAdminSetting = hotDb.prepare('SELECT value FROM admin_settings WHERE key = ?');
-
-const setAdminSetting = hotDb.prepare('INSERT OR REPLACE INTO admin_settings (key, value) VALUES (?, ?)');
-
 export const getGameCountsByDate = hotDb.prepare(`
     SELECT date(date) as day, COUNT(*) as count
     FROM games

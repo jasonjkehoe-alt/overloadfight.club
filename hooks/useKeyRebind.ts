@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useDialog } from './useDialog';
 import { browserEventToUnityKeyCode } from '../utils/pilotSettingsBridge';
+import type { usePilotSettings } from './usePilotSettings';
 
 // PilotSettingsPanel's key rebind dialog: which binding is being captured, the
 // dialog's keyboard contract, and the capture listener that writes the new key
 // into the pending bindings.
 export function useKeyRebind(
-    setPendingBindings: React.Dispatch<React.SetStateAction<Record<string, { slot: 1 | 2; keyCode: number }>>>
+    setPendingBindings: ReturnType<typeof usePilotSettings>['setPendingBindings']
 ) {
     // Key rebind modal / listener
     const [rebindAction, setRebindAction] = useState<{ actionName: string; slot: 1 | 2 } | null>(null);

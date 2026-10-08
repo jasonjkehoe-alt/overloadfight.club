@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+export type SetMessage = React.Dispatch<React.SetStateAction<string | null>>;
+
 // AudioEditor: error / success banners and the diagnostics log.
 export function useAudioEditorStatus() {
     const [error, setError] = useState<string | null>(null);

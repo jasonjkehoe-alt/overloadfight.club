@@ -3,8 +3,7 @@ import { RotateCcw, Crosshair, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 import { PilotAutoselectConfig } from '../../utils/pilotSettingsBridge';
 import { usePilotSettingsAutoselect } from '../../hooks/usePilotSettingsAutoselect';
-import { AutoselectPrimaryList } from './AutoselectPrimaryList';
-import { AutoselectSecondaryList } from './AutoselectSecondaryList';
+import { AutoselectList } from './AutoselectList';
 
 type AutoselectTabProps = ReturnType<typeof usePilotSettingsAutoselect> & {
     autoselectConfig: PilotAutoselectConfig | null;
@@ -236,19 +235,21 @@ export const AutoselectTab: React.FC<AutoselectTabProps> = ({
             {/* Dual Weapon Priority & Inclusion Columns */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column: Primary Weapons */}
-                <AutoselectPrimaryList
-                    autoselectConfig={autoselectConfig}
-                    movePrimaryPriority={movePrimaryPriority}
-                    togglePrimaryNeverSelect={togglePrimaryNeverSelect}
-                    togglePrimaryCycle={togglePrimaryCycle}
+                <AutoselectList
+                    variant="primary"
+                    items={autoselectConfig?.primaries}
+                    onMove={movePrimaryPriority}
+                    onToggleNeverSelect={togglePrimaryNeverSelect}
+                    onToggleCycle={togglePrimaryCycle}
                 />
 
                 {/* Right Column: Secondary Missiles */}
-                <AutoselectSecondaryList
-                    autoselectConfig={autoselectConfig}
-                    moveSecondaryPriority={moveSecondaryPriority}
-                    toggleSecondaryNeverSelect={toggleSecondaryNeverSelect}
-                    toggleSecondaryCycle={toggleSecondaryCycle}
+                <AutoselectList
+                    variant="secondary"
+                    items={autoselectConfig?.secondaries}
+                    onMove={moveSecondaryPriority}
+                    onToggleNeverSelect={toggleSecondaryNeverSelect}
+                    onToggleCycle={toggleSecondaryCycle}
                 />
             </div>
         </div>

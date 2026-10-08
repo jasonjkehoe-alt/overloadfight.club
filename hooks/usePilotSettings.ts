@@ -257,7 +257,6 @@ export function usePilotSettings({
         xconfig,
         autoselectConfig,
         setAutoselectConfig,
-        initialAutoselectConfig,
         setInitialAutoselectConfig,
         pendingPrefs,
         setPendingPrefs,

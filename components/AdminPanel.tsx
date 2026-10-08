@@ -14,21 +14,7 @@ import AdminMapManagement from './admin/AdminMapManagement';
 const AdminPanel: React.FC = () => {
     const { auth, overview, settings, maps, archive } = useAdminPanel();
     const { isAuthenticated, setIsAuthenticated, password, setPassword, error, handleLogin } = auth;
-    const {
-        stats,
-        loading,
-        setLoading,
-        targetDuration,
-        setTargetDuration,
-        estimatedPages,
-        version,
-        refreshingStats,
-        refreshStatsMessage,
-        fetchStats,
-        startBackfill,
-        controlJob,
-        handleRefreshStats
-    } = overview;
+    const { stats, loading, setLoading, version, fetchStats } = overview;
     const { showColdStorage, setShowColdStorage, saveSetting } = settings;
     const { archiveStatus, handleCancelArchiveSync } = archive;
 
@@ -60,8 +46,6 @@ const AdminPanel: React.FC = () => {
         );
     }
 
-    const rateLimitCalc = Math.floor((targetDuration * 3600 * 1000) / estimatedPages);
-
     return (
         <div className="min-h-screen bg-gray-900 text-white p-8">
             <header className="mb-8 flex justify-between items-center">
@@ -85,17 +69,7 @@ const AdminPanel: React.FC = () => {
                 <AdminCoverageChart stats={stats} />
 
                 {/* Smart Backfill Controls */}
-                <AdminBackfillPanel
-                    stats={stats}
-                    targetDuration={targetDuration}
-                    setTargetDuration={setTargetDuration}
-                    rateLimitCalc={rateLimitCalc}
-                    startBackfill={startBackfill}
-                    controlJob={controlJob}
-                    refreshingStats={refreshingStats}
-                    refreshStatsMessage={refreshStatsMessage}
-                    handleRefreshStats={handleRefreshStats}
-                />
+                <AdminBackfillPanel stats={stats} overview={overview} />
             </div>
 
             <AdminDashboardConfig

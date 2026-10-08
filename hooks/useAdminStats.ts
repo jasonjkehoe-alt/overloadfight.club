@@ -3,7 +3,6 @@ import {
     fetchAdminExtendedStats,
     fetchVersionInfo,
     postAdminBackfillJobAction,
-    resumeAdminBackfillJob,
     startAdminBackfill,
     triggerAdminStatsRefresh
 } from '../services/apiService';
@@ -122,11 +121,7 @@ export function useAdminStats({ setError, setIsAuthenticated }: AdminStatsDeps) 
     const controlJob = async (action: 'pause' | 'resume' | 'cancel') => {
         if (!stats?.activeJob) return;
         try {
-            if (action === 'resume') {
-                await resumeAdminBackfillJob(stats.activeJob.id);
-            } else {
-                await postAdminBackfillJobAction(action, stats.activeJob.id);
-            }
+            await postAdminBackfillJobAction(action, stats.activeJob.id);
             fetchStats();
         } catch (e) {
             console.error(e);

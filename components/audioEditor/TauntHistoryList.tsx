@@ -1,41 +1,21 @@
 import React from 'react';
 import { Download, Play, Pause, Trash2, History, Pencil, X, Check, Layers } from 'lucide-react';
 import { clsx } from 'clsx';
-import type { HistoryItem } from '../../hooks/useAudioEditorHistory';
+import type { HistoryItem, useAudioEditorHistory } from '../../hooks/useAudioEditorHistory';
 
 interface TauntHistoryListProps {
-    history: HistoryItem[];
-    corruptHistoryCount: number;
-    handlePruneCorruptFiles: () => Promise<void>;
-    isPruning: boolean;
-    editingId: string | null;
-    editName: string;
-    setEditName: React.Dispatch<React.SetStateAction<string>>;
-    handleSaveRename: (id: string) => Promise<void>;
-    setEditingId: React.Dispatch<React.SetStateAction<string | null>>;
-    handlePreviewHistory: (item: HistoryItem) => void;
-    playingId: string | null;
+    historyState: ReturnType<typeof useAudioEditorHistory>;
     handleReloadIntoEditor: (item: HistoryItem) => void;
-    handleDownloadHistoryItem: (item: HistoryItem) => void;
-    handleDeleteHistoryItem: (id: string) => Promise<void>;
 }
 
-export const TauntHistoryList: React.FC<TauntHistoryListProps> = ({
-    history,
-    corruptHistoryCount,
-    handlePruneCorruptFiles,
-    isPruning,
-    editingId,
-    editName,
-    setEditName,
-    handleSaveRename,
-    setEditingId,
-    handlePreviewHistory,
-    playingId,
-    handleReloadIntoEditor,
-    handleDownloadHistoryItem,
-    handleDeleteHistoryItem,
-}) => {
+export const TauntHistoryList: React.FC<TauntHistoryListProps> = ({ historyState, handleReloadIntoEditor }) => {
+    const {
+        history, isPruning, editingId, editName, setEditName, handleSaveRename, setEditingId,
+        handlePreviewHistory, playingId, handleDownloadHistoryItem, handleDeleteHistoryItem,
+        handlePruneCorruptFiles,
+    } = historyState;
+    const corruptHistoryCount = history.filter(h => h.blob.size < 6000).length;
+
     return (
         <div className="mt-10 pt-6 border-t border-white/10 space-y-4">
             <div className="flex items-center justify-between">

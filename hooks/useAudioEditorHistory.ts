@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type WaveSurfer from 'wavesurfer.js';
 import { getTaunts, deleteTaunt, updateTauntName } from '../utils/audioHistoryDb';
+import type { SetMessage } from './useAudioEditorStatus';
 
 export interface HistoryItem {
     id: string;
@@ -8,8 +9,6 @@ export interface HistoryItem {
     date: number;
     blob: Blob;
 }
-
-type SetMessage = React.Dispatch<React.SetStateAction<string | null>>;
 
 interface UseAudioEditorHistoryOptions {
     wavesurferRef: React.RefObject<WaveSurfer | null>;

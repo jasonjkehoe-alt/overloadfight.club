@@ -515,7 +515,7 @@ export const fetchFightNightDetail = async (date: string): Promise<FightNightRec
 // Admin panel (components/AdminPanel.tsx) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.
-export class AdminRequestError extends Error {
+class AdminRequestError extends Error {
     response?: { status: number; data: any };
 
     constructor(message: string, response?: { status: number; data: any }) {
@@ -581,10 +581,7 @@ export const addAdminMap = (map: Record<string, unknown>): Promise<any> =>
 export const startAdminBackfill = (job: { startGameId: number; endGameId: number; rateLimitMs: number; jobType: 'page_sync' | 'hydrate' }): Promise<any> =>
     adminRequest(`${API_BASE}/admin/backfill/start`, 'POST', job);
 
-export const resumeAdminBackfillJob = (jobId: number | string): Promise<any> =>
-    adminRequest(`${API_BASE}/admin/backfill/resume/${jobId}`, 'POST');
-
-export const postAdminBackfillJobAction = (action: 'pause' | 'cancel', jobId: number | string): Promise<any> =>
+export const postAdminBackfillJobAction = (action: 'pause' | 'resume' | 'cancel', jobId: number | string): Promise<any> =>
     adminRequest(`${API_BASE}/admin/backfill/${action}/${jobId}`, 'POST');
 
 export const fetchAdminArchiveSyncStatus = (): Promise<any> =>

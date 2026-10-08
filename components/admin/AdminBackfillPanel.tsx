@@ -1,17 +1,11 @@
 import React from 'react';
 import { Play, Pause, Square, RefreshCw, Download, Zap } from 'lucide-react';
-import type { AdminStats } from '../../hooks/useAdminStats';
+import type { AdminStats, useAdminStats } from '../../hooks/useAdminStats';
 
 interface AdminBackfillPanelProps {
+    // overview.stats, once it has loaded
     stats: AdminStats;
-    targetDuration: number;
-    setTargetDuration: (hours: number) => void;
-    rateLimitCalc: number;
-    startBackfill: (type: 'page_sync' | 'hydrate') => void;
-    controlJob: (action: 'pause' | 'resume' | 'cancel') => void;
-    refreshingStats: boolean;
-    refreshStatsMessage: string | null;
-    handleRefreshStats: () => void;
+    overview: ReturnType<typeof useAdminStats>;
 }
 
 const formatLastRefreshed = (val?: string | null) => {
@@ -25,17 +19,19 @@ const formatLastRefreshed = (val?: string | null) => {
     }
 };
 
-const AdminBackfillPanel: React.FC<AdminBackfillPanelProps> = ({
-    stats,
-    targetDuration,
-    setTargetDuration,
-    rateLimitCalc,
-    startBackfill,
-    controlJob,
-    refreshingStats,
-    refreshStatsMessage,
-    handleRefreshStats
-}) => {
+const AdminBackfillPanel: React.FC<AdminBackfillPanelProps> = ({ stats, overview }) => {
+    const {
+        targetDuration,
+        setTargetDuration,
+        estimatedPages,
+        startBackfill,
+        controlJob,
+        refreshingStats,
+        refreshStatsMessage,
+        handleRefreshStats
+    } = overview;
+    const rateLimitCalc = Math.floor((targetDuration * 3600 * 1000) / estimatedPages);
+
     return (
         <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
             <h3 className="text-xl font-bold mb-6 flex items-center gap-2">

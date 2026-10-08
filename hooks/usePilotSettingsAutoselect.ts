@@ -4,13 +4,14 @@ import {
     AutoselectLogicSwitches,
     getDefaultAutoselectConfig
 } from '../utils/pilotSettingsBridge';
+import type { usePilotSettings } from './usePilotSettings';
 
 // Edits to PilotSettingsPanel's autoselect config: priority order, the two
 // inclusion toggles per weapon, the logic switches and the factory reset.
 export function usePilotSettingsAutoselect(
     autoselectConfig: PilotAutoselectConfig | null,
     setAutoselectConfig: React.Dispatch<React.SetStateAction<PilotAutoselectConfig | null>>,
-    setStatusMessage: React.Dispatch<React.SetStateAction<{ type: 'success' | 'error' | 'info'; text: string } | null>>
+    setStatusMessage: ReturnType<typeof usePilotSettings>['setStatusMessage']
 ) {
     // Autoselect priority and toggle helpers
     const movePrimaryPriority = (index: number, direction: 'up' | 'down') => {

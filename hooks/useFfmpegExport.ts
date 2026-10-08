@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { FFmpegService } from '../utils/ffmpeg';
 import { saveTaunt } from '../utils/audioHistoryDb';
 import { fetchFile } from '@ffmpeg/util';
-
-type SetMessage = React.Dispatch<React.SetStateAction<string | null>>;
+import type { SetMessage } from './useAudioEditorStatus';
 
 interface UseFfmpegExportOptions {
     file: File | null;

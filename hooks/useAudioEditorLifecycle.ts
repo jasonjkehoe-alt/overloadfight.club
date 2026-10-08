@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import type WaveSurfer from 'wavesurfer.js';
 import { FFmpegService } from '../utils/ffmpeg';
+import type { SetMessage } from './useAudioEditorStatus';
 
-type SetMessage = React.Dispatch<React.SetStateAction<string | null>>;
-
-interface UseFfmpegEngineOptions {
+interface UseAudioEditorLifecycleOptions {
     addLog: (msg: string) => void;
     setError: SetMessage;
     loadHistory: () => Promise<void>;
@@ -15,7 +14,7 @@ interface UseFfmpegEngineOptions {
 
 // AudioEditor mount effect: loads the ffmpeg.wasm core and the taunt history;
 // on unmount destroys the waveform, the history preview audio and the AudioContext.
-export function useFfmpegEngine({ addLog, setError, loadHistory, wavesurferRef, previewAudioRef, audioCtxRef }: UseFfmpegEngineOptions) {
+export function useAudioEditorLifecycle({ addLog, setError, loadHistory, wavesurferRef, previewAudioRef, audioCtxRef }: UseAudioEditorLifecycleOptions) {
     const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
 
     // Initialize WebAssembly Core and Load History

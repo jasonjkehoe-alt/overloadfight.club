@@ -5,7 +5,7 @@ import { WebImportModal } from './WebImportModal';
 import { AlertCircle, CheckCircle2, Upload } from 'lucide-react';
 import { useAudioEditorStatus } from '../hooks/useAudioEditorStatus';
 import { useAudioEditorHistory, type HistoryItem } from '../hooks/useAudioEditorHistory';
-import { useFfmpegEngine } from '../hooks/useFfmpegEngine';
+import { useAudioEditorLifecycle } from '../hooks/useAudioEditorLifecycle';
 import { useAudioEditorSource } from '../hooks/useAudioEditorSource';
 import { useAudioEditorWaveform } from '../hooks/useAudioEditorWaveform';
 import { useFfmpegExport } from '../hooks/useFfmpegExport';
@@ -26,7 +26,7 @@ interface AudioEditorProps {
 }
 
 export const AudioEditor: React.FC<AudioEditorProps> = ({ initialFile }) => {
-    // Shared between the hooks below: the mount effect in useFfmpegEngine tears all three down on unmount.
+    // Shared between the hooks below: the mount effect in useAudioEditorLifecycle tears all three down on unmount.
     const wavesurferRef = useRef<WaveSurfer | null>(null);
     const previewAudioRef = useRef<HTMLAudioElement | null>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
@@ -39,12 +39,9 @@ export const AudioEditor: React.FC<AudioEditorProps> = ({ initialFile }) => {
 
     // Hook order fixes effect order: mount/teardown, initialFile, drag & drop, waveform, zoom, loop sync, hotkeys.
     const { error, setError, exportSuccess, setExportSuccess, debugLog, addLog } = useAudioEditorStatus();
-    const {
-        history, editingId, setEditingId, editName, setEditName, playingId, isPruning,
-        loadHistory, handleDownloadHistoryItem, handleDeleteHistoryItem, handleSaveRename,
-        handlePreviewHistory, handlePruneCorruptFiles,
-    } = useAudioEditorHistory({ wavesurferRef, previewAudioRef, setError, setExportSuccess });
-    const { ffmpegLoaded } = useFfmpegEngine({ addLog, setError, loadHistory, wavesurferRef, previewAudioRef, audioCtxRef });
+    const historyState = useAudioEditorHistory({ wavesurferRef, previewAudioRef, setError, setExportSuccess });
+    const { history, loadHistory } = historyState;
+    const { ffmpegLoaded } = useAudioEditorLifecycle({ addLog, setError, loadHistory, wavesurferRef, previewAudioRef, audioCtxRef });
     const {
         file, audioBuffer, measuredPeakDb, tauntName, setTauntName, isDraggingOver,
         analyzeSliceMetrics, loadAudioFile,
@@ -71,7 +68,6 @@ export const AudioEditor: React.FC<AudioEditorProps> = ({ initialFile }) => {
 
     // Estimated OGG size (~16 kB/s at Q4 mono + header ~4kB)
     const estimatedSizeKb = Math.round(duration * 16 + 4);
-    const corruptHistoryCount = history.filter(h => h.blob.size < 6000).length;
 
     return (
         <div className="w-full max-w-5xl mx-auto space-y-8 font-mono">
@@ -188,22 +184,7 @@ export const AudioEditor: React.FC<AudioEditorProps> = ({ initialFile }) => {
 
                 {/* Recent Taunts Library with Corrupt File Detection & Reload to Editor */}
                 {history.length > 0 && (
-                    <TauntHistoryList
-                        history={history}
-                        corruptHistoryCount={corruptHistoryCount}
-                        handlePruneCorruptFiles={handlePruneCorruptFiles}
-                        isPruning={isPruning}
-                        editingId={editingId}
-                        editName={editName}
-                        setEditName={setEditName}
-                        handleSaveRename={handleSaveRename}
-                        setEditingId={setEditingId}
-                        handlePreviewHistory={handlePreviewHistory}
-                        playingId={playingId}
-                        handleReloadIntoEditor={handleReloadIntoEditor}
-                        handleDownloadHistoryItem={handleDownloadHistoryItem}
-                        handleDeleteHistoryItem={handleDeleteHistoryItem}
-                    />
+                    <TauntHistoryList historyState={historyState} handleReloadIntoEditor={handleReloadIntoEditor} />
                 )}
 
                 {/* Collapsible WebAssembly & DSP Diagnostics */}

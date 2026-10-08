@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-
-type SetMessage = React.Dispatch<React.SetStateAction<string | null>>;
+import type { SetMessage } from './useAudioEditorStatus';
 
 interface UseAudioEditorSourceOptions {
     initialFile?: File | null;

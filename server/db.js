@@ -49,6 +49,8 @@ const db = {
   // Connection and lifecycle
   backupHot,
   backupCold,
+  mapsDir,
+  mapImagesDir,
   // Replace tracker.db through SQLite's backup API, then rebuild game_players.
   restoreHot: async source => {
     const uploaded = new Database(source, { readonly: true, fileMustExist: true });
@@ -106,8 +108,6 @@ const db = {
   setAdminSetting,
 
   // repos/maps.js
-  mapsDir,
-  mapImagesDir,
   seedStockMaps,
   getMaps,
   countMaps,
