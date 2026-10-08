@@ -7,6 +7,9 @@ let dataDir;
 let db;
 let routes;
 
+// routes.js mounts one router per resource; the route layers sit one level down.
+const routeLayers = () => routes.stack.flatMap(s => s.handle?.stack ?? [s]);
+
 beforeAll(async () => {
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ofc-replay-test-'));
     process.env.DATA_DIR = dataDir;
@@ -50,7 +53,7 @@ afterAll(async () => {
 
 describe('Match Replay Endpoints', () => {
     it('/api/match/:id/kills returns normalized, sorted kill events with suicide flag', async () => {
-        const layer = routes.stack.find(
+        const layer = routeLayers().find(
             s => s.route && s.route.path === '/match/:id/kills' && s.route.methods.get
         );
         expect(layer).toBeDefined();
@@ -97,7 +100,7 @@ describe('Match Replay Endpoints', () => {
     });
 
     it('/api/game/:id/kills matches /api/match/:id/kills output', async () => {
-        const layer = routes.stack.find(
+        const layer = routeLayers().find(
             s => s.route && s.route.path === '/game/:id/kills' && s.route.methods.get
         );
         expect(layer).toBeDefined();
