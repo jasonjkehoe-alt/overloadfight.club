@@ -65,8 +65,11 @@ refreshes) and `5afcdf5` (the leaderboard's Active (90d) toggle fetches
 `5afcdf5` fails `npx tsc --noEmit` on its own (`setMinutes` with four
 arguments); S10's branch fixes it.
 
-S10 is on branch `ofc/s10-glossary-a11y-mobile`, rebased onto
-`5afcdf5`, PR #10 open against `main` and not merged, 2026-10-07 UTC.
+S10 is merged into `main` (PR #10, squash-merged 2026-10-08 00:05 UTC
+as `96f2710`), with no owner commits after it.
+
+S11 is on branch `ofc/s11-split-giants`, based on `96f2710`, PR #11 open
+against `main` and not merged, 2026-10-08 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -77,10 +80,98 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 10 of 28 sessions done (S1 to S9 merged, PR for S10 open).
-Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
+Counts: 11 of 28 sessions done (S1 to S10 merged, PR for S11 open).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 0/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-07 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S9 merged into `main`, `main` at 5afcdf5, S10 on `ofc/s10-glossary-a11y-mobile`)
+## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S10 merged into `main`, `main` at 96f2710, S11 on `ofc/s11-split-giants`)
+
+- S11, first move on Node 22.17.0, on `main` at `96f2710` (PR #10
+  merged): `npx vitest run` passed 13 files, 129 tests (the prompt said
+  126; the Verification table's 129 after S10's review fixes is right).
+  `npx vite build` wrote the entry `index-GihCUZKl.js` at 231.00 KB raw /
+  73.76 KB gzip (the table said 73.74; S10's review fixes added 0.02).
+  `npx tsc --noEmit` exited 0. `wc -l`: `db.js` 2,620 (not 2,520),
+  `routes.js` 1,042 (not 964), `PilotSettingsPanel` 2,119, `AudioEditor`
+  1,353, `WebImportModal` 1,332, `AdminPanel` 986.
+- S11, what must not change, recorded first and compared at the end:
+  - Exports: a script run by plain `node` imports `server/db.js` into a
+    fresh `DATA_DIR` and prints the sorted export names (`backupsDir`,
+    `default`, `mapImagesDir`, `mapsDir`, `pilotStatements` and its nine
+    keys) and every `db` key with the kind of value behind it (90 keys:
+    function, prepared statement, `{ get }`/`{ all }` object, string).
+    After the split the output is identical. The same script is the
+    ES-module check: the import of every new module happens outside
+    vitest. A second script finds no import cycle among the 21 new
+    server modules.
+  - Routes: a script stubs `express.application.listen`, imports
+    `server/index.js` and walks `app._router`, printing method and path
+    of every route plus each middleware layer (97 entries, including
+    `requireAuth` on `/api/overload` and `/api/admin`). After the split
+    the set is identical. The order between resources changed; a third
+    script built 1,931 URLs from every pattern and found none that
+    matches two routes and none whose first match differs.
+  - API answers: `/api/stats/global`, `/api/stats/pilots?source=all`,
+    `/api/pilot/WD-40/stats`, `/api/pilot/WD-40/ppi`, `/api/games?page=1`
+    (plus `/api/health` and `/api/stats/pilots`) from the server started
+    on a copy of a frozen snapshot of `/tmp/ofc-data` (30 matches), with
+    `https_proxy` pointed at a closed port so the tracker sync cannot add
+    games. Two baseline runs gave the same bytes. After the server split,
+    and again at the end back to back with a `96f2710` worktree, all
+    seven are byte-identical (150,297 bytes for page 1).
+- S11, tests: `npx vitest run` passes 14 files, 136 tests. The 7 new ones
+  are `services/apiService.test.ts`: the admin request helper rejects a
+  non-2xx answer with axios's message and `response`, rejects a network
+  failure with "Network Error", keeps a non-JSON body as text, and sends
+  `Content-Type` only with a body. Three mutations of the helper
+  (`Content-Type` on every request, the status code dropped from the
+  message, the network error renamed) fail 2, 2 and 1 of them. `server/match-replay.test.js` looks for
+  its routes one level down (both of its tests failed against the new
+  `routes.js` until then).
+- S11, headless Chrome 154 over CDP, the same script against a build of
+  `96f2710` and against the branch, each on its own server and snapshot
+  copy, with `/api/browser`, `/api/overload/*`, `/api/import/*` and
+  `/api/admin/*` mocked through one `Fetch.enable` (an admin session from
+  answers captured after a real dev login; pilots Soup and XB1): the
+  Taunts vault, loadout and manual tabs; the Create tab until the ffmpeg
+  engine reports ready; the web import dialog opened from the keyboard,
+  a YouTube search and an archive search with mocked results, the direct
+  tab; the voice recorder; the pilot settings page and all six of its
+  tabs; the key rebind dialog from the keyboard; the vault's clone
+  dialog; the admin page with its stats. 20 DOM snapshots (React ids
+  normalised) are identical before and after, and so is the request log
+  (64 requests, same order). After /simplify the snapshots and the
+  request multiset were identical again; one request moved a step in
+  the log (the pilot page's 6 s game-running poll fired during the next
+  tab). Every dialog (web import, voice recorder,
+  key rebind, clone) is `role="dialog"`, `aria-modal="true"`, labelled
+  by its heading, takes focus, keeps 25 Tabs inside (10 for clone), and
+  closes on Escape with focus back on its opener, in both builds. No
+  console errors or exceptions. Two baseline runs differed only in a
+  React id.
+- S11, admin page with a real dev login (no `NODE_ENV`, `admin123`), both
+  builds: a wrong password gets a 401 and "Invalid password"; the right
+  one loads the stats; the archive toggle posts
+  `{"key":"show_cold_storage","value":"true"}`; "Refresh stats now" posts
+  and shows "Refresh started in background." The requests, bodies and
+  `Content-Type` and `Accept` headers are the same in both builds (run
+  again after /simplify, same answer).
+- S11, sizes after /simplify: `npx vite build` entry `index-*.js`
+  232.24 KB raw / 74.16 KB gzip (+0.40 KB gzip: the admin request
+  helpers in `apiService.ts`), CSS 85.16 KB (85.46 before: `.container`
+  and `.resize` dropped, see Flagged). `AudioTauntMaker` chunk 205.64 KB
+  (198.77 before; hook and prop names the minifier cannot shorten).
+  `npx tsc --noEmit` exits 0. `wc -l`: `PilotSettingsPanel` 224,
+  `AudioEditor` 209, `WebImportModal` 176, `AdminPanel` 90, `db.js` 180,
+  `routes.js` 19; no new file is over 500 (largest
+  `server/db/repos/games.js` 458, on the client
+  `components/webImport/YouTubeTab.tsx` 321); `grep axios` in
+  `AdminPanel.tsx`, `components/admin/` and `hooks/` prints nothing.
+- S11, server: `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` on the
+  branch, live tracker, after `Startup sync complete`: `/api/health`
+  `{"status":"ok"}`, `/api/stats/global` `total_games: 30`,
+  `/api/stats/pilots` 21 pilots (top WD-40, 23 matches),
+  `/api/pilot/WD-40/stats` 23 matches and 380 kills. SIGTERM logs both
+  shutdown lines.
 
 - S10, second rebase, onto the owner's `5afcdf5` (pushed while S10's
   PR was being prepared). One conflict, in `PilotsList.tsx`: kept the
@@ -770,6 +861,18 @@ Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 
 ## NOT validated, do not claim these work
 
+- S11 compared the four components in headless Chrome 154 on macOS with
+  mocked `/api/overload/*`, `/api/import/*` and admin answers. Not run:
+  an actual taunt export or install, a YouTube or archive import that
+  loads audio into the editor, ffmpeg video extraction, a key actually
+  rebound and saved, pilot files read from a real Overload folder, the
+  admin backfill, map sync and archive ingest actions.
+- The split server ran only on the 30-match local data and the test
+  fixtures, not on the NAS or its 2.8 GB cold file. The module split
+  changes the order statements are prepared in, not their SQL.
+- 390 px was not re-checked; the DOM is identical at 1,280 px.
+- The CI workflow on the S11 PR before it opened; see the PR's checks.
+
 - S10 was checked in headless Chrome 154 on macOS only. Safari,
   Firefox and a real phone were not tried: not Safari's table layout
   for the cell links, not focus return in Safari (which does not focus
@@ -992,11 +1095,11 @@ Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 13 files, 129 tests pass (S10, after the review fixes) | 2026-10-07 |
+| `npx vitest run` | all pass | 14 files, 136 tests pass (S11) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.93 KB raw / 73.74 KB gzip (S10; 73.64 KB at S10's start, one 351.07 KB chunk before S4) | 2026-10-07 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S10) | 2026-10-07 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 30`, dev mode without secrets; `/api/stats/pilots` 21 pilots, `/api/pilot/WD-40/stats` 23 games, `/api/health` ok (S10) | 2026-10-07 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.24 KB raw / 74.16 KB gzip (S11; 73.76 KB at S11's start, one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S11) | 2026-10-08 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 30`, dev mode without secrets; `/api/stats/pilots` 21 pilots, `/api/pilot/WD-40/stats` 23 games, `/api/health` ok (S11) | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | healthy in about 9 s, uid 1000, 567 MB (S6) | 2026-10-07 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | under 1 s, exit 0, no `-wal` left (S6) | 2026-10-07 |
@@ -1009,6 +1112,10 @@ Phase 1: 6/6. Phase 2: 4/5. Phase 3: 0/6. Phase 4: 0/11.
 | Dead-class script: each `className` token looked up in `dist/assets/index-*.css` | nothing but tab names compared in expressions | as expected (S9) | 2026-10-07 |
 | Headless Chrome over CDP, S10 `checks.mjs` (Combat Ratio and Lethality on both pages; Tab through ten pages reading the ring; Tab then Enter on each kind of row; every dialog opened from the keyboard and closed with Escape; roster and map pages across Next, reload, back and the popup; 21 routes at 390 px; a synthesized tap on six kinds of target) | same numbers; every focusable reached with a ring; Enter opens the row; dialogs labelled, focus back on the opener; the page in the URL; nothing wider than 390; opacity or cover change while pressed | all seen, see the S10 Validated entry | 2026-10-07 |
 | S10 scratch scripts: `uistrings.cjs` (user-visible strings by TypeScript AST) piped to `glossary.sh`; `tables.cjs`; `clickables.cjs` | 0 variant words for each of the six terms; 13 of 13 tables wrapped; no clickable non-control | as expected (S10) | 2026-10-07 |
+| S11 `dbexports.mjs`, run by `node` with a fresh `DATA_DIR`: sorted export names of `server/db.js` and every `db` key with its kind | the same list before and after a change to `server/db*` | identical, 5 exports, 90 keys (S11) | 2026-10-08 |
+| S11 `routelist.mjs`: stubs `listen`, imports `server/index.js`, walks `app._router` (routes and middleware); `firstmatch.cjs` on two lists | same set; no URL whose first match changes | 97 entries, same set; 1,931 sample URLs, 0 ambiguous, 0 changed (S11) | 2026-10-08 |
+| S11 `capture.sh`: the server on a copy of a frozen data snapshot with `https_proxy` at a closed port, then five API answers plus `/api/health` and `/api/stats/pilots` | byte-identical between two builds | identical, baseline `96f2710` and the branch back to back (S11) | 2026-10-08 |
+| S11 `ui.mjs`: headless Chrome over CDP, taunt tabs, editor, the four dialogs from the keyboard, pilot settings tabs, admin with a mocked session, `/api/overload/*`, `/api/import/*`, `/api/admin/*` mocked; `adminreal.mjs` for a real dev login | DOM snapshots, dialog checks and request log the same as the baseline build | 20 of 20 snapshots, every dialog check and the request multiset identical (S11) | 2026-10-08 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -1131,7 +1238,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       or links; `focus-visible` styles exist; dialogs have `role="dialog"` and
       close on Escape; every table has a scroll wrapper; the roster and map
       grid are paginated; `active:` states on tap targets.
-- [ ] **S11 Split the giants** (L). Done when: `server/db.js` is split into
+- [x] **S11 Split the giants** (L). PR #11. Done when: `server/db.js` is split into
       connection, migrations, repos and analytics modules with unchanged
       exports; `routes.js` is one file per resource; `PilotSettingsPanel`,
       `AudioEditor`, `WebImportModal` and `AdminPanel` are each under 500
@@ -1945,6 +2052,152 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   pilot-settings headers wrap and their tab bar scrolls (854 and 441
   px). The nine tables without one got a wrapper: `overflow-x-auto`, or
   `overflow-auto` where the box already scrolled down.
+- 2026-10-07 (S11): `server/db.js` stays the entry point and is now 180
+  lines. It imports each function by name from `server/db/` and builds the
+  same `db` object, with the same 90 keys and the same kind of value behind
+  each one (function, prepared statement or `{ get }`/`{ all }` wrapper). It
+  re-exports `backupsDir`, `mapsDir`, `mapImagesDir` and `pilotStatements`.
+  No caller changed what it imports. The modules:
+  - `db/connection.js`: the data folder, its writability check and
+    subfolders, both connections, the WAL pragmas, the `net_kills`,
+    `pilot_key` and `duration_of` SQL functions, the cold `ATTACH`, and
+    `backupHot`/`backupCold`.
+  - `db/migrations.js`: every `CREATE TABLE` and index, in the old order;
+    the `game_players` schema, its writers (`writeHotPlayers`,
+    `writeColdPlayers`), the backfill and repair (`migrateGamePlayers`);
+    the `pilot_stats_cache` sanitize; and `ensurePilotStatsCache()`, the
+    create-and-add-columns step `refreshCaches` used to run inline (it
+    still runs at the same point of each refresh). Every repo and
+    analytics module imports this file, so the tables exist before any
+    statement is prepared.
+  - `db/repos/games.js`: list, search and count in both files,
+    `getGameById`, `saveGames`, `insertGame`, `saveColdGamesBatch`,
+    `updateGameDetails`, the cold move, `getSummaryGames`,
+    `getGamesForDate`, `getGameGaps`, `getLatestGameId`, `getMaxGameDate`,
+    `upsertGameSql`, `getGamesInDay` and `utcDayBounds`/`utcMonthBounds`.
+    `insertGame` calls `saveGames` directly instead of `db.saveGames`
+    (the same function; the S3 reason for the object was an ES-module
+    error, which a direct call avoids too).
+  - `db/repos/jobs.js` (backfill jobs, `game_metadata`),
+    `db/repos/settings.js` (`admin_settings`), `db/repos/maps.js` (the
+    stock-map seed, the library list and intel, the admin writers),
+    `db/repos/fightNights.js` (saved recaps).
+  - `db/analytics/global.js`: site totals, the mode, map and activity
+    charts, server activity, the all-time totals, the `map_stats_cache`
+    readers and `getQualifyingFightNightDates`.
+  - `db/analytics/pilots.js`: `pilotTotalsSql`, the leaderboard and its
+    90-day outcomes, the share summary, match history, first sightings,
+    the `pilot_stats_cache` reads and `updateDeepMetrics`, and
+    `pilotStatements`.
+  - `db/analytics/pilotTelemetry.js`: the weapon names, the pilot game
+    reads, `getPilotTelemetry` and `getPilotBreakdown`.
+  - `db/analytics/refresh.js`: `refreshPilotStats`, the stats worker
+    (still `server/statsWorker.js`), `getColdStorageStats` and
+    `stopStatsWorker()` for `close()`.
+  `restoreHot`, `checkHealth` and `close` stay in `db.js`, because each
+  spans two modules; the health statements are prepared there for the
+  same reason they were prepared last before (the tables must exist).
+  Where a statement and the wrapper the `db` object exposes shared a
+  name, the statement gained a `Stmt` suffix (`getPilotStatsStmt`,
+  `getDatabaseStatsStmt`, ...) or, for the hot game read, became
+  `getHotGameById`. The modules were cut from line ranges of the old file
+  by a script, not retyped, and a line check over all of them finds
+  every old line apart from the imports, two section comments, the
+  renames, and four pieces of dead code that had no home in any module:
+  `insertGameHot`, `insertGameCold` and `getDistinctServerIps` (prepared,
+  never used; the S5 and S6 flags) and the second cold `ATTACH`, which
+  always threw "already in use" and was swallowed. The duplicate
+  `getMostActiveMaps` keys and the `seedStockMaps` wrapper around
+  `seedStockMaps` went too.
+- 2026-10-07 (S11): Routes. `server/routes.js` is now the `/api`
+  aggregator `index.js` already mounted: it `router.use()`s eight
+  resource routers from `server/routes/`, `games.js` (`/games`, `/cold/*`,
+  `/game/:id`, both kill-feed paths), `stats.js` (`/stats/*`),
+  `browser.js`, `maps.js`, `config.js` (`/config`, `/calendar-url`),
+  `analysis.js` (`/analyze-match`), `pilots.js` (`/pilot/:name/*`) and
+  `fightNights.js`. Each router keeps its full paths, so no handler
+  moved to a new URL and `index.js` did not change. `admin-routes.js` and
+  `bridge-routes.js` were already one resource each and stay where they
+  are. The mounted list (97 entries with middleware, from a script that
+  walks `app._router` after importing `index.js` with `listen` stubbed)
+  is the same set as before; only the order between resources changed.
+  For 1,931 sample URLs built from every pattern, no URL matches two
+  routes and the first match is the same in both orders, so order cannot
+  change which handler answers. The owner's replay test read route
+  layers from the top of `routes.stack`; it now looks one level down.
+- 2026-10-07 (S11): Components. Each of the four is under 500 lines and
+  keeps its path, exports and props. Child components live in a folder
+  per giant (`components/pilotSettings/`, `components/audioEditor/`,
+  `components/webImport/`, `components/admin/`), hooks in `hooks/`. The
+  moved JSX and handler bodies were cut from line ranges by script.
+  Handlers stay plain functions rebuilt on each render, as before, and
+  every dependency list is unchanged.
+  - `PilotSettingsPanel` (2,119 to 224 lines) owns only `activeTab`.
+    `usePilotSettings` owns the pilot, the loaded files, the pending
+    edits, the 6 s game-running poll and the file load;
+    `usePilotSettingsSave` the XP, save-all and backup actions;
+    `usePilotSettingsAutoselect` the autoselect list handlers;
+    `usePilotSettingsRawEntries` the raw table's search, filter and rows;
+    `useKeyRebind` the rebind state, its `useDialog` and the capture
+    key and mouse listener. 12 children: the header, XP card, tab bar,
+    the six tabs, the save bar, `KeyRebindDialog` (it still spreads
+    `rebindDialog.props` and puts `titleId` on its heading) and
+    `AutoselectList`, which draws both priority columns. The old panel
+    wrote the two columns out twice; one component now takes the
+    column's colours, labels and type rule from a map of whole class
+    strings (so Tailwind still finds every class), and the DOM is the
+    same byte for byte.
+  - `AudioEditor` (1,353 to 209). `useAudioEditorLifecycle` (the mount
+    effect that starts ffmpeg, loads the taunt history and tears down
+    WaveSurfer, the preview audio and the AudioContext), `useAudioEditorSource` (the file, its buffer and
+    peak, drag and drop), `useAudioEditorWaveform` (WaveSurfer, region,
+    zoom, loop, nudge and audition), `useFfmpegExport`,
+    `useAudioEditorHistory` (saved taunts), `useAudioEditorHotkeys` (the
+    window keydown listener) and `useAudioEditorStatus` (error, success,
+    debug log). The three refs several hooks share are created in
+    `AudioEditor` and passed in, and the hooks are called in the order
+    the effects used to run. Nine children (header, picker, file bar,
+    waveform, transport, taunt window, export, history, diagnostics);
+    the history list takes the history hook's object whole.
+    ffmpeg still loads only in the `AudioTauntMaker` chunk.
+  - `WebImportModal` (1,332 to 176) keeps `useDialog`, the panel, the
+    header, the tab bar and the open effect. `useWebImportPreview` owns
+    the shared preview player; `useWebImportYouTube`,
+    `useWebImportArchive`, `useWebImportVideo` and `useWebImportDirect`
+    own each tab's state and requests. One child per tab, plus the
+    YouTube icon.
+  - `AdminPanel` (986 to 90). `useAdminPanel` holds the two original
+    effects (session check then version; on login, load everything and
+    start the 2 s poll) and composes `useAdminAuth`, `useAdminStats`
+    (stats, version, backfill, stats refresh), `useAdminSettings`,
+    `useAdminMaps` and `useAdminArchiveSync`. Seven children (login
+    form, metrics, coverage chart, backfill, dashboard settings, archive
+    ingest, map management); the backfill panel takes the stats hook's
+    object whole and works out its rate limit itself.
+- 2026-10-07 (S11): AdminPanel off axios. Its 17 axios calls now go
+  through 14 new functions in `services/apiService.ts`
+  (`fetchAdminAuthStatus`, `submitAdminLogin`, `fetchVersionInfo`,
+  `fetchAdminExtendedStats`, `fetchAdminSetting`, `saveAdminSetting`,
+  `fetchAdminMapCount`, `syncAdminMaps`, `addAdminMap`,
+  `startAdminBackfill`, `postAdminBackfillJobAction` (pause, resume and
+  cancel), `fetchAdminArchiveSyncStatus`,
+  `cancelAdminArchiveSync`, `triggerAdminStatsRefresh`), all on one
+  `adminRequest` helper. It rejects the way axios did, so every catch
+  block reads the error as before: a non-2xx answer throws an
+  `AdminRequestError` with "Request failed with status code N" and
+  `response: { status, data }`, a network failure throws "Network Error"
+  with no `response`, a body that is not JSON stays text. It sends
+  axios's `Accept` header and `Content-Type: application/json` only with
+  a body. The older admin functions in `apiService.ts` were not reused:
+  they send `credentials: 'include'` and turn failures into `null` or
+  `false`, which would change the panel's messages. URLs are unchanged,
+  including the pause URL that matches no route (flagged).
+  `services/apiService.test.ts` (7 tests) pins the helper's behaviour.
+  The helpers sit in `apiService.ts`, which the entry chunk carries, so
+  the entry grew by 1.24 KB raw, 0.40 KB gzip. Rejected: a separate
+  module for the admin calls, which the Done-when list's "uses
+  apiService" reads against. `axios` stays in `package.json` for the
+  server and `services/geminiService.ts`.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -2358,6 +2611,82 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   screen "theater" mode is a fixed overlay without `role="dialog"` or a
   focus trap; Escape collapses the replay. S10 changed only its words.
 
+- (S11) `server/services/overloadBridge.js` (the "decide in S11" item):
+  kept. It is the server-native mode the taunt tools and pilot settings
+  use when the server runs on the Windows PC with Overload, and since S1
+  it sits behind the admin session. Deleting it removes that mode, which
+  is a product decision, not part of a split.
+- (S11) Dead code from the S6 list that sat outside `db.js`: still there.
+  `services/mockDataService.ts` (empty), `utils/audio-tool/*`,
+  `utils/testPresets.ts`, `server/debug_stats.js` and the four unused
+  `apiService` exports. The dead pieces inside `db.js` (the second
+  `ATTACH`, `insertGameHot`, `insertGameCold`, `getDistinctServerIps`)
+  went with the split.
+- (S11) Probable cause of the S10 stale leaderboard: `warmupStatsCache()`
+  in `server/index.js` stores `pilot_stats_all_all` for 600 s right after
+  `listen`, before the owner's startup check (`887934e`) finishes its
+  refresh, and nothing clears the key when the refresh writes. That
+  matches "more than nine minutes" against the route's own 5-minute TTL.
+  Read from the code; not reproduced, and not fixed (a behaviour change).
+  Clearing the `pilot_stats_*` keys at the end of `refreshCaches`, or not
+  warming before the first refresh, would fix it.
+- (S11) `components/MatchReplay.tsx` (1,970 lines, the owner's replay) was
+  not on the Done-when list and was not split. Other files still over
+  500 lines: `utils/pilotSettingsBridge.ts` 1,285, `ColdStorage` 1,060,
+  `PilotDetail` 905, `OverloadVault` 867, `MapLibrary` 854,
+  `LoadoutManager` 746, `GameList` 711, `services/apiService.ts` 621 (540
+  before the admin calls), `server/index.js` 590, `overloadBridge.js`
+  584, `bridge-routes.js` 574, `PilotsList` 583, `statsPasses.js` 526.
+- (S11) `tailwind.config.js` scans `./*`, `components/` and `utils/` but
+  not `hooks/`. The built CSS lost `.container` and `.resize`, which
+  Tailwind had generated from the WaveSurfer options (`container:`,
+  `resize: true`) when they lived in `AudioEditor.tsx`; no element uses
+  either class. A class name written inside a hook would get no CSS.
+  None does today (checked by grep); adding `./hooks/**` to `content`
+  closes the gap.
+- (S11) Bugs the component splits turned up, left as they were (the
+  splits kept behaviour):
+  - Admin: Pause posts to `/api/admin/backfill/pause/<id>`, which matches
+    no route (the server has `POST /backfill/pause`), so it 404s and only
+    logs. Logout flips local state and never calls `/api/admin/logout`,
+    so a reload logs back in. Any login failure, a 429 included, says
+    "Invalid password". A failed save of the archive toggle leaves the
+    toggle moved.
+  - Pilot settings: in the key rebind dialog the capture listener turns
+    a click on Cancel into a Mouse0 binding, and takes Tab as a key, so
+    the dialog's focus trap never sees it. Save and Backup All do
+    nothing in server-native mode (they need a browser folder) and say
+    nothing. Set XP reloads the files and drops other unsaved edits. A
+    server-native load that fails, or a pilot without an `.xprefsmod` or
+    a `PS_XP2` entry, leaves the previous pilot's values in place, and
+    Save then writes them to the new pilot. Overlapping loads are not
+    cancelled, so a slow read of the pilot picked first can land last.
+    The `activePilot` sync effect never fires (`selectedPilot` starts as
+    `activePilot || 'Soup'`).
+  - Audio editor: Ctrl+Enter uses a stale `handleExport` (it is not in
+    the keydown effect's dependencies), so it can export under an old
+    name or do nothing if ffmpeg finished loading after the file.
+    Dragging the region measures the peak on a stale buffer (null for
+    the first file, the previous file's afterwards), which skews the
+    export's gain. WaveSurfer is destroyed twice on unmount, the second
+    time outside a try.
+  - Web import: reopening the dialog shows the last import's result
+    card; a result with 0 views renders "0"; a slow import still loads
+    into the editor after the dialog closed.
+- (S11) `services/apiService.ts` still has the older admin helpers
+  (`adminLogin`, `adminLogout`, `checkAdminAuth`, `getAdminStats`,
+  `startBackfill`, `getBackfillStatus`, `pauseBackfill`,
+  `resumeBackfill`, `cancelBackfillJob`, `fetchGameManually`,
+  `scanLocalArchive`, `getAdminSettings`, `updateAdminSetting`,
+  `downloadBackup`, `restoreBackup`, `detectGaps`, `getCalendarStats`,
+  `getPublicStats`). Nothing calls them; they stay alive only through the
+  `apiService` object, which `LiveGameDetail` and `LiveMatchCard` import
+  for `getGame`. Six of them hit the same endpoints as the new
+  `AdminPanel` functions with other error handling (`null` or `false`
+  instead of a throw). /code-review flagged the pairs; deleting the dead
+  copies is cleanup outside the split (ground rule), and it would also
+  take back most of the entry's 0.40 KB.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -2740,12 +3069,59 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   `combatRatio()`, its Retry argument fixed, and its `tsc` error fixed.
   PR #10 opened against `main`, not merged.
 
+- 2026-10-08, S11 (Claude Opus 5.5): `server/db.js` split into
+  `server/db/` (connection, migrations, five repos, four analytics
+  modules) behind the same 90-key `db` object; `routes.js` an aggregator
+  of eight resource routers; `PilotSettingsPanel`, `AudioEditor`,
+  `WebImportModal` and `AdminPanel` cut to 224, 209, 176 and 90 lines with
+  23 hooks and 33 child components; `AdminPanel` on apiService instead of
+  axios. Status line checked first: it said PR #10 was open, but it had
+  merged (`96f2710`, nothing after it), so S11 branched from
+  `origin/main`; `10223be` is not an object here. First move: 13 files,
+  129 tests (the prompt said 126); entry 73.76 KB gzip (the table said
+  73.74); tsc 0; `db.js` was 2,620 lines and `routes.js` 1,042, not the
+  2,520 and 964 the prompt quoted. Before touching code I recorded the
+  export list, the mounted routes and the API answers. The answers came
+  off a frozen copy of the data dir, with the tracker blocked through a
+  dead proxy so no sync could add games between runs. The server modules
+  and route files were cut from line ranges of the old files by script.
+  The four components went to four implementer agents in their own
+  worktrees, one each; I merged their branches and checked them against
+  a build of `96f2710` with one CDP script (20 DOM snapshots, the dialog
+  checks, the request log). The agents shared my scratch folder: one
+  overwrote my assembler script, and a scratch copy of `AudioEditor.tsx`
+  landed in my first `server/db` commit until I rebuilt the branch
+  without it. Reading the code turned up things the tracker did not
+  list: the owner's replay test reached into `routes.stack` (it now asks
+  over HTTP); `hooks/` is not in Tailwind's `content`, so two unused
+  utility rules dropped out of the CSS; and the S10 stale-leaderboard
+  puzzle is probably the startup warm-up caching the leaderboard for
+  600 s before the startup refresh lands (flagged, not fixed). /code-review
+  found 10 issues: six were bugs the old code already had and the split
+  carried over verbatim (stale `handleExport` on Ctrl+Enter, the region
+  meter's stale buffer, overlapping pilot loads, leftover pilot values,
+  the dead `activePilot` sync, a double WaveSurfer destroy), all flagged
+  because behaviour was not to change; the others were the axios-like
+  helper (kept: axios in `apiService.ts` would put its 14 KB gzip chunk in
+  the entry), the old unused admin helpers (flagged, ground rule), the two
+  autoselect lists (merged in /simplify) and db.js naming each function
+  three times (kept: spreading modules would add keys). /simplify (four
+  agents): one `AutoselectList`, hook objects passed whole to the history
+  list and the backfill panel, one `SetMessage` type, derived setter
+  types, `useAudioEditorLifecycle` for a hook that did more than ffmpeg,
+  one backfill action call, the replay test over HTTP, and two duplicate
+  statements my own line ranges had left in `analytics/global.js`.
+  Skipped: a separate admin API module (the Done-when list names
+  apiService), a `game_players` module and a schema-owned connection in
+  `server/db`, a `markSaved()` in the pilot settings, the preview player
+  rework in the web import. PR #11 opened against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S11: split the giants.
+Continue the overloadfight.club roadmap. This session is S12: fight card, momentum, scrubber.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -2754,51 +3130,51 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S10 is on branch ofc/s10-glossary-a11y-mobile, PR #10. PRs #1 to #9 are merged.
-  If PR #10 is merged:
-    git checkout -B ofc/s11-split-giants origin/main
-  If PR #10 is still open:
-    git checkout -B ofc/s11-split-giants origin/ofc/s10-glossary-a11y-mobile
-    and open the S11 PR against main anyway; say in its description that it sits on PR #10.
-  Check again before opening the PR: if PR #10 merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10, the last one while the S10 PR was being prepared). If origin/main has commits PR #10 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  S11 is on branch ofc/s11-split-giants, PR #11. PRs #1 to #10 are merged.
+  If PR #11 is merged:
+    git checkout -B ofc/s12-fight-card origin/main
+  If PR #11 is still open:
+    git checkout -B ofc/s12-fight-card origin/ofc/s11-split-giants
+    and open the S12 PR against main anyway; say in its description that it sits on PR #11.
+  Check again before opening the PR: if PR #11 merged during the session, rebase onto origin/main first.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #11 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s10-glossary-a11y-mobile has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s11-split-giants has docs/ROADMAP.md, stop and tell me.
 
 Read first:
-- docs/ROADMAP.md, the S11 entry and its Done-when list. That list is the scope. Also "Canonical contract", the decisions on db.js (S3's named `db` object, S4's WAL and refresh, S5's game_players, migration, worker and cold move, S6's backups and shutdown), the S8 link pattern, the S10 entries (useDialog in WebImportModal and PilotSettingsPanel, LinkCell, the focus and tap rules, usePage and the setter's second argument, combatRatio and lethality), every "Flagged, not fixed" item that names S11, db.js, routes.js, dead code, overloadBridge.js, apiService or the four components (decide for each whether the Done-when list covers it; flag the rest again), and the Postmortems.
-- server/db.js (2,520 lines at S10), server/routes.js (964), server/index.js, server/lib/statsPasses.js, server/statsWorker.js, services/apiService.ts, and the four components: PilotSettingsPanel.tsx (2,119), AudioEditor.tsx (1,353), WebImportModal.tsx (1,332), AdminPanel.tsx (919 at S10's start, more after the owner's 887934e; imports axios). Re-count with wc -l before quoting any. components/MatchReplay.tsx (1,970 lines, pushed by the owner during S10) is not on the Done-when list; flag it, do not split it, unless I say otherwise.
+- docs/ROADMAP.md, the S12 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the match page already has, and quote it in the PR description. Also "Canonical contract", the S2 and S7 decisions (gameParse owns winnerOf, durationOf, measuredDurationOf; the match page reads them; resultLine in server/lib/matchResult.js), S8 (URL state, the match page's `tab`), S9 (tokens, chartTooltip, the flagged chart theme), S10 (Combat Ratio and Lethality, useDialog, the focus and tap rules), the S11 entries (server/db/ and server/routes/ layout, the hooks and child folders, apiService and adminRequest), every "Flagged, not fixed" item that names S12, the match page, MatchReplay, ScoreChart, charts or the chart theme (decide for each whether S12 covers it; flag the rest again), and the Postmortems.
+- components/GameDetail.tsx, components/MatchAnalysis.tsx, components/ScoreChart.tsx, components/MatchReplay.tsx (1,970 lines, the owner's Tactical Replay v3 on the overview and timeline tabs, fed by /api/match/:id/kills in server/routes/games.js), server/lib/gameParse.js, designTokens.js and the two sample files. Re-count with wc -l before quoting any. MatchReplay already replays a match's kills over time: decide whether the S12 scrubber extends it or sits beside it, say which in a decision entry, and do not build a second copy of its timeline logic. Do not split MatchReplay unless I say so.
 
 Binding decisions, do not re-derive:
-- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js; DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour (an export list, a circular import) from a script run by `node`.
-- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so.
+- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every stat or chart number ships with a test on fixture games.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
-- "Unchanged exports" means every module that imports server/db.js (routes, index, services, workers, scripts, tests) keeps working without edits to what it imports: db.js stays the entry and re-exports. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules, including combatRatio and lethality; server/lib/siteRoutes.js owns page URLs and titles; server/lib/matchResult.js the result sentence. Never copy a rule while moving code.
-- Internal navigation is components/Link.tsx (Link, CellLink, LinkCell) and URL state goes through useQueryParam/useQueryText/setQueryParams; no navigation callbacks or local state that duplicates the URL (S8, S10).
-- Dialogs use hooks/useDialog.ts (role, label, Escape, focus return); keep it on WebImportModal and PilotSettingsPanel's rebind dialog when you split them (S10).
-- Colours, radius and small text come from designTokens.js through Tailwind; the focus ring and tap state are the rules in index.css, and `@tailwind variants` stays before them (S9, S10).
+- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
+- server/lib/gameParse.js owns the game rules, including combatRatio, lethality and match length; server/lib/siteRoutes.js owns page URLs and titles; server/lib/matchResult.js the result sentence. A lead change, a momentum value or a replayed score is a game rule: put it in gameParse.js with a test, and have the client import it, as S7 did. Never copy a rule.
+- Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams; a scrubber position worth sharing goes in the URL the same way (S8, S10).
+- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `colors` from designTokens.js; the focus ring and tap state are the rules in index.css (S9, S10).
 - Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx; keep both error boundaries (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Keep them.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S11 left 232.24 KB raw / 74.16 KB gzip) and the match page chunk before and after.
+- Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
-- Do not add a router library, state library, ORM or component library. Tailwind utility classes, functional React, ES modules on the server.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4 and S7 to S10 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. S10 mocked `/api/browser`, `/api/game/<ip>` and `/api/overload/*` with CDP's Fetch domain (one Fetch.enable for all patterns) to open the taunt dialogs and the pilot settings without an Overload folder; do the same, and mock an admin session for AdminPanel.
+- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library, and add none without a decision entry. Tailwind utility classes, functional React, ES modules on the server.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking. Check the UI in headless Chrome over CDP, as S4 and S7 to S11 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Few stored matches have kill logs: find ones that do (fixture 72102 has one; S10 and S11 used the 30-match local data), and mock /api/game/<id> from the fixtures through CDP's Fetch domain where you need a richer match. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo.
 
 Rules for this session:
-- One PR, scope is the S11 Done-when list only. Flag anything else in the tracker's "Flagged, not fixed".
-- Behaviour does not change. Add decision entries for the module boundaries in server/ (which functions and prepared statements went where, and how db.js re-exports them), the route files and how they mount, the hooks extracted from each component and what each owns, and the switch from axios to apiService in AdminPanel (which new apiService functions, error handling).
+- One PR, scope is the S12 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the momentum and lead-change rules (where they live, what counts as a lead change in FFA and team games, suicides), the scrubber's relation to MatchReplay, the chart colours, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S11 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S12 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S12.
+- Before ending: tick S12 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S13 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S13.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S10 left 13 files, 126 tests passing), `npx vite build 2>&1 | grep -E "assets/index-.*\.js"` (the Verification table records the entry at 73.74 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then record what must not change: from a script run by `node`, the sorted export names of server/db.js (and the keys of its `db` object); the route list (method and path) that server/index.js mounts; `wc -l` of the six files; and the JSON of `/api/stats/global`, `/api/stats/pilots?source=all`, `/api/pilot/WD-40/stats`, `/api/pilot/WD-40/ppi` and `/api/games?page=1` from the running server.
-Done when: every item in the S11 Done-when list is true (db.js split into connection, migrations, repos and analytics modules with the same export names and `db` keys as before, shown by the node script; routes.js one file per resource with the same route list; PilotSettingsPanel, AudioEditor, WebImportModal and AdminPanel each under 500 lines by wc -l with hooks extracted; no axios import in AdminPanel), the five API answers are byte-identical before and after on the same data dir (or every difference explained), the taunt tools, pilot settings and admin page (mocked session) work in headless Chrome (S10's dialog checks still pass, the editor's Create tab loads, admin stats load), `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S11 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S11 left 14 files, 136 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameDetail)-.*\.js"` (the Verification table records the entry at 74.16 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then write the S12 Done-when list into the tracker.
+Done when: every item of the S12 Done-when list is true and checked on fixture games and in headless Chrome (a team match and an FFA match, at 1,280 and 390 px), the match page's existing tabs, result line, duration and MatchReplay still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S12 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```
