@@ -9,7 +9,7 @@ import {
     setPilotXPClient,
     savePilotAutoselectClient
 } from '../utils/pilotSettingsBridge';
-import { usePilotSettings } from './usePilotSettings';
+import type { usePilotSettings } from './usePilotSettings';
 
 // PilotSettingsPanel's writes: Set XP, Save Settings and Backup All Pilots.
 export function usePilotSettingsSave(

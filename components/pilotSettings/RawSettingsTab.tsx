@@ -2,7 +2,7 @@ import React from 'react';
 import { Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { PrefAccessors } from './types';
-import { RawEntry } from '../../hooks/usePilotSettingsRawEntries';
+import type { RawEntry } from '../../hooks/usePilotSettingsRawEntries';
 
 interface RawSettingsTabProps {
     rawSearchQuery: string;

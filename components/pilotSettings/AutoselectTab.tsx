@@ -2,7 +2,7 @@ import React from 'react';
 import { RotateCcw, Crosshair, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 import { PilotAutoselectConfig } from '../../utils/pilotSettingsBridge';
-import { usePilotSettingsAutoselect } from '../../hooks/usePilotSettingsAutoselect';
+import type { usePilotSettingsAutoselect } from '../../hooks/usePilotSettingsAutoselect';
 import { AutoselectList } from './AutoselectList';
 
 type AutoselectTabProps = ReturnType<typeof usePilotSettingsAutoselect> & {

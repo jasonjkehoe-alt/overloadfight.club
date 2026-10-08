@@ -9,8 +9,8 @@ let db;
 let server;
 let baseUrl;
 
-const getKills = async (path) => {
-    const res = await fetch(`${baseUrl}${path}`);
+const getKills = async (url) => {
+    const res = await fetch(`${baseUrl}${url}`);
     return { statusCode: res.status, responseJson: await res.json() };
 };
 

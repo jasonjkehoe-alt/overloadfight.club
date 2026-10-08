@@ -8,7 +8,7 @@ import {
     syncAdminMaps
 } from './apiService';
 
-// The admin functions replaced axios calls in AdminPanel; these pin the axios
+// The admin functions replaced axios calls in AdminPanel; these pin the axios-compatible
 // behaviour the panel's catch blocks read (err.message, err.response.status/data).
 const stubFetch = (impl: (url: string, init: RequestInit) => Promise<Response>) => {
     const mock = vi.fn(impl);

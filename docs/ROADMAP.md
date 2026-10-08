@@ -158,7 +158,10 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 0/6. Phase 4: 0/11.
 - S11, sizes after /simplify: `npx vite build` entry `index-*.js`
   232.24 KB raw / 74.16 KB gzip (+0.40 KB gzip: the admin request
   helpers in `apiService.ts`), CSS 85.16 KB (85.46 before: `.container`
-  and `.resize` dropped, see Flagged). `AudioTauntMaker` chunk 205.64 KB
+  and `.resize` dropped). After the PR review (six duplicate admin
+  helpers deleted, `./hooks/**` in Tailwind's `content`), on Node
+  22.17.0: entry 230.84 KB raw / 73.94 KB gzip, CSS 85.49 KB (`main`'s
+  rules plus an unused `.visible`). `AudioTauntMaker` chunk 205.64 KB
   (198.77 before; hook and prop names the minifier cannot shorten).
   `npx tsc --noEmit` exits 0. `wc -l`: `PilotSettingsPanel` 224,
   `AudioEditor` 209, `WebImportModal` 176, `AdminPanel` 90, `db.js` 180,
@@ -1097,7 +1100,7 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 0/6. Phase 4: 0/11.
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
 | `npx vitest run` | all pass | 14 files, 136 tests pass (S11) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.24 KB raw / 74.16 KB gzip (S11; 73.76 KB at S11's start, one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.84 KB raw / 73.94 KB gzip (S11 after the PR review; 73.76 KB at S11's start, one 351.07 KB chunk before S4) | 2026-10-08 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S11) | 2026-10-08 |
 | `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 30`, dev mode without secrets; `/api/stats/pilots` 21 pilots, `/api/pilot/WD-40/stats` 23 games, `/api/health` ok (S11) | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
@@ -2194,7 +2197,9 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   including the pause URL that matches no route (flagged).
   `services/apiService.test.ts` (7 tests) pins the helper's behaviour.
   The helpers sit in `apiService.ts`, which the entry chunk carries, so
-  the entry grew by 1.24 KB raw, 0.40 KB gzip. Rejected: a separate
+  the entry grew by 1.24 KB raw, 0.40 KB gzip; deleting the six older
+  helpers that duplicated these endpoints (PR review) brought it to
+  73.94 KB gzip, 0.18 KB over S11's start. Rejected: a separate
   module for the admin calls, which the Done-when list's "uses
   apiService" reads against. `axios` stays in `package.json` for the
   server and `services/geminiService.ts`.
@@ -2634,16 +2639,9 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   not on the Done-when list and was not split. Other files still over
   500 lines: `utils/pilotSettingsBridge.ts` 1,285, `ColdStorage` 1,060,
   `PilotDetail` 905, `OverloadVault` 867, `MapLibrary` 854,
-  `LoadoutManager` 746, `GameList` 711, `services/apiService.ts` 621 (540
-  before the admin calls), `server/index.js` 590, `overloadBridge.js`
+  `LoadoutManager` 746, `GameList` 711, `services/apiService.ts` 517,
+  `server/index.js` 590, `overloadBridge.js`
   584, `bridge-routes.js` 574, `PilotsList` 583, `statsPasses.js` 526.
-- (S11) `tailwind.config.js` scans `./*`, `components/` and `utils/` but
-  not `hooks/`. The built CSS lost `.container` and `.resize`, which
-  Tailwind had generated from the WaveSurfer options (`container:`,
-  `resize: true`) when they lived in `AudioEditor.tsx`; no element uses
-  either class. A class name written inside a hook would get no CSS.
-  None does today (checked by grep); adding `./hooks/**` to `content`
-  closes the gap.
 - (S11) Bugs the component splits turned up, left as they were (the
   splits kept behaviour):
   - Admin: Pause posts to `/api/admin/backfill/pause/<id>`, which matches
@@ -2674,18 +2672,18 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
     card; a result with 0 views renders "0"; a slow import still loads
     into the editor after the dialog closed.
 - (S11) `services/apiService.ts` still has the older admin helpers
-  (`adminLogin`, `adminLogout`, `checkAdminAuth`, `getAdminStats`,
-  `startBackfill`, `getBackfillStatus`, `pauseBackfill`,
-  `resumeBackfill`, `cancelBackfillJob`, `fetchGameManually`,
-  `scanLocalArchive`, `getAdminSettings`, `updateAdminSetting`,
+  (`adminLogout`, `getAdminStats`, `getBackfillStatus`, `pauseBackfill`,
+  `fetchGameManually`, `scanLocalArchive`, `getAdminSettings`,
   `downloadBackup`, `restoreBackup`, `detectGaps`, `getCalendarStats`,
   `getPublicStats`). Nothing calls them; they stay alive only through the
   `apiService` object, which `LiveGameDetail` and `LiveMatchCard` import
-  for `getGame`. Six of them hit the same endpoints as the new
-  `AdminPanel` functions with other error handling (`null` or `false`
-  instead of a throw). /code-review flagged the pairs; deleting the dead
-  copies is cleanup outside the split (ground rule), and it would also
-  take back most of the entry's 0.40 KB.
+  for `getGame`. The six that hit the same endpoints as the new
+  `AdminPanel` functions with other error handling (`adminLogin`,
+  `checkAdminAuth`, `startBackfill`, `resumeBackfill`,
+  `cancelBackfillJob`, `updateAdminSetting`) were deleted in the PR
+  review, so each admin endpoint has one client function.
+  `adminLogout` and `pauseBackfill` call the routes the flagged logout and
+  Pause bugs need.
 
 ## Rollback
 
@@ -3093,8 +3091,10 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   landed in my first `server/db` commit until I rebuilt the branch
   without it. Reading the code turned up things the tracker did not
   list: the owner's replay test reached into `routes.stack` (it now asks
-  over HTTP); `hooks/` is not in Tailwind's `content`, so two unused
-  utility rules dropped out of the CSS; and the S10 stale-leaderboard
+  over HTTP); `hooks/` was not in Tailwind's `content`, so two unused
+  utility rules dropped out of the CSS (the PR review added `./hooks/**`;
+  the CSS also gains an unused `.visible`, from a comment in
+  `useServerBrowser.ts`); and the S10 stale-leaderboard
   puzzle is probably the startup warm-up caching the leaderboard for
   600 s before the startup refresh lands (flagged, not fixed). /code-review
   found 10 issues: six were bugs the old code already had and the split
@@ -3157,7 +3157,7 @@ Binding decisions, do not re-derive:
 - Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `colors` from designTokens.js; the focus ring and tap state are the rules in index.css (S9, S10).
 - Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx; keep both error boundaries (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S11 left 232.24 KB raw / 74.16 KB gzip) and the match page chunk before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S11 left 230.84 KB raw / 73.94 KB gzip) and the match page chunk before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
 - Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library, and add none without a decision entry. Tailwind utility classes, functional React, ES modules on the server.
@@ -3175,6 +3175,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S11 left 14 files, 136 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameDetail)-.*\.js"` (the Verification table records the entry at 74.16 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then write the S12 Done-when list into the tracker.
+First move: run `npx vitest run` (S11 left 14 files, 136 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameDetail)-.*\.js"` (the Verification table records the entry at 73.94 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then write the S12 Done-when list into the tracker.
 Done when: every item of the S12 Done-when list is true and checked on fixture games and in headless Chrome (a team match and an FFA match, at 1,280 and 390 px), the match page's existing tabs, result line, duration and MatchReplay still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S12 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
 ```

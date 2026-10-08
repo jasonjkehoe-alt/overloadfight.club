@@ -1,6 +1,6 @@
 import React from 'react';
 import { Keyboard } from 'lucide-react';
-import { useKeyRebind } from '../../hooks/useKeyRebind';
+import type { useKeyRebind } from '../../hooks/useKeyRebind';
 
 interface KeyRebindDialogProps {
     rebindAction: { actionName: string; slot: 1 | 2 };

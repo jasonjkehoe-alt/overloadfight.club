@@ -2,7 +2,7 @@ import React from 'react';
 import { Crosshair, Keyboard, Volume2, Monitor, Sparkles, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SettingsTab } from './types';
-import { RawEntry } from '../../hooks/usePilotSettingsRawEntries';
+import type { RawEntry } from '../../hooks/usePilotSettingsRawEntries';
 
 interface SettingsTabNavProps {
     activeTab: SettingsTab;

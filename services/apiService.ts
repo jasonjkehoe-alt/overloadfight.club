@@ -79,26 +79,6 @@ export const fetchOldestGame = async (): Promise<GameData | null> => {
 };
 
 // Admin API Functions
-export const adminLogin = async (password: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password }),
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            return { success: true };
-        } else {
-            const error = await response.json();
-            return { success: false, error: error.error || 'Login failed' };
-        }
-    } catch (e) {
-        return { success: false, error: 'Network error' };
-    }
-};
-
 export const adminLogout = async (): Promise<void> => {
     try {
         await fetch(`${API_BASE}/admin/logout`, {
@@ -108,21 +88,6 @@ export const adminLogout = async (): Promise<void> => {
     } catch (e) {
         console.error('Logout failed', e);
     }
-};
-
-export const checkAdminAuth = async (): Promise<boolean> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/auth-status`, {
-            credentials: 'include'
-        });
-        if (response.ok) {
-            const data = await response.json();
-            return data.isAuthenticated || false;
-        }
-    } catch (e) {
-        console.error('Auth check failed', e);
-    }
-    return false;
 };
 
 export const getPublicStats = async (): Promise<any> => {
@@ -148,23 +113,6 @@ export const getAdminStats = async (): Promise<any> => {
         }
     } catch (e) {
         console.error('Failed to fetch admin stats', e);
-    }
-    return null;
-};
-
-export const startBackfill = async (startGameId: number, endGameId: number, rateLimitMs: number, jobType: 'id_range' | 'page_sync' = 'id_range'): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/backfill/start`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ startGameId, endGameId, rateLimitMs, jobType })
-        });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (e) {
-        console.error('Failed to start backfill', e);
     }
     return null;
 };
@@ -195,36 +143,6 @@ export const pauseBackfill = async (): Promise<any> => {
         }
     } catch (e) {
         console.error('Failed to pause backfill', e);
-    }
-    return null;
-};
-
-export const resumeBackfill = async (jobId: number): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/backfill/resume/${jobId}`, {
-            method: 'POST',
-            credentials: 'include'
-        });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (e) {
-        console.error('Failed to resume backfill', e);
-    }
-    return null;
-};
-
-export const cancelBackfillJob = async (jobId: number): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/backfill/cancel/${jobId}`, {
-            method: 'POST',
-            credentials: 'include'
-        });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (e) {
-        console.error('Failed to cancel backfill', e);
     }
     return null;
 };
@@ -275,22 +193,6 @@ export const getAdminSettings = async (): Promise<any> => {
     return null;
 };
 
-export const updateAdminSetting = async (key: string, value: string | boolean): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE}/admin/settings`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ key, value })
-        });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (e) {
-        console.error('Failed to update admin setting', e);
-    }
-    return null;
-};
 export const downloadBackup = async (): Promise<void> => {
     try {
         const response = await fetch(`${API_BASE}/admin/backup`, {
@@ -512,7 +414,7 @@ export const fetchFightNightDetail = async (date: string): Promise<FightNightRec
     return null;
 };
 
-// Admin panel (components/AdminPanel.tsx) requests. These keep the axios semantics the
+// Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.
 class AdminRequestError extends Error {
@@ -600,22 +502,16 @@ export const apiService = {
     downloadBackup,
     restoreBackup,
     detectGaps,
-    startBackfill,
     getBackfillStatus,
     pauseBackfill,
-    resumeBackfill,
-    cancelBackfillJob,
     fetchGameManually,
     scanLocalArchive,
     getAdminSettings,
-    updateAdminSetting,
     getAdminStats,
     getPublicStats,
     getGlobalStats,
     getCalendarStats,
-    adminLogin,
-    adminLogout,
-    checkAdminAuth
+    adminLogout
 };
 
 export default apiService;
