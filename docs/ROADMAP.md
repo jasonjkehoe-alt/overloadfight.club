@@ -92,7 +92,7 @@ descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
 Counts: 13 of 28 sessions done (S1 to S13 merged).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 3/6. Phase 4: 0/11. The Node 26
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11. The Node 26
 maintenance item does not count toward the 28.
 
 ## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S13 merged into `main`, `main` at d7a81eb, Node 26 maintenance on `ofc/node26`)
@@ -2035,7 +2035,8 @@ Not counted in the 28 sessions.
   that deploy path needs no manual step; a pull of the GHCR image through
   `docker-compose.prod.yml` does (a [HUMAN] task). Rejected: an entrypoint
   that starts as root, chowns and drops to `node` (the container would
-  still start as root). (Superseded 2026-10-08 by the Node 26 decision.)
+  still start as root). (The `node:22-alpine` base is superseded
+  2026-10-08 by the Node 26 decision; the rest stands.)
 - 2026-10-07 (S6): Dockerfile. The build stage has python3, make and g++
   (no git: `.dockerignore` leaves `.git` out of the context, so
   `generate-version.js` keeps the hash already in `public/version.json`),
@@ -2931,7 +2932,8 @@ Not counted in the 28 sessions.
   and reaches end of life on 2028-04-30; Node 26 is Current (26.11.1
   came out 2026-10-07), becomes LTS on 2026-10-28 and reaches end of
   life on 2029-04-30. better-sqlite3 13.0.3 (2026-08-05) is the first
-  N-API release: one binary per platform loads on any Node from 22 up,
+  N-API release: one binary per platform loads on any Node from 22.14 up
+  (it is built for N-API 10; on 22.13.1 opening a database segfaults),
   and the package ships prebuilds for darwin, linux and linuxmusl on
   x64 and arm64, so nothing compiles. The same darwin-arm64 binary ran
   the tests on 22.17.0, 24.6.0 and 26.11.1. The 12.0 and 13.0 release
@@ -3558,7 +3560,9 @@ Not counted in the 28 sessions.
   `.nvmrc`, `ci.yml` and both `FROM` lines. `actions/setup-node` can read
   `node-version-file: .nvmrc`, and the Dockerfile could take one `ARG`.
 - (Node 26, /code-review) `package.json` has no `engines` field.
-  better-sqlite3 13 needs Node 22 or later; on an older Node, npm only
+  better-sqlite3 13 needs Node 22.14 or later (N-API 10). Its own
+  `engines` says `>=22`, so on 22.0 to 22.13 npm does not even warn and
+  opening a database segfaults (exit 139 on 22.13.1); below 22, npm only
   warns (EBADENGINE) and the failure comes later.
 - (Node 26, /code-review) The Rollback section has no line for this PR;
   the rollback is in the Node 26 decision only.
