@@ -1,8 +1,8 @@
 import db from '../db.js';
-import { netKills, pilotKey, winnerOf } from '../lib/gameParse.js';
+import { fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
 
 export const FIGHT_NIGHT_THRESHOLDS = {
-    minMatches: 16,    // ≥ 16 matches in the 24h window
+    minMatches: 16,    // ≥ 16 matches in one fight-night day (gameParse.js)
     minPilots: 14,     // AND (≥ 14 unique pilots
     minFrags: 1600     //      OR ≥ 1600 total frags)
 };
@@ -395,16 +395,15 @@ export async function generateRecapForDate(targetDate, force = false) {
 }
 
 /**
- * Checks the last 24h-48h for big nights and auto-generates recaps.
+ * Checks the last two finished fight-night days for big nights and auto-generates recaps.
  */
 export async function checkAndGenerateRecentFightNight() {
     try {
         console.log('[FightNight] Running big night detector...');
-        const now = new Date();
-        // Check yesterday and day before yesterday
+        const today = fightNightDay(Date.now());
+        // the two fight-night days before today's, which is still running
         for (let daysAgo = 1; daysAgo <= 2; daysAgo++) {
-            const dt = new Date(now.getTime() - daysAgo * 86400000);
-            const dateStr = dt.toISOString().substring(0, 10);
+            const dateStr = shiftDay(today, -daysAgo);
 
             // Fetch games for target date
             const rawGames = db.getGamesForDate ? db.getGamesForDate(dateStr) : [];

@@ -2,7 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import cacheService from '../services/cacheService.js';
 
-// /stats/*: site totals, the archive's deep stats, the leaderboard, the power rankings, the active-pilot count, map stats and the activity timeline.
+// /stats/*: site totals, the archive's deep stats, the leaderboard, the power rankings, the active-pilot count, map stats, the activity timeline and heatmap.
 const router = express.Router();
 
 // GET /api/stats/global - Global Database Statistics
@@ -145,6 +145,16 @@ router.get('/stats/rankings', (req, res) => {
     } catch (e) {
         console.error("Power Rankings Error:", e);
         res.status(500).json({ error: "Failed to fetch power rankings" });
+    }
+});
+
+// GET /api/stats/heatmap - Matches per weekday and hour, fight-night days (S14)
+router.get('/stats/heatmap', (req, res) => {
+    try {
+        res.json(db.getActivityHeatmap());
+    } catch (e) {
+        console.error("Heatmap Error:", e);
+        res.status(500).json({ error: "Failed to fetch activity heatmap" });
     }
 });
 

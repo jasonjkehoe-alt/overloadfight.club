@@ -5,7 +5,7 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureGamePlayersTable, ensureRatingSnapshots, migrateGamePlayers } from './db/migrations.js';
+import { ensureGamePlayersTable, ensurePilotMonths, ensureRatingSnapshots, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
@@ -26,7 +26,8 @@ import {
   getGameCountsByDate, getMonthlyGameCounts, getTopPlayedMaps, getRecentTopMaps, getMostActiveMaps,
   getDeadliestMaps, getMarathonMaps, getServerActivityStats, getActiveServerIps, getActivePilotCount,
   getAllTimeMapStats, getAllTimeGlobalStats, getAllTimeGlobalKills, countMapStatsCache,
-  getTopPlayedMapsFromCache, getDeadliestMapsFromCache, getRecentTopMapsFromCache, getQualifyingFightNightDates
+  getTopPlayedMapsFromCache, getDeadliestMapsFromCache, getRecentTopMapsFromCache, getQualifyingFightNightDates,
+  getActivityHeatmap
 } from './db/analytics/global.js';
 import {
   getPilotStats, getAllTimePilotStats, getGamesByPilot, countGamesByPilot, hasPilotStatsCache,
@@ -38,6 +39,7 @@ import {
   PRIMARY_WEAPONS, SECONDARY_WEAPONS
 } from './db/analytics/pilotTelemetry.js';
 import { clearRankings, getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
+import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -63,8 +65,10 @@ const db = {
     // A backup from before S5 has no game_players; build it for the restored games.
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
-    // A backup from before S13 has no rating_snapshots; the next refresh fills it.
+    // A backup from before S13 has no rating_snapshots, one from before S14 no
+    // pilot_months; the next refresh fills them.
     ensureRatingSnapshots();
+    ensurePilotMonths();
     clearRankings();
   },
   migrateGamePlayers,
@@ -152,6 +156,7 @@ const db = {
   getDeadliestMapsFromCache,
   getRecentTopMapsFromCache,
   getQualifyingFightNightDates,
+  getActivityHeatmap,
 
   // analytics/pilots.js
   getPilotStats,
@@ -178,6 +183,10 @@ const db = {
   getPilotRating,
   hasRatingSnapshots,
   getPowerRankings,
+
+  // analytics/career.js
+  getPilotCareer,
+  hasPilotMonths,
 
   // analytics/refresh.js
   refreshPilotStats,

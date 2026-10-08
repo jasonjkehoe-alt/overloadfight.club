@@ -3,18 +3,18 @@
 // link pasted into Discord previews the pilot, match or fight night it opens.
 import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
-import { winnerOf, measuredDurationOf } from './lib/gameParse.js';
+import { fightNightDay, winnerOf, measuredDurationOf } from './lib/gameParse.js';
 import { clock, resultLine } from './lib/matchResult.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
 const count = n => Number(n || 0).toLocaleString('en-US');
 
-// "WD-40: 20 matches, 325 kills, last match 2026-10-07."
+// "WD-40: 20 matches, 325 kills, last match 2026-10-07." (a fight-night day)
 function pilotMeta(name) {
     const pilot = db.getPilotSummary(name);
     if (!pilot) return {};
-    return { description: `${pilot.name}: ${count(pilot.games)} matches, ${count(pilot.kills)} kills, last match ${pilot.lastSeen.slice(0, 10)}.` };
+    return { description: `${pilot.name}: ${count(pilot.games)} matches, ${count(pilot.kills)} kills, last match ${fightNightDay(pilot.lastSeen)}.` };
 }
 
 // "BLUE wins 42–35. TEAM ANARCHY on Vault, 15:10." The name is the map, for the title.

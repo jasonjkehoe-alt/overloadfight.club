@@ -40,6 +40,12 @@ export function lethality(kills, seconds) {
     return seconds > 0 ? round2(kills / (seconds / 60)) : 0;
 }
 
+// Win rate: wins over matches played, ties and no-result matches counting as
+// non-wins, as a percentage to one decimal.
+export function winRate(wins, matches) {
+    return matches > 0 ? Math.round((wins / matches) * 1000) / 10 : 0;
+}
+
 // The pages' tooltips for the two, so the words match the formulas above.
 export const COMBAT_RATIO_HINT = 'Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths, or Kills with no deaths. Assists count half.';
 export const LETHALITY_HINT = 'Lethality: Kills per minute of match time, counting the whole length of each match, not only the time the pilot was in it.';
@@ -382,6 +388,111 @@ export function verdictOf(result) {
 export const VERDICT_LABEL = { ko: 'KO', decision: 'Decision', split: 'Split decision', draw: 'Draw' };
 export const VERDICT_HINT = 'KO: the runner-up scored less than two thirds of the winner. Split decision: won by a tenth of the winner\'s score or less, or by 1. Decision: any other win. Draw: a tie for first.';
 
+// Fight-night days (S14). The owner's rule: a day runs from 06:00 to 06:00 in
+// America/Chicago (the container's TZ, S6), so a night that goes past
+// midnight stays on the evening it started. Fight nights, the rating's
+// snapshot day, the heatmap, the activity calendars and the career months
+// all count days this way.
+export const FIGHT_NIGHT_DAY = { timeZone: 'America/Chicago', startHour: 6 };
+export const DAY_MS = 86400000;
+const HOUR_MS = 3600000;
+export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const dayNumber = day => Date.parse(`${day}T00:00:00Z`) / DAY_MS;
+// YYYY-MM-DD `days` after (or, negative, before) `day`.
+export const shiftDay = (day, days) => new Date((dayNumber(day) + days) * DAY_MS).toISOString().slice(0, 10);
+// Whole days from `from` to `to` (both YYYY-MM-DD).
+export const daysBetween = (from, to) => dayNumber(to) - dayNumber(from);
+// 0 for Monday to 6 for Sunday (1970-01-01 was a Thursday).
+export const weekdayOf = day => (((dayNumber(day) + 3) % 7) + 7) % 7;
+
+let clockFormat = null;
+// The wall clock in FIGHT_NIGHT_DAY.timeZone at `ms`: { date, hour, offset },
+// offset being wall time minus UTC in ms.
+function wallClock(ms) {
+    clockFormat ??= new Intl.DateTimeFormat('en-CA', {
+        timeZone: FIGHT_NIGHT_DAY.timeZone, hourCycle: 'h23',
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    const p = Object.fromEntries(clockFormat.formatToParts(ms).map(({ type, value }) => [type, value]));
+    const wall = Date.UTC(+p.year, p.month - 1, +p.day, +p.hour, +p.minute, +p.second) + (ms % 1000 + 1000) % 1000;
+    return { date: `${p.year}-${p.month}-${p.day}`, hour: +p.hour, offset: wall - ms };
+}
+
+// Chicago's offset changes only on the hour, so the clock is worked out once
+// per UTC hour seen: formatting every match's date was a fifth of the
+// rating replay (S13).
+const clockOfHour = new Map();
+// { day, weekday, hour } for a date: its fight-night day (YYYY-MM-DD), that
+// day's weekday (0 Monday) and the clock hour (0 to 23) in the time zone.
+// null for a date that does not parse.
+export function localClock(date) {
+    const ms = typeof date === 'number' ? date : Date.parse(date);
+    if (!Number.isFinite(ms)) return null;
+    const key = Math.floor(ms / HOUR_MS);
+    let clock = clockOfHour.get(key);
+    if (!clock) {
+        if (clockOfHour.size > 200000) clockOfHour.clear();
+        const { date: wallDate, hour } = wallClock(key * HOUR_MS);
+        const day = hour < FIGHT_NIGHT_DAY.startHour ? shiftDay(wallDate, -1) : wallDate;
+        clockOfHour.set(key, (clock = { day, weekday: weekdayOf(day), hour }));
+    }
+    return clock;
+}
+
+// The fight-night day (YYYY-MM-DD) a date falls on, or null.
+export const fightNightDay = date => localClock(date)?.day ?? null;
+
+// [start, end) of a fight-night day as UTC ISO strings, for
+// `date >= ? AND date < ?` on the stored dates (which can use
+// idx_games_date): 23 or 25 hours long on the DST days. null when `day` is
+// not a calendar day.
+export function dayBounds(day) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || shiftDay(day, 0) !== day) return null;
+    const startOf = d => {
+        // the wall time FIGHT_NIGHT_DAY.startHour on `d`, read as UTC, less the
+        // offset there (DST changes at 02:00, never at the start hour)
+        const wall = Date.parse(`${d}T${String(FIGHT_NIGHT_DAY.startHour).padStart(2, '0')}:00:00Z`);
+        return new Date(wall - wallClock(wall - wallClock(wall).offset).offset).toISOString();
+    };
+    return [startOf(day), startOf(shiftDay(day, 1))];
+}
+
+// The dashboard heatmap (S14): matches per weekday and clock hour over the
+// HEATMAP.weeks whole weeks of fight-night days before today, so each weekday
+// counts the same number of days.
+export const HEATMAP = { weeks: 12 };
+
+// The heatmap's days, [since, until), for today (a fight-night day).
+export const heatmapDays = today => ({ since: shiftDay(today, -7 * HEATMAP.weeks), until: today });
+
+// 7 rows (Monday first, by fight-night day) of 24 counts (by clock hour) for
+// the given match dates. A match counts at its `date`, when the tracker
+// closed it.
+export function heatmapCells(dates) {
+    const cells = Array.from({ length: 7 }, () => new Array(24).fill(0));
+    for (const date of dates) {
+        const clock = localClock(date);
+        if (clock) cells[clock.weekday][clock.hour]++;
+    }
+    return cells;
+}
+
+// The pilot page's activity calendar (S14): matches per fight-night day over
+// CALENDAR.weeks weeks, Monday first, the last week holding today.
+export const CALENDAR = { weeks: 53 };
+export const calendarSince = today => shiftDay(today, -weekdayOf(today) - 7 * (CALENDAR.weeks - 1));
+
+// [{ day, matches }] for the days with a match, oldest first.
+export function calendarDays(dates) {
+    const counts = new Map();
+    for (const date of dates) {
+        const day = fightNightDay(date);
+        if (day) counts.set(day, (counts.get(day) || 0) + 1);
+    }
+    return [...counts].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([day, matches]) => ({ day, matches }));
+}
+
 // Rating (S13): Glicko-2 (Glickman, "Example of the Glicko-2 system", 2012).
 // Every rated match is one rating period for the pilots in it, replayed in
 // date order over every stored match. Every pilot plays every other side
@@ -405,8 +516,6 @@ export const RATING = {
     activeDays: 28,
     listed: 25,
     movementDays: 7,
-    // the snapshot day is the calendar day here, the container's TZ (S6)
-    timeZone: 'America/Chicago',
 };
 
 // The pages' words for these rules, built from the numbers above.
@@ -416,7 +525,6 @@ export const RATING_HINT = `Rating: Glicko-2 over every stored match with ${RATE
 export const RANKING_HINT = `Ranked: ${RATING.rankedAfter}+ rated matches and one in the last ${RATING.activeDays} days. Movement compares the rank with ${RATING.movementDays} days earlier; NEW was not ranked then.`;
 
 const PHI_MAX = RATING.rd / RATING.scale;
-export const DAY_MS = 86400000;
 
 // A pilot's phi after `days` without a rated match: it grows by the
 // volatility for every day, up to the starting RD.
@@ -502,19 +610,13 @@ export function ratingSides(game) {
     return playing.length >= 2 ? playing : null;
 }
 
-let dayFormat = null;
-// The snapshot day of a date: YYYY-MM-DD in RATING.timeZone.
-export function ratingDay(date) {
-    dayFormat ??= new Intl.DateTimeFormat('en-CA', { timeZone: RATING.timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
-    return dayFormat.format(new Date(date));
-}
-
 const mean = values => values.reduce((a, b) => a + b, 0) / values.length;
 const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
 
 // Replays rated matches ([{ id, date, sides }], sides from ratingSides()) in
 // date order (id order for equal dates; a match without a date is skipped)
-// and returns each pilot's rating at the end of every day they played:
+// and returns each pilot's rating at the end of every fight-night day they
+// played:
 // [{ pilot, name, day, rating, rd, volatility, matches }],
 // `pilot` being the pilotKey(), `name` the latest spelling and `matches` the
 // rated matches so far.
@@ -525,9 +627,6 @@ export function ratingSnapshots(matches) {
         .sort((a, b) => a.at - b.at || a.id - b.id);
     const pilots = new Map();
     const snapshots = new Map();
-    // the day of each hour seen: Chicago's offset changes only on the hour,
-    // and formatting a date for every match was a fifth of the replay
-    const dayOfHour = new Map();
     for (const { at, sides } of timed) {
         // everyone's state before the match, RD grown over the days sat out
         const teams = sides.map(side => side.pilots.map(({ key, name }) => {
@@ -549,9 +648,7 @@ export function ratingSnapshots(matches) {
             }
             return [p, glicko2({ mu: p.mu, phi, sigma: p.sigma }, games)];
         }));
-        const hour = Math.floor(at / 3600000);
-        if (!dayOfHour.has(hour)) dayOfHour.set(hour, ratingDay(at));
-        const day = dayOfHour.get(hour);
+        const day = fightNightDay(at);
         for (const [p, next] of updates) {
             Object.assign(p, next);
             p.matches++;
@@ -569,10 +666,6 @@ export function ratingSnapshots(matches) {
     }
     return [...snapshots.values()];
 }
-
-const dayNumber = day => Date.parse(`${day}T00:00:00Z`) / DAY_MS;
-// YYYY-MM-DD `days` after (or, negative, before) `day`.
-export const shiftDay = (day, days) => new Date((dayNumber(day) + days) * DAY_MS).toISOString().slice(0, 10);
 
 // A snapshot's RD on a later `day`: grown for the days since, as it will be
 // at the pilot's next rated match.
@@ -605,4 +698,73 @@ export function powerRankings(latest, day) {
 export function rankingMovement(now, before) {
     const was = new Map(before.map(s => [s.pilot, s.rank]));
     return now.slice(0, RATING.listed).map(s => ({ ...s, change: was.has(s.pilot) ? was.get(s.pilot) - s.rank : null }));
+}
+
+// Career (S14). The career arc counts what the career cards count: ranked
+// matches (rankedMatch), each in the month of its fight-night day.
+export const careerMonth = date => fightNightDay(date)?.slice(0, 7) ?? null;
+
+const nextMonth = month => {
+    const [y, m] = month.split('-').map(Number);
+    return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+};
+
+// One entry per month from the first month in `months` to `thisMonth`
+// (YYYY-MM), months without a match filled with zeros. Each entry has the
+// month's totals ({ month, matches, wins, losses, ties, kills, deaths,
+// assists, seconds }, kills being netKills() totals) plus its win rate,
+// Combat Ratio and Lethality, which are null for a month with no match.
+export function careerSeries(months, thisMonth) {
+    const byMonth = new Map(months.map(m => [m.month, m]));
+    const first = months.reduce((min, m) => (min && min < m.month ? min : m.month), null);
+    const series = [];
+    if (!first) return series;
+    const last = thisMonth > first ? thisMonth : first;
+    for (let month = first; month <= last; month = nextMonth(month)) {
+        const m = byMonth.get(month) ?? { matches: 0, wins: 0, losses: 0, ties: 0, kills: 0, deaths: 0, assists: 0, seconds: 0 };
+        const played = m.matches > 0;
+        series.push({
+            month,
+            matches: m.matches, wins: m.wins, losses: m.losses, ties: m.ties,
+            kills: m.kills, deaths: m.deaths, assists: m.assists, seconds: m.seconds,
+            winRate: played ? winRate(m.wins, m.matches) : null,
+            combatRatio: played ? combatRatio(m.kills, m.assists, m.deaths) : null,
+            lethality: played ? lethality(m.kills, m.seconds) : null
+        });
+    }
+    return series;
+}
+
+// "Last time out" (S14): every stored match the pilot played on their latest
+// fight-night day, ranked or not, as the match list shows them. `games` are
+// that day's matches with the pilot in them (details plus `id` and `date`),
+// in any order. Gives the night's totals and each match newest first, the
+// pilot's first listing in a match counting. null when no game has the pilot.
+export function lastOuting(games, name) {
+    const key = pilotKey(name);
+    const matches = [];
+    const night = { matches, wins: 0, losses: 0, ties: 0, kills: 0, deaths: 0, assists: 0 };
+    for (const game of games) {
+        const player = (Array.isArray(game?.players) ? game.players : []).find(p => pilotKey(p?.name) === key);
+        if (!player) continue;
+        const outcome = outcomeOf(game, player);
+        if (outcome) night[OUTCOME_FIELD[outcome]]++;
+        const kills = netKills(player);
+        const deaths = Number(player.deaths) || 0;
+        const assists = Number(player.assists) || 0;
+        night.kills += kills;
+        night.deaths += deaths;
+        night.assists += assists;
+        matches.push({
+            id: game.id,
+            date: game.date,
+            map: game.settings?.level ?? null,
+            mode: game.settings?.matchMode ?? null,
+            outcome,
+            kills, deaths, assists
+        });
+    }
+    if (matches.length === 0) return null;
+    matches.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
+    return { day: fightNightDay(matches[0].date), ...night, combatRatio: combatRatio(night.kills, night.assists, night.deaths) };
 }

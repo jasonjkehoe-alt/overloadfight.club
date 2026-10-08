@@ -7,7 +7,7 @@
 import fs from 'fs';
 import { parentPort, workerData } from 'worker_threads';
 import Database from 'better-sqlite3';
-import { RATING_SNAPSHOT_COLUMNS, archivePass, mapPass, pilotPass, ratingPass } from './lib/statsPasses.js';
+import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS, archivePass, mapPass, pilotPass, ratingPass } from './lib/statsPasses.js';
 
 const PAGE_SIZE = 500;
 const { hotPath, coldPath, thirtyDaysAgo } = workerData;
@@ -51,20 +51,22 @@ for (const file of [hotPath, coldPath]) {
     }
 }
 
-// What the main thread must write to bring rating_snapshots in line with the
-// replay: the rows that are new or differ, and the (pilot, day) keys the
-// replay no longer has. Most refreshes change only the latest days, so this
+// What the main thread must write to bring a derived table (rating_snapshots,
+// pilot_months) in line with the rows this pass built: the rows that are new or
+// differ, and the keys (two columns, `columns[0]` and `columns[1]`) the pass no
+// longer has. Most refreshes change only the latest days or months, so this
 // keeps a rewrite of every row off the main thread.
-function ratingChanges(rows) {
-    const fresh = new Map(rows.map(r => [`${r.pilot}\n${r.day}`, r]));
+function tableChanges(table, columns, rows) {
+    const [a, b] = columns;
+    const fresh = new Map(rows.map(r => [`${r[a]}\n${r[b]}`, r]));
     const deletes = [];
     const conn = new Database(hotPath, { readonly: true, fileMustExist: true });
     try {
-        for (const old of conn.prepare('SELECT * FROM rating_snapshots').iterate()) {
-            const key = `${old.pilot}\n${old.day}`;
+        for (const old of conn.prepare(`SELECT * FROM ${table}`).iterate()) {
+            const key = `${old[a]}\n${old[b]}`;
             const row = fresh.get(key);
-            if (!row) deletes.push([old.pilot, old.day]);
-            else if (RATING_SNAPSHOT_COLUMNS.every(c => row[c] === old[c])) fresh.delete(key);
+            if (!row) deletes.push([old[a], old[b]]);
+            else if (columns.every(c => row[c] === old[c])) fresh.delete(key);
         }
     } finally {
         conn.close();
@@ -78,9 +80,17 @@ const pilots = errors.pilots ? [] : passes.pilots.rows();
 let ratings = null;
 if (!errors.ratings) {
     try {
-        ratings = ratingChanges(passes.ratings.rows());
+        ratings = tableChanges('rating_snapshots', RATING_SNAPSHOT_COLUMNS, passes.ratings.rows());
     } catch (err) {
         errors.ratings = err.message;
+    }
+}
+let months = null;
+if (!errors.pilots) {
+    try {
+        months = tableChanges('pilot_months', PILOT_MONTH_COLUMNS, passes.pilots.months());
+    } catch (err) {
+        errors.months = err.message;
     }
 }
 parentPort.postMessage({
@@ -88,5 +98,6 @@ parentPort.postMessage({
     pilots,
     archive: errors.archive || errors.pilots ? null : passes.archive.payload(pilots, { hotDbSize: size(hotPath), coldDbSize: size(coldPath) }),
     maps: errors.maps ? null : passes.maps.rows(),
-    ratings
+    ratings,
+    months
 });
