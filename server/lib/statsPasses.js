@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, careerMonth, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winRate, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, addToLine, careerMonth, emptyLine, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winRate, winnerOf } from './gameParse.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
 // per pilot per career month for pilot_months.
@@ -59,14 +59,8 @@ export function pilotPass() {
             if (outcome) pilot[OUTCOME_FIELD[outcome]]++;
 
             if (month) {
-                let m = pilot.months.get(month);
-                if (!m) pilot.months.set(month, (m = { matches: 0, wins: 0, losses: 0, ties: 0, kills: 0, deaths: 0, assists: 0, seconds: 0 }));
-                m.matches++;
-                m.kills += netKills(p);
-                m.deaths += p.deaths || 0;
-                m.assists += p.assists || 0;
-                m.seconds += durationSec;
-                if (outcome) m[OUTCOME_FIELD[outcome]]++;
+                if (!pilot.months.has(month)) pilot.months.set(month, emptyLine());
+                addToLine(pilot.months.get(month), p, outcome, durationSec);
             }
         }
 

@@ -1,7 +1,7 @@
 import { hotDb, coldDb } from '../connection.js';
 import '../migrations.js';
-import { getGamesInDay } from '../repos/games.js';
-import { FIGHT_NIGHT_DAY, HEATMAP, calendarDays, dayBounds, fightNightDay, heatmapCells, heatmapDays, netKills, pilotKey, shiftDay } from '../../lib/gameParse.js';
+import { getGamesForDate } from '../repos/games.js';
+import { calendarDays, dayStart, fightNightDay, heatmapCells, heatmapDays, netKills, pilotKey, shiftDay } from '../../lib/gameParse.js';
 
 // Aggregates over many games: site totals, mode, map and activity charts, server
 // activity, all-time totals across both files, the map_stats_cache readers and
@@ -69,7 +69,7 @@ export const getMostActiveMaps = hotDb.prepare(`
 // fight-night day 365 days before today's, for the counts per fight-night
 // day below. SQL's date() would count UTC days.
 const gameDatesSince = hotDb.prepare('SELECT date FROM games WHERE date >= ?').pluck();
-const lastYearDates = () => gameDatesSince.all(dayBounds(shiftDay(fightNightDay(Date.now()), -365))[0]);
+const lastYearDates = () => gameDatesSince.all(dayStart(shiftDay(fightNightDay(Date.now()), -365)));
 
 // [{ day, count }] per fight-night day over the last 365 days, oldest first:
 // the activity timeline and the admin calendar.
@@ -80,13 +80,13 @@ export const getGameCountsByDate = {
 const gameDatesBetween = hotDb.prepare('SELECT date FROM games WHERE date >= ? AND date < ?').pluck();
 
 // The dashboard heatmap (gameParse.js heatmapCells) over the HEATMAP.weeks
-// weeks before today's fight-night day: { timeZone, startHour, weeks, since,
-// until, total, cells }, `until` not counted. Reads dates only, from
+// weeks before today's fight-night day: { since, until, total, cells },
+// `until` not counted. Reads dates only, from
 // idx_games_date; the window is always in hot storage.
 export const getActivityHeatmap = (now = Date.now()) => {
   const { since, until } = heatmapDays(fightNightDay(now));
-  const dates = gameDatesBetween.all(dayBounds(since)[0], dayBounds(until)[0]);
-  return { ...FIGHT_NIGHT_DAY, weeks: HEATMAP.weeks, since, until, total: dates.length, cells: heatmapCells(dates) };
+  const dates = gameDatesBetween.all(dayStart(since), dayStart(until));
+  return { since, until, total: dates.length, cells: heatmapCells(dates) };
 };
 
 export const getMonthlyGameCounts = hotDb.prepare(`
@@ -369,7 +369,7 @@ export const getQualifyingFightNightDates = (thresholds = { minMatches: 16, minP
 
   const qualifying = [];
   for (const row of dayRows) {
-    const dayMatches = getGamesInDay.all(...dayBounds(row.day));
+    const dayMatches = getGamesForDate(row.day);
 
     const pilots = new Set();
     let frags = 0;

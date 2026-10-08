@@ -1,7 +1,7 @@
 import db from './db.js';
 import { backupDatabases } from './backup.js';
 import fightNightService from './services/fightNightService.js';
-import { dayBounds, fightNightDay, shiftDay } from './lib/gameParse.js';
+import { dayStart, fightNightDay, shiftDay } from './lib/gameParse.js';
 
 // The fight-night detector runs this long after a fight-night day ends (06:00
 // Chicago time), so the night's last matches have been synced from the tracker.
@@ -100,20 +100,18 @@ function scheduleMaintenance() {
     // 3. The Fight Night detector, once each fight-night day has ended: the
     // day rolls over at 06:00 Chicago time (gameParse.js FIGHT_NIGHT_DAY), so
     // the 03:00 job would still be inside the night it should judge.
-    // `after`: the run just made, so a timer that fires a little early by the
-    // wall clock does not schedule the same run again
-    const scheduleNextDetector = (after = null) => {
-        const startOf = day => Date.parse(dayBounds(day)[0]) + DETECTOR_DELAY_MS;
-        const today = fightNightDay(after ?? Date.now());
-        let nextRun = startOf(today);
-        if (after !== null || nextRun <= Date.now()) nextRun = startOf(shiftDay(today, 1));
-        console.log(`[Maintenance] Fight night detector scheduled for ${new Date(nextRun).toISOString()} (in ${Math.round((nextRun - Date.now()) / 60000)}m).`);
+    // Scheduled by day, so a timer that fires a little early by the wall clock
+    // still moves on to the next day.
+    const runAt = day => Date.parse(dayStart(day)) + DETECTOR_DELAY_MS;
+    const scheduleDetector = day => {
+        console.log(`[Maintenance] Fight night detector scheduled for ${new Date(runAt(day)).toISOString()} (in ${Math.round((runAt(day) - Date.now()) / 60000)}m).`);
         setTimeout(async () => {
             await fightNightService.checkAndGenerateRecentFightNight();
-            scheduleNextDetector(nextRun);
-        }, Math.max(0, nextRun - Date.now()));
+            scheduleDetector(shiftDay(day, 1));
+        }, Math.max(0, runAt(day) - Date.now()));
     };
-    scheduleNextDetector();
+    const today = fightNightDay(Date.now());
+    scheduleDetector(runAt(today) > Date.now() ? today : shiftDay(today, 1));
 
     // 4. Schedule Pilot Stats Cache Refresh every 6 hours (21600000 ms)
     setInterval(refreshPilotStats, 21600000);

@@ -46,6 +46,8 @@ export function winRate(wins, matches) {
     return matches > 0 ? Math.round((wins / matches) * 1000) / 10 : 0;
 }
 
+export const WIN_RATE_HINT = 'Wins ÷ matches played. Ties count as non-wins.';
+
 // The pages' tooltips for the two, so the words match the formulas above.
 export const COMBAT_RATIO_HINT = 'Combat Ratio: (Kills + 0.5 × Assists) ÷ Deaths, or Kills with no deaths. Assists count half.';
 export const LETHALITY_HINT = 'Lethality: Kills per minute of match time, counting the whole length of each match, not only the time the pilot was in it.';
@@ -393,10 +395,17 @@ export const VERDICT_HINT = 'KO: the runner-up scored less than two thirds of th
 // midnight stays on the evening it started. Fight nights, the rating's
 // snapshot day, the heatmap, the activity calendars and the career months
 // all count days this way.
-export const FIGHT_NIGHT_DAY = { timeZone: 'America/Chicago', startHour: 6 };
+export const FIGHT_NIGHT_DAY = { timeZone: 'America/Chicago', label: 'Central time', startHour: 6 };
 export const DAY_MS = 86400000;
 const HOUR_MS = 3600000;
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// "06:00" for an hour of the day
+export const clockHour = hour => `${String(hour).padStart(2, '0')}:00`;
+// The clock hours in the order a fight-night day runs through them: 06:00 to 05:00.
+export const DAY_HOURS = Array.from({ length: 24 }, (_, i) => (FIGHT_NIGHT_DAY.startHour + i) % 24);
+// The pages' words for the rule.
+export const FIGHT_NIGHT_DAY_TEXT = `${FIGHT_NIGHT_DAY.label}, a day running from ${clockHour(FIGHT_NIGHT_DAY.startHour)} to ${clockHour(FIGHT_NIGHT_DAY.startHour)}`;
 
 const dayNumber = day => Date.parse(`${day}T00:00:00Z`) / DAY_MS;
 // YYYY-MM-DD `days` after (or, negative, before) `day`.
@@ -443,19 +452,21 @@ export function localClock(date) {
 // The fight-night day (YYYY-MM-DD) a date falls on, or null.
 export const fightNightDay = date => localClock(date)?.day ?? null;
 
+// When a fight-night day ('YYYY-MM-DD') starts, as a UTC ISO string: the wall
+// time FIGHT_NIGHT_DAY.startHour that day, read as UTC, less the offset there
+// (DST changes at 02:00, never at the start hour).
+export function dayStart(day) {
+    const wall = Date.parse(`${day}T${clockHour(FIGHT_NIGHT_DAY.startHour)}:00Z`);
+    return new Date(wall - wallClock(wall - wallClock(wall).offset).offset).toISOString();
+}
+
 // [start, end) of a fight-night day as UTC ISO strings, for
 // `date >= ? AND date < ?` on the stored dates (which can use
 // idx_games_date): 23 or 25 hours long on the DST days. null when `day` is
 // not a calendar day.
 export function dayBounds(day) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(dayNumber(day)) || shiftDay(day, 0) !== day) return null;
-    const startOf = d => {
-        // the wall time FIGHT_NIGHT_DAY.startHour on `d`, read as UTC, less the
-        // offset there (DST changes at 02:00, never at the start hour)
-        const wall = Date.parse(`${d}T${String(FIGHT_NIGHT_DAY.startHour).padStart(2, '0')}:00:00Z`);
-        return new Date(wall - wallClock(wall - wallClock(wall).offset).offset).toISOString();
-    };
-    return [startOf(day), startOf(shiftDay(day, 1))];
+    return [dayStart(day), dayStart(shiftDay(day, 1))];
 }
 
 // The dashboard heatmap (S14): matches per weekday and clock hour over the
@@ -709,24 +720,34 @@ const nextMonth = month => {
     return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
 };
 
-// One entry per month from the first month in `months` to `thisMonth`
-// (YYYY-MM), months without a match filled with zeros. Each entry has the
-// month's totals ({ month, matches, wins, losses, ties, kills, deaths,
-// assists, seconds }, kills being netKills() totals) plus its win rate,
-// Combat Ratio and Lethality, which are null for a month with no match.
+// A career line: the totals of some matches, as pilot_months keeps them per
+// month and lastOuting() for a night. addToLine() adds one player's match.
+export const emptyLine = () => ({ matches: 0, wins: 0, losses: 0, ties: 0, kills: 0, deaths: 0, assists: 0, seconds: 0 });
+export function addToLine(line, player, outcome, seconds = 0) {
+    line.matches++;
+    if (outcome) line[OUTCOME_FIELD[outcome]]++;
+    line.kills += netKills(player);
+    line.deaths += Number(player?.deaths) || 0;
+    line.assists += Number(player?.assists) || 0;
+    line.seconds += seconds;
+    return line;
+}
+
+// One entry per month from the first month in `months` (sorted by month) to
+// `thisMonth` (YYYY-MM), months without a match filled with emptyLine(). Each
+// entry is the month's line plus `month`, its win rate, Combat Ratio and
+// Lethality, which are null for a month with no match.
 export function careerSeries(months, thisMonth) {
     const byMonth = new Map(months.map(m => [m.month, m]));
-    const first = months.reduce((min, m) => (min && min < m.month ? min : m.month), null);
+    const first = months[0]?.month;
     const series = [];
     if (!first) return series;
     const last = thisMonth > first ? thisMonth : first;
     for (let month = first; month <= last; month = nextMonth(month)) {
-        const m = byMonth.get(month) ?? { matches: 0, wins: 0, losses: 0, ties: 0, kills: 0, deaths: 0, assists: 0, seconds: 0 };
+        const m = { ...emptyLine(), ...byMonth.get(month), month };
         const played = m.matches > 0;
         series.push({
-            month,
-            matches: m.matches, wins: m.wins, losses: m.losses, ties: m.ties,
-            kills: m.kills, deaths: m.deaths, assists: m.assists, seconds: m.seconds,
+            ...m,
             winRate: played ? winRate(m.wins, m.matches) : null,
             combatRatio: played ? combatRatio(m.kills, m.assists, m.deaths) : null,
             lethality: played ? lethality(m.kills, m.seconds) : null
@@ -743,28 +764,25 @@ export function careerSeries(months, thisMonth) {
 export function lastOuting(games, name) {
     const key = pilotKey(name);
     const matches = [];
-    const night = { matches, wins: 0, losses: 0, ties: 0, kills: 0, deaths: 0, assists: 0 };
+    const night = emptyLine();
     for (const game of games) {
         const player = (Array.isArray(game?.players) ? game.players : []).find(p => pilotKey(p?.name) === key);
         if (!player) continue;
         const outcome = outcomeOf(game, player);
-        if (outcome) night[OUTCOME_FIELD[outcome]]++;
-        const kills = netKills(player);
-        const deaths = Number(player.deaths) || 0;
-        const assists = Number(player.assists) || 0;
-        night.kills += kills;
-        night.deaths += deaths;
-        night.assists += assists;
-        matches.push({
-            id: game.id,
-            date: game.date,
-            map: game.settings?.level ?? null,
-            mode: game.settings?.matchMode ?? null,
-            outcome,
-            kills, deaths, assists
-        });
+        const { kills, deaths, assists } = addToLine(emptyLine(), player, outcome);
+        addToLine(night, player, outcome);
+        matches.push({ id: game.id, date: game.date, map: game.settings?.level ?? null, mode: game.settings?.matchMode ?? null, outcome, kills, deaths, assists });
     }
     if (matches.length === 0) return null;
     matches.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
-    return { day: fightNightDay(matches[0].date), ...night, combatRatio: combatRatio(night.kills, night.assists, night.deaths) };
+    const { seconds, matches: count, ...totals } = night;
+    return { day: fightNightDay(matches[0].date), matches, ...totals, combatRatio: combatRatio(night.kills, night.assists, night.deaths) };
+}
+
+// The rating a pilot gained (negative: lost) over a fight-night day: their
+// snapshot at its end less the one before (RATING.start for their first), to
+// one decimal; null when the day had no rated match. `snapshots` are the
+// pilot's latest two on or before `day`, newest first.
+export function nightRatingChange([that, before], day) {
+    return that?.day === day ? round((that.rating - (before?.rating ?? RATING.start)), 1) : null;
 }

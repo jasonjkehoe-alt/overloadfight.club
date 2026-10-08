@@ -463,10 +463,15 @@ const DAY_RULE = `${FIGHT_NIGHT_DAY.timeZone} from ${FIGHT_NIGHT_DAY.startHour}:
 export async function rebuildRecapsForDayRule() {
     if (db.getAdminSetting.get(DAY_RULE_SETTING)?.value === DAY_RULE) return;
     const removed = db.deleteFightNightRecapsSince(shiftDay(fightNightDay(Date.now()), -365));
-    const days = db.getQualifyingFightNightDates(FIGHT_NIGHT_THRESHOLDS);
-    for (const day of days) await generateRecapForDate(day, true);
+    // generateRecapForDate checks the thresholds itself, reading each day once
+    let saved = 0;
+    for (const { day, count } of db.getGameCountsByDate.all()) {
+        if (count < FIGHT_NIGHT_THRESHOLDS.minMatches) continue;
+        if (await generateRecapForDate(day)) saved++;
+        await new Promise(resolve => setImmediate(resolve)); // let requests in between days
+    }
     db.setAdminSetting.run(DAY_RULE_SETTING, DAY_RULE);
-    console.log(`[FightNight] Days now count ${DAY_RULE}: removed ${removed} recaps of the last 365 days, saved ${days.length}.`);
+    console.log(`[FightNight] Days now count ${DAY_RULE}: removed ${removed} recaps of the last 365 days, saved ${saved}.`);
 }
 
 /**

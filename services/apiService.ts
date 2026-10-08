@@ -470,9 +470,6 @@ export const fetchPowerRankings = () => getJson<PowerRankings>(`${API_BASE}/stat
 // /api/stats/heatmap (S14): matches per weekday and clock hour, `cells[0]`
 // Monday by fight-night day, each row 24 counts by hour, over [since, until).
 export interface ActivityHeatmap {
-    timeZone: string;
-    startHour: number;
-    weeks: number;
     since: string;
     until: string;
     total: number;
@@ -526,8 +523,8 @@ export interface LastOut {
 }
 
 export interface PilotCareer {
-    today: string;
     months: CareerMonth[];
+    // `until` is today's fight-night day
     calendar: { since: string; until: string; days: { day: string; matches: number }[] };
     lastOut: LastOut | null;
 }

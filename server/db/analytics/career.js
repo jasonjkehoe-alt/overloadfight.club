@@ -1,7 +1,9 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
-import { RATING, calendarDays, calendarSince, careerSeries, dayBounds, fightNightDay, lastOuting, pilotKey } from '../../lib/gameParse.js';
-import { getFightNightRecapByDate } from '../repos/fightNights.js';
+import { calendarDays, calendarSince, careerSeries, dayBounds, dayStart, fightNightDay, lastOuting, nightRatingChange, pilotKey } from '../../lib/gameParse.js';
+import { pilotGameIdsSql } from './pilots.js';
+import { pilotGamesSql } from './pilotTelemetry.js';
+import { hasFightNightRecap } from '../repos/fightNights.js';
 
 // The pilot page's career block (S14): the career arc from pilot_months, which
 // every stats refresh keeps in line, and the activity calendar and last time
@@ -17,12 +19,8 @@ const pilotMonths = hotDb.prepare(`
 const anyPilotMonth = hotDb.prepare('SELECT 1 FROM pilot_months LIMIT 1');
 export const hasPilotMonths = () => Boolean(anyPilotMonth.get());
 
-// The pilot's match dates from a start date, one per match, both files.
-const pilotDatesSince = hotDb.prepare(`
-  SELECT DISTINCT game_id, date FROM game_players WHERE name = TRIM(@name) AND date >= @start
-  UNION
-  SELECT DISTINCT game_id, date FROM cold.game_players WHERE name = TRIM(@name) AND date >= @start
-`);
+// The pilot's match dates from a start date, one per match (the match list's query).
+const pilotDatesSince = hotDb.prepare(`SELECT DISTINCT game_id, date FROM (${pilotGameIdsSql})`);
 
 const pilotLastDate = hotDb.prepare(`
   SELECT MAX(date) FROM (
@@ -32,16 +30,10 @@ const pilotLastDate = hotDb.prepare(`
   )
 `).pluck();
 
-// The pilot's matches between two dates, with their details, both files.
-const pilotGamesBetween = hotDb.prepare(`
-  SELECT g.id, g.date, g.details FROM games g
-  WHERE g.id IN (SELECT game_id FROM game_players WHERE name = TRIM(@name) AND date >= @start AND date < @end)
-  UNION ALL
-  SELECT g.id, g.date, g.details FROM cold.games g
-  WHERE g.id IN (SELECT game_id FROM cold.game_players WHERE name = TRIM(@name) AND date >= @start AND date < @end)
-`);
+// The pilot's matches on one night, with their details, in each file.
+const nightGames = ['main', 'cold'].map(schema => hotDb.prepare(pilotGamesSql(schema, 'AND date >= @start AND date < @end')));
 
-// The pilot's rating at the end of a day and at the snapshot before it.
+// The pilot's latest two snapshots on or before a day.
 const ratingThrough = hotDb.prepare(`
   SELECT day, rating FROM rating_snapshots WHERE pilot = ? AND day <= ? ORDER BY day DESC LIMIT 2
 `);
@@ -52,7 +44,7 @@ function lastTimeOut(name) {
   const [start, end] = dayBounds(fightNightDay(last));
   const seen = new Set();
   const games = [];
-  for (const row of pilotGamesBetween.all({ name, start, end })) {
+  for (const row of nightGames.flatMap(stmt => stmt.all({ name, start, end }))) {
     if (seen.has(row.id)) continue; // a game left in both files by a crash (S5)
     seen.add(row.id);
     try {
@@ -61,13 +53,14 @@ function lastTimeOut(name) {
   }
   const outing = lastOuting(games, name);
   if (!outing) return null;
-  // the change in rating over the night, when it had a rated match
-  const [that, before] = ratingThrough.all(pilotKey(name), outing.day);
-  const ratingChange = that?.day === outing.day ? Math.round((that.rating - (before?.rating ?? RATING.start)) * 10) / 10 : null;
-  return { ...outing, ratingChange, recap: Boolean(getFightNightRecapByDate(outing.day)) };
+  return {
+    ...outing,
+    ratingChange: nightRatingChange(ratingThrough.all(pilotKey(name), outing.day), outing.day),
+    recap: hasFightNightRecap(outing.day)
+  };
 }
 
-// { today, months, calendar: { since, until, days }, lastOut } for a pilot.
+// { months, calendar: { since, until, days }, lastOut } for a pilot.
 // `months` is careerSeries() up to this month (empty before the first
 // refresh or for a pilot with no ranked match), `calendar.days` the
 // fight-night days from `since` to `until` (today) with a match, `lastOut`
@@ -75,9 +68,8 @@ function lastTimeOut(name) {
 export const getPilotCareer = (name, now = Date.now()) => {
   const today = fightNightDay(now);
   const since = calendarSince(today);
-  const dates = pilotDatesSince.all({ name, start: dayBounds(since)[0] }).map(r => r.date);
+  const dates = pilotDatesSince.all({ name, startDate: dayStart(since) }).map(r => r.date);
   return {
-    today,
     months: careerSeries(pilotMonths.all(pilotKey(name)), today.slice(0, 7)),
     calendar: { since, until: today, days: calendarDays(dates) },
     lastOut: lastTimeOut(name)

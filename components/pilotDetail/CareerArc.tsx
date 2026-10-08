@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
+import React, { memo } from 'react';
 import { chart } from '../../designTokens.js';
-import { COMBAT_RATIO_HINT, LETHALITY_HINT, RANKED } from '../../server/lib/gameParse.js';
+import { COMBAT_RATIO_HINT, LETHALITY_HINT, RANKED, WIN_RATE_HINT } from '../../server/lib/gameParse.js';
+import { monthLabel } from '../../server/lib/matchResult.js';
 import { CareerMonth } from '../../services/apiService';
+import DetailsTable from './DetailsTable';
 
 type Field = 'matches' | 'winRate' | 'combatRatio' | 'lethality';
 const SERIES: { field: Field; label: string; format: (n: number) => string; hint?: string }[] = [
     { field: 'matches', label: 'Matches', format: n => n.toLocaleString() },
-    { field: 'winRate', label: 'Win rate', format: n => `${n}%`, hint: 'Wins over matches played; ties count as non-wins.' },
+    { field: 'winRate', label: 'Win rate', format: n => `${n}%`, hint: WIN_RATE_HINT },
     { field: 'combatRatio', label: 'Combat Ratio', format: n => n.toFixed(2), hint: COMBAT_RATIO_HINT },
     { field: 'lethality', label: 'Lethality', format: n => n.toFixed(2), hint: LETHALITY_HINT }
 ];
 
 const H = 32;
-const monthLabel = (month: string) =>
-    new Date(`${month}-15T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 // One series as a sparkline: bars for the match count, a 2px line for the
 // rates, broken over months without a match, a dot on the last month played
@@ -61,33 +61,15 @@ const Sparkline: React.FC<{ months: CareerMonth[]; field: Field; format: (n: num
     );
 };
 
-// The months behind the sparklines, newest first; built only while open.
+// The months played behind the sparklines, newest first.
 const MonthTable: React.FC<{ months: CareerMonth[] }> = ({ months }) => {
-    const [open, setOpen] = useState(false);
+    const played = months.filter(m => m.matches > 0).reverse();
     return (
-        <details className="mt-2 text-xs" onToggle={e => setOpen(e.currentTarget.open)}>
-            <summary className="cursor-pointer text-gray-400 hover:text-white">Career by month ({months.filter(m => m.matches > 0).length})</summary>
-            {open && (
-                <div className="mt-2 max-h-64 overflow-auto border border-line rounded-control">
-                    <table className="w-full text-left">
-                        <thead className="bg-surface-raised text-gray-500 uppercase sticky top-0">
-                            <tr>
-                                <th className="px-3 py-1.5">Month</th>
-                                {SERIES.map(s => <th key={s.field} className="px-3 py-1.5 text-right">{s.label}</th>)}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-line text-gray-300">
-                            {months.filter(m => m.matches > 0).reverse().map(m => (
-                                <tr key={m.month}>
-                                    <td className="px-3 py-1.5">{monthLabel(m.month)}</td>
-                                    {SERIES.map(s => <td key={s.field} className="px-3 py-1.5 text-right">{s.format(m[s.field]!)}</td>)}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </details>
+        <DetailsTable
+            summary={`Career by month (${played.length})`}
+            headers={['Month', ...SERIES.map(s => s.label)]}
+            rows={played.map(m => ({ key: m.month, cells: [monthLabel(m.month), ...SERIES.map(s => s.format(m[s.field]!))] }))}
+        />
     );
 };
 
@@ -121,4 +103,5 @@ const CareerArc: React.FC<{ months: CareerMonth[] }> = ({ months }) => {
     );
 };
 
-export default CareerArc;
+// memo: the pilot page re-renders on every mode and rival change
+export default memo(CareerArc);

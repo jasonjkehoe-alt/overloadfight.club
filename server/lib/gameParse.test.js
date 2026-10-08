@@ -6,7 +6,7 @@ import { pilotPass } from './statsPasses.js';
 import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
 import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
-import { calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, daysBetween, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, weekdayOf, winRate } from './gameParse.js';
+import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, weekdayOf, winRate } from './gameParse.js';
 import { ffaWithLog, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -590,6 +590,9 @@ describe('fight-night days', () => {
         // a date inside a day's bounds is on that day, the end is not
         const [start, end] = dayBounds('2026-03-07');
         expect([fightNightDay(start), fightNightDay(Date.parse(end) - 1), fightNightDay(end)]).toEqual(['2026-03-07', '2026-03-07', '2026-03-08']);
+        expect(dayStart('2026-03-08')).toBe(dayBounds('2026-03-07')[1]);
+        expect([DAY_HOURS[0], DAY_HOURS[17], DAY_HOURS[18], DAY_HOURS[23]]).toEqual([6, 23, 0, 5]);
+        expect(FIGHT_NIGHT_DAY_TEXT).toBe('Central time, a day running from 06:00 to 06:00');
         expect([dayBounds('2026-02-30'), dayBounds('2026-13-01'), dayBounds('foo'), dayBounds('2026-10')]).toEqual([null, null, null, null]);
     });
 
@@ -656,6 +659,19 @@ describe('career series', () => {
         expect(careerSeries([], '2026-03')).toEqual([]);
         expect(careerSeries([month('2026-05', 1, 1, 1, 1, 0, 60)], '2026-03').map(m => m.month)).toEqual(['2026-05']);
         expect([winRate(1, 3), winRate(0, 0)]).toEqual([33.3, 0]);
+    });
+});
+
+describe('nightRatingChange', () => {
+    const snap = (day, rating) => ({ day, rating });
+    it('takes the night\'s last snapshot less the one before, or the start for a first night', () => {
+        expect(nightRatingChange([snap('2026-10-07', 1512.34), snap('2026-10-01', 1500.1)], '2026-10-07')).toBe(12.2);
+        expect(nightRatingChange([snap('2026-10-07', 1480)], '2026-10-07')).toBe(-20);
+    });
+
+    it('is null for a night without a rated match', () => {
+        expect(nightRatingChange([snap('2026-10-01', 1512)], '2026-10-07')).toBeNull();
+        expect(nightRatingChange([], '2026-10-07')).toBeNull();
     });
 });
 

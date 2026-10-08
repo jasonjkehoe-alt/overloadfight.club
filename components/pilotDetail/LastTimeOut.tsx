@@ -27,20 +27,24 @@ const LastTimeOut: React.FC<{ lastOut: LastOut; today: string }> = ({ lastOut, t
             </p>
             <dl className="grid grid-cols-3 sm:grid-cols-6 gap-2 my-3 text-center">
                 {[
-                    ['Matches', matches.length.toLocaleString()],
-                    ['Record', `${wins}W ${losses}L${ties ? ` ${ties}T` : ''}`],
-                    ['Kills', kills.toLocaleString()],
-                    ['Deaths', deaths.toLocaleString()],
-                    ['Combat Ratio', combatRatio.toFixed(2)],
-                    ['Rating', ratingChange === null ? '–' : (
-                        <>
-                            <span aria-hidden>{ratingChange > 0 ? '▲' : ratingChange < 0 ? '▼' : ''}</span>
-                            <span className="sr-only">{ratingChange > 0 ? 'up ' : ratingChange < 0 ? 'down ' : 'no change '}</span>
-                            {Math.abs(ratingChange).toFixed(1)}
-                        </>
-                    )]
-                ].map(([label, value]) => (
-                    <div key={label as string} className="bg-surface-raised rounded-control px-2 py-1.5" title={label === 'Combat Ratio' ? COMBAT_RATIO_HINT : label === 'Rating' ? 'Rating change over the night; – when no match that night was rated.' : undefined}>
+                    { label: 'Matches', value: matches.length.toLocaleString() },
+                    { label: 'Record', value: `${wins}W ${losses}L${ties ? ` ${ties}T` : ''}` },
+                    { label: 'Kills', value: kills.toLocaleString() },
+                    { label: 'Deaths', value: deaths.toLocaleString() },
+                    { label: 'Combat Ratio', value: combatRatio.toFixed(2), hint: COMBAT_RATIO_HINT },
+                    {
+                        label: 'Rating',
+                        hint: 'Rating change over the night; – when no match that night was rated.',
+                        value: ratingChange === null ? '–' : (
+                            <>
+                                <span aria-hidden>{ratingChange > 0 ? '▲' : ratingChange < 0 ? '▼' : ''}</span>
+                                <span className="sr-only">{ratingChange > 0 ? 'up ' : ratingChange < 0 ? 'down ' : 'no change '}</span>
+                                {Math.abs(ratingChange).toFixed(1)}
+                            </>
+                        )
+                    }
+                ].map(({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) => (
+                    <div key={label} className="bg-surface-raised rounded-control px-2 py-1.5" title={hint}>
                         <dt className="text-2xs text-gray-500 uppercase">{label}</dt>
                         <dd className="text-sm font-bold text-white">{value}</dd>
                     </div>

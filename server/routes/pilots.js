@@ -110,9 +110,14 @@ router.get('/pilot/:name/rating', (req, res) => {
 });
 
 // GET /api/pilot/:name/career - Career months, activity calendar and last time out (S14)
-router.get('/pilot/:name/career', (req, res) => {
+router.get('/pilot/:name/career', async (req, res) => {
     try {
-        res.json(db.getPilotCareer(req.params.name));
+        const cacheKey = `pilot_career_${req.params.name.toLowerCase()}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) return res.json(cached);
+        const career = db.getPilotCareer(req.params.name);
+        await cacheService.set(cacheKey, career, 300);
+        res.json(career);
     } catch (e) {
         console.error("Pilot Career Error:", e);
         res.status(500).json({ error: "Failed to fetch pilot career" });

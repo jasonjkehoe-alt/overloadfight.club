@@ -261,7 +261,7 @@ describe('career (pilot_months, /api/pilot/:name/career) and the heatmap', () =>
     it('counts the last 12 weeks of matches by weekday and hour, today left out', () => {
         const tomorrow = shiftDay(today, 1);
         const heat = db.getActivityHeatmap(Date.parse(dayBounds(tomorrow)[0]) + 3600000);
-        expect(heat).toMatchObject({ timeZone: 'America/Chicago', startHour: 6, weeks: 12, since: shiftDay(tomorrow, -84), until: tomorrow });
+        expect(heat).toMatchObject({ since: shiftDay(tomorrow, -84), until: tomorrow });
         const dates = [];
         for (let d = heat.since; d < heat.until; d = shiftDay(d, 1)) dates.push(...db.getGamesForDate(d).map(g => g.date));
         expect(dates.length).toBeGreaterThan(25);

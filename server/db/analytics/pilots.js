@@ -81,7 +81,7 @@ function computeWindowedOutcomes(startDate) {
 // A pilot's match history, newest first, from game_players in both files: the
 // page of ids is picked from the index, then only those games' details are read.
 // `cold` says which file a game id belongs to.
-const pilotGameIdsSql = `
+export const pilotGameIdsSql = `
     SELECT DISTINCT game_id, date, 0 AS cold FROM game_players
     WHERE name = TRIM(@name) AND (@startDate IS NULL OR date >= @startDate)
     UNION ALL

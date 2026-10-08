@@ -224,8 +224,6 @@ router.get('/stats/maps', async (req, res) => {
 // GET /api/stats/activity-timeline - Get All-Time Activity
 router.get('/stats/activity-timeline', async (req, res) => {
     try {
-        // This query fetches daily game counts for the entire history
-        // We use the existing function getGameCountsByDate
         // a year of dates counted per fight-night day in JS, so cached like the other aggregates
         const cached = await cacheService.get('activity_timeline');
         if (cached) return res.json(cached);

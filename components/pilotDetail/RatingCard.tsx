@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Info, TrendingUp } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from '../States';
 import Link from '../Link';
@@ -6,6 +6,7 @@ import { urlFor } from '../../server/lib/siteRoutes.js';
 import { RATING, RATING_HINT, RATED_MATCH_TEXT } from '../../server/lib/gameParse.js';
 import { PilotRating, RatingPoint } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
+import DetailsTable from './DetailsTable';
 
 // Recharts is a large chunk the rest of the pilot page does not need, so the
 // chart renders behind its own Suspense (not the views' one). Its download
@@ -18,38 +19,13 @@ const chartModule = import('./RatingChart').catch(() => ({ default: ChartUnavail
 const RatingChart = lazy(() => chartModule);
 
 // The days behind the chart, newest first; built only while open.
-const RatingTable: React.FC<{ history: RatingPoint[] }> = ({ history }) => {
-    const [open, setOpen] = useState(false);
-    return (
-        <details className="mt-3 text-xs" onToggle={e => setOpen(e.currentTarget.open)}>
-            <summary className="cursor-pointer text-gray-400 hover:text-white">Rating by day ({history.length})</summary>
-            {open && (
-                <div className="mt-2 max-h-64 overflow-auto border border-line rounded-control">
-                    <table className="w-full text-left">
-                        <thead className="bg-surface-raised text-gray-500 uppercase sticky top-0">
-                            <tr>
-                                <th className="px-3 py-1.5">Day</th>
-                                <th className="px-3 py-1.5 text-right">Rating</th>
-                                <th className="px-3 py-1.5 text-right">RD</th>
-                                <th className="px-3 py-1.5 text-right">Rated matches</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-line text-gray-300">
-                            {[...history].reverse().map(p => (
-                                <tr key={p.day}>
-                                    <td className="px-3 py-1.5">{p.day}</td>
-                                    <td className="px-3 py-1.5 text-right">{Math.round(p.rating)}</td>
-                                    <td className="px-3 py-1.5 text-right">{Math.round(p.rd)}</td>
-                                    <td className="px-3 py-1.5 text-right">{p.matches.toLocaleString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </details>
-    );
-};
+const RatingTable: React.FC<{ history: RatingPoint[] }> = ({ history }) => (
+    <DetailsTable
+        summary={`Rating by day (${history.length})`}
+        headers={['Day', 'Rating', 'RD', 'Rated matches']}
+        rows={[...history].reverse().map(p => ({ key: p.day, cells: [p.day, Math.round(p.rating), Math.round(p.rd), p.matches.toLocaleString()] }))}
+    />
+);
 
 // Where the pilot stands in the power rankings, or why they are not in them
 // (rankStatus in gameParse.js). The rankings page lists the top RATING.listed,

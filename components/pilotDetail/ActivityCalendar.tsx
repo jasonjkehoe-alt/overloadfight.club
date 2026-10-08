@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { chart, rampColor } from '../../designTokens.js';
-import { CALENDAR, WEEKDAYS, shiftDay } from '../../server/lib/gameParse.js';
-import { dayLabel } from '../../server/lib/matchResult.js';
+import { CALENDAR, FIGHT_NIGHT_DAY_TEXT, WEEKDAYS, shiftDay } from '../../server/lib/gameParse.js';
+import { dayLabel, monthName } from '../../server/lib/matchResult.js';
 import { PilotCareer } from '../../services/apiService';
 import RampLegend from '../RampLegend';
 
@@ -36,7 +36,7 @@ const ActivityCalendar: React.FC<{ calendar: PilotCareer['calendar'] }> = ({ cal
             if (day.endsWith('-01') || (week === 0 && weekday === 0)) {
                 monthMarks.push(
                     <text key={day} x={LEFT + week * STEP} y={TOP - 4} fill={chart.label} fontSize="9">
-                        {new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}
+                        {monthName(day)}
                     </text>
                 );
             }
@@ -58,7 +58,7 @@ const ActivityCalendar: React.FC<{ calendar: PilotCareer['calendar'] }> = ({ cal
             </p>
             <div ref={scroller} className="overflow-x-auto">
                 <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img"
-                    aria-label={`Matches per day over the last ${CALENDAR.weeks} weeks, Central time, a day running 06:00 to 06:00.`}>
+                    aria-label={`Matches per day over the last ${CALENDAR.weeks} weeks, ${FIGHT_NIGHT_DAY_TEXT}.`}>
                     {monthMarks}
                     {[0, 2, 4].map(weekday => (
                         <text key={weekday} x="0" y={TOP + weekday * STEP + CELL - 2} fill={chart.label} fontSize="9">{WEEKDAYS[weekday].slice(0, 3)}</text>
@@ -71,4 +71,5 @@ const ActivityCalendar: React.FC<{ calendar: PilotCareer['calendar'] }> = ({ cal
     );
 };
 
-export default ActivityCalendar;
+// memo: 371 days, and the pilot page re-renders on every mode and rival change
+export default memo(ActivityCalendar);

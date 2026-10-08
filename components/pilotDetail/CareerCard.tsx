@@ -24,7 +24,7 @@ const CareerCard: React.FC<{ load: ReturnType<typeof useLoad<PilotCareer>> }> = 
                 <EmptyState compact title="No matches yet" />
             ) : (
                 <>
-                    {career.lastOut && <LastTimeOut lastOut={career.lastOut} today={career.today} />}
+                    {career.lastOut && <LastTimeOut lastOut={career.lastOut} today={career.calendar.until} />}
                     {career.months.length > 0
                         ? <CareerArc months={career.months} />
                         : <EmptyState compact title="No ranked match yet" message="The career arc counts matches the career cards count." />}
