@@ -1707,7 +1707,57 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          and match page still work.
 - [ ] **S14 Time and career** (M). 7×24 local-time heatmap on the dashboard;
       fight-night day boundary in the configured time zone; profile career
-      arc sparklines, activity calendar and "last time out" block.
+      arc sparklines, activity calendar and "last time out" block. The owner
+      decided at the start of S14: days are counted in America/Chicago and
+      roll over at 06:00 there. Done when (written at the start of S14):
+      1. `server/lib/gameParse.js` owns the day rule, tested: a fight-night
+         day runs from 06:00 to 06:00 in America/Chicago; `fightNightDay`
+         names a date's day (YYYY-MM-DD), `dayBounds` gives a day's UTC
+         start and end for `date >= ? AND date < ?` (23 or 25 hours on the
+         DST days), and `localClock` gives a date's weekday and clock hour
+         there. Tested at 05:59 and 06:00, in CST and CDT, and on both DST
+         days.
+      2. Everything that counts days uses it: the fight-night match lists,
+         the qualifying-day scan and the detector (which runs after the
+         06:00 rollover instead of on UTC days), the rating's snapshot day
+         and the rankings' today (`RATING.timeZone` goes), the activity
+         timeline and the admin calendar, the last-match day in the pilot
+         share description and the pilot page's Last Active. Tested on
+         fixture games: the fixtures' evening matches (21:24 to 02:49
+         Chicago time) are one fight-night day.
+      3. A 7×24 heatmap on the dashboard, under the Fight Night teaser:
+         matches per weekday and clock hour in Central time over the last
+         12 weeks, columns from 06:00 so a night reads as one row, a
+         sequential ramp in `chart` (`designTokens.js`) that passes the
+         dataviz validator against `surface-card`, the current hour marked,
+         a "busiest" line, and each cell's count readable without a pointer.
+         New endpoint `GET /api/stats/heatmap` through `apiService`, with
+         the shared loading, empty and failed states. The hour chart on the
+         History tab (`ActivityGraph`, UTC hours labelled local) goes.
+      4. Career arc on the pilot page: monthly sparklines of matches, win
+         rate, Combat Ratio and Lethality from the first month played to
+         this month, by the career cards' rules (ranked matches only). The
+         stats worker builds them into a new `pilot_months` table
+         (migration decision); a pilot's months add up to their career
+         totals in `pilot_stats_cache` (tested).
+      5. An activity calendar on the pilot page: matches per fight-night
+         day over the last 53 weeks, weeks from Monday, the same ramp, and
+         a label that says what it shows.
+      6. A "Last time out" block on the pilot page: the pilot's latest
+         fight-night day, how long ago, matches, wins, losses and ties,
+         kills, deaths, Combat Ratio, the rating change that day, the
+         night's matches as links, and the recap link when that day has a
+         recap.
+      7. New endpoint `GET /api/pilot/:name/career` (months, calendar, last
+         time out) through `apiService`; the existing endpoints answer as
+         before; no request walks every stored match.
+      8. Charts stay out of the entry chunk; the entry, the dashboard's
+         `GameList` and the pilot page chunk sizes are recorded before and
+         after.
+      9. Checked in headless Chrome at 1,280 and 390 px: the heatmap and a
+         pilot page with its career block, on local data plus Fetch-domain
+         mocks for a full year; the dashboard, leaderboard, rankings, pilot
+         pages and match page still work.
 - [ ] **S15 Server history** (S). Persist server-browser snapshots; `/server/:ip`
       page with uptime, peak hours, average players; regional share over time.
 - [ ] **S16 Weapon meta and ladders** (M). Weapon × map heatmap; weapon mix
@@ -3593,10 +3643,9 @@ leave it (nothing older reads it).
 
 ## Open questions
 
-- The time zone for fight-night day boundaries (US Central is the likely
-  answer given the server names). Decided in S14; ask the user at the start of
-  that session. S13's rating snapshots count days in America/Chicago
-  (`RATING.timeZone` in `gameParse.js`); S14 should move them with it.
+- None open. The time zone for fight-night days was settled by the owner at
+  the start of S14: America/Chicago, with the day rolling over at 06:00 (see
+  the S14 decisions).
 
 ## Skills to load
 
