@@ -5,7 +5,8 @@
 export const SITE_NAME = 'overloadfight.club';
 
 // One row per view: its path, older paths that still open it, and the title of
-// the page without a parameter. A row with `param` takes /path/:param.
+// the page without a parameter. A row with `param` takes /path/:param; a row
+// with `section` sits under that view's item in the header nav.
 const ROUTES = [
     { view: 'dashboard', path: '/', aliases: ['/dashboard'], title: 'Live' },
     { view: 'history', path: '/history', title: 'Match history' },
@@ -17,6 +18,7 @@ const ROUTES = [
     { view: 'cold-storage', path: '/archive', aliases: ['/cold-storage'], title: 'Archive' },
     { view: 'admin', path: '/admin', title: 'Admin' },
     { view: 'pilots', path: '/pilots', title: 'Leaderboards' },
+    { view: 'rankings', path: '/rankings', title: 'Power rankings', section: 'pilots' },
     { view: 'pilot-manager', path: '/pilot', title: 'Pilot settings' },
     // detail pages: always a parameter; without one they fall back to `bare`
     { view: 'pilot', path: '/pilot', param: true, bare: 'pilot-manager' },
@@ -80,4 +82,13 @@ export function pageTitle({ view, param }, name) {
     else if (view === 'game-detail') page = `Match ${param}${name ? `: ${name}` : ''}`;
     else if (view === 'live-game-detail') page = `Live: ${name || param}`;
     return page ? `${page} | ${SITE_NAME}` : SITE_NAME;
+}
+
+/**
+ * The view whose header nav item a view lights: its `section`, or itself.
+ * @param {string} view
+ * @returns {string}
+ */
+export function navSection(view) {
+    return byView.get(view)?.section || view;
 }

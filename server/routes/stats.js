@@ -2,7 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import cacheService from '../services/cacheService.js';
 
-// /stats/*: site totals, the archive's deep stats, the leaderboard, the active-pilot count, map stats and the activity timeline.
+// /stats/*: site totals, the archive's deep stats, the leaderboard, the power rankings, the active-pilot count, map stats and the activity timeline.
 const router = express.Router();
 
 // GET /api/stats/global - Global Database Statistics
@@ -135,6 +135,16 @@ router.get('/stats/pilots', async (req, res) => {
     } catch (error) {
         console.error('Error fetching pilot stats:', error);
         res.status(500).json({ error: 'Failed to fetch pilot stats' });
+    }
+});
+
+// GET /api/stats/rankings - Power rankings with weekly movement (S13)
+router.get('/stats/rankings', (req, res) => {
+    try {
+        res.json(db.getPowerRankings());
+    } catch (e) {
+        console.error("Power Rankings Error:", e);
+        res.status(500).json({ error: "Failed to fetch power rankings" });
     }
 });
 

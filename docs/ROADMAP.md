@@ -71,7 +71,10 @@ as `96f2710`), with no owner commits after it.
 S11 is merged into `main` (PR #11, squash-merged 2026-10-08 03:39 UTC
 as `5a09e5c`), with no owner commits after it.
 
-S12 is on branch `ofc/s12-fight-card`, based on `5a09e5c`, PR #12 open
+S12 is merged into `main` (PR #12, squash-merged 2026-10-08 13:21 UTC
+as `6bdeb97`), with no owner commits after it.
+
+S13 is on branch `ofc/s13-rating`, based on `6bdeb97`, PR #13 open
 against `main` and not merged, 2026-10-08 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
@@ -83,10 +86,151 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 12 of 28 sessions done (S1 to S11 merged, PR for S12 open).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 1/6. Phase 4: 0/11.
+Counts: 13 of 28 sessions done (S1 to S12 merged, PR for S13 open).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 2/6. Phase 4: 0/11.
 
-## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S11 merged into `main`, `main` at 5a09e5c, S12 on `ofc/s12-fight-card`)
+## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S12 merged into `main`, `main` at 6bdeb97, S13 on `ofc/s13-rating`)
+
+- S13, first move on Node 22.17.0, on `main` at `6bdeb97` (PR #12
+  merged): `npx vitest run` passed 14 files, 156 tests. `npx vite build`
+  wrote the entry `index-CuixDkA6.js` at 230.81 KB raw / 73.91 KB gzip,
+  `PilotDetail-*.js` 36.39 KB / 8.84 KB gzip and `PilotsList-*.js` 17.19
+  KB / 5.03 KB gzip. `npx tsc --noEmit` exited 0. All three match the S12
+  records. `wc -l`: `gameParse.js` 375, `analytics/pilots.js` 290,
+  `migrations.js` 311, `analytics/refresh.js` 110, `statsPasses.js` 526,
+  `backup.js` 43, `PilotsList` 583, `PilotDetail` 905, `MomentumChart`
+  221, `designTokens.js` 57. The sample files are one line each.
+- S13, tests: `npx vitest run` passes 14 files, 189 tests (33 new). In
+  `server/lib/gameParse.test.js`: `rankedMatch` on 72087 (84 s), a
+  one-pilot copy, a 59 s copy and the detail sample; `ratingSides` on
+  72102 (BLUE 42 PHOENIX and INSANER, ORANGE 35) and 72108 (four FFA
+  sides by score), none for a team game without `teamScore`, a pilot
+  listed twice playing once, a team pilot without a team sitting out,
+  one team with pilots giving none; `glicko2` on Glickman's worked
+  example (1464.05, RD 151.52, volatility 0.05999; the paper prints
+  1464.06) and RD growth with no games; `ratingSnapshots`: one 1v1 win
+  between new pilots (72090: OKSTER 1662.3, WD-40 1337.7, both RD
+  290.3, the published Glicko-2 values), a team moved by `teamScore`
+  (72102: both BLUE pilots 1662.3 though STITCH outscored INSANER), a
+  2-2 draw (72098, both 1500), a 4-pilot FFA of new pilots worth one win
+  (1662.3), FFA placement in order, a win beside a strong teammate
+  paying less than one beside a weak one, the 25 sample matches giving
+  the same rows forward and reversed (B2AF 1279.7 and BEHEMOTH 1720.3 on
+  the Chicago day 2025-11-23, WD-40 one row with 10 matches), RD growing
+  over a year off but staying under 350, a pilot sweeping and swept by
+  turns in 300 8-pilot FFAs keeping volatility under 0.07, the latest
+  spelling, a match without a date skipped; `ratingDay` across CST and
+  CDT; `shiftDay` across months; `rankStatus`, `rdOn` (80 grows to 92.6
+  over 20 days, 350 after ten years), `powerRankings` (9 matches out, 28
+  days in, 29 out, ties by matches), `rankingMovement` (NEW, 0, -2, -1,
+  25 listed). In `server/db.test.js` (fixture games through the real
+  refresh and worker): JFTP and "jftp" one history of 10 matches; the
+  1v1 Monsterball winner on goals above 1500; an empty history for
+  NOBODY; JFTP, STITCH and WD-40 the only pilots with 10 rated matches,
+  all NEW; PHOENIX provisional, JFTP inactive 33 days on; a second
+  refresh writing 1 row and removing 1 after a row was changed and a
+  stray one added, then removing 4,500 stray rows in three chunks; ranks
+  unchanged a week on, nobody ranked 29 days after; PHOENIX ranked once
+  a tenth match is saved and refreshed. `siteRoutes.test.js`:
+  `/rankings` reads back, its title, `navSection`. `pageMeta.test.js`:
+  "Power rankings for <day>: 1. WD-40 (rating)."
+- S13, mutations (each run, then the file restored): no RD growth for
+  idle days fails 1 test; the pilot's own rating in place of the side's
+  mean fails 1 (the first version of that test passed on the mutant and
+  was rewritten); a draw scored as a win fails 1; no 28-day window fails
+  2; the weight of 1 / (sides - 1) removed fails 2; `clearRankings()`
+  removed from the refresh fails 1.
+- S13, review fixes (/pr-review, three reviewer agents), tests: 4 added
+  and 3 tightened. `gameParse.test.js`: Glickman's volatility to six
+  places (0.059996); the RD at 350 before a match two years off, as one
+  year off; matches on one date replayed in id order; a side's RD the
+  root mean square of its pilots' (checked through `glicko2`); a tie on
+  rating and matches broken by pilot. `db.test.js`: reads seen between
+  the 4,500-row chunks; a 2020 match from cold.db rated with BALLER's hot
+  ones; a restore of a copy without `rating_snapshots` leaving the table
+  empty and no ranking held in memory. Ten mutations, each failing the
+  test written for it: no volatility step, no RD cap, no id order, the
+  side's RD a plain mean, the name order reversed, one transaction, no
+  yield between chunks, cold.db skipped by the rating pass, and either
+  line removed from `restoreHot`. `npx vitest run`: 14 files, 193 tests.
+  `npx vite build`: entry 231.49 KB raw / 74.16 KB gzip, `PilotDetail-*.js`
+  40.33 KB / 9.99 KB gzip. `npx tsc --noEmit` exits 0.
+- S13, real data from a script run by plain `node` (so the ES-module
+  import is checked outside vitest), on the 40 local matches: 39 rated
+  (78741 had one pilot), 5 with teams (one CTF), up to 6 sides; its 29
+  snapshot rows are the same as the 29 the server's worker wrote. On
+  that data: WD-40 1439.1 (RD 99.4 today, 23 rated matches) and LORD
+  JOHN WARFIN 1375.5 are the two ranked pilots, both NEW; RAZOR is 1742
+  but provisional with 4.
+- S13, synthetic history (75,000 matches 2019 to 2026, 400 pilots, 2 to
+  8 a match, a third team games), before the weight: the busiest pilot's
+  volatility reached 5.45, RD 423.8 and rating 5e46 at match 11,081.
+  After it: no volatility above 0.0601, no RD above 291.3, 288,766 daily
+  rows. On this Mac: sides 0.2 s, replay 0.48 s and the comparison with
+  the stored table 0.77 s (all in the worker), 2.3 ms on the main thread
+  for a refresh adding 50 matches, 0.60 s in all for the first fill
+  (written in 2,000-row chunks). The rankings query is a scan of the
+  primary key, 25 ms for 400 pilots; a pilot's history 3 ms.
+- S13, chart colour: the dataviz `validate_palette.js --mode dark
+  --surface "#111111"` passes `chart.series` `#3987e5` (lightness band,
+  chroma floor, 3:1 contrast; slot 1, already passed as BLUE in S12).
+- S13, headless Chrome 154 over CDP against `PORT=3100
+  DATA_DIR=/tmp/ofc-data npm start` serving the built `dist/` (40
+  matches), `checks.mjs`, 68 of 68 before the review, 71 of 71 after
+  the review fixes, 75 of 75 after /simplify, each at 1,280 and 390 px:
+  - `/rankings` on the local data: one row per ranked pilot, the first
+    row "1, NEW, WD-40, 1439", the title "Power rankings |
+    overloadfight.club", the day and week in the header, Leaderboards
+    lit in the nav, no wider than the window.
+  - `/api/stats/rankings` mocked with 25 pilots: movement cells NEW, ▲3
+    ("Up 3"), ▼1 ("Down 1"), – ("No change"), ▲12; RD and Last match
+    hidden at 390 and shown at 1,280 (the Chicago day, 2026-10-07); "31
+    pilots ranked"; one Tab stop per row; a click on a row's rating opens
+    `/pilot/WD-40` in the same document. Loading while the request is
+    held, ErrorState on a 500 and its Retry loading the table, EmptyState
+    with no ranked pilot.
+  - `/pilot/WD-40`: the card reads the API's rating, ±2 RD, RD, "23
+    rated matches" and "#1 in the power rankings"; the band is a 10%
+    fill and the line `#3987e5`; the chart's label names the first and
+    last day; `RatingChart-*.js` loads as its own chunk; the "Rating by
+    day" table equals the history; the hover tooltip shows the last day,
+    its rating and ±2 RD; the rating request starts before `/stats`
+    answers and a mode change makes no second one. Mocked: 300 days
+    (month ticks, "Not ranked", "1,200 rated matches"), one day (a dot,
+    "Provisional: 4 of 10"), rank 40 at 1810 (shown, not linked, the
+    1500 line drawn), no rating (EmptyState), a 500 (ErrorState, the rest
+    of the page still there).
+  - `/pilots?min=1`: the 23 cached pilots, no wider than the window
+    (521 px at 390 before the tab bar wrapped), the Power rankings link
+    opens `/rankings` in place. `/game/78764`: "Split decision" and the
+    momentum chart. No console errors on any of these.
+  - Full-page shots of the rankings (local and mocked), the pilot page
+    (real and 300 mocked days), the leaderboard and the rating card were
+    looked at. The first shots showed the step line hiding the last
+    day's rating and odd Y ticks (1100, 1300, 1500, 1750); both fixed.
+- S13, sizes on Node 22.17.0 after /simplify: entry `index-*.js` 231.49
+  KB raw / 74.17 KB gzip (73.91 before: two fetchers, the route, the nav
+  section); `PilotDetail-*.js` 40.21 KB / 9.94 KB gzip (36.39 / 8.84
+  before: the rating card); `PilotsList-*.js` 17.49 / 5.09;
+  `PowerRankings-*.js` 4.03 / 1.49; `RatingChart-*.js` 2.66 / 1.32. The
+  pilot page now also loads the shared Recharts chunk
+  (`CartesianChart-*.js`, 309.78 KB / 91.72 KB gzip) for the chart,
+  after it renders. With Recharts' `Line` the pilot chunk was 51.62 KB /
+  14.18 KB gzip. `npx tsc --noEmit` exits 0. `wc -l`: `gameParse.js`
+  608, `statsPasses.js` 536, `statsWorker.js` 92, `analytics/ratings.js`
+  56, `analytics/refresh.js` 138, `migrations.js` 333, `PowerRankings`
+  95, `RatingCard` 95, `RatingChart` 90, `useLoad` 21, `PilotDetail`
+  912, `PilotsList` 586, `apiService.ts` 570.
+- S13, server (same command, after `Startup sync complete`):
+  `/api/health` `{"status":"ok"}`, `/api/stats/global` `total_games: 40`,
+  `/api/stats/pilots` 24 pilots (top WD-40, 23 matches),
+  `/api/pilot/WD-40/stats` 23 matches and 380 kills. `curl /rankings`
+  gives "Power rankings for 2026-10-08: 1. WD-40 (1439), 2. LORD JOHN
+  WARFIN (1376)." The admin refresh button now logs one pass ("[Ratings]
+  29 daily rating snapshots: 0 written, 0 removed."); before the fix it
+  logged three. On a fresh data folder (`PORT=3101`) the table was
+  created with its seven columns and filled by the first refresh (20
+  rows, 18 pilots).
 
 - S12, first move on Node 22.17.0, on `main` at `5a09e5c` (PR #11
   merged): `npx vitest run` passed 14 files, 136 tests. `npx vite build`
@@ -957,6 +1101,24 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 1/6. Phase 4: 0/11.
 
 ## NOT validated, do not claim these work
 
+- S13 ran on the 40 local matches (39 rated, 5 with teams, one CTF),
+  the sample fixtures and a synthetic history. Nobody has rated the
+  NAS's 75,000 or so real matches: the ratings, who is ranked, the
+  worker's memory with the rating pass added (the synthetic run's heap
+  was 290 MB) and the first fill's chunked write there are unknown.
+- Whether the parameters suit pickup Overload: τ 0.5, a match counting
+  as one game, 10 matches and 28 days to be ranked. They were picked by
+  reasoning and the synthetic run, not tuned on real results.
+- No Monsterball, Race or more-than-two-team match was rated from real
+  data; the rules for them are tested on fixtures only.
+- Headless Chrome 154 on macOS only, at 1,280 and 390 px. Not Safari,
+  Firefox or a real phone; no screen reader on the movement labels or
+  the chart's label. The chart's tooltip was checked by a synthetic
+  mouse move only.
+- The movement column was checked with mocked data only: the local data
+  is four days old, so every ranked pilot is NEW.
+- The CI workflow on the S13 PR before it opened; see the PR's checks.
+
 - S12 ran on four real kill logs (the local data) and hand-written logs
   on two fixture games. No team kill, no death without an attacker, and
   no CTF or Monsterball kill log was seen, so those rules are untested
@@ -1207,11 +1369,11 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 1/6. Phase 4: 0/11.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 22 && npm ci` | installs, `better-sqlite3` compiles | compiles on 22.17.0 (S4) | 2026-10-06 |
-| `npx vitest run` | all pass | 14 files, 156 tests pass (S12) | 2026-10-08 |
+| `npx vitest run` | all pass | 14 files, 193 tests pass (S13) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 230.81 KB raw / 73.91 KB gzip, match page `GameDetail` 127.92 KB / 40.57 KB gzip (S12; 73.94 and 42.25 at S12's start, one 351.07 KB chunk before S4) | 2026-10-08 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S12) | 2026-10-08 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 35`, dev mode without secrets; `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats` 23 games, `/api/health` ok (S12) | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 231.49 KB raw / 74.16 KB gzip, pilot page `PilotDetail` 40.33 KB / 9.99 KB gzip (S13; 73.91 and 8.84 at S13's start; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors, JSX typed (S13) | 2026-10-08 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON, `total_games: 40`, dev mode without secrets; `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats` 23 games and 380 kills, `/api/health` ok (S13) | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | healthy in about 9 s, uid 1000, 567 MB (S6) | 2026-10-07 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | under 1 s, exit 0, no `-wal` left (S6) | 2026-10-07 |
@@ -1231,6 +1393,10 @@ Phase 1: 6/6. Phase 2: 5/5. Phase 3: 1/6. Phase 4: 0/11.
 | S12 `real.mjs`, run by `node`: `scoreboardAt`, `leadChanges`, `firstBloodOf`, `verdictOf` on the stored details of every local match with a kill log | each pilot's kills, deaths, assists and each team score as the tracker stored them | 4 of 4 matches exact (78735, 78760, 78761, 78764) (S12) | 2026-10-08 |
 | S12 `checks.mjs`: headless Chrome over CDP, a team and an FFA match at 1,280 and 390 px (slider by keyboard and value, `?t=` across reload, chart click, Final score, fight card, cursor position), the other tabs, MatchReplay, a log-less match through the Fetch domain | the table equals `scoreboardAt` at each second, the URL holds `t`, no console errors | 76 of 76 (S12) | 2026-10-08 |
 | dataviz `validate_palette.js --mode dark --surface "#111111"` on `chart.weapon` (7 families) and `chart.team` | every check passes | passes, worst adjacent CVD ΔE 8.4 (S12) | 2026-10-08 |
+| S13 `real.mjs`, run by `node`: `ratingSides` and `ratingSnapshots` on every local match, compared with `rating_snapshots` | the same rows | 29 of 29 identical, 39 of 40 matches rated (S13) | 2026-10-08 |
+| S13 `checks.mjs`: headless Chrome over CDP, `/rankings` (local and 25 mocked pilots, every movement kind, held, failed and empty), `/pilot/WD-40` (the rating card, chart, table, tooltip, request order; 300 days, one day, rank 40, no rating and a 500 mocked), the leaderboard's link, the match page, at 1,280 and 390 px | numbers equal the API, the shared states, no wider than the window, no console errors | 75 of 75 (S13) | 2026-10-08 |
+| S13 `bench3.mjs`: 75,000 synthetic matches through `ratingSides` and `ratingSnapshots`, then the worker's comparison and the write | volatility bounded, a normal refresh writes little on the main thread | 288,766 rows; volatility at most 0.0601; replay 0.48 s, comparison 0.77 s, 2.3 ms main-thread write for 50 new matches (S13) | 2026-10-08 |
+| dataviz `validate_palette.js --mode dark --surface "#111111"` on `chart.series` | every check passes | passes (S13) | 2026-10-08 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -1402,9 +1568,48 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       8. Checked in headless Chrome on a team match and an FFA match with
          kill logs, at 1,280 and 390 px; the existing tabs, result line,
          duration and MatchReplay still work.
-- [ ] **S13 Rating and power rankings** (M). Glicko-2 from placement and
+- [x] **S13 Rating and power rankings** (M). PR #13. Glicko-2 from placement and
       corrected team results; nightly snapshot table; rating history line on
-      the profile; `PowerRankings` view with weekly movement.
+      the profile; `PowerRankings` view with weekly movement. Done when
+      (written at the start of S13):
+      1. `server/lib/gameParse.js` owns the rating rules, each tested on
+         fixture games: which matches count (`rankedMatch`, the stats'
+         ranked filter of 2+ pilots and 60 s+, now one function for every
+         caller, plus a result from `winnerOf`, so a team game without
+         `teamScore` does not count); who plays whom (every pilot plays
+         every other side once: FFA pilots by in-game score, teams by
+         `teamScore`, equal scores a draw worth half); one Glicko-2 update,
+         checked against Glickman's worked example; the replay of every
+         rated match in date order, with RD growing over the days a pilot
+         sits out; and the power rankings with each pilot's movement
+         against seven days earlier.
+      2. The stats worker rates every stored match, hot and cold, on each
+         refresh, and the refresh rewrites a snapshot table in `tracker.db`
+         (one row per pilot per day with a rated match: rating, RD,
+         volatility, rated matches so far), created in
+         `server/db/migrations.js` with a migration decision entry. No
+         request computes a rating.
+      3. New endpoints `GET /api/pilot/:name/rating` (current rating, RD,
+         rated matches, rank and the daily history) and `GET
+         /api/stats/rankings` (the top 25 today, each with its movement or
+         NEW), read through `services/apiService.ts`. The existing
+         endpoints answer as before.
+      4. The pilot page shows the rating, its RD, the rank and a rating
+         history line with a ±2 RD band, in Recharts with colours from
+         `chart` in `designTokens.js` checked by the dataviz validator; a
+         pilot without a rated match gets an EmptyState, and loading and
+         failure use the shared states.
+      5. A `PowerRankings` view at `/rankings` (route and title in
+         `siteRoutes.js`, share description in `pageMeta.js`, lazy in
+         `App.tsx`, linked from the leaderboard): rank, ▲▼ movement or NEW,
+         pilot link, rating, RD, rated matches and last match, with the
+         shared states, 390 px wide at 390 px.
+      6. Charts stay out of the entry chunk; entry and pilot-page chunk
+         sizes recorded before and after.
+      7. Checked in headless Chrome at 1,280 and 390 px: the rankings view
+         and a pilot page with a rating history (local data, plus
+         Fetch-domain mocks for a full table); the leaderboard, pilot pages
+         and match page still work.
 - [ ] **S14 Time and career** (M). 7×24 local-time heatmap on the dashboard;
       fight-night day boundary in the configured time zone; profile career
       arc sparklines, activity calendar and "last time out" block.
@@ -2463,6 +2668,148 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   timeline tab and the new components use it. `ScoreChart.tsx` is gone:
   the momentum chart replaces it, and its client-side lead-change rule
   went with it.
+- 2026-10-08 (S13): Rating system. Glicko-2 (Glickman's 2012 example
+  paper), written in `server/lib/gameParse.js` (`glicko2`, about 50 lines
+  with the Illinois volatility step) rather than a package: it is short,
+  and a test checks it against the paper's worked example (1464.05 against
+  the paper's 1464.06, which it reached by rounding along the way; RD
+  151.52, volatility 0.05999). Parameters (`RATING`): start 1500, RD 350,
+  volatility 0.06, τ 0.5. Every rated match is one rating period for the
+  pilots in it, replayed in date order (id order for equal dates) over
+  every stored match, hot and cold. A match counts when it passes the
+  ranked filter (2+ players, 60 s or more by `durationOf`; now one
+  function, `rankedMatch`, which the career stats, the telemetry and the
+  90-day results call too) and `winnerOf` finds a result, so a team game
+  without `teamScore` does not count, as in S2. Who plays whom
+  (`ratingSides`): every pilot plays every other side once, a side being a
+  team in a team game (scored by `teamScore`) and a pilot in FFA (scored
+  by in-game score), the S2 rules. A higher score wins, an equal one is a
+  draw worth half. A side's strength is its pilots' mean rating and its
+  uncertainty the root mean square of their RDs, so a win beside a strong
+  teammate pays less than one beside a weak teammate, and in FFA a pilot
+  meets each opponent as they are. Each result weighs 1 / (sides - 1), so
+  a match counts as one game whatever its size. Without the weight, an
+  8-pilot FFA was 7 results that Glicko-2 treats as independent; on a
+  synthetic 75,000-match history the busiest pilot's volatility climbed to
+  5.45, their RD passed 350 and their rating ran to 5e46. With it, no
+  volatility in that history passes 0.0601. A pilot listed twice plays
+  once; a team-game pilot without a team sits out. Between matches a
+  pilot's RD grows by their volatility for every day sat out (φ² + σ² ×
+  days), up to 350, and the RD shown on the page and in the rankings has
+  grown the same way up to today (`rdOn`). With τ 0.5 and the weight,
+  the volatility hardly moves (at most 0.0601 in the synthetic history),
+  so idle RD growth is close to 108.6 RD² a day: about 1,070 days from
+  RD 80 back to 350. Rejected: every pilot against
+  every opponent pilot in team games (a 4v4 would be 4 copies of one team
+  result), and the pilot's own rating against the other team's mean (a
+  strong pilot on a weak team would lose most for a loss their team was
+  expected to take).
+- 2026-10-08 (S13): Snapshot table and migration. `rating_snapshots(pilot,
+  day, name, rating, rd, volatility, matches)`, primary key
+  `(pilot, day)`, `WITHOUT ROWID`, in `tracker.db` only: it is derived
+  from both files, like `pilot_stats_cache`, so the hot/cold split does
+  not apply. One row per pilot per day with a rated match: the rating at
+  the end of that day, `pilot` the `pilotKey()`, `name` the latest
+  spelling, `day` the calendar day in America/Chicago (the container's
+  TZ, as `backup.js` names its folders; `RATING.timeZone`), `matches` the
+  rated matches so far. First build: `migrations.js` creates it empty at
+  startup, and the startup check in `maintenance.js` runs a stats refresh
+  while it is empty, as it does for an empty `pilot_stats_cache`
+  (without it, the first boot on a warm database waited for the 6-hour
+  refresh). Otherwise a restart needs no repair, because every refresh replays every rated match and brings the table in
+  line. `restoreHot` creates it if the restored file predates S13.
+  Rollback: revert, pull the old image, and `DROP TABLE rating_snapshots;`
+  on `tracker.db` (or leave it; nothing older reads it). The entry said a
+  nightly snapshot table; the table holds one row per day, but every
+  refresh rewrites any day a new or re-read match moves, so it is never
+  frozen. Rejected: a frozen nightly copy (no history and no movement for
+  weeks after the deploy, and wrong as soon as a backfill adds older
+  matches), and one row per pilot per match (about 6 times the rows for a
+  line nobody reads per match).
+- 2026-10-08 (S13): When ratings are recomputed. In the stats worker, on
+  every refresh (startup when the data is newer than the cache, every 6
+  hours, the admin button, after a backfill). The rating pass keeps each
+  rated match's sides during the scan and replays them in date order at
+  the end. The worker then compares the replay with the table on its
+  read-only connection and posts only the days that differ, so the main
+  thread writes a handful of rows on a normal refresh. The main thread
+  writes in transactions of 2,000 rows and lets requests run between
+  them, so the first fill, or a refresh after an older match arrives
+  (archive ingest, a backfill), does not hold the event loop; a read
+  between chunks can see some days new and some old for that long.
+  Synthetic 75,000 matches, 288,766 daily rows, on this Mac: sides 0.2 s
+  and replay 0.48 s in the worker, the comparison 0.77 s in the worker,
+  2.3 ms on the main thread for a refresh that adds 50 matches, 0.60 s in
+  all for the first fill. Formatting the Chicago day once per hour seen,
+  not once per match, cut a fifth of the replay. No request computes a rating. The
+  maintenance tick, the admin button and the post-backfill refresh each
+  called the refresh three times in a row (`buildColdStorageStatsCache`
+  and `buildMapStatsCache` are aliases of `refreshPilotStats`, S5); they
+  call it once now. The `db` keys stay.
+- 2026-10-08 (S13): Power rankings and the weekly window. A pilot is ranked
+  on a day with 10+ rated matches and one in the 28 days up to it
+  (`rankStatus`: otherwise 'provisional' or 'inactive', which the pilot
+  page shows), by rating (then rated matches, then name), from each
+  pilot's latest snapshot on or before the day (`powerRankings`). The page lists the top
+  25 today, in America/Chicago. Movement compares each listed pilot's rank
+  today with their rank 7 days earlier, by the same rule applied to that
+  day: `change` is the places gained, or null (NEW) when not ranked then
+  (`rankingMovement`). A rolling 7 days rather than a Monday-to-Sunday
+  week, so the page always shows the last week's movement; a Monday post
+  (S18) reads the same numbers. Rejected: ranking by RD alone (harder to
+  explain than a match count), and rating minus 2 RD as the sort (it
+  would order the table by a number the page does not show). The ranking
+  for a day is computed once and kept in memory until the next refresh
+  writes snapshots (`clearRankings`).
+- 2026-10-08 (S13): Endpoints. `GET /api/pilot/:name/rating` (in
+  `server/routes/pilots.js`) answers `{ name, rating, rd, matches,
+  status, rank, history: [{ day, rating, rd, matches }] }`; a pilot
+  with no rated match gets `matches: 0` and an empty `history`, not a
+  404, so the page tells "no rating" from a failure. `GET
+  /api/stats/rankings` (in `server/routes/stats.js`) answers `{ day,
+  since, total, pilots }`, each pilot a snapshot row plus `rank` and
+  `change`. Neither goes through `cacheService`: the in-memory ranking is
+  cleared when a refresh writes, so the answer is never older than the
+  table (the S11 stale-leaderboard flag came from a route cache outliving
+  a refresh). The client reads them through `fetchPilotRating` and
+  `fetchPowerRankings` in `services/apiService.ts`, null on failure.
+- 2026-10-08 (S13): The view. `/rankings` is a route in `siteRoutes.js`
+  ("Power rankings"), with a share description in `pageMeta.js` ("Power
+  rankings for <day>: 1. NAME (rating), ..." for the top three). It is not
+  a tenth nav item: the bar ends 6 px from the window at 1,280 px with
+  nine. The leaderboard's tab bar links to it (the bar wraps at 390 px),
+  the nav marks Leaderboards on it (a `section` on its row in
+  `siteRoutes.js`, read through `navSection`), and a pilot's rank on the profile
+  links to it when it is in the top 25. Columns: rank, movement (▲n in
+  emerald, ▼n in red, – for none, a NEW badge; each read out
+  by `sr-only` text), pilot, rating, RD and last match (both hidden below
+  640 px), rated matches. Rows are `LinkCell` links as on the roster;
+  `LinkCell` gained `cellClassName` for the hidden columns. Last match is
+  the snapshot day, the day the rankings count, not the viewer's local
+  date.
+- 2026-10-08 (S13): The pilot page's rating card
+  (`components/pilotDetail/RatingCard.tsx`) sits under the PPI card: the
+  rating, ±2 RD, the RD, rated matches and the standing (the rank, or
+  "Provisional: n of 10 rated matches", or "Not ranked: no rated match in
+  the last 28 days"). The chart (`RatingChart.tsx`) is the rating at the
+  end of each day played as a 2px line in palette slot 1 (`chart.series`,
+  the value the validator already passed as BLUE) over a 10% band of ±2
+  RD, a dashed line at 1500 (the domain always includes it), dots up to
+  30 days, a tooltip with day, rating, ±2 RD and rated matches, and a
+  `role="img"` label. Straight segments, not steps: with steps the last
+  day had no width and its rating showed only as a drop at the edge. A
+  "Rating by day" table under it is built only when opened. The line is
+  an unfilled Recharts `Area`, because `Line` would have added 9.6 KB of
+  its own code to the pilot page's chunk; and the chart is `React.lazy`
+  behind its own `Suspense` inside the card, because the pilot page did
+  not load Recharts before S13 and should not wait for its 91.7 KB gzip
+  chunk. That `Suspense` is local to the card; the views' single one in
+  `App.tsx` is unchanged; the chunk's download starts when the pilot page
+  loads, not after the rating answers. `PilotDetail` loads the rating
+  (`hooks/useLoad.ts`, also used by the rankings view) beside its own
+  four requests and passes it to the card, so a mode change does not ask
+  again. The thresholds in the card's words come from `gameParse.js`
+  (`RANKED`, `RATED_MATCH_TEXT`, `RD_HINT`).
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -2998,6 +3345,58 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
   (S11); "Unknown Server" on hydrated matches (S7); the analysis tab's
   "Unauthorized" text (S1, S9; S25 removes the route).
 
+- (S13) Earlier flags that name the rating, the leaderboard, head-to-head
+  or the ranked filter, decided:
+  - "The README promises ELO; none exists": covered. The site has a
+    Glicko-2 rating; the README line now says so.
+  - (S2) The ranked filter missing from `getPilotStats`: still open. S13
+    made the filter one function (`rankedMatch`) for the career stats,
+    the telemetry, the 90-day results and the rating, but the all-time
+    and 90-day leaderboard totals still count every match, so game counts
+    still differ by endpoint. Adding it changes the leaderboard's numbers.
+  - (S2) Multi-player head-to-head (the dominance index) compares raw
+    kills between every pair, teammates included: still open. The rating
+    does not read it.
+  - (S2) Fight-night Biggest Upset still treats the top fragger as the
+    winner. The ratings now exist to call an upset by pre-match rating,
+    as the roadmap page suggests; not on S13's list.
+  - (S5) NOCASE folds ASCII only: still open for the leaderboard and the
+    pilot page. The rating keys pilots by `pilotKey()` on both write and
+    read, so it merges spellings that differ in non-ASCII case.
+  - (S10) The roster's Active (90d) view has no Lethality; (S10) the
+    leaderboard lags new games until a refresh; (S11) the startup
+    warm-up caches the leaderboard past the first refresh: still open.
+    The rankings and the rating card read no route cache, and their
+    in-memory ranking is cleared when a refresh writes.
+  - (S10) The win-rate and suicides tooltips are written out twice
+    (`PilotsList`, `PilotDetail`): still open.
+- (S13) The rating depends on how the tracker scores a mode. FFA uses the
+  in-game score (`kills`) for every mode without teams, as `winnerOf`
+  does, so a Race match (laps) would be rated by its kills. The local
+  data has Anarchy, Team Anarchy and one CTF match; none is Race.
+- (S13) The rating is never shown on the leaderboard. A Rating column on
+  the roster would need the rating in `/api/stats/pilots`; S13 links the
+  roster to the rankings instead.
+- (S13) The snapshot day is the calendar day in America/Chicago
+  (`RATING.timeZone`). A fight night that runs past midnight puts its
+  last matches on the next day. S14 decides the fight-night day boundary
+  in a configured time zone; the rating day should follow it.
+- (S13) The pilot page now loads Recharts (91.7 KB gzip, shared with the
+  match page and the dashboard) after it renders, for the rating chart.
+  A hand-drawn SVG line would avoid it on a first visit to a pilot page.
+- (S13) /code-review and /simplify skipped: deleting the
+  `buildColdStorageStatsCache` and `buildMapStatsCache` keys of `db`,
+  which nothing calls now (db.js keeps its keys; they invite the triple
+  refresh back), and two worker-only memory trims in the rating pass
+  (a second key map of about 35 MB and a copy of every match of about
+  8 MB on the synthetic history).
+- (S13) `hooks/useLoad.ts` serves the two new views only. The S9 flag
+  lists seven older views that keep loading, failure and retry by hand.
+- (S13) The rankings page has no way to see who dropped out of the top 25
+  or below 10 matches during the week, and no ranks past 25.
+- (S13) The rating card's chart is pointer-only for its tooltip; the
+  "Rating by day" table is the keyboard and screen-reader path.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -3006,13 +3405,16 @@ older image runs as root and can still write them, so no chown back is
 needed. `data/backups/` can stay or be deleted. S5 adds `game_players` to both database files; after
 the revert and the pull, run `DROP TABLE game_players;` on `tracker.db` and
 on `cold_storage.db` (see the S5 migration decision). The JSON blobs remain
-the source of truth, so no data is lost.
+the source of truth, so no data is lost. S13 adds `rating_snapshots` to
+`tracker.db`; after its revert, `DROP TABLE rating_snapshots;` there, or
+leave it (nothing older reads it).
 
 ## Open questions
 
 - The time zone for fight-night day boundaries (US Central is the likely
   answer given the server names). Decided in S14; ask the user at the start of
-  that session.
+  that session. S13's rating snapshots count days in America/Chicago
+  (`RATING.timeZone` in `gameParse.js`); S14 should move them with it.
 
 ## Skills to load
 
@@ -3467,12 +3869,53 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   MatchAnalysis's inline team colour, `soleLeader` for the slider's FFA
   wording. PR #12 opened against `main`, not merged.
 
+- 2026-10-08, S13 (Claude Opus 5.5): a Glicko-2 rating in `gameParse.js`
+  over every stored match, replayed by the stats worker on each refresh
+  into a daily `rating_snapshots` table; `/api/pilot/:name/rating` and
+  `/api/stats/rankings`; a rating card with a history line and ±2 RD
+  band on the pilot page; `/rankings` with weekly movement. Status line
+  checked first: PR #12 had merged (`6bdeb97`, nothing after it), so S13
+  branched from `origin/main`; `10223be` is not an object here. First
+  move: 14 files, 156 tests; entry 73.91 KB gzip; tsc 0. The rating
+  first counted an N-pilot FFA as N - 1 separate results. It looked
+  fine on 40 local matches, but a synthetic 75,000-match history sent
+  the busiest pilot's volatility to 5.45 and rating to 5e46, so each
+  result now weighs 1 / (sides - 1). The roadmap said "nightly snapshot
+  table"; I kept a row per pilot per day but let every refresh rewrite
+  any day a match moves, because a frozen copy would show no movement
+  for weeks after a deploy and go wrong after a backfill. The pilot page
+  had never loaded Recharts, so the chart is a lazy chunk behind its own
+  Suspense, and its line is an unfilled Area (Recharts' `Line` added 9.6
+  KB to the pilot chunk). One mutation check survived at first (the
+  pilot's own rating in place of the team mean) until the test was
+  rewritten. A mutation cleanup with `git checkout` also threw away an
+  uncommitted fix once; a copy brought it back. /code-review found 9
+  issues: the RD shown without idle growth, the 1500 line falling out
+  of the chart, rank links past 25, uncached ranking scans per request,
+  the refresh run three times by maintenance (and, I found, by the admin
+  button and after a backfill), the full table rewrite on the main
+  thread, the viewer's local date for "last match", `durationOf` twice,
+  and two copies of the load effect. All were fixed. /simplify (four
+  agents): `rankStatus` as the one ranking rule, the thresholds and hint
+  text from `gameParse.js`, the nav section in `siteRoutes.js`,
+  `last_played` dropped, the rating loaded by `PilotDetail` beside its
+  requests with the chart chunk fetched early, snapshot writes in
+  2,000-row chunks, the day formatted once per hour, `idlePhi` and
+  `DAY_MS` shared. Skipped: deleting the two `db` alias keys (db.js
+  keeps its keys) and two worker-only memory trims. PR #13 opened
+  against `main`, not merged. A /pr-review pass (three reviewer agents)
+  then found the first boot on a warm database leaving the ratings empty
+  until the 6-hour refresh, a failed chunk leaving old ranks in memory,
+  a failed chart chunk taking the whole pilot page, and tests that could
+  not fail for their stated reason; all fixed (the review-fixes entry
+  under Validated).
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S13: rating and power rankings.
+Continue the overloadfight.club roadmap. This session is S14: time and career.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -3481,51 +3924,53 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S12 is on branch ofc/s12-fight-card, PR #12. PRs #1 to #11 are merged.
-  If PR #12 is merged:
-    git checkout -B ofc/s13-rating origin/main
-  If PR #12 is still open:
-    git checkout -B ofc/s13-rating origin/ofc/s12-fight-card
-    and open the S13 PR against main anyway; say in its description that it sits on PR #12.
-  Check again before opening the PR: if PR #12 merged during the session, rebase onto origin/main first.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #12 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  S13 is on branch ofc/s13-rating, PR #13. PRs #1 to #12 are merged.
+  If PR #13 is merged:
+    git checkout -B ofc/s14-time-career origin/main
+  If PR #13 is still open:
+    git checkout -B ofc/s14-time-career origin/ofc/s13-rating
+    and open the S14 PR against main anyway; say in its description that it sits on PR #13.
+  Check again before opening the PR: if PR #13 merged during the session, rebase onto origin/main first.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #13 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 22
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 22 &&`.
-If neither origin/main nor origin/ofc/s12-fight-card has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s13-rating has docs/ROADMAP.md, stop and tell me.
+
+Before building, ask me the open question in the tracker: which time zone fight-night days (and so the heatmap, the calendar and the rating's snapshot day) are counted in. The tracker suggests US Central. Do not pick one silently.
 
 Read first:
-- docs/ROADMAP.md, the S13 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the pilot page and leaderboard already have, and quote it in the PR description. Also "Canonical contract", the S2 decisions (winnerOf, outcomeOf, pairOutcome; a team game is decided by teamScore, FFA by in-game score; a team game without teamScore has no result), S5 (game_players, its migration and user_version, the stats worker, the hot/cold split and the cold move), S6 (the 03:00 nightly job in server/backup.js, TZ=America/Chicago), S8 (URL state, siteRoutes for a new view and its title), S9 (tokens, States), S10 (Combat Ratio and Lethality, the roster's paging and sort in the URL, useDialog, the focus and tap rules), S11 (server/db/ and server/routes/ layout, the hooks and child folders, apiService), S12 (the `chart` colours in designTokens.js and the dataviz validator, the kill-log rules in gameParse.js), every "Flagged, not fixed" item that names S13, ELO or rating, the leaderboard, head-to-head or the ranked filter (decide for each whether S13 covers it; flag the rest again), and the Postmortems.
-- server/lib/gameParse.js, server/db/analytics/pilots.js, server/db/migrations.js, server/db/analytics/refresh.js and server/lib/statsPasses.js, server/backup.js, components/PilotsList.tsx, components/PilotDetail.tsx, the S12 components in components/gameDetail/ for the chart pattern, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S14 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the dashboard and the pilot page already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S2 decisions (durationOf, the ranked filter), S3 (fight-night day queries on `date >= ? AND date < ?`, utcDayBounds), S5 (game_players and its indexes, the stats worker, the hot/cold split), S6 (the 03:00 nightly job in server/backup.js, TZ=America/Chicago in the container), S7 (the dashboard order and the Fight Night teaser), S8 (URL state, siteRoutes), S9 (tokens, States), S10 (Combat Ratio and Lethality, the focus and tap rules), S11 (server/db/ and server/routes/ layout, hooks and child folders, apiService), S12 (the `chart` colours in designTokens.js and the dataviz validator), S13 (the rating rules in gameParse.js and RATING.timeZone, rating_snapshots, hooks/useLoad.ts, navSection, the pilot page's lazy chart chunk behind its own Suspense), every "Flagged, not fixed" item that names S14, the time zone, the day boundary, fight nights, the dashboard's charts or the pilot page (decide for each whether S14 covers it; flag the rest again), and the Postmortems.
+- server/lib/gameParse.js, server/services/fightNightService.js, server/db/repos/games.js (utcDayBounds, getGamesInDay, getGamesForDate), server/db/analytics/global.js (the activity charts), server/db/analytics/pilots.js and pilotTelemetry.js, server/lib/statsPasses.js, server/backup.js, server/maintenance.js, App.tsx (the dashboard), components/GameList.tsx, components/ActivityGraph.tsx, components/GlobalActivityChart.tsx, components/PilotDetail.tsx and components/pilotDetail/, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
 - gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every stat or chart number ships with a test on fixture games.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
 - server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. New tables go in server/db/migrations.js beside `games`, with a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules: a rating update, a placement, a corrected team result and weekly movement are game rules, so they go there with tests and the server and client import them, as S7 and S12 did. Never copy a rule. Rating runs over every stored match, hot and cold, so it belongs in the stats worker or the nightly job, not on a request.
-- server/lib/siteRoutes.js owns page URLs and titles; a new view gets its route, title and share description there and in server/pageMeta.js. Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
-- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js and any new series colour passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12).
-- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx; keep both error boundaries (S9).
+- server/lib/gameParse.js owns the game rules: a day boundary, a local hour, a career series and what counts as a pilot's last match are game rules, so they go there with tests and the server and client import them, as S7, S12 and S13 did. Never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
+- server/lib/siteRoutes.js owns page URLs, titles and the nav section; a new view gets its route, title and share description there and in server/pageMeta.js. Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
+- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js and any new series colour or sequential ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12).
+- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S12 left 230.81 KB raw / 73.91 KB gzip) and the pilot page chunk before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk; record the entry size (S13 left 231.49 KB raw / 74.16 KB gzip), the pilot page chunk (40.33 KB / 9.99 KB gzip) and whatever the dashboard loads, before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 22 everywhere: better-sqlite3 11.8 does not compile on Node 24.
-- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library. A Glicko-2 package needs a decision entry against writing the update in gameParse.js; prefer the latter if it is short and tested.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (35 local matches at the end of S12). Check the UI in headless Chrome over CDP, as S4 and S7 to S12 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more pilots or matches than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo.
+- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it to a new chart library.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (40 local matches at the end of S13). Check the UI in headless Chrome over CDP, as S4 and S7 to S13 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more pilots, matches or days than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy, not with `git checkout`, which also discards uncommitted work.
 
 Rules for this session:
-- One PR, scope is the S13 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the rating system (Glicko-2 parameters, how FFA placement and team results feed it, what a draw is, which matches count), the snapshot table and its migration, when ratings are recomputed, the PowerRankings route and its weekly window, and any new endpoint.
+- One PR, scope is the S14 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the time zone and the day boundary (and what moves with it: fight nights, the heatmap, the rating's snapshot day, backup folder names or not), the heatmap's buckets and colour ramp, each career series, the activity calendar's unit, the "last time out" block, any new table and its migration, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S13 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S14 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S14.
+- Before ending: tick S14 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S15 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S15.
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S12 left 14 files, 156 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|PilotsList)-.*\.js"` (the Verification table records the entry at 73.91 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then write the S13 Done-when list into the tracker.
-Done when: every item of the S13 Done-when list is true and checked on fixture games and in headless Chrome (the rankings view and a pilot page with a rating history, at 1,280 and 390 px), the leaderboard, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S13 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S13 left 14 files, 193 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|GameList)-.*\.js"` (the Verification table records the entry at 74.16 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the time-zone question, then write the S14 Done-when list into the tracker.
+Done when: every item of the S14 Done-when list is true and checked on fixture games and in headless Chrome (the dashboard's heatmap and a pilot page with its career block, at 1,280 and 390 px), the dashboard, leaderboard, rankings, pilot pages and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S14 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings` and `/api/health`, and the PR is open with the tracker updated.
 ```

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, History, Users, Database, Map as MapIcon, Settings, Link as LinkIcon, Menu, X } from 'lucide-react';
 import Link from './Link';
-import { urlFor } from '../server/lib/siteRoutes.js';
+import { urlFor, navSection } from '../server/lib/siteRoutes.js';
 import { usePathname } from '../hooks/useLocation';
 
 // The header's pages, in order; the desktop bar and the menu below xl both list them.
@@ -27,6 +27,8 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage }) => {
   const [activePilotCount, setActivePilotCount] = useState<number>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // the nav item to light: the power rankings sit under Leaderboards
+  const section = navSection(currentView);
 
   useEffect(() => {
     const getCount = async () => {
@@ -82,7 +84,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
                   <Link
                     key={view}
                     to={urlFor(view)}
-                    className={`${currentView === view ? 'text-brand' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-control text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5`}
+                    className={`${section === view ? 'text-brand' : 'text-gray-300 hover:text-white'} px-2 py-2 rounded-control text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5`}
                   >
                     {view === 'resources' && <LinkIcon className="w-3.5 h-3.5" />}
                     {label}
@@ -114,7 +116,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, showColdStorage 
                 <Link
                   key={view}
                   to={urlFor(view)}
-                  className={`block w-full text-left px-3 py-2 rounded-control text-base font-medium ${currentView === view ? 'bg-gray-900 text-brand' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                  className={`block w-full text-left px-3 py-2 rounded-control text-base font-medium ${section === view ? 'bg-gray-900 text-brand' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
                 >
                   {label}
                 </Link>

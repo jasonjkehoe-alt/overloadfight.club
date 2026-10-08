@@ -414,6 +414,59 @@ export const fetchFightNightDetail = async (date: string): Promise<FightNightRec
     return null;
 };
 
+// Ratings (S13): the shapes server/db/analytics/ratings.js answers with.
+export interface RatingPoint {
+    day: string;
+    rating: number;
+    rd: number;
+    matches: number;
+}
+
+export interface PilotRating {
+    name: string | null;
+    rating: number | null;
+    rd: number | null;
+    matches: number;
+    // 'ranked', 'provisional' (too few rated matches) or 'inactive' (none lately); null with no rating
+    status: 'ranked' | 'provisional' | 'inactive' | null;
+    rank: number | null;
+    history: RatingPoint[];
+}
+
+export interface RankedPilot {
+    pilot: string;
+    name: string;
+    day: string;
+    rating: number;
+    rd: number;
+    matches: number;
+    rank: number;
+    // places gained since `since`, null when not ranked then (NEW)
+    change: number | null;
+}
+
+export interface PowerRankings {
+    day: string;
+    since: string;
+    total: number;
+    pilots: RankedPilot[];
+}
+
+// null when the request fails; a pilot with no rated match has an empty history
+const getJson = async <T,>(url: string): Promise<T | null> => {
+    try {
+        const response = await fetch(url);
+        if (response.ok) return await response.json();
+    } catch (e) {
+        console.error(`Failed to fetch ${url}`, e);
+    }
+    return null;
+};
+
+export const fetchPilotRating = (name: string) => getJson<PilotRating>(`${API_BASE}/pilot/${encodeURIComponent(name)}/rating`);
+
+export const fetchPowerRankings = () => getJson<PowerRankings>(`${API_BASE}/stats/rankings`);
+
 // Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.

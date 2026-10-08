@@ -1,7 +1,7 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
 import { pilotGamesHot, pilotGamesHotSince, pilotGamesCold } from './pilotTelemetry.js';
-import { OUTCOME_FIELD, combatRatio, durationOf, outcomeOf, pilotKey, winnerOf } from '../../lib/gameParse.js';
+import { OUTCOME_FIELD, combatRatio, outcomeOf, pilotKey, rankedMatch, winnerOf } from '../../lib/gameParse.js';
 
 // Pilots from game_players and pilot_stats_cache: the leaderboard, the share
 // summary, match history, first sightings and the cache reads and writes.
@@ -51,9 +51,8 @@ function computeWindowedOutcomes(startDate) {
     } catch {
       continue;
     }
-    if (!g) continue;
-    const players = Array.isArray(g.players) ? g.players : [];
-    if (players.length < 2 || durationOf(g) < 60) continue;
+    if (!rankedMatch(g)) continue;
+    const players = g.players;
 
     const result = winnerOf(g);
     if (!result || !Array.isArray(result.winners) || result.winners.length === 0) continue;

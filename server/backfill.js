@@ -401,12 +401,6 @@ class BackfillManager {
                 if (typeof db.refreshPilotStats === 'function') {
                     await db.refreshPilotStats();
                 }
-                if (typeof db.buildColdStorageStatsCache === 'function') {
-                    await db.buildColdStorageStatsCache();
-                }
-                if (typeof db.buildMapStatsCache === 'function') {
-                    await db.buildMapStatsCache();
-                }
                 console.log('[Backfill] Stats cache refresh finished.');
             } catch (err) {
                 console.error('[Backfill] Error during post-job stats cache refresh:', err);

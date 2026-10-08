@@ -37,11 +37,20 @@ function fightNightMeta(date) {
     return { description: `${recap.formattedDate}: ${count(recap.totalMatches)} matches, ${count(recap.totalPilots)} pilots${top}.` };
 }
 
+// "Power rankings for 2026-10-08: 1. WD-40 (1612), 2. OKSTER (1580), 3. RAZOR (1555)."
+function rankingsMeta() {
+    const { day, pilots } = db.getPowerRankings();
+    if (pilots.length === 0) return {};
+    const top = pilots.slice(0, 3).map(p => `${p.rank}. ${p.name} (${Math.round(p.rating)})`).join(', ');
+    return { description: `Power rankings for ${day}: ${top}.` };
+}
+
 function routeMeta({ view, param }) {
     switch (view) {
         case 'pilot': return pilotMeta(param);
         case 'game-detail': return matchMeta(param);
         case 'fight-night': return fightNightMeta(param);
+        case 'rankings': return rankingsMeta();
         case 'live-game-detail': return { description: `Live Overload match. Join at ${param}.` };
         default: return {};
     }

@@ -4,6 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { byId, day, onDay, sample, veteranSoup } from './testFixtures.js';
+import { RATING, ratingDay, shiftDay } from './lib/gameParse.js';
 
 // Fixture games built from the samples:
 // 90001: game 72102 with the score flipped, an ORANGE win (STITCH, MAESTRO).
@@ -101,6 +102,77 @@ describe('pilot stats cache (refreshPilotStats)', () => {
 
     it('counts suicides from the kill log', () => {
         expect(cached('XB1').suicides).toBe(1);
+    });
+});
+
+describe('ratings (rating_snapshots)', () => {
+    const today = ratingDay(Date.now());
+    const jftpDay = ratingDay(onDay(byId(72107)).date);
+
+    it('rates every match in the refresh, one row per pilot per day, spellings merged', () => {
+        const jftp = db.getPilotRating('jftp');
+        expect(jftp).toMatchObject({ matches: 10 });
+        expect(jftp.history).toEqual([{ day: jftpDay, rating: jftp.rating, rd: expect.any(Number), matches: 10 }]);
+        // the RD now has grown for the days since that one
+        expect(jftp.rd).toBeGreaterThan(jftp.history[0].rd);
+        expect(db.getPilotRating('JFTP ').history).toEqual(jftp.history);
+        // BALLER won three 1v1 Monsterball matches on goals while scoring fewer kills
+        expect(db.getPilotRating('BALLER').rating).toBeGreaterThan(1500);
+        expect(db.getPilotRating('FRAGGER').rating).toBeLessThan(1500);
+    });
+
+    it('answers an empty history for a pilot with no rated match', () => {
+        expect(db.getPilotRating('NOBODY')).toMatchObject({ matches: 0, status: null, rank: null, history: [] });
+    });
+
+    it('ranks pilots with 10+ rated matches, all NEW in their first week', () => {
+        const { day: on, since, total, pilots } = db.getPowerRankings(today);
+        expect([on, since]).toEqual([today, shiftDay(today, -RATING.movementDays)]);
+        // JFTP 10, WD-40 10, STITCH 11; PHOENIX has 9
+        expect(pilots.map(p => p.pilot).sort()).toEqual(['jftp', 'stitch', 'wd-40']);
+        expect(total).toBe(3);
+        expect(pilots.map(p => p.rank)).toEqual([1, 2, 3]);
+        expect(pilots.map(p => p.change)).toEqual([null, null, null]);
+        expect(pilots.map(p => p.rating)).toEqual(pilots.map(p => p.rating).sort((a, b) => b - a));
+        expect(db.getPilotRating('STITCH')).toMatchObject({ status: 'ranked', rank: pilots.find(p => p.pilot === 'stitch').rank });
+    });
+
+    it('shows the RD grown for the days since, and no rank for a pilot who cannot be ranked', () => {
+        const phoenix = db.getPilotRating('PHOENIX'); // 9 rated matches
+        expect(phoenix).toMatchObject({ status: 'provisional', rank: null });
+        expect(db.getPilotRating('JFTP', shiftDay(today, RATING.activeDays + 5))).toMatchObject({ status: 'inactive', rank: null });
+        expect(db.getPilotRating('PHOENIX', shiftDay(today, 100)).rd).toBeGreaterThan(phoenix.rd);
+    });
+
+    it('writes only the days that differ on the next refresh', async () => {
+        const hot = connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'rating_snapshots'").get());
+        const table = () => hot.prepare('SELECT * FROM rating_snapshots ORDER BY pilot, day').all();
+        const before = table();
+        hot.prepare("INSERT INTO rating_snapshots (pilot, day, name, rating, rd, volatility, matches) VALUES ('ghost', '2001-01-01', 'GHOST', 1500, 350, 0.06, 1)").run();
+        hot.prepare("UPDATE rating_snapshots SET rating = 1 WHERE pilot = 'jftp'").run();
+        const log = vi.spyOn(console, 'log');
+        await db.refreshPilotStats();
+        expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Ratings]'))).toEqual([`[Ratings] ${before.length} daily rating snapshots: 1 written, 1 removed.`]);
+        log.mockRestore();
+        expect(table()).toEqual(before);
+
+        // 4,500 stray days take three chunks of the write, with reads let in between
+        const ghost = hot.prepare("INSERT INTO rating_snapshots (pilot, day, name, rating, rd, volatility, matches) VALUES ('ghost', ?, 'GHOST', 1500, 350, 0.06, 1)");
+        hot.transaction(() => { for (let i = 0; i < 4500; i++) ghost.run(shiftDay('2001-01-01', i)); })();
+        const ghosts = hot.prepare("SELECT COUNT(*) AS n FROM rating_snapshots WHERE pilot = 'ghost'");
+        const seen = new Set();
+        let refreshing = true;
+        const poll = () => { seen.add(ghosts.get().n); if (refreshing) setImmediate(poll); };
+        poll();
+        await db.refreshPilotStats();
+        refreshing = false;
+        expect([...seen]).toEqual(expect.arrayContaining([4500, 2500, 500]));
+        expect(table()).toEqual(before);
+    });
+
+    it('keeps the ranks a week on, then drops pilots idle for more than 28 days', () => {
+        expect(db.getPowerRankings(shiftDay(today, 7)).pilots.map(p => p.change)).toEqual([0, 0, 0]);
+        expect(db.getPowerRankings(shiftDay(jftpDay, RATING.activeDays + 1)).total).toBe(0);
     });
 });
 
@@ -219,6 +291,13 @@ describe('backup and restore (backupHot, restoreHot)', () => {
     it('copies the live database and writes the copy back into it', async () => {
         const copy = path.join(dataDir, 'copy.db');
         await db.backupHot(copy);
+        // as a backup from before S13
+        const old = new Database(copy);
+        old.exec('DROP TABLE rating_snapshots');
+        old.close();
+        const today = ratingDay(Date.now());
+        expect(db.hasRatingSnapshots()).toBe(true);
+        expect(db.getPowerRankings(today).total).toBeGreaterThan(0);
         const before = db.countGames(null, null).count;
         db.saveGames([{ ...onDay(byId(72099)), id: 99999 }]);
         expect(db.countGames(null, null).count).toBe(before + 1);
@@ -228,5 +307,31 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.getGameById.get(99999)).toBeFalsy();
         expect(db.getGameById.get(72099)).toBeTruthy();
         expect(db.countGamesByPilot.get({ name: 'JFTP', startDate: null }).count).toBe(10);
+        // the table is back, empty until the next refresh, and the rankings held in memory are gone
+        expect(db.hasRatingSnapshots()).toBe(false);
+        expect(db.getPilotRating('JFTP').history).toEqual([]);
+        expect(db.getPowerRankings(today).total).toBe(0);
+    });
+});
+
+describe('ratings after a refresh', () => {
+    it('ranks a pilot whose new match is their tenth once the refresh lands', async () => {
+        const today = ratingDay(Date.now());
+        const ranked = () => db.getPowerRankings(today).pilots.map(p => p.pilot);
+        expect(ranked()).not.toContain('phoenix'); // 9 rated matches, and the rankings are now memoised
+        db.saveGames([{ ...onDay(byId(72096)), id: 90020 }]);
+        await db.refreshPilotStats();
+        expect(ranked()).toContain('phoenix');
+        expect(db.getPilotRating('PHOENIX').matches).toBe(10);
+    });
+
+    it('rates a match from cold storage with the hot ones', async () => {
+        // BALLER's fourth win, from 2020, so saveGames files it in cold.db
+        const date = '2020-06-01T20:00:00.000Z';
+        db.saveGames([{ ...monsterball[0], id: 90030, date, settings: { ...monsterball[0].settings, start: date } }]);
+        await db.refreshPilotStats();
+        const baller = db.getPilotRating('BALLER');
+        expect(baller.matches).toBe(4);
+        expect(baller.history[0]).toMatchObject({ day: '2020-06-01', matches: 1 });
     });
 });

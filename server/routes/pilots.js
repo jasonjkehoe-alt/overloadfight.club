@@ -2,7 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import cacheService from '../services/cacheService.js';
 
-// /pilot/:name/*: one pilot's stats, weapons, PPI, breakdown and match history.
+// /pilot/:name/*: one pilot's stats, weapons, PPI, rating, breakdown and match history.
 const router = express.Router();
 
 // GET /api/pilot/:name/stats - Detailed Pilot Stats
@@ -96,6 +96,16 @@ router.get('/pilot/:name/ppi', async (req, res) => {
     } catch (e) {
         console.error("PPI API Error:", e);
         res.status(500).json({ error: "Failed to fetch PPI stats" });
+    }
+});
+
+// GET /api/pilot/:name/rating - Glicko-2 rating, rank and daily history (S13)
+router.get('/pilot/:name/rating', (req, res) => {
+    try {
+        res.json(db.getPilotRating(req.params.name));
+    } catch (e) {
+        console.error("Pilot Rating Error:", e);
+        res.status(500).json({ error: "Failed to fetch pilot rating" });
     }
 });
 

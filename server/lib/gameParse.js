@@ -76,6 +76,14 @@ export function durationOf(game) {
     return measuredDurationOf(game) || plausibleSeconds(game?.settings?.timeLimit);
 }
 
+// The ranked filter: the career stats, the telemetry, the 90-day results and
+// the rating count a match with RANKED.pilots+ players that ran RANKED.seconds
+// or more by durationOf(). Pass the duration when the caller has it already.
+export const RANKED = { pilots: 2, seconds: 60 };
+export function rankedMatch(game, duration = durationOf(game)) {
+    return Array.isArray(game?.players) && game.players.length >= RANKED.pilots && duration >= RANKED.seconds;
+}
+
 // Who won. Team games rank teams by teamScore (any number of teams; teams
 // with players but no score entry count as 0). FFA ranks pilots by their
 // in-game score (`kills`). `ranking` lists { side, name, score } best first;
@@ -373,3 +381,228 @@ export function verdictOf(result) {
 
 export const VERDICT_LABEL = { ko: 'KO', decision: 'Decision', split: 'Split decision', draw: 'Draw' };
 export const VERDICT_HINT = 'KO: the runner-up scored less than two thirds of the winner. Split decision: won by a tenth of the winner\'s score or less, or by 1. Decision: any other win. Draw: a tie for first.';
+
+// Rating (S13): Glicko-2 (Glickman, "Example of the Glicko-2 system", 2012).
+// Every rated match is one rating period for the pilots in it, replayed in
+// date order over every stored match. Every pilot plays every other side
+// once: a side is a team in a team game (scored by teamScore) and a pilot in
+// FFA (scored by in-game score), as in winnerOf(). A higher score wins, an
+// equal one is a draw worth half, and each result weighs 1 / (sides - 1), so
+// a match counts as one game. A side's strength is its pilots' mean rating
+// and its uncertainty the root mean square of their RDs, so in FFA a pilot
+// meets each opponent as they are. Between matches a pilot's RD grows by
+// their volatility for every day sat out, up to the starting RD.
+export const RATING = {
+    start: 1500,
+    rd: 350,
+    volatility: 0.06,
+    tau: 0.5,
+    // Glicko-2's internal scale: mu = (rating - 1500) / scale, phi = RD / scale
+    scale: 173.7178,
+    // the power rankings: rated matches before a pilot is ranked, the days
+    // since their last one, how many are listed, and how far back movement looks
+    rankedAfter: 10,
+    activeDays: 28,
+    listed: 25,
+    movementDays: 7,
+    // the snapshot day is the calendar day here, the container's TZ (S6)
+    timeZone: 'America/Chicago',
+};
+
+// The pages' words for these rules, built from the numbers above.
+export const RATED_MATCH_TEXT = `${RANKED.pilots}+ pilots, ${RANKED.seconds} s or more and a result`;
+export const RD_HINT = 'RD is the uncertainty: about 95% of the time the true rating is within 2 RD. It grows while a pilot sits out.';
+export const RATING_HINT = `Rating: Glicko-2 over every stored match with ${RATED_MATCH_TEXT}. Each match counts as one game against the other sides: FFA by score, team games by team score, a tie counts half. ${RD_HINT}`;
+export const RANKING_HINT = `Ranked: ${RATING.rankedAfter}+ rated matches and one in the last ${RATING.activeDays} days. Movement compares the rank with ${RATING.movementDays} days earlier; NEW was not ranked then.`;
+
+const PHI_MAX = RATING.rd / RATING.scale;
+export const DAY_MS = 86400000;
+
+// A pilot's phi after `days` without a rated match: it grows by the
+// volatility for every day, up to the starting RD.
+const idlePhi = (phi, sigma, days) => Math.min(Math.sqrt(phi * phi + sigma * sigma * Math.max(0, days)), PHI_MAX);
+const gOf = phi => 1 / Math.sqrt(1 + (3 * phi * phi) / (Math.PI * Math.PI));
+
+// Glicko-2 step 5: the new volatility, by the Illinois algorithm.
+function newVolatility(phi, sigma, v, delta) {
+    const a = Math.log(sigma * sigma);
+    const tau2 = RATING.tau * RATING.tau;
+    const f = x => {
+        const ex = Math.exp(x);
+        const d = phi * phi + v + ex;
+        return (ex * (delta * delta - phi * phi - v - ex)) / (2 * d * d) - (x - a) / tau2;
+    };
+    let A = a;
+    let B;
+    if (delta * delta > phi * phi + v) {
+        B = Math.log(delta * delta - phi * phi - v);
+    } else {
+        let k = 1;
+        while (f(a - k * RATING.tau) < 0) k++;
+        B = a - k * RATING.tau;
+    }
+    let fA = f(A);
+    let fB = f(B);
+    while (Math.abs(B - A) > 1e-6) {
+        const C = A + ((A - B) * fA) / (fB - fA);
+        const fC = f(C);
+        if (fC * fB <= 0) {
+            A = B;
+            fA = fB;
+        } else {
+            fA /= 2;
+        }
+        B = C;
+        fB = fC;
+    }
+    return Math.exp(A / 2);
+}
+
+// One Glicko-2 rating period on the internal scale. `player` is { mu, phi,
+// sigma }; each game is { mu, opponent: { mu, phi }, score, weight? }, where
+// `mu` is the strength the player brings (their own, or their team's mean),
+// `score` is 1, 0.5 or 0 and `weight` (1 by default) scales the game's say
+// in v and the update. With no games only the RD grows. The RD never passes
+// the starting RD.
+export function glicko2(player, games) {
+    let vInverse = 0;
+    let sum = 0;
+    for (const { mu, opponent, score, weight = 1 } of games) {
+        const g = gOf(opponent.phi);
+        const expected = 1 / (1 + Math.exp(-g * (mu - opponent.mu)));
+        vInverse += weight * g * g * expected * (1 - expected);
+        sum += weight * g * (score - expected);
+    }
+    if (!(vInverse > 0)) return { ...player, phi: idlePhi(player.phi, player.sigma, 1) };
+    const v = 1 / vInverse;
+    const sigma = newVolatility(player.phi, player.sigma, v, v * sum);
+    const phi = Math.min(1 / Math.sqrt(1 / (player.phi * player.phi + sigma * sigma) + vInverse), PHI_MAX);
+    return { mu: player.mu + phi * phi * sum, phi, sigma };
+}
+
+// The sides of a rated match, each { score, pilots: [{ key, name }] }, or null
+// when the match does not count: not rankedMatch(), no result from winnerOf()
+// (a team game without teamScore), or fewer than two sides with a named
+// pilot. A pilot listed twice plays once, on the first listing's side; in a
+// team game a pilot without a team sits out.
+export function ratingSides(game) {
+    if (!rankedMatch(game)) return null;
+    const result = winnerOf(game);
+    if (result.winners.length === 0) return null;
+    const sides = new Map(result.ranking.map(r => [r.side, { score: r.score, pilots: [] }]));
+    const seen = new Set();
+    for (const p of game.players) {
+        const key = pilotKey(p?.name);
+        const side = sides.get(result.team ? teamOf(p) : key);
+        if (!key || !side || seen.has(key)) continue;
+        seen.add(key);
+        side.pilots.push({ key, name: String(p.name).trim() });
+    }
+    const playing = [...sides.values()].filter(s => s.pilots.length > 0);
+    return playing.length >= 2 ? playing : null;
+}
+
+let dayFormat = null;
+// The snapshot day of a date: YYYY-MM-DD in RATING.timeZone.
+export function ratingDay(date) {
+    dayFormat ??= new Intl.DateTimeFormat('en-CA', { timeZone: RATING.timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
+    return dayFormat.format(new Date(date));
+}
+
+const mean = values => values.reduce((a, b) => a + b, 0) / values.length;
+const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
+
+// Replays rated matches ([{ id, date, sides }], sides from ratingSides()) in
+// date order (id order for equal dates; a match without a date is skipped)
+// and returns each pilot's rating at the end of every day they played:
+// [{ pilot, name, day, rating, rd, volatility, matches }],
+// `pilot` being the pilotKey(), `name` the latest spelling and `matches` the
+// rated matches so far.
+export function ratingSnapshots(matches) {
+    const timed = matches
+        .map(m => ({ ...m, at: Date.parse(m.date) }))
+        .filter(m => Number.isFinite(m.at))
+        .sort((a, b) => a.at - b.at || a.id - b.id);
+    const pilots = new Map();
+    const snapshots = new Map();
+    // the day of each hour seen: Chicago's offset changes only on the hour,
+    // and formatting a date for every match was a fifth of the replay
+    const dayOfHour = new Map();
+    for (const { at, sides } of timed) {
+        // everyone's state before the match, RD grown over the days sat out
+        const teams = sides.map(side => side.pilots.map(({ key, name }) => {
+            let p = pilots.get(key);
+            if (!p) pilots.set(key, (p = { key, mu: 0, phi: PHI_MAX, sigma: RATING.volatility, matches: 0, last: at }));
+            p.name = name;
+            return { p, phi: idlePhi(p.phi, p.sigma, (at - p.last) / DAY_MS) };
+        }));
+        const strength = teams.map(team => ({ mu: mean(team.map(t => t.p.mu)), phi: Math.sqrt(mean(team.map(t => t.phi * t.phi))) }));
+        // a match counts as one game: an 8-pilot FFA is 7 results, but one
+        // placement, and counted whole they push the volatility up without end
+        const weight = 1 / (sides.length - 1);
+        const updates = teams.flatMap((team, i) => team.map(({ p, phi }) => {
+            const games = [];
+            for (let j = 0; j < sides.length; j++) {
+                if (j === i) continue;
+                const score = sides[i].score > sides[j].score ? 1 : sides[i].score === sides[j].score ? 0.5 : 0;
+                games.push({ mu: strength[i].mu, opponent: strength[j], score, weight });
+            }
+            return [p, glicko2({ mu: p.mu, phi, sigma: p.sigma }, games)];
+        }));
+        const hour = Math.floor(at / 3600000);
+        if (!dayOfHour.has(hour)) dayOfHour.set(hour, ratingDay(at));
+        const day = dayOfHour.get(hour);
+        for (const [p, next] of updates) {
+            Object.assign(p, next);
+            p.matches++;
+            p.last = at;
+            snapshots.set(`${p.key}\n${day}`, {
+                pilot: p.key,
+                name: p.name,
+                day,
+                rating: round(RATING.start + RATING.scale * p.mu, 1),
+                rd: round(RATING.scale * p.phi, 1),
+                volatility: round(p.sigma, 6),
+                matches: p.matches
+            });
+        }
+    }
+    return [...snapshots.values()];
+}
+
+const dayNumber = day => Date.parse(`${day}T00:00:00Z`) / DAY_MS;
+// YYYY-MM-DD `days` after (or, negative, before) `day`.
+export const shiftDay = (day, days) => new Date((dayNumber(day) + days) * DAY_MS).toISOString().slice(0, 10);
+
+// A snapshot's RD on a later `day`: grown for the days since, as it will be
+// at the pilot's next rated match.
+export function rdOn(snapshot, day) {
+    return round(RATING.scale * idlePhi(snapshot.rd / RATING.scale, snapshot.volatility, dayNumber(day) - dayNumber(snapshot.day)), 1);
+}
+
+// Whether a pilot's latest snapshot on or before `day` puts them in the power
+// rankings that day: 'provisional' below RATING.rankedAfter rated matches,
+// 'inactive' when the last one is more than RATING.activeDays before `day`,
+// otherwise 'ranked'.
+export function rankStatus(snapshot, day) {
+    if (snapshot.matches < RATING.rankedAfter) return 'provisional';
+    return dayNumber(day) - dayNumber(snapshot.day) > RATING.activeDays ? 'inactive' : 'ranked';
+}
+
+// The power rankings on `day` from each pilot's latest snapshot on or before
+// it: the 'ranked' ones (rankStatus) by rating (then rated matches, then
+// name), each with a `rank` from 1 and its RD on `day` (rdOn).
+export function powerRankings(latest, day) {
+    return latest
+        .filter(s => rankStatus(s, day) === 'ranked')
+        .sort((a, b) => b.rating - a.rating || b.matches - a.matches || a.pilot.localeCompare(b.pilot))
+        .map((s, i) => ({ ...s, rd: rdOn(s, day), rank: i + 1 }));
+}
+
+// The top RATING.listed of `now` (powerRankings() today), each with `change`:
+// the rank it held in `before` (RATING.movementDays earlier) minus its rank
+// now, so +3 is three places up, or null when it was not ranked then (NEW).
+export function rankingMovement(now, before) {
+    const was = new Map(before.map(s => [s.pilot, s.rank]));
+    return now.slice(0, RATING.listed).map(s => ({ ...s, change: was.has(s.pilot) ? was.get(s.pilot) - s.rank : null }));
+}

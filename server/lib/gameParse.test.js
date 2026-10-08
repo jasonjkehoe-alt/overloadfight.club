@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { pilotPass } from './statsPasses.js';
 import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
+import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingDay, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
 import { ffaWithLog, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -360,5 +361,252 @@ describe('verdictOf', () => {
         expect(verdict(byId(72098))).toBe('draw');
         expect(verdict(detailSample)).toBe('draw'); // Monsterball 1-1
         expect(verdict({ ...byId(72102), teamScore: {} })).toBeNull();
+    });
+});
+
+describe('rankedMatch', () => {
+    it('counts 2+ players and 60 s or more', () => {
+        expect(rankedMatch(byId(72087))).toBe(true); // WD-40 and OKSTER, 84 s
+        expect(rankedMatch({ ...byId(72087), players: byId(72087).players.slice(0, 1) })).toBe(false);
+        const short = byId(72087);
+        short.date = new Date(Date.parse(short.settings.start) + 59000).toISOString();
+        expect(rankedMatch(short)).toBe(false);
+        expect(rankedMatch(detailSample)).toBe(false); // one pilot
+        expect(rankedMatch(null)).toBe(false);
+    });
+});
+
+describe('ratingSides', () => {
+    it('makes each team a side scored by teamScore', () => {
+        expect(ratingSides(byId(72102))).toEqual([
+            { score: 42, pilots: [{ key: 'phoenix', name: 'PHOENIX' }, { key: 'insaner', name: 'INSANER' }] },
+            { score: 35, pilots: [{ key: 'stitch', name: 'STITCH' }, { key: 'maestro', name: 'MAESTRO' }] }
+        ]);
+    });
+
+    it('makes each FFA pilot a side scored by in-game score', () => {
+        expect(ratingSides(byId(72108)).map(s => [s.pilots[0].name, s.score])).toEqual([
+            ['ZERGLING', 48], ['RAPTOR', 31], ['SOUP', 14], ['LORD JOHN WARFIN', 2]
+        ]);
+    });
+
+    it('does not count a team game without teamScore, or an unranked match', () => {
+        expect(ratingSides({ ...byId(72102), teamScore: {} })).toBeNull();
+        expect(ratingSides({ ...byId(72087), players: byId(72087).players.slice(0, 1) })).toBeNull();
+    });
+
+    it('plays a pilot listed twice once, and sits out a team pilot without a team', () => {
+        const game = byId(72102);
+        game.players = [...game.players, { ...game.players[0], team: 'ORANGE' }, { name: 'NOBODY', kills: 3 }];
+        const sides = ratingSides(game);
+        expect(sides[0].pilots.map(p => p.name)).toEqual(['PHOENIX', 'INSANER']);
+        expect(sides[1].pilots.map(p => p.name)).toEqual(['STITCH', 'MAESTRO']);
+    });
+
+    it('needs two sides with pilots', () => {
+        const game = byId(72102);
+        game.players = game.players.filter(p => p.team === 'BLUE');
+        expect(ratingSides(game)).toBeNull();
+    });
+});
+
+describe('glicko2', () => {
+    const S = RATING.scale;
+    const toMu = r => (r - 1500) / S;
+
+    it("matches Glickman's worked example", () => {
+        // 1500/200 beats 1400/30, loses to 1550/100 and 1700/300; the paper gives 1464.06, 151.52, 0.05999
+        const games = [[1400, 30, 1], [1550, 100, 0], [1700, 300, 0]]
+            .map(([r, rd, score]) => ({ mu: 0, opponent: { mu: toMu(r), phi: rd / S }, score }));
+        const next = glicko2({ mu: 0, phi: 200 / S, sigma: 0.06 }, games);
+        expect(1500 + S * next.mu).toBeCloseTo(1464.06, 1);
+        expect(S * next.phi).toBeCloseTo(151.52, 1);
+        expect(next.sigma).toBeCloseTo(0.059996, 6); // e^(A/2) for the paper's A = -5.62694
+    });
+
+    it('only grows the RD with no games, up to the starting RD', () => {
+        expect(S * glicko2({ mu: 0, phi: 200 / S, sigma: 0.06 }, []).phi).toBeCloseTo(Math.hypot(200, 0.06 * S), 6);
+        expect(S * glicko2({ mu: 0, phi: 350 / S, sigma: 0.06 }, []).phi).toBeCloseTo(350, 6);
+    });
+});
+
+describe('ratingSnapshots', () => {
+    const rated = (game, id = game.id) => ({ id, date: game.date, sides: ratingSides(game) });
+    const row = (rows, pilot) => rows.find(r => r.pilot === pilot);
+    const side = (score, ...names) => ({ score, pilots: names.map(name => ({ key: name.toLowerCase(), name })) });
+
+    it('moves two new pilots by the textbook amount for one win', () => {
+        const rows = ratingSnapshots([rated(byId(72090))]); // OKSTER 5, WD-40 3
+        expect(row(rows, 'okster')).toMatchObject({ name: 'OKSTER', day: '2025-11-24', rating: 1662.3, rd: 290.3, matches: 1 });
+        expect(row(rows, 'wd-40')).toMatchObject({ rating: 1337.7, rd: 290.3, matches: 1 });
+    });
+
+    it('moves a whole team by the team result, not the pilots\' kills', () => {
+        const rows = ratingSnapshots([rated(byId(72102))]); // BLUE 42-35; STITCH outscored INSANER
+        expect(['phoenix', 'insaner'].map(p => row(rows, p).rating)).toEqual([1662.3, 1662.3]);
+        expect(['stitch', 'maestro'].map(p => row(rows, p).rating)).toEqual([1337.7, 1337.7]);
+    });
+
+    it('counts a level score as a draw', () => {
+        const rows = ratingSnapshots([rated(byId(72098))]); // JFTP 2, . 2
+        expect(rows.map(r => r.rating)).toEqual([1500, 1500]);
+        expect(rows[0].rd).toBeLessThan(350);
+    });
+
+    it('counts a match as one game, so winning a 4-pilot FFA of new pilots is one win', () => {
+        const rows = ratingSnapshots([rated({ ...byId(72108), players: ['A', 'B', 'C', 'D'].map((name, i) => ({ name, kills: 10 - i })) })]);
+        expect(row(rows, 'a')).toMatchObject({ rating: 1662.3, rd: 290.3 });
+        expect(row(rows, 'd')).toMatchObject({ rating: 1337.7, rd: 290.3 });
+    });
+
+    it('keeps the volatility steady and the RD under 350 for a pilot who sweeps and is swept by turns', () => {
+        // the same pilot wins and then loses every 8-pilot FFA against new opponents, 300 times
+        const matches = Array.from({ length: 300 }, (_, i) => ({
+            id: i + 1,
+            date: new Date(Date.UTC(2025, 0, 1) + i * 3600000).toISOString(),
+            sides: ratingSides({
+                ...byId(72108),
+                players: [{ name: 'SWING', kills: i % 2 ? 20 : -1 }, ...Array.from({ length: 7 }, (_, j) => ({ name: `OPP${i}-${j}`, kills: j }))]
+            })
+        }));
+        const swing = ratingSnapshots(matches).filter(r => r.pilot === 'swing').pop();
+        expect(swing.volatility).toBeLessThan(0.07);
+        expect(swing.rd).toBeLessThan(350);
+        expect(Math.abs(swing.rating - 1500)).toBeLessThan(400);
+    });
+
+    it('rates an FFA pilot against every other pilot by placement', () => {
+        const rows = ratingSnapshots([rated(byId(72108))]); // ZERGLING, RAPTOR, SOUP, LORD JOHN WARFIN
+        const ratings = ['zergling', 'raptor', 'soup', 'lord john warfin'].map(p => row(rows, p).rating);
+        expect(ratings).toEqual([...ratings].sort((a, b) => b - a));
+        expect(ratings[0] - 1500).toBeCloseTo(1500 - ratings[3], 1);
+        expect(ratings[1] - 1500).toBeCloseTo(1500 - ratings[2], 1);
+    });
+
+    it('rates a side by its pilots\' mean, so a win beside a stronger teammate pays less', () => {
+        // ZERGLING beats RAPTOR 1v1 (1662 and 1338), then NEW1 wins a 2v2 beside one of them
+        const oneVsOne = { id: 1, date: '2025-11-24T07:58:31.969Z', sides: ratingSides({ ...byId(72090), players: [{ name: 'ZERGLING', kills: 5 }, { name: 'RAPTOR', kills: 1 }] }) };
+        const winBeside = mate => ratingSnapshots([oneVsOne, {
+            id: 2,
+            date: '2025-11-25T18:00:00Z',
+            sides: ratingSides({
+                ...byId(72102),
+                teamScore: { BLUE: 5, ORANGE: 10 },
+                players: [
+                    { name: mate, team: 'ORANGE', kills: 1 }, { name: 'NEW1', team: 'ORANGE', kills: 1 },
+                    { name: 'NEW2', team: 'BLUE', kills: 1 }, { name: 'NEW3', team: 'BLUE', kills: 1 }
+                ]
+            })
+        }]);
+        expect(row(winBeside('ZERGLING'), 'new1').rating).toBeLessThan(row(winBeside('RAPTOR'), 'new1').rating);
+        // the losers' side is the same pair of new pilots either way, and they lose more to the weaker pair
+        expect(row(winBeside('RAPTOR'), 'new2').rating).toBeLessThan(row(winBeside('ZERGLING'), 'new2').rating);
+    });
+
+    it('replays in date order whatever order the matches come in, one row per pilot per day', () => {
+        const matches = sample.map(g => rated(g));
+        const forward = ratingSnapshots(matches);
+        expect(ratingSnapshots([...matches].reverse())).toEqual(forward);
+        // B2AF lost both 1v1s to BEHEMOTH on the Chicago evening of 2025-11-23
+        expect(row(forward, 'b2af')).toMatchObject({ day: '2025-11-23', matches: 2, rating: 1279.7, rd: 260.5 });
+        expect(row(forward, 'behemoth')).toMatchObject({ day: '2025-11-23', matches: 2, rating: 1720.3 });
+        // WD-40 played 10 rated matches, all on 2025-11-24 Chicago time
+        expect(forward.filter(r => r.pilot === 'wd-40')).toHaveLength(1);
+        expect(row(forward, 'wd-40').matches).toBe(10);
+        expect(new Set(forward.map(r => `${r.pilot} ${r.day}`)).size).toBe(forward.length);
+    });
+
+    it('grows the RD for the days a pilot sat out, up to the start', () => {
+        const first = { ...rated(byId(72090)), id: 1 };
+        const again = date => ({ id: 2, date, sides: ratingSides({ ...byId(72090), date }) });
+        const rdAfter = date => ratingSnapshots([first, again(date)]).filter(r => r.pilot === 'okster').pop().rd;
+        const nextDay = rdAfter('2025-11-25T07:58:31.969Z');
+        const yearLater = rdAfter('2026-11-24T07:58:31.969Z');
+        expect(yearLater).toBeGreaterThan(nextDay);
+        expect(yearLater).toBeLessThan(350);
+        // a year off already reaches 350 before the match, so two years off give the same
+        expect(rdAfter('2027-11-24T07:58:31.969Z')).toBe(yearLater);
+    });
+
+    it('replays matches on the same date in id order', () => {
+        const duel = (id, winner, loser) => ({ id, date: '2025-11-24T07:58:31.969Z', sides: [side(1, winner), side(0, loser)] });
+        const matches = [duel(1, 'P', 'Q'), duel(2, 'Q', 'P'), duel(3, 'P', 'R')];
+        expect(ratingSnapshots([...matches].reverse())).toEqual(ratingSnapshots(matches));
+    });
+
+    it("takes a side's RD as the root mean square of its pilots' RDs", () => {
+        // A beats 30 new pilots, then A and a new pilot lose a 2v2 to two new
+        // pilots, all at one time so no RD grows in between
+        const at = '2025-11-24T07:58:31.969Z';
+        const grind = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, date: at, sides: [side(1, 'A'), side(0, `X${i}`)] }));
+        const a = row(ratingSnapshots(grind), 'a');
+        const rows = ratingSnapshots([...grind, { id: 31, date: at, sides: [side(0, 'A', 'N'), side(1, 'B', 'C')] }]);
+        const S = RATING.scale;
+        const phiA = a.rd / S;
+        const phiNew = RATING.rd / S;
+        const losers = { mu: (a.rating - RATING.start) / S / 2, phi: Math.sqrt((phiA * phiA + phiNew * phiNew) / 2) };
+        const b = glicko2({ mu: 0, phi: phiNew, sigma: RATING.volatility }, [{ mu: 0, opponent: losers, score: 1 }]);
+        expect(row(rows, 'b').rating).toBeCloseTo(RATING.start + S * b.mu, 0);
+    });
+
+    it('takes the latest spelling and skips a match without a date', () => {
+        const lower = { ...byId(72087), id: 2, date: '2025-11-25T18:00:00Z', players: byId(72087).players.map(p => ({ ...p, name: p.name.toLowerCase() })) };
+        const rows = ratingSnapshots([rated(byId(72090)), rated(lower), { ...rated(byId(72088)), date: null }]);
+        expect(rows.filter(r => r.pilot === 'wd-40').map(r => [r.name, r.matches])).toEqual([['WD-40', 1], ['wd-40', 2]]);
+    });
+});
+
+describe('ratingDay and shiftDay', () => {
+    it('reads the day in America/Chicago', () => {
+        expect(ratingDay('2025-11-24T03:24:58.479Z')).toBe('2025-11-23'); // 21:24 CST
+        expect(ratingDay('2025-11-24T20:41:44.143Z')).toBe('2025-11-24');
+        expect(ratingDay('2026-07-04T04:59:00Z')).toBe('2026-07-03'); // 23:59 CDT
+    });
+
+    it('counts whole days across months', () => {
+        expect(shiftDay('2026-03-03', -7)).toBe('2026-02-24');
+        expect(shiftDay('2026-12-29', 7)).toBe('2027-01-05');
+    });
+});
+
+describe('powerRankings and rankingMovement', () => {
+    const snap = (pilot, rating, matches = 10, day = '2026-10-08') => ({ pilot, name: pilot.toUpperCase(), day, rating, rd: 80, matches });
+
+    it('says why a pilot is or is not ranked', () => {
+        expect(rankStatus(snap('a', 1600, 9), '2026-10-08')).toBe('provisional');
+        expect(rankStatus(snap('a', 1600, 10, '2026-09-10'), '2026-10-08')).toBe('ranked'); // 28 days
+        expect(rankStatus(snap('a', 1600, 10, '2026-09-09'), '2026-10-08')).toBe('inactive'); // 29 days
+    });
+
+    it('ranks pilots with enough rated matches and a recent one, by rating', () => {
+        const ranked = powerRankings([
+            snap('a', 1600), snap('b', 1700), snap('c', 1800, 9), snap('d', 1650, 10, '2026-09-10'),
+            snap('e', 1550, 10, '2026-09-09'), snap('f', 1600, 12)
+        ], '2026-10-08');
+        // c has 9 rated matches; e last played 29 days before; f ties a on rating with more matches
+        expect(ranked.map(r => [r.pilot, r.rank])).toEqual([['b', 1], ['d', 2], ['f', 3], ['a', 4]]);
+    });
+
+    it('breaks a tie on rating and rated matches by pilot', () => {
+        expect(powerRankings([snap('b', 1600), snap('a', 1600)], '2026-10-08').map(r => r.pilot)).toEqual(['a', 'b']);
+    });
+
+    it('grows the RD shown for the days since the last rated match, up to 350', () => {
+        const s = { ...snap('a', 1600), volatility: 0.06 };
+        expect(rdOn(s, '2026-10-08')).toBe(80);
+        // sqrt(80^2 + (173.7178 * 0.06)^2 * 20) = 92.6
+        expect(rdOn(s, '2026-10-28')).toBe(92.6);
+        expect(rdOn(s, '2036-10-08')).toBe(350);
+        expect(powerRankings([s], '2026-10-28')[0].rd).toBe(92.6);
+    });
+
+    it('gives each listed pilot the places gained since, or null for NEW, and lists 25', () => {
+        const before = powerRankings([snap('a', 1700), snap('b', 1600), snap('c', 1500)], '2026-10-01');
+        const now = powerRankings([snap('a', 1550), snap('b', 1650), snap('c', 1500), snap('d', 1800)], '2026-10-08');
+        expect(rankingMovement(now, before).map(r => [r.pilot, r.rank, r.change])).toEqual([
+            ['d', 1, null], ['b', 2, 0], ['a', 3, -2], ['c', 4, -1]
+        ]);
+        const many = powerRankings(Array.from({ length: 30 }, (_, i) => snap(`p${i}`, 1500 + i)), '2026-10-08');
+        expect(rankingMovement(many, [])).toHaveLength(RATING.listed);
     });
 });
