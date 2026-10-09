@@ -5,11 +5,9 @@ import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
 import { SERVER_WINDOW_DEFAULT, fightNightDay, winnerOf, measuredDurationOf } from './lib/gameParse.js';
 import { regionLabel } from './lib/serverRegions.js';
-import { clock, percent, resultLine } from './lib/matchResult.js';
+import { clock, count, percent, resultLine } from './lib/matchResult.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
-
-const count = n => Number(n || 0).toLocaleString('en-US');
 
 // "WD-40: 20 matches, 325 kills, last match 2026-10-07." (a fight-night day)
 function pilotMeta(name) {

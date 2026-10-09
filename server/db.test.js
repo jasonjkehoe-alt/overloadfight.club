@@ -609,7 +609,11 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months; DROP TABLE region_months; DROP TABLE servers; DROP TABLE server_snapshots; DROP TABLE server_hours');
         old.exec('DROP TABLE map_weapons; DROP TABLE pilot_weapons; DROP TABLE pilot_maps; DROP TABLE duel_snapshots; DROP TABLE pilot_duels; DROP TABLE pilot_objectives');
         old.exec('DROP TABLE pilot_rivals; DROP TABLE pilot_clutch');
+        // and from before S18
+        old.exec('DROP TABLE discord_posts');
         old.close();
+        db.putDiscordPost({ kind: 'ping', key: day, status: 'sent', tries: 1 });
+        expect(db.getDiscordPost('ping', day)).toMatchObject({ status: 'sent' });
         const today = fightNightDay(Date.now());
         expect(db.hasRatingSnapshots()).toBe(true);
         expect(db.derivedTablesBuilt()).toBe(true);
@@ -652,6 +656,10 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.getPilotCareer('JFTP').months).toEqual([]);
         expect(db.getPilotRating('JFTP').history).toEqual([]);
         expect(db.getPowerRankings(today).total).toBe(0);
+        // the Discord posts made before the restore outlive it, so none goes out twice
+        expect(db.getRecentDiscordPosts(10)).toEqual([expect.objectContaining({ kind: 'ping', key: day, status: 'sent', tries: 1 })]);
+        db.putDiscordPost({ kind: 'recap', key: day, status: 'pending', tries: 0 });
+        expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'pending', tries: 0 });
     });
 });
 

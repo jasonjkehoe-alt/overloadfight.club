@@ -5,7 +5,7 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureAdminSettings, ensureDerivedTables, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
+import { ensureAdminSettings, ensureDerivedTables, ensureDiscordPosts, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
@@ -16,6 +16,7 @@ import {
   insertGameMetadata, getGameMetadata
 } from './db/repos/jobs.js';
 import { getAdminSetting, setAdminSetting } from './db/repos/settings.js';
+import { dropStaleDiscordPosts, getAllDiscordPosts, getDiscordPost, getRecentDiscordPosts, putDiscordPost, restoreDiscordPosts } from './db/repos/discordPosts.js';
 import {
   seedStockMaps, getMaps, countMaps, getMapIntel, getMapById, getMapByName, upsertMap,
   incrementMapDownloads, updateMapLocalPaths, deleteMap
@@ -64,6 +65,8 @@ const db = {
     // restored ones and set the built marker back: stop it and wait it out
     await stopStatsWorker();
     await refreshInProgress();
+    // the posts already made outlive the restore, so none goes out twice (S18)
+    const posts = getAllDiscordPosts();
     const uploaded = new Database(source, { readonly: true, fileMustExist: true });
     try {
       await uploaded.backup(dbPath);
@@ -80,6 +83,8 @@ const db = {
     ensureDerivedTables();
     ensureServerTables();
     ensureAdminSettings();
+    ensureDiscordPosts();
+    restoreDiscordPosts(posts);
     clearDerivedTablesBuilt();
     clearDerivedCaches();
     clearServerSummaries();
@@ -128,6 +133,12 @@ const db = {
   // repos/settings.js
   getAdminSetting,
   setAdminSetting,
+
+  // repos/discordPosts.js
+  getDiscordPost,
+  putDiscordPost,
+  getRecentDiscordPosts,
+  dropStaleDiscordPosts,
 
   // repos/maps.js
   seedStockMaps,
@@ -228,6 +239,7 @@ const db = {
 
   // analytics/refresh.js
   refreshPilotStats,
+  refreshInProgress,
   buildColdStorageStatsCache: refreshPilotStats,
   buildMapStatsCache: refreshPilotStats,
   getColdStorageStats

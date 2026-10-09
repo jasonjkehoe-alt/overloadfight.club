@@ -8,11 +8,12 @@ import AdminMetricsGrid from './admin/AdminMetricsGrid';
 import AdminCoverageChart from './admin/AdminCoverageChart';
 import AdminBackfillPanel from './admin/AdminBackfillPanel';
 import AdminDashboardConfig from './admin/AdminDashboardConfig';
+import AdminDiscord from './admin/AdminDiscord';
 import AdminArchiveIngest from './admin/AdminArchiveIngest';
 import AdminMapManagement from './admin/AdminMapManagement';
 
 const AdminPanel: React.FC = () => {
-    const { auth, overview, settings, maps, archive } = useAdminPanel();
+    const { auth, overview, settings, maps, archive, discord } = useAdminPanel();
     const { isAuthenticated, setIsAuthenticated, password, setPassword, error, handleLogin } = auth;
     const { stats, loading, setLoading, version, fetchStats } = overview;
     const { showColdStorage, setShowColdStorage, saveSetting } = settings;
@@ -77,6 +78,8 @@ const AdminPanel: React.FC = () => {
                 setShowColdStorage={setShowColdStorage}
                 saveSetting={saveSetting}
             />
+
+            <AdminDiscord discord={discord} />
 
             {/* Historical Tracker Archive Ingestion Section */}
             <AdminArchiveIngest archiveStatus={archiveStatus} handleCancelArchiveSync={handleCancelArchiveSync} />

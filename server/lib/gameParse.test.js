@@ -8,6 +8,7 @@ import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, mome
 import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
 import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, weekdayOf, winRate } from './gameParse.js';
 import { HOUR_MS, SERVER_STATE, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, regionShare, serverSummary, serverWindow, snapshotRow } from './gameParse.js';
+import { FIGHT_NIGHT_PING, browserPilots } from './gameParse.js';
 import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
 import { CLUTCH, clutchOf, damageFlows, damageGrid, opponentsOf } from './gameParse.js';
 import { duelPass, rivalPass, weaponPass } from './statsPasses.js';
@@ -754,6 +755,24 @@ describe('server history (S15)', () => {
         expect(snapshotRow({ server, game: { currentPlayers: 1, maxPlayers: 8, inLobby: true } })).toMatchObject({ players: 1, state: SERVER_STATE.lobby });
         expect(snapshotRow({ server: { ...server, online: false } })).toEqual({ ip, online: 0, players: 0, max_players: null, state: SERVER_STATE.idle });
         expect(snapshotRow({ server: { name } })).toBeNull();
+    });
+
+    it('counts the pilots on online servers for the Discord ping (S18), lobbies included', () => {
+        const at = (ip, online, game) => ({ server: { ip, name: ip, online }, ...(game && { game }) });
+        const servers = [
+            at('10.0.0.1', true, { currentPlayers: 4, maxPlayers: 8, inLobby: false }),
+            at('10.0.0.2', true, { currentPlayers: 2, maxPlayers: 8, inLobby: true }),
+            // offline with a game still listed, online with no game, no IP, listed twice
+            at('10.0.0.3', false, { currentPlayers: 5, maxPlayers: 8, inLobby: false }),
+            at('10.0.0.4', true),
+            { server: { name: 'no ip', online: true }, game: { currentPlayers: 3 } },
+            // a second listing of a server: the first one counts, as in the stored tick
+            at('10.0.0.1', true, { currentPlayers: 7, maxPlayers: 8, inLobby: false })
+        ];
+        expect(browserPilots(servers)).toBe(FIGHT_NIGHT_PING.pilots);
+        expect(browserPilots(servers.slice(1))).toBe(9);
+        expect(browserPilots(servers.slice(2, 5))).toBe(0);
+        expect(browserPilots([])).toBe(0);
     });
 
     it('counts uptime, use, average pilots and the peak over the hours', () => {

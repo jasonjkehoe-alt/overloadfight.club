@@ -1,6 +1,7 @@
 import axios from 'axios';
 import cacheService from './cacheService.js';
 import db from '../db.js';
+import { checkPing } from './discordService.js';
 import { SNAPSHOT } from '../lib/gameParse.js';
 
 // The tracker's live server browser. /api/browser answers from it and the
@@ -36,7 +37,11 @@ export async function takeSnapshot(now = Date.now()) {
         if (!Array.isArray(servers)) throw new Error(`the answer is not a list (${typeof servers})`);
         if (servers.length === 0) throw new Error('the answer lists no servers');
         // a fetch still out when shutdown began must not write to a closed database
-        if (!stopped) return db.saveServerSnapshot(now, servers);
+        if (!stopped) {
+            const stored = db.saveServerSnapshot(now, servers);
+            checkPing(servers, now); // the Discord ping (S18), not waited for
+            return stored;
+        }
     } catch (error) {
         console.error('[Snapshots] Server browser not stored:', error.message);
     }

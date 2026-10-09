@@ -7,6 +7,10 @@ export const clock = seconds => {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
+// "1,234" for a count, and "1 match" or "2 matches" with its noun
+export const count = n => Number(n || 0).toLocaleString('en-US');
+export const plural = (n, one, many) => `${count(n)} ${n === 1 ? one : many}`;
+
 // "98.9%" for a share (0 to 1), to `places` decimals
 export const percent = (share, places = 0) => `${(share * 100).toFixed(places)}%`;
 

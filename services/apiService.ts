@@ -752,6 +752,13 @@ export const fetchAdminSetting = (key: string): Promise<any> =>
 export const saveAdminSetting = (key: string, value: string): Promise<any> =>
     adminRequest(`${API_BASE}/admin/settings`, 'POST', { key, value });
 
+// The Discord webhook (S18): the status with the URL masked, and a test post.
+export const fetchAdminDiscord = (): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/discord`);
+
+export const sendAdminDiscordTest = (): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/discord/test`, 'POST');
+
 export const fetchAdminMapCount = (): Promise<any> =>
     adminRequest(`${API_BASE}/maps?limit=1`);
 
