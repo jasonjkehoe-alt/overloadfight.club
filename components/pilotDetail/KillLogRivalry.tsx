@@ -10,13 +10,15 @@ import { PilotRivalry } from '../../services/apiService';
 // /api/pilot/:name/rivalry: all time and all modes, ranked logged matches only.
 const KillLogRivalry: React.FC<{ name: string; load: { data: PilotRivalry | null; failed: boolean; retry: () => void } }> = ({ name, load: { data, failed, retry } }) => {
     let body: React.ReactNode;
+    let ready = false;
     if (failed) {
         body = <ErrorState compact title="Rivals unavailable" message="Could not load the kill-log rivals." onRetry={retry} />;
     } else if (!data) {
         body = <Loading compact label="Loading kill-log rivals..." />;
     } else if (data.opponents.length === 0 && data.clutch.length === 0) {
-        body = <EmptyState compact icon={Swords} title="No logged matches" message={`None of this pilot's ranked matches has a kill or damage log. ${RIVALS_HINT}`} />;
+        body = <EmptyState compact icon={Swords} title="No kill-log rivals yet" message={`Nothing from this pilot's ranked matches with a kill or damage log yet. ${RIVALS_HINT}`} />;
     } else {
+        ready = true;
         body = (
             <>
                 <div className="grid gap-6 lg:grid-cols-2">
@@ -29,6 +31,7 @@ const KillLogRivalry: React.FC<{ name: string; load: { data: PilotRivalry | null
     }
     return (
         <section className="bg-surface-card border border-line p-4 rounded-card" aria-label="Rivals and clutch from the kill log">
+            {!ready && <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Rivals and clutch from the kill log</h4>}
             {body}
         </section>
     );

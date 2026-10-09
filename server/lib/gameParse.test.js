@@ -965,8 +965,15 @@ describe('rivalries, damage flow and clutch (S17)', () => {
         });
 
         it('lets a pilot without a team sit out of a team game and counts a pilot listed twice once', () => {
-            const game = { ...teamWithLog, players: [...teamWithLog.players, { name: 'LONER', kills: 0, deaths: 0 }, { ...teamWithLog.players[0], name: 'stitch ' }] };
+            const game = { ...teamWithLog, players: [...teamWithLog.players, { name: 'LONER', kills: 0, deaths: 0 }, { ...teamWithLog.players[1], name: 'stitch ' }] };
             expect(opponentsOf(game)).toEqual(opponentsOf(teamWithLog));
+        });
+
+        it('pairs a pilot who changed team with the teammates they ended on', () => {
+            // MAESTRO, listed ORANGE beside STITCH, started on BLUE
+            const game = { ...teamWithLog, teamChanges: [{ time: 60, playerName: 'MAESTRO', previousTeam: 'BLUE', currentTeam: 'ORANGE' }] };
+            const key = ([a, b]) => [a, b].sort().join('-');
+            expect(opponentsOf(game).map(key).sort()).toEqual([...opponentsOf(teamWithLog).map(key), 'maestro-stitch'].sort());
         });
 
         it('pairs the pilots of a match with a damage log and no kill log, so its damage has matches', () => {
@@ -990,6 +997,22 @@ describe('rivalries, damage flow and clutch (S17)', () => {
         it('counts damage on a pilot no listing places on a team, as killPoints() counts such a kill', () => {
             const game = { ...teamWithDamage, damage: [{ attacker: 'INSANER', defender: 'GHOST', weapon: 'Flak', damage: 5 }] };
             expect(damageFlows(game)).toHaveLength(1);
+        });
+
+        it('keeps damage between listed teammates when one of them changed team', () => {
+            const game = { ...teamWithDamage, damage: [{ attacker: 'STITCH', defender: 'MAESTRO', weapon: 'Flak', damage: 30 }] };
+            expect(damageFlows(game)).toEqual([]);
+            const changed = { ...game, teamChanges: [{ time: 60, playerName: 'maestro', previousTeam: 'BLUE', currentTeam: 'ORANGE' }] };
+            expect(damageFlows(changed)).toEqual([{ attacker: 'STITCH', defender: 'MAESTRO', damage: 30 }]);
+            const grid = damageGrid(changed);
+            const at = name => grid.pilots.findIndex(p => p.name === name);
+            expect(grid.mate[at('STITCH')][at('MAESTRO')]).toBe(false);
+            expect(damageGrid(game).mate[at('STITCH')][at('MAESTRO')]).toBe(true);
+        });
+
+        it('leaves out entries of no damage', () => {
+            const game = { ...teamWithDamage, damage: [{ attacker: 'INSANER', defender: 'MAESTRO', weapon: 'Flak', damage: 0 }, { attacker: 'INSANER', defender: 'MAESTRO', weapon: 'Flak', damage: -4 }] };
+            expect(damageFlows(game)).toEqual([]);
         });
 
         it('gives nothing for a match that is not ranked or has no damage log', () => {
@@ -1056,6 +1079,17 @@ describe('rivalries, damage flow and clutch (S17)', () => {
             expect(clutchOf(ctf(teamWithLog))).toBeNull();
             expect(clutchOf(byId(72099))).toBeNull();
         });
+
+        it('ends the last minute at the time limit, not at the later end the tracker records', () => {
+            // the fixture runs 3:34 by start and end; with a 3:20 limit the last minute starts at 2:20
+            const game = { ...teamWithLog, settings: { ...teamWithLog.settings, timeLimit: 200 } };
+            expect(clutchOf(game).kills.filter(k => k.late).map(k => k.attacker)).toEqual(['PHOENIX', 'INSANER']);
+        });
+
+        it('never counts a team-game kill by a pilot without a team as trailing', () => {
+            const game = { ...teamWithLog, players: [...teamWithLog.players, { name: 'LONER', kills: 1, deaths: 0 }], kills: [...teamWithLog.kills, { time: 200, attacker: 'LONER', defender: 'MAESTRO', weapon: 'Flak' }] };
+            expect(clutchOf(game).kills.at(-1)).toMatchObject({ attacker: 'LONER', trailing: false });
+        });
     });
 
     describe('rivalPass', () => {
@@ -1067,6 +1101,12 @@ describe('rivalries, damage flow and clutch (S17)', () => {
         pass.add({ id: 9, date: null }, null);
         const pairs = pass.pairs();
         const pair = (a, b) => pairs.find(p => p.pilot === a && p.opponent === b);
+
+        it('makes no pair of a kill without a defender', () => {
+            const blank = rivalPass();
+            blank.add({ id: 1, date: teamWithDamage.date }, { ...teamWithDamage, kills: [...teamWithDamage.kills, { time: 200, attacker: 'INSANER', defender: '', weapon: 'Flak' }] });
+            expect(blank.pairs().some(p => !p.pilot || !p.opponent)).toBe(false);
+        });
 
         it('writes each pair both ways, the kills and damage of one side the deaths and damage taken of the other', () => {
             expect(pairs).toHaveLength(10);

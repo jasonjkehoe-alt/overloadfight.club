@@ -699,6 +699,8 @@ describe('rivalries and clutch (S17)', () => {
         expect(net.damage[at('PHOENIX')][at('INSANER')]).toBe(0);
         // most kills exchanged first, each pair once from the side with more kills, ties by key
         expect(net.pairs.slice(0, 3).map(p => `${p.pilot}-${p.opponent}:${p.kills}-${p.deaths}`)).toEqual(['.-jftp:2-2', 'insaner-maestro:4-0', 'stitch-phoenix:2-1']);
+        // pilots who met without a kill either way make no pair
+        expect(net.pairs.every(p => p.kills > 0)).toBe(true);
     });
 
     it('lists a pilot\'s opponents and clutch counts beside everyone\'s', () => {

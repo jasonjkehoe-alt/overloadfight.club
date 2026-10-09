@@ -21,7 +21,7 @@ const DamageMatrix: React.FC<DamageMatrixProps> = ({ game }) => {
   const grid = useMemo(() => damageGrid(game), [game]);
   if (!grid) return <EmptyState card icon={Activity} title="No damage log" message="The tracker did not keep a damage log for this match, so there is no damage to show." />;
 
-  const { pilots, dealt, out, total } = grid;
+  const { pilots, dealt, mate, out, total } = grid;
   const team = pilots.some(p => p.team);
   const round = (n: number) => Math.round(n).toLocaleString();
   const who = (p: typeof pilots[number]) => (p.team ? `${p.name} (${p.team})` : p.name);
@@ -29,8 +29,7 @@ const DamageMatrix: React.FC<DamageMatrixProps> = ({ game }) => {
     const v = dealt[i][j];
     const [from, to] = [pilots[i], pilots[j]];
     if (i === j) return { share: null, text: v > 0 ? round(v) : '–', title: `${from.name}: ${round(v)} self-damage` };
-    const mate = from.team && from.team === to.team ? ' (teammate)' : '';
-    return { share: v > 0 && total > 0 ? v / total : null, text: v > 0 ? round(v) : '–', title: `${from.name} on ${to.name}${mate}: ${round(v)} damage, ${percent(total ? v / total : 0, 1)} of the match's damage to other pilots` };
+    return { share: v > 0 && total > 0 ? v / total : null, text: v > 0 ? round(v) : '–', title: `${from.name} on ${to.name}${mate[i][j] ? ' (teammate)' : ''}: ${round(v)} damage, ${percent(total ? v / total : 0, 1)} of the match's damage to other pilots` };
   };
 
   return (
@@ -42,7 +41,7 @@ const DamageMatrix: React.FC<DamageMatrixProps> = ({ game }) => {
       <HeatTable
         caption="Damage by each pilot (rows) on each pilot (columns) from the match's damage log, coloured by the share of the damage dealt to other pilots; the diagonal is self-damage."
         corner="Dealer"
-        columns={[...pilots.map(p => ({ key: p.key, label: p.name, title: who(p) })), { key: '\ntotal', label: 'Total', title: 'Damage dealt to other pilots' }]}
+        columns={[...pilots.map(p => ({ key: p.key, label: <Link to={urlFor('pilot', p.name)} className="hover:text-brand hover:underline">{p.name}</Link>, title: who(p) })), { key: '\ntotal', label: 'To others', title: 'Damage dealt to other pilots' }]}
         rows={pilots.map((p, i) => ({
           key: p.key,
           label: <Link to={urlFor('pilot', p.name)} className="hover:text-brand hover:underline" title={who(p)}>{p.name}</Link>,

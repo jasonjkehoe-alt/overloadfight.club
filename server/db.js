@@ -73,7 +73,7 @@ const db = {
     // A backup from before S5 has no game_players; build it for the restored games.
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
-    // A backup from before S13 to S16 lacks some of the derived tables; the
+    // A backup from before S13 to S17 lacks some of the derived tables; the
     // next refresh fills them. The built marker is cleared whatever the
     // backup carried, so a restore always gets one refresh at the next start.
     // Nor does it have the server tables, which start empty again.

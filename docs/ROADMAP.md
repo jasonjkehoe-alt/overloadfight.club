@@ -133,8 +133,8 @@ maintenance item does not count toward the 28.
   among 15 pilots, 89 directed damage edges. The damage log has no time
   and no teams, one entry per attacker, defender and weapon.
 - S17, the owner's six answers at the start (see the decisions).
-- S17, tests: `npx vitest run` passes 17 files, 286 tests (265 at the
-  start). `gameParse.test.js`: the defender on every `weaponKills` entry;
+- S17, tests: `npx vitest run` passes 17 files, 293 tests (265 at the
+  start, 286 before the review fixes). `gameParse.test.js`: the defender on every `weaponKills` entry;
   `opponentsOf` on `teamWithLog` (the four cross-team pairs) and
   `ffaWithLog`, a pilot without a team and a pilot listed twice, a match
   with a damage log and no kill log, nothing for a short or log-less
@@ -2197,7 +2197,7 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 17 files, 286 tests pass on 26.11.1 (S17; 265 at its start) | 2026-10-09 |
+| `npx vitest run` | all pass | 17 files, 293 tests pass on 26.11.1 (S17; 265 at its start) | 2026-10-09 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 233.26 KB raw / 74.77 KB gzip, pilot page `PilotDetail` 56.92 KB / 14.61 KB gzip, match page `GameDetail` 123.94 KB / 40.03 KB gzip, maps page `MapLibrary` 34.22 KB / 8.92 KB gzip, the shared `HeatTable` 1.61 KB / 0.71 KB, `Ladders` 7.54 KB / 2.38 KB, the new `Rivals` 7.00 KB / 2.38 KB gzip, dashboard `GameList` 41.67 KB / 11.43 KB gzip and no Recharts on its first visit, on 26.11.1 (S17; 74.64, 13.42, 39.81 and 9.35 at its start; `LiveGameDetail` 2.93 KB and `ServerHistory` 3.76 KB gzip in S15; one 351.07 KB chunk before S4) | 2026-10-09 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S17) | 2026-10-09 |
@@ -4503,17 +4503,24 @@ Not counted in the 28 sessions.
   of a ranked match with a kill or a damage log (review: with a kill log
   alone, a match logging only damage gave a pair damage and no match),
   each pilot once, a team-game pilot without a team sitting out (the
-  `ratingSides` rule). Damage flows are `damageFlows`:
+  `ratingSides` rule). A pilot named only in a log meets nobody, so their
+  kills and damage come without matches. Two pilots listed on the same
+  team are teammates only when neither is in `teamChanges` (review: the
+  tracker lists a pilot who changed team under one team, so a switcher's
+  kills on a former opponent landed with no match and their damage was
+  dropped; game 78780). Damage flows are `damageFlows`:
   a ranked match's damage-log entries with an attacker on another pilot,
   so no self-damage (the `playerRows` rule), and in a team game none
-  between two pilots listed on the same team (the log names no teams; a
+  between two such teammates (the log names no teams; a
   pilot no listing places counts as an opponent, as `killPoints` reads a
   kill on him). Clutch is `clutchOf`, on ranked matches that are
   `killScored` (Anarchy, Team Anarchy, no mode) and have a kill log, since
   trailing reads the score: first blood is `firstBloodOf`'s attacker, each
   kill on an opponent is late when its time is at least
-  `replayLengthOf(game) - CLUTCH.lateSeconds` (the match length, or the
-  last kill when that is later), and trailing when the killer's side,
+  the match length capped at `settings.timeLimit` (or the last kill when
+  that is later) less `CLUTCH.lateSeconds` (review: start to end runs 7 to
+  15 s past the time limit on real matches, so the window held about 49 s
+  of play), and trailing when the killer's side,
   before the kill, had fewer points than the best other side. It walks the
   log through `replayLog`'s visitor, so the score is the scrubber's.
   `replayLog` now skips a log entry that is not an object (review: the
@@ -4557,7 +4564,8 @@ Not counted in the 28 sessions.
   opponents (then damage, then key) with their totals over every
   opponent, `kills[i][j]` and `damage[i][j]` what pilot i did to pilot j
   (null on the diagonal), the 25 pairs with the most kills exchanged (each
-  once, from the side whose key sorts first), and the totals over every
+  once, from the side with more kills, on a tie the side whose key sorts
+  first), and the totals over every
   pair. `GET /api/pilot/:name/rivalry` (in `routes/pilots.js`) answers `{
   opponents, totals, clutch, community }`: the 10 opponents with the most
   kills exchanged (then damage exchanged, then key), the totals over every
@@ -4573,8 +4581,8 @@ Not counted in the 28 sessions.
   first; the site description while there are none). The count is
   `?by=kills|damage` through `useQueryParam` (kills left out; anything else
   reads as kills); it switches the grid only. The view
-  (`components/Rivals.tsx`, lazy, with `rivals/RivalGrid.tsx`,
-  `rivals/RivalPairs.tsx` and `rivals/rivalText.ts`) shows the grid on
+  (`components/Rivals.tsx`, lazy, with `rivals/RivalGrid.tsx` and
+  `rivals/RivalPairs.tsx`) shows the grid on
   `HeatTable`, each cell coloured by its share of the row's total over
   every opponent, so a row reads as where that pilot's kills went (a
   share of the whole table would have coloured only the top killers'

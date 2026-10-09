@@ -13,7 +13,7 @@ const DetailsTable: React.FC<{ summary: string; headers: string[]; rows: { key: 
                     <table className="w-full text-left">
                         <thead className="bg-surface-raised text-gray-500 uppercase sticky top-0">
                             <tr>
-                                {headers.map((h, i) => <th key={h} className={`px-3 py-1.5${i ? ' text-right' : ''}`}>{h}</th>)}
+                                {headers.map((h, i) => <th key={i} className={`px-3 py-1.5${i ? ' text-right' : ''}`}>{h}</th>)}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-line text-gray-300">

@@ -37,7 +37,7 @@ const ClutchProfile: React.FC<{ clutch: ClutchCounts[]; community: ClutchCounts[
                     </div>
                 ))}
             </dl>
-            <p className="text-2xs text-gray-500 mt-2">{CLUTCH_HINT} In FFA every pilot but the leader is trailing, so that share runs higher there than in team games.</p>
+            <p className="text-2xs text-gray-500 mt-2">{CLUTCH_HINT} In FFA every pilot behind the leader is trailing, so that share runs higher there than in team games.</p>
             <DetailsTable
                 summary="Clutch by kind of match"
                 headers={['Kind', 'Matches', 'First bloods', 'Kills', `Last ${CLUTCH.lateSeconds} s`, 'Trailing']}
