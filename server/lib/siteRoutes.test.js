@@ -15,6 +15,7 @@ describe('parseRoute and urlFor', () => {
             { view: 'pilot-manager' },
             { view: 'game-detail', param: 72102 },
             { view: 'live-game-detail', param: '143.110.230.67' },
+            { view: 'server', param: '143.110.230.67' },
             { view: 'pilots' },
             { view: 'rankings' },
             { view: 'cold-storage' },
@@ -40,6 +41,8 @@ describe('parseRoute and urlFor', () => {
         expect(urlFor('game-detail')).toBe('/history');
         expect(urlFor('pilot')).toBe('/pilot');
         expect(urlFor('live-game-detail')).toBe('/');
+        expect(urlFor('server')).toBe('/');
+        expect(parseRoute('/server')).toEqual({ view: 'dashboard' });
         expect(parseRoute('/pilot/%E0%A4%A')).toEqual({ view: 'pilot', param: '%E0%A4%A' });
     });
 });
@@ -56,12 +59,15 @@ describe('pageTitle', () => {
         expect(pageTitle({ view: 'maps', param: 'Vault' })).toBe('Vault map | overloadfight.club');
         expect(pageTitle({ view: 'live-game-detail', param: '1.2.3.4' })).toBe('Live: 1.2.3.4 | overloadfight.club');
         expect(pageTitle({ view: 'live-game-detail', param: '1.2.3.4' }, 'San Francisco 1')).toBe('Live: San Francisco 1 | overloadfight.club');
+        expect(pageTitle({ view: 'server', param: '1.2.3.4' })).toBe('Server: 1.2.3.4 | overloadfight.club');
+        expect(pageTitle({ view: 'server', param: '1.2.3.4' }, 'San Francisco 1')).toBe('Server: San Francisco 1 | overloadfight.club');
     });
 });
 
 describe('navSection', () => {
-    it('lights Leaderboards on the power rankings, and a page\'s own item otherwise', () => {
+    it('lights Leaderboards on the power rankings, Live on a server page, and a page\'s own item otherwise', () => {
         expect(navSection('rankings')).toBe('pilots');
+        expect(navSection('server')).toBe('dashboard');
         expect(navSection('pilots')).toBe('pilots');
         expect(navSection('maps')).toBe('maps');
     });

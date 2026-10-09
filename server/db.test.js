@@ -4,7 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { byId, day, onDay, sample, veteranSoup } from './testFixtures.js';
-import { RATING, dayBounds, fightNightDay, heatmapCells, shiftDay } from './lib/gameParse.js';
+import { HOUR_MS, RATING, dayBounds, dayStart, fightNightDay, heatmapCells, shiftDay } from './lib/gameParse.js';
 
 // Fixture games built from the samples:
 // 90001: game 72102 with the score flipped, an ORANGE win (STITCH, MAESTRO).
@@ -479,9 +479,9 @@ describe('backup and restore (backupHot, restoreHot)', () => {
     it('copies the live database and writes the copy back into it', async () => {
         const copy = path.join(dataDir, 'copy.db');
         await db.backupHot(copy);
-        // as a backup from before S13 and S14
+        // as a backup from before S13, S14 and S15
         const old = new Database(copy);
-        old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months');
+        old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months; DROP TABLE region_months; DROP TABLE servers; DROP TABLE server_snapshots; DROP TABLE server_hours');
         old.close();
         const today = fightNightDay(Date.now());
         expect(db.hasRatingSnapshots()).toBe(true);
@@ -489,6 +489,9 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         const before = db.countGames(null, null).count;
         db.saveGames([{ ...onDay(byId(72099)), id: 99999 }]);
         expect(db.countGames(null, null).count).toBe(before + 1);
+        // a tick inside the window and a summary read, so the restore has a kept summary to drop
+        db.saveServerSnapshot(Date.parse(dayStart(day)) + 14 * HOUR_MS, [{ server: { ip: '143.110.230.67', online: true } }]);
+        expect(db.getServerHistory('143.110.230.67', 30).samples).toBe(1);
 
         await db.restoreHot(copy);
         expect(db.countGames(null, null).count).toBe(before);
@@ -498,6 +501,9 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         // the table is back, empty until the next refresh, and the rankings held in memory are gone
         expect(db.hasRatingSnapshots()).toBe(false);
         expect(db.hasPilotMonths()).toBe(false);
+        expect(db.hasRegionMonths()).toBe(false);
+        expect(db.getRegionShare().months).toEqual([]);
+        expect(db.getServerHistory('143.110.230.67', 30)).toMatchObject({ firstSeen: null, samples: 0 });
         expect(db.getPilotCareer('JFTP').months).toEqual([]);
         expect(db.getPilotRating('JFTP').history).toEqual([]);
         expect(db.getPowerRankings(today).total).toBe(0);

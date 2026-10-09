@@ -531,6 +531,54 @@ export interface PilotCareer {
 
 export const fetchPilotCareer = (name: string) => getJson<PilotCareer>(`${API_BASE}/pilot/${encodeURIComponent(name)}/career`);
 
+// /api/server/:ip/history (S15): the server's listing and gameParse.js
+// serverSummary() over `days` whole fight-night days before `until`, and its
+// raw ticks of the last 24 hours. `firstSeen` is null for a server never stored.
+export interface ServerTick {
+    at: number;
+    // 1 when the tracker listed it online, 0 for an offline tick (listed offline, or left off the list)
+    online: number;
+    players: number;
+    // gameParse.js SERVER_STATE: 0 idle, 1 lobby, 2 match
+    state: number;
+}
+
+export interface ServerHistory {
+    ip: string;
+    name: string | null;
+    notes: string | null;
+    version: string | null;
+    region: string;
+    firstSeen: string | null;
+    days: number;
+    since: string;
+    until: string;
+    samples: number;
+    uptime: number | null;
+    inUse: number | null;
+    avgPilots: number | null;
+    peak: { pilots: number; at: string } | null;
+    // 7 rows (Monday first) of 24 average pilots by clock hour, null without a tick
+    cells: (number | null)[][];
+    busiest: { weekday: number; hour: number; pilots: number } | null;
+    // when the answer was made (ms); lastDay is the 24 hours of ticks up to
+    // it, lastDayHours the same hours from server_hours (UTC hour numbers)
+    asOf: number;
+    lastDay: ServerTick[];
+    lastDayHours: { hour: number; samples: number; online: number; match: number; peak: number }[];
+}
+
+export const fetchServerHistory = (ip: string, days: number) =>
+    getJson<ServerHistory>(`${API_BASE}/server/${encodeURIComponent(ip)}/history?days=${days}`);
+
+// /api/stats/regions (S15): stored matches per region (serverRegions.js ids)
+// per month, from the first stored match to this month.
+export interface RegionShare {
+    months: { month: string; total: number; counts: Record<string, number> }[];
+}
+
+export const fetchRegionShare = () => getJson<RegionShare>(`${API_BASE}/stats/regions`);
+
 // Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.

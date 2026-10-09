@@ -397,11 +397,15 @@ export const VERDICT_HINT = 'KO: the runner-up scored less than two thirds of th
 // all count days this way.
 export const FIGHT_NIGHT_DAY = { timeZone: 'America/Chicago', label: 'Central time', startHour: 6 };
 export const DAY_MS = 86400000;
-const HOUR_MS = 3600000;
+export const HOUR_MS = 3600000;
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 // "06:00" for an hour of the day
 export const clockHour = hour => `${String(hour).padStart(2, '0')}:00`;
+// An hour of a named fight-night day; an hour before the day starts is that
+// night's: "Monday 21:00", "Monday night, 02:00".
+export const atClock = (dayName, hour) =>
+    hour < FIGHT_NIGHT_DAY.startHour ? `${dayName} night, ${clockHour(hour)}` : `${dayName} ${clockHour(hour)}`;
 // The clock hours in the order a fight-night day runs through them: 06:00 to 05:00.
 export const DAY_HOURS = Array.from({ length: 24 }, (_, i) => (FIGHT_NIGHT_DAY.startHour + i) % 24);
 // The pages' words for the rule.
@@ -719,6 +723,13 @@ const nextMonth = month => {
     const [y, m] = month.split('-').map(Number);
     return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
 };
+// Every month (YYYY-MM) from `first` to `thisMonth`, or just `first` when it is later.
+const monthsTo = (first, thisMonth) => {
+    const months = [];
+    const last = thisMonth > first ? thisMonth : first;
+    for (let month = first; month <= last; month = nextMonth(month)) months.push(month);
+    return months;
+};
 
 // A career line: the totals of some matches, as pilot_months keeps them per
 // month and lastOuting() for a night. addToLine() adds one player's match.
@@ -739,21 +750,17 @@ export function addToLine(line, player, outcome, seconds = 0) {
 // Lethality, which are null for a month with no match.
 export function careerSeries(months, thisMonth) {
     const byMonth = new Map(months.map(m => [m.month, m]));
-    const first = months[0]?.month;
-    const series = [];
-    if (!first) return series;
-    const last = thisMonth > first ? thisMonth : first;
-    for (let month = first; month <= last; month = nextMonth(month)) {
+    if (!months[0]) return [];
+    return monthsTo(months[0].month, thisMonth).map(month => {
         const m = { ...emptyLine(), ...byMonth.get(month), month };
         const played = m.matches > 0;
-        series.push({
+        return {
             ...m,
             winRate: played ? winRate(m.wins, m.matches) : null,
             combatRatio: played ? combatRatio(m.kills, m.assists, m.deaths) : null,
             lethality: played ? lethality(m.kills, m.seconds) : null
-        });
-    }
-    return series;
+        };
+    });
 }
 
 // "Last time out" (S14): every stored match the pilot played on their latest
@@ -785,4 +792,97 @@ export function lastOuting(games, name) {
 // pilot's latest two on or before `day`, newest first.
 export function nightRatingChange([that, before], day) {
     return that?.day === day ? round((that.rating - (before?.rating ?? RATING.start)), 1) : null;
+}
+
+// Server history (S15). Every SNAPSHOT.everyMs the server stores the tracker's
+// server browser: one tick per listed server. The raw ticks are kept
+// SNAPSHOT.keepDays days; each tick is also added to its server's hour (the
+// UTC hour, which is one clock hour and one fight-night day in Chicago, whose
+// offset changes only on the hour), and the hours are kept for good.
+export const SNAPSHOT = { everyMs: 60000, keepDays: 30 };
+// What a server was doing at a tick, as the server browser shows it: no game,
+// a game in its lobby, or a match being played.
+export const SERVER_STATE = { idle: 0, lobby: 1, match: 2 };
+
+// One tick of one server-browser entry ({ server, game? }); null for an entry
+// without an IP.
+export function snapshotRow(entry) {
+    const ip = entry?.server?.ip;
+    if (!ip) return null;
+    const game = entry.game;
+    return {
+        ip,
+        online: entry.server.online ? 1 : 0,
+        players: Math.max(0, Number(game?.currentPlayers) || 0),
+        max_players: Number(game?.maxPlayers) || null,
+        // an offline server is idle whatever game the browser still lists on it, so
+        // a match tick is always an online tick (inUse is match over online)
+        state: !game || !entry.server.online ? SERVER_STATE.idle : game.inLobby ? SERVER_STATE.lobby : SERVER_STATE.match
+    };
+}
+
+// The server page's windows, in whole fight-night days before today (the
+// heatmap's rule, so each weekday counts the same number of days in 7 and its
+// multiples), and the one shown without ?days=.
+export const SERVER_WINDOWS = [7, 30, 90, 365];
+export const SERVER_WINDOW_DEFAULT = 30;
+export const serverWindow = (today, days) => ({ since: shiftDay(today, -days), until: today });
+
+const ratio = (part, whole) => (whole > 0 ? round(part / whole, 4) : null);
+
+// A server's numbers over some of its hours ({ hour, samples, online, lobby,
+// match, pilots, match_pilots, peak }, `hour` the UTC hour number):
+// - uptime: the share of ticks the tracker listed it online;
+// - inUse: the share of online ticks with a match being played;
+// - avgPilots: pilots per tick while a match was being played;
+// - peak: the most pilots in one tick, and the latest hour it happened;
+// - cells: average pilots per tick for each weekday (of the fight-night day,
+//   0 Monday) and clock hour, all ticks counted, null where there was none;
+//   busiest: the cell with the most.
+// A rate is null when it has nothing to divide by.
+export function serverSummary(hours) {
+    const total = { samples: 0, online: 0, match: 0, match_pilots: 0 };
+    const sums = Array.from({ length: 7 }, () => new Array(24).fill(0));
+    const ticks = Array.from({ length: 7 }, () => new Array(24).fill(0));
+    let peak = null;
+    for (const h of hours) {
+        for (const k of Object.keys(total)) total[k] += h[k];
+        const clock = localClock(h.hour * HOUR_MS);
+        sums[clock.weekday][clock.hour] += h.pilots;
+        ticks[clock.weekday][clock.hour] += h.samples;
+        if (h.peak > 0 && (!peak || h.peak > peak.pilots || (h.peak === peak.pilots && h.hour > peak.hour))) peak = { pilots: h.peak, hour: h.hour };
+    }
+    let busiest = null;
+    const cells = sums.map((row, weekday) => row.map((sum, hour) => {
+        const n = ticks[weekday][hour];
+        if (n === 0) return null;
+        const pilots = round(sum / n, 2);
+        if (pilots > 0 && (!busiest || pilots > busiest.pilots)) busiest = { weekday, hour, pilots };
+        return pilots;
+    }));
+    return {
+        samples: total.samples,
+        uptime: ratio(total.online, total.samples),
+        inUse: ratio(total.match, total.online),
+        avgPilots: total.match > 0 ? round(total.match_pilots / total.match, 2) : null,
+        peak: peak && { pilots: peak.pilots, at: new Date(peak.hour * HOUR_MS).toISOString() },
+        cells,
+        busiest
+    };
+}
+
+// Regional share (S15): stored matches per region per month of their
+// fight-night day. `rows` are { region, month, matches }; gives one entry per
+// month from the first to `thisMonth` (YYYY-MM): { month, total, counts },
+// counts keyed by region, a month without a match total 0.
+export function regionShare(rows, thisMonth) {
+    const byMonth = new Map();
+    for (const { region, month, matches } of rows) {
+        const m = byMonth.get(month) || { month, total: 0, counts: {} };
+        m.counts[region] = matches; // one row per (region, month)
+        m.total += matches;
+        byMonth.set(month, m);
+    }
+    const first = [...byMonth.keys()].sort()[0];
+    return first ? monthsTo(first, thisMonth).map(month => byMonth.get(month) || { month, total: 0, counts: {} }) : [];
 }

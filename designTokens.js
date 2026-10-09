@@ -1,6 +1,7 @@
 // The site's design tokens. tailwind.config.js turns them into classes
 // (bg-brand, bg-surface-card, border-line, rounded-card, text-2xs, ...);
 // chart code that needs a colour string imports them from here.
+import { REGIONS } from './server/lib/serverRegions.js';
 export const colors = {
   brand: { DEFAULT: '#ff6600', hover: '#ff8533' },
   // darkest to lightest: the page behind everything, cards and panels, controls and insets on a card
@@ -60,6 +61,15 @@ export const chart = {
   // 2.33:1). A count of 0 is surface.raised.
   ramp: ['#184f95', '#256abf', '#3987e5', '#6da7ec', '#9ec5f4'],
 };
+
+// Server regions (S15, the dashboard's region share), keyed by
+// server/lib/serverRegions.js REGIONS ids, which are stacked in that order: the
+// weapons' seven slots in their order, so in a month with every region the
+// neighbours are the pairs the validator passed (worst adjacent CVD ΔE 8.4). A
+// month missing a region puts two non-neighbours side by side, kept apart by
+// the chart's 2 px gap; the legend tells them apart. Unknown takes the weapons'
+// grey.
+chart.region = Object.fromEntries(REGIONS.map((r, i) => [r.id, Object.values(chart.weapon)[i]]));
 
 // The ramp colour for `count` against the largest count shown: each step
 // covers a fifth of the way to `max`.

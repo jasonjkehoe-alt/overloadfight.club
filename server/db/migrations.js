@@ -231,6 +231,67 @@ export function ensurePilotMonths() {
 }
 ensurePilotMonths();
 
+// Server history (S15): the tracker's server browser, stored by the server
+// every minute (services/serverSnapshots.js, gameParse.js SNAPSHOT). Unlike the
+// derived tables above, nothing can rebuild these: they are the only copy, and
+// the nightly backup carries them. In tracker.db only; the hot/cold split is for
+// games. `servers` is each server's latest listing; `server_snapshots` one row
+// per server per tick (`at` in ms), kept SNAPSHOT.keepDays days, keyed by server
+// so a page reads one server's day by key; `server_hours`
+// the ticks added up per server per UTC hour (`hour` = ms / 3600000), kept for
+// good. A tick writes all three in one transaction.
+export function ensureServerTables() {
+  hotDb.exec(`
+    CREATE TABLE IF NOT EXISTS servers (
+      ip TEXT PRIMARY KEY,
+      name TEXT,
+      notes TEXT,
+      version TEXT,
+      first_seen TEXT NOT NULL,
+      last_seen TEXT NOT NULL,
+      last_online TEXT
+    );
+    CREATE TABLE IF NOT EXISTS server_snapshots (
+      at INTEGER NOT NULL,
+      ip TEXT NOT NULL,
+      online INTEGER NOT NULL,
+      players INTEGER NOT NULL,
+      max_players INTEGER,
+      state INTEGER NOT NULL,
+      PRIMARY KEY (ip, at)
+    ) WITHOUT ROWID;
+    CREATE TABLE IF NOT EXISTS server_hours (
+      ip TEXT NOT NULL,
+      hour INTEGER NOT NULL,
+      samples INTEGER NOT NULL,
+      online INTEGER NOT NULL,
+      lobby INTEGER NOT NULL,
+      match INTEGER NOT NULL,
+      pilots INTEGER NOT NULL,
+      match_pilots INTEGER NOT NULL,
+      peak INTEGER NOT NULL,
+      PRIMARY KEY (ip, hour)
+    ) WITHOUT ROWID;
+  `);
+}
+ensureServerTables();
+
+// region_months (S15): stored matches per server region (server/lib/serverRegions.js)
+// per month of their fight-night day, hot and cold, for the dashboard's region
+// share. Derived like pilot_months: the stats worker counts every match on each
+// refresh and sends only the changes (statsPasses.js regionPass).
+export function ensureRegionMonths() {
+  hotDb.exec(`
+    CREATE TABLE IF NOT EXISTS region_months (
+      region TEXT NOT NULL,
+      month TEXT NOT NULL,
+      matches INTEGER NOT NULL,
+      PRIMARY KEY (region, month)
+    ) WITHOUT ROWID;
+  `);
+}
+ensureRegionMonths();
+
 // Admin Settings Table
 hotDb.exec(`
   CREATE TABLE IF NOT EXISTS admin_settings (

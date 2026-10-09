@@ -7,6 +7,7 @@ import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outco
 import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
 import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
 import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, weekdayOf, winRate } from './gameParse.js';
+import { HOUR_MS, SERVER_STATE, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, regionShare, serverSummary, serverWindow, snapshotRow } from './gameParse.js';
 import { ffaWithLog, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -735,5 +736,69 @@ describe('powerRankings and rankingMovement', () => {
         ]);
         const many = powerRankings(Array.from({ length: 30 }, (_, i) => snap(`p${i}`, 1500 + i)), '2026-10-08');
         expect(rankingMovement(many, [])).toHaveLength(RATING.listed);
+    });
+});
+
+describe('server history (S15)', () => {
+    const hourOf = iso => Date.parse(iso) / HOUR_MS;
+    const hour = (iso, fields) => ({ hour: hourOf(iso), samples: 60, online: 60, lobby: 0, match: 0, pilots: 0, match_pilots: 0, peak: 0, ...fields });
+
+    it('reads a server-browser entry as one tick', () => {
+        // the shape the tracker's /api/browser answers, with a sample game's server
+        const { ip, name, notes } = sample[0].server;
+        const server = { ip, name, serverNotes: notes, online: true };
+        expect(snapshotRow({ server, game: { currentPlayers: 6, maxPlayers: 16, inLobby: false } })).toEqual({ ip, online: 1, players: 6, max_players: 16, state: SERVER_STATE.match });
+        expect(snapshotRow({ server, game: { currentPlayers: 1, maxPlayers: 8, inLobby: true } })).toMatchObject({ players: 1, state: SERVER_STATE.lobby });
+        expect(snapshotRow({ server: { ...server, online: false } })).toEqual({ ip, online: 0, players: 0, max_players: null, state: SERVER_STATE.idle });
+        expect(snapshotRow({ server: { name } })).toBeNull();
+    });
+
+    it('counts uptime, use, average pilots and the peak over the hours', () => {
+        const s = serverSummary([
+            // Saturday 2026-10-03, 20:00 and 21:00 Chicago time (CDT, UTC-5)
+            hour('2026-10-04T01:00:00Z', { online: 60, match: 30, pilots: 210, match_pilots: 180, peak: 8 }),
+            hour('2026-10-04T02:00:00Z', { online: 30, lobby: 10, match: 0, pilots: 20, peak: 3 }),
+            // Sunday 2026-10-04 at 01:00, the same Saturday-night row: 8 pilots again, later
+            hour('2026-10-04T06:00:00Z', { online: 60, match: 60, pilots: 480, match_pilots: 480, peak: 8 })
+        ]);
+        expect(s).toMatchObject({ samples: 180, uptime: 0.8333, inUse: 0.6, avgPilots: 7.33, peak: { pilots: 8, at: '2026-10-04T06:00:00.000Z' } });
+        // (180 + 480) pilots over 90 match ticks; 210 / 60, 20 / 60 and 480 / 60 pilots per tick, all on Saturday's fight-night day
+        expect(s.cells[5][20]).toBe(3.5);
+        expect(s.cells[5][21]).toBe(0.33);
+        expect(s.cells[5][1]).toBe(8);
+        expect(s.cells[6].every(c => c === null)).toBe(true);
+        expect(s.busiest).toEqual({ weekday: 5, hour: 1, pilots: 8 });
+    });
+
+    it('puts both 01:00s of the day DST ends in one cell', () => {
+        // 2026-11-01 01:00 CDT is 06:00Z and 01:00 CST 07:00Z, both on Saturday 2026-10-31's night
+        const s = serverSummary([hour('2026-11-01T06:00:00Z', { pilots: 120 }), hour('2026-11-01T07:00:00Z', { pilots: 240 })]);
+        expect(s.cells[5][1]).toBe(3);
+        expect(s.cells.flat().filter(c => c !== null)).toHaveLength(1);
+    });
+
+    it('gives null rates with nothing to divide by', () => {
+        expect(serverSummary([])).toMatchObject({ samples: 0, uptime: null, inUse: null, avgPilots: null, peak: null, busiest: null });
+        expect(serverSummary([hour('2026-10-04T01:00:00Z', { online: 0 })])).toMatchObject({ uptime: 0, inUse: null, avgPilots: null, peak: null });
+    });
+
+    it('takes whole fight-night days before today as the window', () => {
+        expect(serverWindow('2026-10-08', 7)).toEqual({ since: '2026-10-01', until: '2026-10-08' });
+        expect(SERVER_WINDOWS).toContain(SERVER_WINDOW_DEFAULT);
+    });
+
+    it('fills the region share month by month to this month', () => {
+        const months = regionShare([
+            { region: 'europe', month: '2025-11', matches: 13 },
+            { region: 'na-west', month: '2025-11', matches: 8 },
+            { region: 'europe', month: '2026-01', matches: 2 }
+        ], '2026-02');
+        expect(months).toEqual([
+            { month: '2025-11', total: 21, counts: { europe: 13, 'na-west': 8 } },
+            { month: '2025-12', total: 0, counts: {} },
+            { month: '2026-01', total: 2, counts: { europe: 2 } },
+            { month: '2026-02', total: 0, counts: {} }
+        ]);
+        expect(regionShare([], '2026-02')).toEqual([]);
     });
 });

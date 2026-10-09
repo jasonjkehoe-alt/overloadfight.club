@@ -7,6 +7,9 @@ export const clock = seconds => {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
+// "98.9%" for a share (0 to 1), to `places` decimals
+export const percent = (share, places = 0) => `${(share * 100).toFixed(places)}%`;
+
 // Labels for a day (YYYY-MM-DD, a fight-night day) or a month (YYYY-MM), the
 // same in every viewer's time zone: read at noon UTC and formatted in UTC. The
 // formatters are made once; the activity calendar labels 371 days.

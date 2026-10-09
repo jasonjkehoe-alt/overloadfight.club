@@ -9,6 +9,7 @@ import { sessionMiddleware } from './auth.js';
 import routes from './routes.js';
 import adminRoutes from './admin-routes.js';
 import ingest from './ingest.js';
+import { startSnapshots, stopSnapshots } from './services/serverSnapshots.js';
 import backfillManager from './backfill.js';
 import maintenance from './maintenance.js';
 import mapSyncService from './services/mapSyncService.js';
@@ -552,6 +553,9 @@ const server = app.listen(PORT, () => {
     // Start data ingestion and polling
     ingest.startPolling();
 
+    // Store the tracker's server browser every minute (S15)
+    startSnapshots();
+
     // Ensure map database is populated from catalog
     mapSyncService.ensureMapsPopulated();
 
@@ -575,13 +579,15 @@ const server = app.listen(PORT, () => {
 });
 
 // docker stop sends SIGTERM and kills after 10 s: stop taking requests, give
-// those in flight up to 5 s, then stop the stats worker and close both databases.
+// those in flight up to 5 s, then stop the snapshot timer and the stats worker
+// and close both databases.
 async function shutdown(signal) {
     console.log(`[Shutdown] ${signal} received, closing databases...`);
     await new Promise(resolve => {
         server.close(resolve);
         setTimeout(resolve, 5000).unref();
     });
+    stopSnapshots();
     await db.close();
     console.log('[Shutdown] Done.');
     process.exit(0);

@@ -4,6 +4,7 @@
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
 import { OUTCOME_FIELD, addToLine, careerMonth, emptyLine, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winRate, winnerOf } from './gameParse.js';
+import { regionOf, UNKNOWN_REGION } from './serverRegions.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
 // per pilot per career month for pilot_months.
@@ -291,6 +292,57 @@ export function ratingPass() {
         if (sides) matches.push({ id: row.id, date: row.date || g.date, sides });
     }
     return { add, rows: () => ratingSnapshots(matches) };
+}
+
+// region_months columns, in table order.
+export const REGION_MONTH_COLUMNS = ['region', 'month', 'matches'];
+
+// region_months rows (S15): every stored match, hot and cold, counted by the
+// region of its server and the month of its fight-night day. The region comes
+// from the server name and notes stored with the match; for a match without
+// them (or with no place in them), from the latest stored match on the same IP
+// that has one, else from the server's latest listing (`regionByIp`, from the
+// servers table), else Unknown.
+export function regionPass(regionByIp = new Map()) {
+    const counts = new Map();
+    // matches whose region waits on their IP: `${ip}\n${month}` -> count
+    const pending = new Map();
+    // ip -> { region, date } of its latest match with a region
+    const learned = new Map();
+    // a few hundred server names and notes across every stored match
+    const regionCache = new Map();
+    const regionOfServer = ({ name, notes }) => {
+        const key = `${name}\n${notes}`;
+        if (!regionCache.has(key)) regionCache.set(key, regionOf(name, notes));
+        return regionCache.get(key);
+    };
+    const count = (key, n = 1) => counts.set(key, (counts.get(key) || 0) + n);
+    function add(row, g) {
+        const month = careerMonth(row.date || g?.date);
+        if (!month) return;
+        const ip = row.ip || g?.server?.ip || '';
+        const date = row.date || g?.date || '';
+        const region = g?.server ? regionOfServer(g.server) : UNKNOWN_REGION;
+        if (region !== UNKNOWN_REGION) {
+            if (ip && !(learned.get(ip)?.date > date)) learned.set(ip, { region, date });
+            count(`${region}\n${month}`);
+        } else {
+            const key = `${ip}\n${month}`;
+            pending.set(key, (pending.get(key) || 0) + 1);
+        }
+    }
+    function rows() {
+        for (const [key, n] of pending) {
+            const [ip, month] = key.split('\n');
+            count(`${learned.get(ip)?.region || regionByIp.get(ip) || UNKNOWN_REGION}\n${month}`, n);
+        }
+        pending.clear();
+        return [...counts].map(([key, matches]) => {
+            const [region, month] = key.split('\n');
+            return { region, month, matches };
+        });
+    }
+    return { add, rows };
 }
 
 // The cold_storage_stats_cache payload. The pilot totals come from the rows

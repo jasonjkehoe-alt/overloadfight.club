@@ -17,6 +17,7 @@ const LiveGameDetail = lazy(() => import('./components/LiveGameDetail'));
 const PilotDetail = lazy(() => import('./components/PilotDetail'));
 const PilotsList = lazy(() => import('./components/PilotsList'));
 const PowerRankings = lazy(() => import('./components/PowerRankings'));
+const ServerHistory = lazy(() => import('./components/ServerHistory'));
 const MapLibrary = lazy(() => import('./components/MapLibrary'));
 const OlmodInfo = lazy(() => import('./components/OlmodInfo'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
@@ -33,6 +34,9 @@ const App: React.FC = () => {
   const currentView = route.view;
   const selectedGameId = currentView === 'game-detail' ? Number(route.param) : null;
   const activeServerIp = currentView === 'live-game-detail' ? String(route.param) : null;
+  const historyServerIp = currentView === 'server' ? String(route.param) : null;
+  // the server page's stored name, for its title (the live list may not have it)
+  const [serverName, setServerName] = useState<{ ip: string; name: string } | null>(null);
   const selectedPilot = currentView === 'pilot' ? String(route.param) : null;
   const selectedFightNightDate = currentView === 'fight-night' && route.param ? String(route.param) : undefined;
 
@@ -118,6 +122,7 @@ const App: React.FC = () => {
 
   const titleName = currentView === 'game-detail' ? selectedGameData?.settings?.level
     : currentView === 'live-game-detail' ? activeServer?.server?.name
+    : currentView === 'server' ? (serverName?.ip === historyServerIp ? serverName.name : undefined)
     : undefined;
   useEffect(() => {
     document.title = pageTitle(route, titleName);
@@ -240,6 +245,15 @@ const App: React.FC = () => {
           serverData={activeServer}
           archivedGames={archivedGames}
           onBack={() => goBack(urlFor('dashboard'))}
+        />
+      )}
+
+      {currentView === 'server' && historyServerIp && (
+        <ServerHistory
+          key={historyServerIp}
+          ip={historyServerIp}
+          onBack={() => goBack(urlFor('dashboard'))}
+          onName={name => setServerName({ ip: historyServerIp, name })}
         />
       )}
 

@@ -1,16 +1,16 @@
 import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
-import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS } from '../../lib/statsPasses.js';
+import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS, REGION_MONTH_COLUMNS } from '../../lib/statsPasses.js';
 import { clearRankings } from './ratings.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
 // the run in progress. Never rejects: a failure is logged and the old caches stay,
-// except rating_snapshots and pilot_months, whose chunks already written stay
-// until the next refresh.
+// except rating_snapshots, pilot_months and region_months, whose chunks already
+// written stay until the next refresh.
 let refreshing = null;
-// rating_snapshots and pilot_months rows written per transaction (see writeChanges)
+// rating_snapshots, pilot_months and region_months rows written per transaction (see writeChanges)
 const WRITE_CHUNK = 2000;
 // The stats worker while a refresh runs, so close() can stop it first.
 let statsWorker = null;
@@ -66,7 +66,7 @@ async function refreshCaches() {
     ensurePilotStatsCache();
 
     const started = performance.now();
-    const { errors, pilots, archive, maps, ratings, months } = await runStatsWorker();
+    const { errors, pilots, archive, maps, ratings, months, regions } = await runStatsWorker();
     for (const [pass, message] of Object.entries(errors)) console.error(`[StatsWorker] ${pass} pass failed: ${message}`);
 
     if (!errors.pilots) {
@@ -129,6 +129,10 @@ async function refreshCaches() {
     if (months) {
       await writeChanges('pilot_months', PILOT_MONTH_COLUMNS, months);
       console.log(`[Career] ${months.total} pilot months: ${months.upserts.length} written, ${months.deletes.length} removed.`);
+    }
+    if (regions) {
+      await writeChanges('region_months', REGION_MONTH_COLUMNS, regions);
+      console.log(`[Regions] ${regions.total} region months: ${regions.upserts.length} written, ${regions.deletes.length} removed.`);
     }
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);
   } catch (err) {
