@@ -242,6 +242,13 @@ maintenance item does not count toward the 28.
   file is over 500.
 - S18, `docker compose config` on both compose files: `DISCORD_WEBHOOK_URL`
   and `SITE_URL` empty by default and passed through when set.
+- S18, CI on PR #19: `check` (tsc, vite build, vitest) passed; the
+  Docker `build` job failed twice before building anything, Docker Hub
+  answering 429 to the runner's pull of `node:26-alpine`. Locally, `docker
+  build` from the cached `node:26-alpine` built the image, which ran as
+  uid 1000, reported healthy with `NODE_ENV=production` and a webhook
+  URL set, logged no part of the URL's token, and logged `[Shutdown]
+  Done.` on `docker stop`.
 
 - S17, first move on Node 26.11.1, on `main` at `5e2d02d` (PR #17
   merged, no owner commits after it; `git diff
@@ -1979,7 +1986,8 @@ maintenance item does not count toward the 28.
   long it holds the post back on the NAS's 75,000 is unknown.
 - Headless Chrome 154 on macOS only, at 1,280 and 390 px. Not Safari,
   Firefox or a real phone; no screen reader on the switch.
-- CI on the S18 PR before it opened; see the PR's checks.
+- The Docker `build` job on PR #19 at the time of writing: Docker Hub's
+  429 to the runner stopped it before the build; see the PR's checks.
 
 - S17 ran on the 43 local matches (five with both logs, all Anarchy or
   Team Anarchy), the fixtures with hand-written logs and mocked answers.
@@ -2355,7 +2363,7 @@ maintenance item does not count toward the 28.
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S18) | 2026-10-09 |
 | `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S18 on `/tmp/ofc-data` with `DISCORD_WEBHOOK_URL` at a local stub: `total_games: 48`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries` (12 pilots, 25 pairs, 731 kills), `/api/pilot/WD-40/rivalry` and `/api/health` all 200; new `/api/admin/discord` and `/api/admin/discord/test` 401 without a session, the URL masked and a test post 200 or 502 with one; the token in no log line | 2026-10-09 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
-| `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine`, arm64: healthy in 5 s, uid 1000, 599 MB (Node 26; S6 on `node:22-alpine`: about 9 s, 567 MB) | 2026-10-08 |
+| `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine` (cached locally), arm64: healthy, uid 1000, with `DISCORD_WEBHOOK_URL` set and none of it logged (S18; Docker Hub's 429 stopped CI's build job) | 2026-10-09 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
 | `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
 | Same server, `curl -w "%{time_total}" "localhost:3100/api/games?page=1"` more than 30 s after the last sync | answers from the DB, sync logged after | 200 in 0.0019 s, `[Sync] Fetching page 1` logged after it (S4) | 2026-10-06 |
