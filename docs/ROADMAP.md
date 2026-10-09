@@ -264,6 +264,10 @@ maintenance item does not count toward the 28.
   1000, reported healthy, drew WD-40's card (200, 1200 × 630, 132 ms) and
   logged `[Shutdown] Done.` on `docker stop`. The image is 619 MB (599 MB
   in the Node 26 record).
+- S19, CI on PR #20 (`9a8ad59`): `check` passed in 1 min 0 s (tsc, the
+  vite build, vitest 21 files and 352 tests on Node 26); docker-publish's
+  `build` passed in 1 min 54 s, building linux/amd64 with `push: false`,
+  so the amd64 image installed resvg's `linux-x64-musl` package and built.
 
 - S18, first move on Node 26.11.1, on `main` at `726e536` (PR #18
   merged, no owner commits after it; `git diff
@@ -2138,7 +2142,8 @@ maintenance item does not count toward the 28.
   scripts were not tried.
 - Headless Chrome 154 on macOS only, at 1,280 and 390 px; the cards were
   looked at as PNG files, not inside a chat client's preview.
-- CI on the S19 PR at the time of writing; see the PR's checks.
+- The amd64 image CI built for PR #20 was not run, so no card was drawn
+  with `resvg-js-linux-x64-musl`.
 
 - Nothing has posted to a real Discord channel: the [HUMAN] webhook task
   is open, so every post went to a local stub. Whether Discord renders
