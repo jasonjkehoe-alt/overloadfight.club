@@ -12,13 +12,17 @@ import { pingMessage, recapMessage, testMessage } from '../lib/discordMessages.j
 export const DISCORD_SETTING = 'discord_enabled';
 // A post is one attempt plus one more after a 429 (after Retry-After, capped)
 // or a 5xx or no answer (after waitMs). One that still fails stays pending for
-// the next tick or detector run, up to `tries` posts; then it is dropped, as
-// it is at once after any other 4xx.
+// the next tick (ping) or detector run (recap), up to `tries` posts; then it is
+// dropped, as it is at once after any other 4xx, and once its day is past
+// (expireDiscordPosts).
 export const DISCORD_RETRY = { waitMs: 5000, maxWaitMs: 60000, timeoutMs: 10000, tries: 3 };
 const DEFAULT_ORIGIN = 'https://overloadfight.club';
 
 let stopped = false;
 const inflight = new Map();
+// The pilots at the last tick: the ping needs the count to cross the line, so
+// an evening still on when the day rolls over at 06:00 is not a new one.
+let lastPilots = 0;
 
 const webhookUrl = () => process.env.DISCORD_WEBHOOK_URL?.trim() || null;
 const validUrl = url => URL.canParse(url) && ['http:', 'https:'].includes(new URL(url).protocol);
@@ -28,7 +32,8 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms).unref());
 // The origin the messages link to: SITE_URL, or the public site.
 export const siteOrigin = () => (process.env.SITE_URL?.trim() || DEFAULT_ORIGIN).replace(/\/+$/, '');
 export const discordEnabled = () => db.getAdminSetting.get(DISCORD_SETTING)?.value === 'true';
-const posting = () => !stopped && Boolean(webhookUrl()) && discordEnabled();
+const posting = () => !stopped && validUrl(webhookUrl() ?? '') && discordEnabled();
+export const hasWebhook = () => Boolean(webhookUrl());
 
 // The URL as the admin page shows it: its origin and last four characters.
 export const maskWebhook = url => (validUrl(url) ? `${new URL(url).origin}/…${url.slice(-4)}` : 'not a valid http(s) URL');
@@ -82,22 +87,30 @@ function deliver(kind, key, build) {
     if (inflight.has(id)) return inflight.get(id);
     const row = db.getDiscordPost(kind, key);
     if (row && row.status !== 'pending') return null;
+    const record = result => {
+        if (stopped) return;
+        const tries = (row?.tries ?? 0) + 1;
+        const status = result.ok ? 'sent' : tries >= DISCORD_RETRY.tries || !retryable(result.status) ? 'dropped' : 'pending';
+        db.putDiscordPost({ kind, key, status, tries });
+        console.log(`[Discord] ${id}: ${result.ok ? `sent (${result.status})` : `${failureText(result)}, ${status === 'pending' ? 'will try again' : 'dropped'} (post ${tries} of ${DISCORD_RETRY.tries})`}.`);
+    };
     const job = (async () => {
+        let message;
         try {
-            const result = await send(await build());
-            if (stopped) return result;
-            const tries = (row?.tries ?? 0) + 1;
-            const status = result.ok ? 'sent' : tries >= DISCORD_RETRY.tries || !retryable(result.status) ? 'dropped' : 'pending';
-            db.putDiscordPost({ kind, key, status, tries });
-            console.log(`[Discord] ${id}: ${result.ok ? `sent (${result.status})` : `${failureText(result)}, ${status === 'pending' ? 'will try again' : 'dropped'} (post ${tries} of ${DISCORD_RETRY.tries})`}.`);
-            return result;
+            message = await build();
         } catch (error) {
-            console.error(`[Discord] ${id} not posted:`, error.message);
+            // a message that cannot be built counts as a failed try
+            record({ ok: false, status: 0, reason: `the message could not be built (${error.message})` });
             return null;
-        } finally {
-            inflight.delete(id);
         }
-    })();
+        const result = await send(message);
+        try {
+            record(result);
+        } catch (error) {
+            console.error(`[Discord] ${id} not recorded:`, error.message);
+        }
+        return result;
+    })().finally(() => inflight.delete(id));
     inflight.set(id, job);
     return job;
 }
@@ -109,8 +122,14 @@ function deliver(kind, key, build) {
  */
 export function checkPing(servers, now = Date.now()) {
     try {
-        if (browserPilots(servers) < FIGHT_NIGHT_PING.pilots || !posting()) return null;
-        return deliver('ping', fightNightDay(now), () => pingMessage(servers, siteOrigin()));
+        const pilots = browserPilots(servers);
+        const rising = lastPilots < FIGHT_NIGHT_PING.pilots;
+        lastPilots = pilots;
+        if (pilots < FIGHT_NIGHT_PING.pilots || !posting()) return null;
+        const day = fightNightDay(now);
+        // a new evening, or one whose ping is still pending
+        if (!rising && db.getDiscordPost('ping', day)?.status !== 'pending') return null;
+        return deliver('ping', day, () => pingMessage(servers, siteOrigin()));
     } catch (error) {
         console.error('[Discord] Ping check failed:', error.message);
         return null;
@@ -118,9 +137,11 @@ export function checkPing(servers, now = Date.now()) {
 }
 
 // The power rankings on the day after the night, after a stats refresh so
-// the night's matches count.
+// the night's matches count (one already under way may have started before
+// they were stored, so it is waited out first).
 async function rankingsAfter(date) {
     try {
+        await db.refreshInProgress();
         await db.refreshPilotStats();
     } catch (error) {
         console.error('[Discord] Stats refresh before the recap failed:', error.message);
@@ -142,6 +163,17 @@ export function postRecap(date, saved = false) {
     } catch (error) {
         console.error(`[Discord] Recap ${date} not queued:`, error.message);
         return null;
+    }
+}
+
+// Each detector run: drops the pings still pending from before today and the
+// recaps from before the detector's window, which no tick or run will try again.
+export function expireDiscordPosts(today, firstRecapDay) {
+    try {
+        db.dropStaleDiscordPosts('ping', today);
+        db.dropStaleDiscordPosts('recap', firstRecapDay);
+    } catch (error) {
+        console.error('[Discord] Old posts not expired:', error.message);
     }
 }
 
@@ -175,4 +207,4 @@ export function stopDiscord() {
 // The posts under way (for tests).
 export const postsSettled = () => Promise.all(inflight.values());
 
-export default { checkPing, postRecap, sendTest, discordStatus, stopDiscord };
+export default { checkPing, postRecap, expireDiscordPosts, sendTest, discordStatus, hasWebhook, stopDiscord };

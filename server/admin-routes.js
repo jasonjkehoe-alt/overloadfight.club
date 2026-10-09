@@ -379,7 +379,7 @@ router.get('/discord', (req, res) => {
 
 // POST /api/admin/discord/test - one test post, whether or not posting is on
 router.post('/discord/test', async (req, res) => {
-    if (!discordService.discordStatus().configured) {
+    if (!discordService.hasWebhook()) {
         return res.status(400).json({ error: 'No webhook URL is set. Set DISCORD_WEBHOOK_URL in the server\'s environment and restart it.' });
     }
     const result = await discordService.sendTest();

@@ -103,6 +103,8 @@ const entry = (ip, players, game = {}) => ({
     game: { currentPlayers: players, maxPlayers: 8, mapName: 'Vault', mode: 'ANARCHY', inLobby: false, ...game }
 });
 const busy = [entry('10.0.0.1', 4), entry('10.0.0.2', 2, { inLobby: true })];
+// a tick with nobody on, so the next busy one starts a new evening
+const quiet = at => discord.checkPing([], at);
 
 describe('the recap embed on fixture data', () => {
     let recap;
@@ -222,8 +224,17 @@ describe('the "it\'s on" ping', () => {
         expect(received[0].url).toBe(`/api/webhooks/1234/${SECRET}`);
         expect(received[0].body.content).toBe('It\'s on: 6 pilots in the server browser.');
         expect(received[0].body.allowed_mentions).toEqual({ parse: [] });
-        // the next fight-night day
-        await discord.checkPing(busy, Date.parse(dayStart(shiftDay(day, 1))) + 60000);
+        // a second evening the same day, after a quiet spell: still one ping
+        quiet(now + 120000);
+        expect(discord.checkPing(busy, now + 180000)).toBeNull();
+        expect(received).toHaveLength(1);
+        // still on after the 06:00 rollover: the same evening, no second ping
+        const next = Date.parse(dayStart(shiftDay(day, 1)));
+        expect(discord.checkPing(busy, next + 60000)).toBeNull();
+        expect(received).toHaveLength(1);
+        // a new evening on the next fight-night day
+        quiet(next + 3600000);
+        await discord.checkPing(busy, next + 7200000);
         expect(received).toHaveLength(2);
         expect(rows('ping').map(r => [r.key, r.status, r.tries]).sort()).toEqual([[day, 'sent', 1], [shiftDay(day, 1), 'sent', 1]]);
     });
@@ -231,6 +242,7 @@ describe('the "it\'s on" ping', () => {
     it('waits out a 429\'s Retry-After and tries once more; a 404 is dropped at once', async () => {
         const now = Date.parse(dayStart(shiftDay(day, 2))) + 3600000;
         answer(reply(429, { 'Content-Type': 'application/json' }, JSON.stringify({ retry_after: 0.05 })));
+        quiet(now - 60000);
         const started = Date.now();
         expect(await discord.checkPing(busy, now)).toMatchObject({ ok: true });
         expect(Date.now() - started).toBeGreaterThanOrEqual(45);
@@ -238,6 +250,7 @@ describe('the "it\'s on" ping', () => {
 
         answer(reply(404));
         const later = Date.parse(dayStart(shiftDay(day, 3))) + 3600000;
+        quiet(later - 60000);
         expect(await discord.checkPing(busy, later)).toMatchObject({ ok: false, status: 404 });
         await discord.checkPing(busy, later + 60000);
         expect(received).toHaveLength(3);
@@ -247,12 +260,14 @@ describe('the "it\'s on" ping', () => {
     it('keeps a failing ping pending for the next tick, then drops it after 3 posts', async () => {
         const now = Date.parse(dayStart(shiftDay(day, 4))) + 3600000;
         answer(...Array.from({ length: 6 }, () => reply(500)));
+        quiet(now - 60000);
         await discord.checkPing(busy, now);
         expect(db.getDiscordPost('ping', shiftDay(day, 4))).toMatchObject({ status: 'pending', tries: 1 });
         await discord.checkPing(busy, now + 60000);
         await discord.checkPing(busy, now + 120000);
         await discord.checkPing(busy, now + 180000);
-        // each post is an attempt and one retry
+        // each post is an attempt and one retry; the later ticks were not a
+        // new evening, but the ping was pending
         expect(received).toHaveLength(6);
         expect(db.getDiscordPost('ping', shiftDay(day, 4))).toMatchObject({ status: 'dropped', tries: 3 });
     });
@@ -322,6 +337,28 @@ describe('the recap post from the detector', () => {
         expect(received[2].body.embeds[0].url).toBe(`${ORIGIN}/fight-night/${day}`);
         expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'sent', tries: 2 });
     });
+
+    it('counts a recap that cannot be built as a failed try', async () => {
+        switchOn();
+        // queued, but its recap is gone (a save that failed, a hand delete)
+        db.putDiscordPost({ kind: 'recap', key: '2001-01-01', status: 'pending', tries: 0 });
+        await discord.postRecap('2001-01-01');
+        expect(received).toHaveLength(0);
+        expect(db.getDiscordPost('recap', '2001-01-01')).toMatchObject({ status: 'pending', tries: 1 });
+    });
+
+    it('drops the posts still pending that no tick or detector run will try again', async () => {
+        db.putDiscordPost({ kind: 'ping', key: shiftDay(day, 1), status: 'pending', tries: 1 });
+        db.putDiscordPost({ kind: 'ping', key: shiftDay(day, 2), status: 'pending', tries: 1 });
+        db.putDiscordPost({ kind: 'recap', key: shiftDay(day, -1), status: 'pending', tries: 1 });
+        // the detector on day + 2: its window is `day` and the day after
+        await detectAt(morning);
+        expect(db.getDiscordPost('ping', shiftDay(day, 1)).status).toBe('dropped');
+        expect(db.getDiscordPost('ping', shiftDay(day, 2)).status).toBe('pending');
+        expect(db.getDiscordPost('recap', shiftDay(day, -1)).status).toBe('dropped');
+        expect(db.getDiscordPost('recap', '2001-01-01').status).toBe('dropped');
+        expect(db.getDiscordPost('recap', day).status).toBe('sent');
+    });
 });
 
 describe('admin endpoints and secrecy', () => {
@@ -382,8 +419,17 @@ describe('admin endpoints and secrecy', () => {
             const closed = await (await post(`${adminUrl}/discord/test`)).json();
             expect(closed.error).toBe('no answer from Discord (ECONNREFUSED).');
             switchOn();
-            await discord.checkPing(busy, Date.parse(dayStart(shiftDay(day, 5))) + 3600000);
+            const evening = Date.parse(dayStart(shiftDay(day, 5))) + 3600000;
+            quiet(evening - 60000);
+            await discord.checkPing(busy, evening);
             expect(db.getDiscordPost('ping', shiftDay(day, 5))).toMatchObject({ status: 'pending', tries: 1 });
+
+            // an unparsable URL posts nothing and leaves no row to retry
+            process.env.DISCORD_WEBHOOK_URL = `discord.com/api/webhooks/1/${SECRET}`;
+            const another = Date.parse(dayStart(shiftDay(day, 8))) + 3600000;
+            quiet(another - 60000);
+            expect(discord.checkPing(busy, another)).toBeNull();
+            expect(db.getDiscordPost('ping', shiftDay(day, 8))).toBeNull();
         } finally {
             process.env.DISCORD_WEBHOOK_URL = stubUrl;
         }
@@ -404,6 +450,7 @@ describe('shutdown', () => {
         const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (...args) => { await held; return realFetch(...args); });
         try {
             const key = shiftDay(day, 6);
+            quiet(Date.parse(dayStart(key)));
             const pending = discord.checkPing(busy, Date.parse(dayStart(key)) + 3600000);
             discord.stopDiscord();
             release();

@@ -1,5 +1,5 @@
 import db from '../db.js';
-import { postRecap } from './discordService.js';
+import { expireDiscordPosts, postRecap } from './discordService.js';
 import { FIGHT_NIGHT_DAY, dayStart, fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
 
 export const FIGHT_NIGHT_THRESHOLDS = {
@@ -402,6 +402,7 @@ export async function checkAndGenerateRecentFightNight() {
     try {
         console.log('[FightNight] Running big night detector...');
         const today = fightNightDay(Date.now());
+        expireDiscordPosts(today, shiftDay(today, -2));
         // the two fight-night days before today's, which is still running
         for (let daysAgo = 1; daysAgo <= 2; daysAgo++) {
             const dateStr = shiftDay(today, -daysAgo);

@@ -16,3 +16,15 @@ export const putDiscordPost = ({ kind, key, status, tries }) =>
 
 const recentPostsStmt = hotDb.prepare('SELECT kind, key, status, tries, updated_at FROM discord_posts ORDER BY updated_at DESC LIMIT ?');
 export const getRecentDiscordPosts = (limit = 5) => recentPostsStmt.all(limit);
+
+// Every row, and the rows written back over a restored backup's (db.restoreHot).
+const allPostsStmt = hotDb.prepare('SELECT kind, key, status, tries, updated_at FROM discord_posts');
+export const getAllDiscordPosts = () => allPostsStmt.all();
+const keepPostStmt = hotDb.prepare('INSERT OR REPLACE INTO discord_posts (kind, key, status, tries, updated_at) VALUES (@kind, @key, @status, @tries, @updated_at)');
+export const restoreDiscordPosts = hotDb.transaction(rows => {
+  for (const row of rows) keepPostStmt.run(row);
+});
+
+// Drops the pending posts of `kind` keyed before `key`, which nothing will try again.
+const dropStaleStmt = hotDb.prepare("UPDATE discord_posts SET status = 'dropped', updated_at = ? WHERE kind = ? AND key < ? AND status = 'pending'");
+export const dropStaleDiscordPosts = (kind, key) => dropStaleStmt.run(new Date().toISOString(), kind, key).changes;

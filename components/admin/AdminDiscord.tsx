@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, RefreshCw, Send } from 'lucide-react';
 import { EmptyState, ErrorState, Loading, secondaryButtonClass } from '../States';
 import type { DiscordPost, useAdminDiscord } from '../../hooks/useAdminDiscord';
 
@@ -46,14 +46,14 @@ const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
                     <div className="flex items-center justify-between gap-4 bg-surface-raised border border-line rounded-control p-4">
                         <div>
                             <p id="admin-discord-switch" className="font-bold text-white text-sm">Post to Discord</p>
-                            <p className="text-xs text-gray-400">{!status.configured ? 'Set the webhook URL first.' : status.enabled ? 'On: recaps and the ping post to the channel.' : 'Off: nothing posts.'}</p>
+                            <p className="text-xs text-gray-400">{!status.configured ? (status.enabled ? 'On, but nothing posts until a webhook URL is set.' : 'Set the webhook URL first.') : status.enabled ? 'On: recaps and the ping post to the channel.' : 'Off: nothing posts.'}</p>
                         </div>
                         <button
                             type="button"
                             role="switch"
                             aria-checked={status.enabled}
                             aria-labelledby="admin-discord-switch"
-                            disabled={!status.configured}
+                            disabled={!status.configured && !status.enabled}
                             onClick={() => setEnabled(!status.enabled)}
                             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${status.enabled ? 'bg-brand' : 'bg-gray-600'}`}
                         >
@@ -72,7 +72,12 @@ const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
                     </div>
 
                     <div>
-                        <p className="font-bold text-white text-sm mb-2">Latest posts</p>
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                            <p className="font-bold text-white text-sm">Latest posts</p>
+                            <button type="button" onClick={fetchDiscord} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-white rounded-control">
+                                <RefreshCw className="w-3 h-3" aria-hidden /> Refresh
+                            </button>
+                        </div>
                         {status.posts.length === 0 ? (
                             <EmptyState compact title="No posts yet" message="A recap or an &quot;it's on&quot; message shows up here once one has been tried." />
                         ) : (

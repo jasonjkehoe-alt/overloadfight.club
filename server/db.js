@@ -16,7 +16,7 @@ import {
   insertGameMetadata, getGameMetadata
 } from './db/repos/jobs.js';
 import { getAdminSetting, setAdminSetting } from './db/repos/settings.js';
-import { getDiscordPost, getRecentDiscordPosts, putDiscordPost } from './db/repos/discordPosts.js';
+import { dropStaleDiscordPosts, getAllDiscordPosts, getDiscordPost, getRecentDiscordPosts, putDiscordPost, restoreDiscordPosts } from './db/repos/discordPosts.js';
 import {
   seedStockMaps, getMaps, countMaps, getMapIntel, getMapById, getMapByName, upsertMap,
   incrementMapDownloads, updateMapLocalPaths, deleteMap
@@ -65,6 +65,8 @@ const db = {
     // restored ones and set the built marker back: stop it and wait it out
     await stopStatsWorker();
     await refreshInProgress();
+    // the posts already made outlive the restore, so none goes out twice (S18)
+    const posts = getAllDiscordPosts();
     const uploaded = new Database(source, { readonly: true, fileMustExist: true });
     try {
       await uploaded.backup(dbPath);
@@ -77,12 +79,12 @@ const db = {
     // A backup from before S13 to S17 lacks some of the derived tables; the
     // next refresh fills them. The built marker is cleared whatever the
     // backup carried, so a restore always gets one refresh at the next start.
-    // Nor does it have the server tables, which start empty again, or the
-    // Discord posts (S18).
+    // Nor does it have the server tables, which start empty again.
     ensureDerivedTables();
     ensureServerTables();
     ensureAdminSettings();
     ensureDiscordPosts();
+    restoreDiscordPosts(posts);
     clearDerivedTablesBuilt();
     clearDerivedCaches();
     clearServerSummaries();
@@ -136,6 +138,7 @@ const db = {
   getDiscordPost,
   putDiscordPost,
   getRecentDiscordPosts,
+  dropStaleDiscordPosts,
 
   // repos/maps.js
   seedStockMaps,
@@ -236,6 +239,7 @@ const db = {
 
   // analytics/refresh.js
   refreshPilotStats,
+  refreshInProgress,
   buildColdStorageStatsCache: refreshPilotStats,
   buildMapStatsCache: refreshPilotStats,
   getColdStorageStats
