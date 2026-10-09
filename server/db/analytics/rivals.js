@@ -21,10 +21,11 @@ const networkCells = hotDb.prepare(`
   SELECT pilot, opponent, kills, damage_dealt FROM pilot_rivals
   WHERE pilot IN (SELECT value FROM json_each(?)) AND opponent IN (SELECT value FROM json_each(?))
 `);
-// each pair once (pilot before opponent), most kills exchanged first
+// each pair once, from the side with more kills (on a tie the side whose key
+// sorts first), most kills exchanged first
 const topPairs = hotDb.prepare(`
-  SELECT * FROM pilot_rivals WHERE pilot < opponent AND kills + deaths > 0
-  ORDER BY kills + deaths DESC, matches DESC, pilot, opponent LIMIT ?
+  SELECT * FROM pilot_rivals WHERE kills > deaths OR (kills = deaths AND kills > 0 AND pilot < opponent)
+  ORDER BY kills + deaths DESC, matches DESC, MIN(pilot, opponent), MAX(pilot, opponent) LIMIT ?
 `);
 const networkTotals = hotDb.prepare('SELECT COALESCE(SUM(kills), 0) AS kills, COALESCE(SUM(damage_dealt), 0) AS damage FROM pilot_rivals');
 
@@ -32,7 +33,7 @@ const networkTotals = hotDb.prepare('SELECT COALESCE(SUM(kills), 0) AS kills, CO
 // most logged kills on opponents ({ pilot, name, kills, damage }, their totals
 // over every opponent), `kills[i][j]` and `damage[i][j]` what pilot i did to
 // pilot j (null on the diagonal), the NETWORK.pairs pairs with the most kills
-// exchanged (a pilot_rivals row from the side whose key sorts first), and the
+// exchanged (a pilot_rivals row from the side with more kills), and the
 // kills and damage over every pair.
 export const getRivalNetwork = () => until('rivals', () => {
   const pilots = topKillers.all(NETWORK.pilots);

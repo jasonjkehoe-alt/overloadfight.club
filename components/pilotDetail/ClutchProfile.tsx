@@ -5,11 +5,9 @@ import { percent } from '../../server/lib/matchResult.js';
 import { ClutchCounts } from '../../services/apiService';
 
 type Counts = Omit<ClutchCounts, 'kind'>;
+const FIELDS: (keyof Counts)[] = ['matches', 'first_bloods', 'kills', 'late_kills', 'trailing_kills'];
 const KINDS = [{ kind: 'ffa', label: 'FFA' }, { kind: 'team', label: 'Team' }] as const;
-const add = (rows: ClutchCounts[]): Counts => rows.reduce((t, r) => ({
-    matches: t.matches + r.matches, first_bloods: t.first_bloods + r.first_bloods, kills: t.kills + r.kills,
-    late_kills: t.late_kills + r.late_kills, trailing_kills: t.trailing_kills + r.trailing_kills
-}), { matches: 0, first_bloods: 0, kills: 0, late_kills: 0, trailing_kills: 0 });
+const add = (rows: ClutchCounts[]) => Object.fromEntries(FIELDS.map(f => [f, rows.reduce((n, r) => n + r[f], 0)])) as Counts;
 const rate = (part: number, whole: number) => (whole > 0 ? percent(part / whole) : '–');
 
 // The three clutch numbers: the share and its counts, with everyone's share.
@@ -25,7 +23,7 @@ const TILES: { label: string; part: keyof Counts; whole: keyof Counts; of: strin
 const ClutchProfile: React.FC<{ clutch: ClutchCounts[]; community: ClutchCounts[] }> = ({ clutch, community }) => {
     const mine = add(clutch);
     const everyone = add(community);
-    const row = (label: string, c: Counts) => ({ key: label, cells: [label, c.matches.toLocaleString(), c.first_bloods.toLocaleString(), c.kills.toLocaleString(), c.late_kills.toLocaleString(), c.trailing_kills.toLocaleString()] });
+    const row = (label: string, c: Counts) => ({ key: label, cells: [label, ...FIELDS.map(f => c[f].toLocaleString())] });
     return (
         <div>
             <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2" title={CLUTCH_HINT}>Clutch</h4>

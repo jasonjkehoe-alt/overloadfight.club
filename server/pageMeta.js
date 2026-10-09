@@ -5,7 +5,7 @@ import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
 import { SERVER_WINDOW_DEFAULT, fightNightDay, winnerOf, measuredDurationOf } from './lib/gameParse.js';
 import { regionLabel } from './lib/serverRegions.js';
-import { clock, leaderFirst, percent, resultLine } from './lib/matchResult.js';
+import { clock, percent, resultLine } from './lib/matchResult.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
@@ -58,11 +58,11 @@ function laddersMeta(board) {
 }
 
 // "Rivalries from the kill log: FUTZPIMMEL 41-21 BADASS (3 matches), ..." for the
-// three pairs with the most kills exchanged, the pair's leader first.
+// three pairs with the most kills exchanged (each read from the leader's side).
 function rivalsMeta() {
     const { pairs } = db.getRivalNetwork();
     if (pairs.length === 0) return {};
-    const top = pairs.slice(0, 3).map(leaderFirst).map(p => `${p.name} ${p.kills}-${p.deaths} ${p.opponent_name} (${count(p.matches)} ${p.matches === 1 ? 'match' : 'matches'})`).join(', ');
+    const top = pairs.slice(0, 3).map(p => `${p.name} ${p.kills}-${p.deaths} ${p.opponent_name} (${count(p.matches)} ${p.matches === 1 ? 'match' : 'matches'})`).join(', ');
     return { description: `Rivalries from the kill log: ${top}.` };
 }
 

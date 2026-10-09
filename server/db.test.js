@@ -697,8 +697,8 @@ describe('rivalries and clutch (S17)', () => {
         expect(net.damage[at('INSANER')][at('MAESTRO')]).toBe(301);
         // the damage log's teammate entry (PHOENIX on INSANER) is not a flow
         expect(net.damage[at('PHOENIX')][at('INSANER')]).toBe(0);
-        // most kills exchanged first, each pair once, ties by key
-        expect(net.pairs.slice(0, 3).map(p => `${p.pilot}-${p.opponent}:${p.kills}-${p.deaths}`)).toEqual(['.-jftp:2-2', 'insaner-maestro:4-0', 'phoenix-stitch:1-2']);
+        // most kills exchanged first, each pair once from the side with more kills, ties by key
+        expect(net.pairs.slice(0, 3).map(p => `${p.pilot}-${p.opponent}:${p.kills}-${p.deaths}`)).toEqual(['.-jftp:2-2', 'insaner-maestro:4-0', 'stitch-phoenix:2-1']);
     });
 
     it('lists a pilot\'s opponents and clutch counts beside everyone\'s', () => {

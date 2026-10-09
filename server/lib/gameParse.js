@@ -307,6 +307,14 @@ function soleLeader(sides) {
     return shared ? null : best;
 }
 
+// The best score among the sides other than `side`, or -Infinity when there
+// is none.
+function bestOtherScore(sides, side) {
+    let best = -Infinity;
+    for (const s of sides.values()) if (s.side !== side) best = Math.max(best, s.score);
+    return best;
+}
+
 // Every time the outright lead passes from one side to another, as
 // [{ t, from, to, score }] with display names and the new leader's score. A
 // level score leaves the lead where it was, so A, level, A again is no
@@ -340,8 +348,7 @@ export function momentumOf(game) {
     if (!winner) return null;
     const snapshot = sides => [...sides.values()].map(s => ({ name: s.name, score: s.score })).sort((a, b) => b.score - a.score);
     const marginOf = sides => {
-        let rest = -Infinity;
-        for (const s of sides.values()) if (s.side !== winner.side) rest = Math.max(rest, s.score);
+        const rest = bestOtherScore(sides, winner.side);
         // a side joins `sides` at its first score, so before any other has, the best of them is on 0
         return (sides.get(winner.side)?.score ?? 0) - (rest === -Infinity ? 0 : rest);
     };
@@ -1034,7 +1041,7 @@ export function opponentsOf(game) {
 // playerRows() rule) and, in a team game, no damage to a teammate (teams from
 // game.players: the damage log names none; an entry is a teammate's only when
 // both pilots are listed on the same team, as killPoints() reads a team kill).
-const hasDamageLog = game => Array.isArray(game?.damage) && game.damage.length > 0;
+export const hasDamageLog = game => Array.isArray(game?.damage) && game.damage.length > 0;
 export function damageFlows(game) {
     if (!rankedMatch(game) || !hasDamageLog(game)) return [];
     const teams = teamGame(game) ? teamsByPilot(game) : null;
@@ -1051,6 +1058,34 @@ export function damageFlows(game) {
     return flows;
 }
 
+// What every rivalry number counts, for the pages that show them.
+export const RIVALS_HINT = `Ranked matches (${RANKED.pilots}+ pilots, ${RANKED.seconds} s or more) whose kill or damage log the tracker kept; kills and damage on opponents only (no suicides, team kills, self-damage or damage to a teammate). A match without a log adds nothing.`;
+
+// One match's damage log as a dealer × target grid, for the match page: every
+// entry between listed pilots, self-damage and teammates included (unlike
+// damageFlows()). `pilots` lists each pilot once ({ key, name, team }, the
+// first listing's team), by team and then name; `dealt[i][j]` is what pilot i
+// did to pilot j; `out[i]` is pilot i's damage to other pilots (no
+// self-damage, the playerRows() rule) and `total` everyone's. Null without a
+// damage log or a named pilot.
+export function damageGrid(game) {
+    if (!hasDamageLog(game) || !Array.isArray(game.players)) return null;
+    const names = new Map();
+    for (const p of game.players) { const key = pilotKey(p?.name); if (key && !names.has(key)) names.set(key, String(p.name).trim()); }
+    const teams = teamsByPilot(game);
+    const pilots = [...names].map(([key, name]) => ({ key, name, team: teams.get(key) }))
+        .sort((a, b) => (a.team ?? '').localeCompare(b.team ?? '') || a.name.localeCompare(b.name));
+    if (pilots.length === 0) return null;
+    const at = new Map(pilots.map((p, i) => [p.key, i]));
+    const dealt = pilots.map(() => pilots.map(() => 0));
+    for (const d of game.damage) {
+        const [i, j] = [at.get(pilotKey(d?.attacker)), at.get(pilotKey(d?.defender))];
+        if (i !== undefined && j !== undefined) dealt[i][j] += Number(d.damage) || 0;
+    }
+    const out = dealt.map((row, i) => row.reduce((sum, v, j) => (i === j ? sum : sum + v), 0));
+    return { pilots, dealt, out, total: out.reduce((a, b) => a + b, 0) };
+}
+
 // The owner's rules at the start of S17: a late kill comes in the last
 // `lateSeconds` of the match (replayLengthOf(): the match length, or the last
 // kill's time when later); a kill while trailing comes when another side
@@ -1060,7 +1095,8 @@ export const CLUTCH = { lateSeconds: 60 };
 export const CLUTCH_HINT = `Anarchy and Team Anarchy matches only, where the score is kills. First blood: the match's first kill on an opponent. Last ${CLUTCH.lateSeconds} s: a kill in the final ${CLUTCH.lateSeconds} s of the match. Trailing: a kill made while another side was ahead (a level score is not trailing).`;
 
 // The clutch counts of one match: { team, firstBlood, kills: [{ attacker,
-// late, trailing }] }, `firstBlood` being firstBloodOf()'s attacker and
+// late, trailing }] }, `firstBlood` being firstBloodOf()'s attacker (the
+// first of `kills`) and
 // `kills` every kill on an opponent (killPoints() worth a point). Null unless
 // the match is ranked, killScored() (trailing reads the score, which is kills
 // only there) and has a kill log.
@@ -1073,10 +1109,8 @@ export function clutchOf(game) {
         // the killer's side before this kill against the best other side (a
         // team-game kill whose attacker has no team has no side to trail)
         const side = points.side && sides.get(points.side);
-        let best = -Infinity;
-        for (const s of sides.values()) if (s.side !== points.side) best = Math.max(best, s.score);
-        kills.push({ attacker: points.scorer, late: t >= lateFrom, trailing: Boolean(side) && side.score - points.points < best });
+        kills.push({ attacker: points.scorer, late: t >= lateFrom, trailing: Boolean(side) && side.score - points.points < bestOtherScore(sides, points.side) });
     });
-    const first = firstBloodOf(game);
-    return { team, firstBlood: first ? String(first.attacker).trim() : null, kills };
+    // the first kill worth a point is firstBloodOf()'s
+    return { team, firstBlood: kills[0]?.attacker ?? null, kills };
 }

@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, clutchOf, damageFlows, duelMatch, emptyLine, emptyObjectives, combatRatio, durationOf, hasDate, lethality, mapKey, netKills, objectiveMode, opponentsOf, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, clutchOf, damageFlows, duelMatch, hasDamageLog, hasKillLog, emptyLine, emptyObjectives, combatRatio, durationOf, hasDate, lethality, mapKey, netKills, objectiveMode, opponentsOf, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
 import { regionOf, UNKNOWN_REGION } from './serverRegions.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
@@ -391,7 +391,8 @@ export function rivalPass() {
     };
 
     function add(row, g) {
-        if (!g) return;
+        // most stored matches have no log: skip them before the rules' own checks
+        if (!g || (!hasKillLog(g) && !hasDamageLog(g))) return;
         const met = opponentsOf(g);
         const kills = weaponKills(g);
         const flows = damageFlows(g);
@@ -431,10 +432,10 @@ export function rivalPass() {
     const nameOf = key => names.get(key)?.name ?? key;
     return {
         add,
-        pairs: () => [...pairs.values()].map(({ pilot, opponent, damage_dealt, damage_taken, ...r }) => ({
-            pilot, opponent, name: nameOf(pilot), opponent_name: nameOf(opponent), ...r, damage_dealt: Math.round(damage_dealt), damage_taken: Math.round(damage_taken)
+        pairs: () => [...pairs.values()].map(p => ({
+            ...p, name: nameOf(p.pilot), opponent_name: nameOf(p.opponent), damage_dealt: Math.round(p.damage_dealt), damage_taken: Math.round(p.damage_taken)
         })),
-        clutch: () => [...clutch.values()].map(({ pilot, kind, ...r }) => ({ pilot, kind, name: nameOf(pilot), ...r }))
+        clutch: () => [...clutch.values()].map(c => ({ ...c, name: nameOf(c.pilot) }))
     };
 }
 

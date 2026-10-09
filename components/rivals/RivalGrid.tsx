@@ -4,14 +4,13 @@ import DetailsTable from '../DetailsTable';
 import RampLegend from '../RampLegend';
 import Link from '../Link';
 import { urlFor } from '../../server/lib/siteRoutes.js';
-import { percent } from '../../server/lib/matchResult.js';
+import { percent, shortCount } from '../../server/lib/matchResult.js';
 import { RivalNetwork } from '../../services/apiService';
-import { shortCount } from './rivalText';
 
 export type GridBy = 'kills' | 'damage';
-const WORD: Record<GridBy, { unit: string; total: string }> = {
-    kills: { unit: 'kills', total: 'logged kills on opponents' },
-    damage: { unit: 'damage', total: 'logged damage to opponents' }
+const WORD: Record<GridBy, { unit: string; total: string; title: string; corner: string; rows: string; columns: string }> = {
+    kills: { unit: 'kills', total: 'logged kills on opponents', title: 'Kills', corner: 'Killer', rows: 'who killed', columns: 'who died' },
+    damage: { unit: 'damage', total: 'logged damage to opponents', title: 'Damage', corner: 'Dealer', rows: 'who dealt the damage', columns: 'who took it' }
 };
 
 // The rivalry network (S17): killer rows by victim columns among the pilots
@@ -36,8 +35,8 @@ const RivalGrid: React.FC<{ data: RivalNetwork; by: GridBy }> = ({ data, by }) =
     return (
         <>
             <HeatTable
-                caption={`${by === 'kills' ? 'Kills' : 'Damage'} by each pilot (rows) on each other pilot (columns), coloured by the share of the row's ${word.total}.`}
-                corner={by === 'kills' ? 'Killer' : 'Dealer'}
+                caption={`${word.title} by each pilot (rows) on each other pilot (columns), coloured by the share of the row's ${word.total}.`}
+                corner={word.corner}
                 columns={data.pilots.map(p => ({ key: p.pilot, label: p.name, title: p.name }))}
                 rows={data.pilots.map((p, i) => ({
                     key: p.pilot,
@@ -46,12 +45,12 @@ const RivalGrid: React.FC<{ data: RivalNetwork; by: GridBy }> = ({ data, by }) =
                 }))}
             />
             <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-2xs text-gray-500">
-                <span>Rows: who {by === 'kills' ? 'killed' : 'dealt the damage'}. Columns: {by === 'kills' ? 'who died' : 'who took it'}. A lighter cell is a larger share of that row's {word.total}.</span>
+                <span>Rows: {word.rows}. Columns: {word.columns}. A lighter cell is a larger share of that row's {word.total}.</span>
                 <RampLegend />
             </div>
             <DetailsTable
-                summary={`${by === 'kills' ? 'Kills' : 'Damage'} between these pilots`}
-                headers={[by === 'kills' ? 'Killer' : 'Dealer', ...data.pilots.map(p => p.name), 'Total']}
+                summary={`${word.title} between these pilots`}
+                headers={[word.corner, ...data.pilots.map(p => p.name), 'Total']}
                 rows={data.pilots.map((p, i) => ({ key: p.pilot, cells: [p.name, ...values[i].map(v => (v === null ? '–' : v.toLocaleString())), totals[i].toLocaleString()] }))}
             />
         </>

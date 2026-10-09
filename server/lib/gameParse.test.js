@@ -9,7 +9,7 @@ import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovemen
 import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, weekdayOf, winRate } from './gameParse.js';
 import { HOUR_MS, SERVER_STATE, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, regionShare, serverSummary, serverWindow, snapshotRow } from './gameParse.js';
 import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
-import { CLUTCH, clutchOf, damageFlows, opponentsOf } from './gameParse.js';
+import { CLUTCH, clutchOf, damageFlows, damageGrid, opponentsOf } from './gameParse.js';
 import { duelPass, rivalPass, weaponPass } from './statsPasses.js';
 import { byId, detailSample, ffaWithDamage, ffaWithLog, sample, teamWithDamage, teamWithLog } from '../testFixtures.js';
 
@@ -996,6 +996,26 @@ describe('rivalries, damage flow and clutch (S17)', () => {
             expect(damageFlows(short(teamWithDamage))).toEqual([]);
             expect(damageFlows(teamWithLog)).toEqual([]);
             expect(damageFlows(null)).toEqual([]);
+        });
+    });
+
+    describe('damageGrid', () => {
+        it('lays out the whole damage log by dealer and target, teams first, totals without self-damage', () => {
+            const grid = damageGrid(teamWithDamage);
+            expect(grid.pilots.map(p => `${p.team}:${p.name}`)).toEqual(['BLUE:INSANER', 'BLUE:PHOENIX', 'ORANGE:MAESTRO', 'ORANGE:STITCH']);
+            const at = name => grid.pilots.findIndex(p => p.name === name);
+            expect(grid.dealt[at('INSANER')][at('MAESTRO')]).toBe(300.5);
+            // the teammate's damage and the self-damage stay; the entry without an attacker does not
+            expect(grid.dealt[at('PHOENIX')][at('INSANER')]).toBe(15);
+            expect(grid.dealt[at('MAESTRO')][at('MAESTRO')]).toBe(20);
+            expect(grid.out[at('PHOENIX')]).toBe(75);
+            expect(grid.out[at('MAESTRO')]).toBe(90);
+            expect(grid.total).toBe(915.75);
+        });
+
+        it('gives null without a damage log', () => {
+            expect(damageGrid(teamWithLog)).toBeNull();
+            expect(damageGrid({ ...teamWithDamage, players: [] })).toBeNull();
         });
     });
 

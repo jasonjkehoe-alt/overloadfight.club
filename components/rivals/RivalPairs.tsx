@@ -2,10 +2,9 @@ import React, { memo } from 'react';
 import Link from '../Link';
 import { urlFor } from '../../server/lib/siteRoutes.js';
 import { RivalPair } from '../../services/apiService';
-import { leaderFirst } from '../../server/lib/matchResult.js';
 
 // The ranked list of pairs (S17): the pairs of opponents with the most kills
-// exchanged, the side with more kills first.
+// exchanged, each read from the side with more kills.
 const RivalPairs: React.FC<{ pairs: RivalPair[] }> = ({ pairs }) => (
     <div className="overflow-x-auto">
         <table className="w-full text-left text-sm font-mono">
@@ -21,10 +20,9 @@ const RivalPairs: React.FC<{ pairs: RivalPair[] }> = ({ pairs }) => (
                 </tr>
             </thead>
             <tbody className="divide-y divide-line">
-                {pairs.map((raw, i) => {
-                    const p = leaderFirst(raw);
+                {pairs.map((p, i) => {
                     return (
-                        <tr key={`${raw.pilot}\n${raw.opponent}`} className="hover:bg-surface-raised transition-colors">
+                        <tr key={`${p.pilot}\n${p.opponent}`} className="hover:bg-surface-raised transition-colors">
                             <td className="px-2 py-2 sm:p-3 text-center text-gray-400 font-bold">{i + 1}</td>
                             <td className="px-2 py-2 sm:p-3 font-bold"><Link to={urlFor('pilot', p.name)} className="text-white hover:text-brand">{p.name}</Link></td>
                             <td className="px-2 py-2 sm:p-3 text-center whitespace-nowrap tabular-nums"><span className="text-brand font-bold">{p.kills.toLocaleString()}</span><span className="text-gray-500">–</span><span className="text-gray-300">{p.deaths.toLocaleString()}</span></td>
