@@ -1665,7 +1665,9 @@ maintenance item does not count toward the 28.
 - The mid-write case the ladder's record fallbacks cover (a snapshot
   read before its record during a chunked first fill) was reasoned
   about, not reproduced.
-- The CI workflow on the S16 PR before it opened; see the PR's checks.
+- The NAS image: PR #17's `check` (tsc, build, vitest on Node 26)
+  passed in 51 s and docker-publish's `build` in 1 min 26 s, but nobody
+  has run the image.
 
 - S15 ran on the 40 local matches, the fixtures, a few minutes of real
   ticks from today's feed and mocked answers. Nobody has run it on the
