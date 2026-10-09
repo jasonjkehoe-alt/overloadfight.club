@@ -9,7 +9,6 @@ import { clock, count, percent, resultLine } from './lib/matchResult.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
-
 // "WD-40: 20 matches, 325 kills, last match 2026-10-07." (a fight-night day)
 function pilotMeta(name) {
     const pilot = db.getPilotSummary(name);

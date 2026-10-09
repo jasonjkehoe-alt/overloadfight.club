@@ -90,7 +90,12 @@ function deliver(kind, key, build) {
         if (stopped) return;
         const tries = (row?.tries ?? 0) + 1;
         const status = result.ok ? 'sent' : tries >= DISCORD_RETRY.tries || !retryable(result.status) ? 'dropped' : 'pending';
-        db.putDiscordPost({ kind, key, status, tries });
+        try {
+            db.putDiscordPost({ kind, key, status, tries });
+        } catch (error) {
+            console.error(`[Discord] ${id} not recorded:`, error.message);
+            return;
+        }
         console.log(`[Discord] ${id}: ${result.ok ? `sent (${result.status})` : `${failureText(result)}, ${status === 'pending' ? 'will try again' : 'dropped'} (post ${tries} of ${DISCORD_RETRY.tries})`}.`);
     };
     const job = (async () => {
@@ -103,11 +108,7 @@ function deliver(kind, key, build) {
             return null;
         }
         const result = await send(message);
-        try {
-            record(result);
-        } catch (error) {
-            console.error(`[Discord] ${id} not recorded:`, error.message);
-        }
+        record(result);
         return result;
     })().finally(() => inflight.delete(id));
     inflight.set(id, job);

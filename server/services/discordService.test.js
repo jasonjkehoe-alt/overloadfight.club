@@ -345,6 +345,11 @@ describe('the recap post from the detector', () => {
         await discord.postRecap('2001-01-01');
         expect(received).toHaveLength(0);
         expect(db.getDiscordPost('recap', '2001-01-01')).toMatchObject({ status: 'pending', tries: 1 });
+        // a try that cannot be written is logged, not thrown at a caller that does not wait
+        const put = vi.spyOn(db, 'putDiscordPost').mockImplementation(() => { throw new Error('disk full'); });
+        await expect(discord.postRecap('2001-01-01')).resolves.toBeNull();
+        put.mockRestore();
+        expect(db.getDiscordPost('recap', '2001-01-01')).toMatchObject({ status: 'pending', tries: 1 });
     });
 
     it('drops the posts still pending that no tick or detector run will try again', async () => {

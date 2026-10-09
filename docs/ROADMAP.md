@@ -1979,6 +1979,10 @@ maintenance item does not count toward the 28.
 - The server never pinged on its own: the real server browser showed 0
   pilots all session. The ping ran from the tick code in tests and a
   `node` script with players added to a real answer.
+- The ping's rising edge lives in memory and starts at 0 pilots, so a
+  restart during an evening still on after 06:00 pings the new
+  fight-night day a second time. Accepted as is: it takes a deploy or a
+  crash inside that window. No test covers it.
 - No local night passes the fight-night thresholds, so the recap posts
   were checked with them lowered; on the NAS nothing posts until a real
   night qualifies.
