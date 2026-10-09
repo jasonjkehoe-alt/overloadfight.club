@@ -174,7 +174,7 @@ describe('the recap embed on fixture data', () => {
     it('stays inside Discord\'s limits with absurd names, and escapes their markdown', () => {
         const long = '**@everyone**'.repeat(200);
         const wild = { ...recap, topFragger: { name: long, kills: 3 } };
-        for (const [key] of [['headlineBout'], ['biggestUpset'], ['biggestBlowout'], ['closestFinish'], ['hottestArena'], ['newBlood'], ['longestStreak']]) {
+        for (const key of ['headlineBout', 'biggestUpset', 'biggestBlowout', 'closestFinish', 'hottestArena', 'newBlood', 'longestStreak']) {
             wild[key] = { ...recap[key], copy: `${long} [link](https://evil.example)` };
         }
         const [embed] = recapMessage(wild, { day, pilots: [{ rank: 1, name: long, rating: 1500, change: 0 }] }, ORIGIN).embeds;
@@ -348,13 +348,16 @@ describe('the recap post from the detector', () => {
     });
 
     it('drops the posts still pending that no tick or detector run will try again', async () => {
-        db.putDiscordPost({ kind: 'ping', key: shiftDay(day, 1), status: 'pending', tries: 1 });
-        db.putDiscordPost({ kind: 'ping', key: shiftDay(day, 2), status: 'pending', tries: 1 });
+        db.putDiscordPost({ kind: 'ping', key: shiftDay(day, 9), status: 'pending', tries: 1 });
+        db.putDiscordPost({ kind: 'ping', key: shiftDay(day, 10), status: 'pending', tries: 1 });
         db.putDiscordPost({ kind: 'recap', key: shiftDay(day, -1), status: 'pending', tries: 1 });
+        // a busy tick on day + 10 drops the day before's ping and posts its own
+        const evening = Date.parse(dayStart(shiftDay(day, 10))) + 3600000;
+        await discord.checkPing(busy, evening);
+        expect(db.getDiscordPost('ping', shiftDay(day, 9)).status).toBe('dropped');
+        expect(db.getDiscordPost('ping', shiftDay(day, 10))).toMatchObject({ status: 'sent', tries: 2 });
         // the detector on day + 2: its window is `day` and the day after
         await detectAt(morning);
-        expect(db.getDiscordPost('ping', shiftDay(day, 1)).status).toBe('dropped');
-        expect(db.getDiscordPost('ping', shiftDay(day, 2)).status).toBe('pending');
         expect(db.getDiscordPost('recap', shiftDay(day, -1)).status).toBe('dropped');
         expect(db.getDiscordPost('recap', '2001-01-01').status).toBe('dropped');
         expect(db.getDiscordPost('recap', day).status).toBe('sent');
@@ -376,6 +379,7 @@ describe('admin endpoints and secrecy', () => {
         const status = await (await get(`${adminUrl}/discord`)).json();
         expect(status).toMatchObject({ enabled: true, configured: true, webhook: `${new URL(stubUrl).origin}/…${SECRET.slice(-4)}`, siteUrl: ORIGIN, pingPilots: 6 });
         expect(status.posts.length).toBeGreaterThan(0);
+        expect(status.posts.length).toBeLessThanOrEqual(5);
         expect(JSON.stringify(status)).not.toContain(SECRET);
         // the generic settings read has no URL to give
         expect(await (await get(`${adminUrl}/settings/DISCORD_WEBHOOK_URL`)).json()).toEqual({ value: null });
@@ -385,13 +389,13 @@ describe('admin endpoints and secrecy', () => {
         switchOn(false);
         const ok = await post(`${adminUrl}/discord/test`);
         expect(ok.status).toBe(200);
-        expect(await ok.json()).toEqual({ ok: true, status: 204, message: 'Sent.' });
+        expect(await ok.json()).toEqual({ ok: true, status: 204 });
         expect(received[0].body.content).toBe('Test post from overloadfight.club. Fight-night recaps and the "it\'s on" ping will post to this channel.');
 
         answer(reply(500));
         const failed = await post(`${adminUrl}/discord/test`);
         expect(failed.status).toBe(502);
-        expect(await failed.json()).toEqual({ ok: false, status: 500, message: 'Discord answered 500.', error: 'Discord answered 500.' });
+        expect(await failed.json()).toEqual({ ok: false, status: 500, error: 'Discord answered 500.' });
         // one attempt, no retry
         expect(received).toHaveLength(2);
     });

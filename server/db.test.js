@@ -657,7 +657,7 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.getPilotRating('JFTP').history).toEqual([]);
         expect(db.getPowerRankings(today).total).toBe(0);
         // the Discord posts made before the restore outlive it, so none goes out twice
-        expect(db.getRecentDiscordPosts()).toEqual([expect.objectContaining({ kind: 'ping', key: day, status: 'sent', tries: 1 })]);
+        expect(db.getRecentDiscordPosts(10)).toEqual([expect.objectContaining({ kind: 'ping', key: day, status: 'sent', tries: 1 })]);
         db.putDiscordPost({ kind: 'recap', key: day, status: 'pending', tries: 0 });
         expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'pending', tries: 0 });
     });

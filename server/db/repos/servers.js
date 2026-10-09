@@ -1,6 +1,6 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
-import { DAY_MS, HOUR_MS, SERVER_STATE, SNAPSHOT, snapshotRow } from '../../lib/gameParse.js';
+import { DAY_MS, HOUR_MS, SERVER_STATE, SNAPSHOT, browserRows, snapshotRow } from '../../lib/gameParse.js';
 
 // The stored server browser (S15): servers, server_snapshots, server_hours
 // (hot file; see migrations.js ensureServerTables).
@@ -42,9 +42,7 @@ export const saveServerSnapshot = hotDb.transaction((at, entries) => {
   const seen = new Date(at).toISOString();
   const hour = Math.floor(at / HOUR_MS);
   const rows = new Map();
-  for (const entry of entries || []) {
-    const row = snapshotRow(entry);
-    if (!row || rows.has(row.ip)) continue;
+  for (const { entry, row } of browserRows(entries)) {
     rows.set(row.ip, row);
     const { server } = entry;
     upsertServer.run({

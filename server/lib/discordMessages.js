@@ -2,7 +2,8 @@
 // admin's test post, as webhook bodies. Links are built from urlFor and the
 // site's origin; nothing here reads the database or the webhook URL.
 import { SITE_NAME, urlFor } from './siteRoutes.js';
-import { RATING, browserPilots, onlineServers } from './gameParse.js';
+import { RATING, onlineServers } from './gameParse.js';
+import { count, plural } from './matchResult.js';
 
 // Discord's limits on an embed (characters; `total` over the title,
 // description and every field's name and value).
@@ -15,9 +16,6 @@ const NAME_MAX = 64;
 
 // No message pings anyone, whatever a pilot calls himself.
 const NO_MENTIONS = { parse: [] };
-
-const count = n => Number(n || 0).toLocaleString('en-US');
-const plural = (n, one, many) => `${count(n)} ${n === 1 ? one : many}`;
 
 // Text from the tracker (pilot, server and map names, the recap's lines) with
 // Discord's markdown escaped (the brackets of a masked link included), cut to
@@ -91,10 +89,10 @@ export function recapMessage(recap, rankings, origin) {
  * @param {string} origin
  */
 export function pingMessage(servers, origin) {
-    const pilots = browserPilots(servers);
     const busy = onlineServers(servers)
         .filter(({ row }) => row.players > 0)
         .sort((a, b) => b.row.players - a.row.players);
+    const pilots = busy.reduce((sum, { row }) => sum + row.players, 0);
     const fields = busy.slice(0, PING_SERVERS).map(({ entry, row }) => {
         const { mapName, mode, inLobby } = entry.game;
         const seats = row.max_players ? `${count(row.players)} of ${count(row.max_players)} pilots` : plural(row.players, 'pilot', 'pilots');

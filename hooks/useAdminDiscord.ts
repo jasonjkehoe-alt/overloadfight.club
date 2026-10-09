@@ -26,7 +26,8 @@ export function useAdminDiscord() {
     const [failed, setFailed] = useState(false);
     const [saveFailed, setSaveFailed] = useState(false);
     const [testing, setTesting] = useState(false);
-    const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+    // null before a test post, '' after one that went out, else what went wrong
+    const [testError, setTestError] = useState<string | null>(null);
 
     const fetchDiscord = async () => {
         setFailed(false);
@@ -51,16 +52,16 @@ export function useAdminDiscord() {
 
     const sendTest = async () => {
         setTesting(true);
-        setTestResult(null);
+        setTestError(null);
         try {
-            const result = await sendAdminDiscordTest();
-            setTestResult({ ok: true, message: result.message });
+            await sendAdminDiscordTest();
+            setTestError('');
         } catch (e: any) {
-            setTestResult({ ok: false, message: e?.response?.data?.error || 'The test post failed.' });
+            setTestError(e?.response?.data?.error || 'The test post failed.');
         } finally {
             setTesting(false);
         }
     };
 
-    return { status, failed, saveFailed, testing, testResult, fetchDiscord, setEnabled, sendTest };
+    return { status, failed, saveFailed, testing, testError, fetchDiscord, setEnabled, sendTest };
 }

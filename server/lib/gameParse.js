@@ -852,16 +852,19 @@ export function snapshotRow(entry) {
 // answer shows this many pilots across the online servers, lobbies included.
 export const FIGHT_NIGHT_PING = { pilots: 6 };
 
-// The online servers in one server-browser answer, each as its entry and its
-// tick (snapshotRow), a server listed twice once (its last listing).
-export function onlineServers(servers) {
-    const online = new Map();
-    for (const entry of servers) {
+// One server-browser answer as ticks: each entry with an IP as { entry, row }
+// (snapshotRow), a server listed twice once (its first listing).
+export function browserRows(servers) {
+    const rows = new Map();
+    for (const entry of servers || []) {
         const row = snapshotRow(entry);
-        if (row?.online) online.set(row.ip, { entry, row });
+        if (row && !rows.has(row.ip)) rows.set(row.ip, { entry, row });
     }
-    return [...online.values()];
+    return [...rows.values()];
 }
+
+// The online servers in one server-browser answer (browserRows).
+export const onlineServers = servers => browserRows(servers).filter(({ row }) => row.online);
 
 // The pilots in one server-browser answer: the online servers' players.
 export const browserPilots = servers => onlineServers(servers).reduce((sum, { row }) => sum + row.players, 0);

@@ -1,6 +1,7 @@
 import db from '../db.js';
 import { FIGHT_NIGHT_PING, browserPilots, fightNightDay, shiftDay } from '../lib/gameParse.js';
 import { pingMessage, recapMessage, testMessage } from '../lib/discordMessages.js';
+import { SITE_NAME } from '../lib/siteRoutes.js';
 
 // Posts to the fight-night channel's Discord webhook (S18) with Node's fetch.
 // The URL comes from DISCORD_WEBHOOK_URL only and never goes into a log line,
@@ -14,9 +15,8 @@ export const DISCORD_SETTING = 'discord_enabled';
 // or a 5xx or no answer (after waitMs). One that still fails stays pending for
 // the next tick (ping) or detector run (recap), up to `tries` posts; then it is
 // dropped, as it is at once after any other 4xx, and once its day is past
-// (expireDiscordPosts).
+// (checkPing, expireRecapPosts).
 export const DISCORD_RETRY = { waitMs: 5000, maxWaitMs: 60000, timeoutMs: 10000, tries: 3 };
-const DEFAULT_ORIGIN = 'https://overloadfight.club';
 
 let stopped = false;
 const inflight = new Map();
@@ -30,13 +30,13 @@ const retryable = status => status === 0 || status === 429 || status >= 500;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms).unref());
 
 // The origin the messages link to: SITE_URL, or the public site.
-export const siteOrigin = () => (process.env.SITE_URL?.trim() || DEFAULT_ORIGIN).replace(/\/+$/, '');
-export const discordEnabled = () => db.getAdminSetting.get(DISCORD_SETTING)?.value === 'true';
+export const siteOrigin = () => (process.env.SITE_URL?.trim() || `https://${SITE_NAME}`).replace(/\/+$/, '');
+const discordEnabled = () => db.getAdminSetting.get(DISCORD_SETTING)?.value === 'true';
 const posting = () => !stopped && validUrl(webhookUrl() ?? '') && discordEnabled();
 export const hasWebhook = () => Boolean(webhookUrl());
 
 // The URL as the admin page shows it: its origin and last four characters.
-export const maskWebhook = url => (validUrl(url) ? `${new URL(url).origin}/…${url.slice(-4)}` : 'not a valid http(s) URL');
+const maskWebhook = url => (validUrl(url) ? `${new URL(url).origin}/…${url.slice(-4)}` : 'not a valid http(s) URL');
 
 const failureText = result => (result.status ? `Discord answered ${result.status}` : result.reason);
 
@@ -69,8 +69,7 @@ async function attempt(url, body) {
 // One post (see DISCORD_RETRY); `retry: false` makes it a single attempt.
 async function send(body, { retry = true } = {}) {
     const url = webhookUrl();
-    if (!url) return { ok: false, status: 0, reason: 'no webhook URL' };
-    if (!validUrl(url)) return { ok: false, status: 0, reason: 'the webhook URL is not a valid http(s) URL' };
+    if (!validUrl(url ?? '')) return { ok: false, status: 0, reason: 'the webhook URL is not a valid http(s) URL' };
     let result = await attempt(url, body);
     if (retry && !result.ok && retryable(result.status) && !stopped) {
         await sleep(Math.min(result.wait ?? DISCORD_RETRY.waitMs, DISCORD_RETRY.maxWaitMs));
@@ -127,6 +126,8 @@ export function checkPing(servers, now = Date.now()) {
         lastPilots = pilots;
         if (pilots < FIGHT_NIGHT_PING.pilots || !posting()) return null;
         const day = fightNightDay(now);
+        // a ping still pending from an earlier day is past trying
+        db.dropStaleDiscordPosts('ping', day);
         // a new evening, or one whose ping is still pending
         if (!rising && db.getDiscordPost('ping', day)?.status !== 'pending') return null;
         return deliver('ping', day, () => pingMessage(servers, siteOrigin()));
@@ -136,13 +137,15 @@ export function checkPing(servers, now = Date.now()) {
     }
 }
 
-// The power rankings on the day after the night, after a stats refresh so
-// the night's matches count (one already under way may have started before
-// they were stored, so it is waited out first).
+// The power rankings on the day after the night, after a stats refresh if a
+// match is newer than the caches (the startup check's rule), so the night's
+// matches count. One already under way may have started before they were
+// stored, so it is waited out first.
 async function rankingsAfter(date) {
     try {
         await db.refreshInProgress();
-        await db.refreshPilotStats();
+        const cached = db.getMaxPilotStatsLastUpdated();
+        if (!cached || db.getMaxGameDate() > cached) await db.refreshPilotStats();
     } catch (error) {
         console.error('[Discord] Stats refresh before the recap failed:', error.message);
     }
@@ -157,8 +160,9 @@ async function rankingsAfter(date) {
 export function postRecap(date, saved = false) {
     try {
         if (!posting()) return null;
-        if (saved && !db.getDiscordPost('recap', date)) db.putDiscordPost({ kind: 'recap', key: date, status: 'pending', tries: 0 });
-        if (db.getDiscordPost('recap', date)?.status !== 'pending') return null;
+        const row = db.getDiscordPost('recap', date);
+        if (saved && !row) db.putDiscordPost({ kind: 'recap', key: date, status: 'pending', tries: 0 });
+        else if (row?.status !== 'pending') return null;
         return deliver('recap', date, async () => recapMessage(db.getFightNightRecapByDate(date), await rankingsAfter(date), siteOrigin()));
     } catch (error) {
         console.error(`[Discord] Recap ${date} not queued:`, error.message);
@@ -166,12 +170,11 @@ export function postRecap(date, saved = false) {
     }
 }
 
-// Each detector run: drops the pings still pending from before today and the
-// recaps from before the detector's window, which no tick or run will try again.
-export function expireDiscordPosts(today, firstRecapDay) {
+// Each detector run: drops the recaps still pending from before its first
+// day, which no run will try again.
+export function expireRecapPosts(firstDay) {
     try {
-        db.dropStaleDiscordPosts('ping', today);
-        db.dropStaleDiscordPosts('recap', firstRecapDay);
+        db.dropStaleDiscordPosts('recap', firstDay);
     } catch (error) {
         console.error('[Discord] Old posts not expired:', error.message);
     }
@@ -182,7 +185,7 @@ export function expireDiscordPosts(today, firstRecapDay) {
 export async function sendTest() {
     const result = await send(testMessage(), { retry: false });
     console.log(`[Discord] Test post: ${result.ok ? `sent (${result.status})` : failureText(result)}.`);
-    return { ok: result.ok, status: result.status, message: result.ok ? 'Sent.' : `${failureText(result)}.` };
+    return result.ok ? { ok: true, status: result.status } : { ok: false, status: result.status, error: `${failureText(result)}.` };
 }
 
 // What the admin page shows: the switch, whether a URL is set (masked), the
@@ -191,7 +194,7 @@ export function discordStatus() {
     const url = webhookUrl();
     return {
         enabled: discordEnabled(),
-        configured: Boolean(url),
+        configured: hasWebhook(),
         webhook: url ? maskWebhook(url) : null,
         siteUrl: siteOrigin(),
         pingPilots: FIGHT_NIGHT_PING.pilots,
@@ -207,4 +210,4 @@ export function stopDiscord() {
 // The posts under way (for tests).
 export const postsSettled = () => Promise.all(inflight.values());
 
-export default { checkPing, postRecap, expireDiscordPosts, sendTest, discordStatus, hasWebhook, stopDiscord };
+export default { sendTest, discordStatus, hasWebhook };

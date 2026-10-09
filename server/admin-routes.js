@@ -383,8 +383,7 @@ router.post('/discord/test', async (req, res) => {
         return res.status(400).json({ error: 'No webhook URL is set. Set DISCORD_WEBHOOK_URL in the server\'s environment and restart it.' });
     }
     const result = await discordService.sendTest();
-    if (result.ok) return res.json(result);
-    res.status(502).json({ ...result, error: result.message });
+    res.status(result.ok ? 200 : 502).json(result);
 });
 
 // Map Management routes

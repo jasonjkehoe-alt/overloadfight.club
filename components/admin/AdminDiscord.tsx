@@ -4,8 +4,17 @@ import { EmptyState, ErrorState, Loading, secondaryButtonClass } from '../States
 import type { DiscordPost, useAdminDiscord } from '../../hooks/useAdminDiscord';
 
 const KIND_LABEL: Record<DiscordPost['kind'], string> = { ping: 'It\'s on', recap: 'Recap' };
-const STATUS_LABEL: Record<DiscordPost['status'], string> = { sent: 'Sent', pending: 'Waiting to retry', dropped: 'Dropped' };
-const STATUS_CLASS: Record<DiscordPost['status'], string> = { sent: 'text-green-400', pending: 'text-yellow-400', dropped: 'text-red-400' };
+const STATUS: Record<DiscordPost['status'], { label: string; className: string }> = {
+    sent: { label: 'Sent', className: 'text-green-400' },
+    pending: { label: 'Waiting to retry', className: 'text-yellow-400' },
+    dropped: { label: 'Dropped', className: 'text-red-400' }
+};
+
+// The line under the switch.
+const switchCaption = ({ configured, enabled }: { configured: boolean; enabled: boolean }) => {
+    if (!configured) return enabled ? 'On, but nothing posts until a webhook URL is set.' : 'Set the webhook URL first.';
+    return enabled ? 'On: recaps and the ping post to the channel.' : 'Off: nothing posts.';
+};
 
 interface AdminDiscordProps {
     discord: ReturnType<typeof useAdminDiscord>;
@@ -14,7 +23,7 @@ interface AdminDiscordProps {
 // The Discord webhook (S18): the URL masked or how to set it, the on/off
 // switch, a test post and the latest posts.
 const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
-    const { status, failed, saveFailed, testing, testResult, fetchDiscord, setEnabled, sendTest } = discord;
+    const { status, failed, saveFailed, testing, testError, fetchDiscord, setEnabled, sendTest } = discord;
 
     return (
         <section className="mt-8 max-w-2xl bg-surface-card border border-line rounded-card p-4 sm:p-6" aria-labelledby="admin-discord-title">
@@ -46,7 +55,7 @@ const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
                     <div className="flex items-center justify-between gap-4 bg-surface-raised border border-line rounded-control p-4">
                         <div>
                             <p id="admin-discord-switch" className="font-bold text-white text-sm">Post to Discord</p>
-                            <p className="text-xs text-gray-400">{!status.configured ? (status.enabled ? 'On, but nothing posts until a webhook URL is set.' : 'Set the webhook URL first.') : status.enabled ? 'On: recaps and the ping post to the channel.' : 'Off: nothing posts.'}</p>
+                            <p className="text-xs text-gray-400">{switchCaption(status)}</p>
                         </div>
                         <button
                             type="button"
@@ -66,8 +75,8 @@ const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
                         <button type="button" onClick={sendTest} disabled={!status.configured || testing} className={`${secondaryButtonClass} disabled:opacity-40 disabled:cursor-not-allowed`}>
                             <Send className="w-4 h-4" aria-hidden /> {testing ? 'Sending...' : 'Send test post'}
                         </button>
-                        <p role="status" className={`text-xs ${testResult?.ok ? 'text-green-400' : 'text-red-400'}`}>
-                            {testResult && (testResult.ok ? 'Test post sent.' : testResult.message)}
+                        <p role="status" className={`text-xs ${testError ? 'text-red-400' : 'text-green-400'}`}>
+                            {testError === '' ? 'Test post sent.' : testError}
                         </p>
                     </div>
 
@@ -86,7 +95,7 @@ const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
                                     <li key={`${post.kind} ${post.key}`} className="flex flex-wrap justify-between gap-x-4 gap-y-1 px-3 py-2">
                                         <span className="text-gray-200">{KIND_LABEL[post.kind]} <span className="font-mono text-gray-400">{post.key}</span></span>
                                         <span>
-                                            <span className={STATUS_CLASS[post.status]}>{STATUS_LABEL[post.status]}</span>
+                                            <span className={STATUS[post.status].className}>{STATUS[post.status].label}</span>
                                             <span className="text-gray-500"> · {post.tries} {post.tries === 1 ? 'try' : 'tries'} · {new Date(post.updated_at).toLocaleString()}</span>
                                         </span>
                                     </li>

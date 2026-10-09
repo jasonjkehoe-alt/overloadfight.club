@@ -766,11 +766,11 @@ describe('server history (S15)', () => {
             at('10.0.0.3', false, { currentPlayers: 5, maxPlayers: 8, inLobby: false }),
             at('10.0.0.4', true),
             { server: { name: 'no ip', online: true }, game: { currentPlayers: 3 } },
-            at('10.0.0.1', true, { currentPlayers: 4, maxPlayers: 8, inLobby: false })
+            // a second listing of a server: the first one counts, as in the stored tick
+            at('10.0.0.1', true, { currentPlayers: 7, maxPlayers: 8, inLobby: false })
         ];
-        expect(browserPilots(servers)).toBe(6);
-        expect(browserPilots(servers)).toBeGreaterThanOrEqual(FIGHT_NIGHT_PING.pilots);
-        expect(browserPilots(servers.slice(1))).toBe(6);
+        expect(browserPilots(servers)).toBe(FIGHT_NIGHT_PING.pilots);
+        expect(browserPilots(servers.slice(1))).toBe(9);
         expect(browserPilots(servers.slice(2, 5))).toBe(0);
         expect(browserPilots([])).toBe(0);
     });

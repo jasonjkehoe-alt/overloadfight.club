@@ -1,5 +1,5 @@
 import db from '../db.js';
-import { expireDiscordPosts, postRecap } from './discordService.js';
+import { expireRecapPosts, postRecap } from './discordService.js';
 import { FIGHT_NIGHT_DAY, dayStart, fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
 
 export const FIGHT_NIGHT_THRESHOLDS = {
@@ -395,6 +395,10 @@ export async function generateRecapForDate(targetDate, force = false) {
     return recap;
 }
 
+// How many finished fight-night days the detector judges (and so how long a
+// recap's Discord post stays pending, S18).
+const DETECTOR_DAYS = 2;
+
 /**
  * Checks the last two finished fight-night days for big nights and auto-generates recaps.
  */
@@ -402,9 +406,9 @@ export async function checkAndGenerateRecentFightNight() {
     try {
         console.log('[FightNight] Running big night detector...');
         const today = fightNightDay(Date.now());
-        expireDiscordPosts(today, shiftDay(today, -2));
-        // the two fight-night days before today's, which is still running
-        for (let daysAgo = 1; daysAgo <= 2; daysAgo++) {
+        expireRecapPosts(shiftDay(today, -DETECTOR_DAYS));
+        // the fight-night days before today's, which is still running
+        for (let daysAgo = 1; daysAgo <= DETECTOR_DAYS; daysAgo++) {
             const dateStr = shiftDay(today, -daysAgo);
 
             // Fetch games for target date

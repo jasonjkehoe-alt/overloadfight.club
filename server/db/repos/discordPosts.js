@@ -11,18 +11,18 @@ const putPostStmt = hotDb.prepare(`
   VALUES (@kind, @key, @status, @tries, @updated_at)
   ON CONFLICT(kind, key) DO UPDATE SET status = excluded.status, tries = excluded.tries, updated_at = excluded.updated_at
 `);
-export const putDiscordPost = ({ kind, key, status, tries }) =>
-  putPostStmt.run({ kind, key, status, tries, updated_at: new Date().toISOString() });
+// A row's `updated_at` is now unless given (a restore writes rows back as they were).
+export const putDiscordPost = ({ kind, key, status, tries, updated_at = new Date().toISOString() }) =>
+  putPostStmt.run({ kind, key, status, tries, updated_at });
 
 const recentPostsStmt = hotDb.prepare('SELECT kind, key, status, tries, updated_at FROM discord_posts ORDER BY updated_at DESC LIMIT ?');
-export const getRecentDiscordPosts = (limit = 5) => recentPostsStmt.all(limit);
+export const getRecentDiscordPosts = limit => recentPostsStmt.all(limit);
 
 // Every row, and the rows written back over a restored backup's (db.restoreHot).
 const allPostsStmt = hotDb.prepare('SELECT kind, key, status, tries, updated_at FROM discord_posts');
 export const getAllDiscordPosts = () => allPostsStmt.all();
-const keepPostStmt = hotDb.prepare('INSERT OR REPLACE INTO discord_posts (kind, key, status, tries, updated_at) VALUES (@kind, @key, @status, @tries, @updated_at)');
 export const restoreDiscordPosts = hotDb.transaction(rows => {
-  for (const row of rows) keepPostStmt.run(row);
+  for (const row of rows) putDiscordPost(row);
 });
 
 // Drops the pending posts of `kind` keyed before `key`, which nothing will try again.
