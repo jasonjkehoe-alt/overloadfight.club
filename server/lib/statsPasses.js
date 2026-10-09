@@ -366,8 +366,8 @@ export function duelPass() {
 // (opponentsOf), the kills each way (weaponKills: kills on opponents) and the
 // damage each way (damageFlows: damage on opponents); and per pilot and kind
 // of match (ffa or team), the clutch counts of clutchOf(). `name` and
-// `opponent_name` are each pilot's latest spelling, as pilot_stats_cache
-// keeps it, so the reads need no join.
+// `opponent_name` are each pilot's latest spelling among the logged matches,
+// so the reads need no join (pilot_stats_cache keeps the latest of all).
 export function rivalPass() {
     const pairs = new Map();
     const clutch = new Map();

@@ -24,9 +24,10 @@ const DamageMatrix: React.FC<DamageMatrixProps> = ({ game }) => {
     // each pilot once, by team in a team game (BLUE, ORANGE, ...), then by name
     const seen = new Set<string>();
     const pilots = (game.players || [])
-      .map(p => ({ key: pilotKey(p.name), name: p.name.trim(), team: teamOf(p) as string | null }))
+      .map(p => ({ key: pilotKey(p.name), name: String(p.name ?? '').trim(), team: teamOf(p) as string | null }))
       .filter(p => p.key && !seen.has(p.key) && seen.add(p.key))
       .sort((a, b) => (a.team ?? '').localeCompare(b.team ?? '') || a.name.localeCompare(b.name));
+    if (pilots.length === 0) return null;
     const at = new Map(pilots.map((p, i) => [p.key, i]));
     const dealt = pilots.map(() => pilots.map(() => 0));
     for (const d of log) {

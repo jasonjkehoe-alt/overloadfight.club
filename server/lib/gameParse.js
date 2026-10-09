@@ -257,8 +257,11 @@ function replayLog(game, until, visit) {
     for (const p of Array.isArray(game?.players) ? game.players : []) rowFor(p?.name, p?.team);
     const teamOfPilot = name => rows.get(pilotKey(name))?.team ?? null;
 
+    // an entry that is not an object is skipped (the stats worker replays every
+    // stored log for the clutch counts, S17)
     const log = (Array.isArray(game?.kills) ? game.kills : [])
-        .map(kill => ({ kill, t: Number(kill?.time) || 0 }))
+        .filter(kill => kill && typeof kill === 'object')
+        .map(kill => ({ kill, t: Number(kill.time) || 0 }))
         .sort((a, b) => a.t - b.t);
     for (const { kill, t } of log) {
         if (Math.floor(t) > until) break;
@@ -1009,11 +1012,12 @@ export function addToObjectives(line, player, outcome) {
 // between opponents.
 
 // Who met whom: every pair [a, b] of pilotKey()s on different sides of a
-// ranked match with a kill log (everyone against everyone in FFA, different
+// ranked match with a kill or damage log, so a pair's damage never comes
+// without its matches (everyone against everyone in FFA, different
 // teams in a team game, where a pilot without a team sits out, as in
 // ratingSides()), each pilot once.
 export function opponentsOf(game) {
-    if (!rankedMatch(game) || !hasKillLog(game)) return [];
+    if (!rankedMatch(game) || (!hasKillLog(game) && !hasDamageLog(game))) return [];
     const team = teamGame(game);
     const teams = [...teamsByPilot(game)].filter(([, t]) => !team || t);
     const pairs = [];
@@ -1030,8 +1034,9 @@ export function opponentsOf(game) {
 // playerRows() rule) and, in a team game, no damage to a teammate (teams from
 // game.players: the damage log names none; an entry is a teammate's only when
 // both pilots are listed on the same team, as killPoints() reads a team kill).
+const hasDamageLog = game => Array.isArray(game?.damage) && game.damage.length > 0;
 export function damageFlows(game) {
-    if (!rankedMatch(game) || !Array.isArray(game.damage) || game.damage.length === 0) return [];
+    if (!rankedMatch(game) || !hasDamageLog(game)) return [];
     const teams = teamGame(game) ? teamsByPilot(game) : null;
     const flows = [];
     for (const d of game.damage) {

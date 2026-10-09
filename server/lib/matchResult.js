@@ -48,3 +48,10 @@ export function resultLine({ team, ranking, winners }) {
         ? `${first.name} wins ${first.score}–${second.score}.`
         : `${first.name} wins on ${first.score}, ${first.score - second.score} ahead of ${second.name}.`;
 }
+
+// A pilot_rivals pair (S17) from the side with more kills, the fields swapped
+// with it; a tie keeps the stored side. /rivals and its share description.
+/** @template {{ name: string, opponent_name: string, kills: number, deaths: number, damage_dealt: number, damage_taken: number }} T @param {T} p @returns {T} */
+export const leaderFirst = p => (p.deaths > p.kills
+    ? { ...p, name: p.opponent_name, opponent_name: p.name, kills: p.deaths, deaths: p.kills, damage_dealt: p.damage_taken, damage_taken: p.damage_dealt }
+    : p);

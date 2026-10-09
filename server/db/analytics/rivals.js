@@ -42,8 +42,8 @@ export const getRivalNetwork = () => until('rivals', () => {
   const damage = grid();
   const keys = JSON.stringify([...at.keys()]);
   for (const c of networkCells.all(keys, keys)) {
+    // a pilot never faces themselves (no suicide, self-damage or self-pair is a row)
     const [i, j] = [at.get(c.pilot), at.get(c.opponent)];
-    if (i === j) continue;
     kills[i][j] = c.kills;
     damage[i][j] = c.damage_dealt;
   }

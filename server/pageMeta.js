@@ -5,7 +5,7 @@ import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
 import { SERVER_WINDOW_DEFAULT, fightNightDay, winnerOf, measuredDurationOf } from './lib/gameParse.js';
 import { regionLabel } from './lib/serverRegions.js';
-import { clock, percent, resultLine } from './lib/matchResult.js';
+import { clock, leaderFirst, percent, resultLine } from './lib/matchResult.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
@@ -62,10 +62,7 @@ function laddersMeta(board) {
 function rivalsMeta() {
     const { pairs } = db.getRivalNetwork();
     if (pairs.length === 0) return {};
-    const top = pairs.slice(0, 3).map(p => {
-        const [a, b, ka, kb] = p.kills >= p.deaths ? [p.name, p.opponent_name, p.kills, p.deaths] : [p.opponent_name, p.name, p.deaths, p.kills];
-        return `${a} ${ka}-${kb} ${b} (${count(p.matches)} ${p.matches === 1 ? 'match' : 'matches'})`;
-    }).join(', ');
+    const top = pairs.slice(0, 3).map(leaderFirst).map(p => `${p.name} ${p.kills}-${p.deaths} ${p.opponent_name} (${count(p.matches)} ${p.matches === 1 ? 'match' : 'matches'})`).join(', ');
     return { description: `Rivalries from the kill log: ${top}.` };
 }
 

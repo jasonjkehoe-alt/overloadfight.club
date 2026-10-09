@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import Link from '../Link';
 import { urlFor } from '../../server/lib/siteRoutes.js';
 import { RivalPair } from '../../services/apiService';
-import { leaderFirst } from './rivalText';
+import { leaderFirst } from '../../server/lib/matchResult.js';
 
 // The ranked list of pairs (S17): the pairs of opponents with the most kills
 // exchanged, the side with more kills first.

@@ -2454,7 +2454,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          `weaponKills`' entries (a ranked match's kills on opponents by
          `killPoints`), which now carry the defender too; who met whom
          (`opponentsOf`: every pair of named pilots on different sides in
-         a ranked match with a kill log, each pilot once); the damage flows
+         a ranked match with a kill or damage log, each pilot once); the
+         damage flows
          (`damageFlows`: a ranked match's damage-log entries on an
          opponent, so no self-damage and no damage to a teammate, teams
          from the players); and the clutch counts (`clutchOf`, on ranked,
@@ -4261,6 +4262,131 @@ Not counted in the 28 sessions.
   axis runs to the next tenth above the largest share. Hand-drawn HTML
   (positioned dots on a track), so the pilot page loads no new chart
   chunk.
+- 2026-10-09 (S17): The owner's answers at the start of S17, all six as
+  recommended. The rivalry network is not a force graph: the dataviz form
+  table has no node-link form, a hairball hides the values it is meant to
+  show, and the repo has no layout library (and gets none), so it would be
+  a layout written by hand for a worse read. It is a killer × victim heat
+  table on `HeatTable` plus a ranked list of pairs. The damage flow is not a
+  chord diagram, for the same reasons (arc angle misleads, ribbons stop
+  reading past about seven pilots): it is a dealer × target heat table on
+  the match page and in the network view (`?by=damage`), plus each pilot's
+  top opponents with the damage each way. A late kill comes in the last
+  60 s of the match. Trailing means another side held more points just
+  before the kill, a level score not counting (in FFA a pilot is a side, in
+  team games a team); "behind the eventual winner" was rejected because it
+  reads hindsight into the moment and makes the winner's own kills never
+  trailing. Every edge, flow and clutch number counts only ranked matches
+  (`rankedMatch`) with a log, and only what happens between opponents.
+  Recorded as the owner's choices.
+- 2026-10-09 (S17): How each number counts, in `gameParse.js`. Kill edges
+  are `weaponKills`' entries, which now carry the defender: a ranked
+  match's kill-log entries worth a point by `killPoints`, so no suicide, no
+  team kill and no death without an attacker, teams filled from the
+  players (one rule for the weapon meta and the edges). A kill whose
+  defender is blank counts for the weapon meta and the clutch counts (it
+  is worth a point) but has no pair to go to, so a pilot's kills on the
+  rivals card can be lower than on the clutch tile by those entries. Who
+  met whom is `opponentsOf`: every pair of named pilots on different sides
+  of a ranked match with a kill or a damage log (review: with a kill log
+  alone, a match logging only damage gave a pair damage and no match),
+  each pilot once, a team-game pilot without a team sitting out (the
+  `ratingSides` rule). Damage flows are `damageFlows`:
+  a ranked match's damage-log entries with an attacker on another pilot,
+  so no self-damage (the `playerRows` rule), and in a team game none
+  between two pilots listed on the same team (the log names no teams; a
+  pilot no listing places counts as an opponent, as `killPoints` reads a
+  kill on him). Clutch is `clutchOf`, on ranked matches that are
+  `killScored` (Anarchy, Team Anarchy, no mode) and have a kill log, since
+  trailing reads the score: first blood is `firstBloodOf`'s attacker, each
+  kill on an opponent is late when its time is at least
+  `replayLengthOf(game) - CLUTCH.lateSeconds` (the match length, or the
+  last kill when that is later), and trailing when the killer's side,
+  before the kill, had fewer points than the best other side. It walks the
+  log through `replayLog`'s visitor, so the score is the scrubber's.
+  `replayLog` now skips a log entry that is not an object (review: the
+  worker replays every stored log, and one `null` entry would have thrown
+  and stopped both S17 tables on every refresh). On the
+  local data a six-pilot FFA (78760) has 111 of its 148 kills made while
+  trailing: in FFA everyone but the leader trails, which is why the counts
+  keep FFA and team games apart and the page says so. No day rule: the
+  tables are all-time totals.
+- 2026-10-09 (S17): `pilot_rivals(pilot, opponent, name, opponent_name,
+  matches, kills, deaths, damage_dealt, damage_taken)` and
+  `pilot_clutch(pilot, kind, name, matches, first_bloods, kills,
+  late_kills, trailing_kills)` join `DERIVED_TABLES`, built by one
+  `rivalPass` in the worker's scan. `pilot_rivals` holds both directions of
+  every pair, like `pilot_duels`, so a pilot's opponents are one key range
+  and the mirrored row is the check (`kills` one way is `deaths` the
+  other); `matches` counts ranked matches with a kill or damage log the
+  two played as opponents, damage is rounded to whole points per pair. `pilot_clutch` is
+  keyed by pilot and `kind` (`ffa` or `team`), which gives the list's
+  two-column key a meaning; `matches` there is every named pilot of a
+  clutch match. `name` and `opponent_name` are the latest spellings (the
+  logged match with the latest date; `pilot_stats_cache` keeps the latest
+  over every match, so a rename in log-less matches shows only there), a
+  pilot named only in a log keeping the log's until a listing has one. First build: `ensureDerivedTables`
+  creates both empty at startup and the new list changes the built marker,
+  so the first start of S17 refreshes once (seen locally: "The derived
+  tables have not all been built", then "[Rivals] 60 rival pairs: 60
+  written" and "[Clutch] 19 clutch rows: 19 written"). A restart needs no
+  repair; every refresh brings both in line through `tableChanges` and
+  `writeChanges`. `restoreHot` creates them for a backup that lacks them.
+  Rollback: revert, pull the old image, and `DROP TABLE pilot_rivals; DROP
+  TABLE pilot_clutch;` on `tracker.db`, or leave them (nothing older reads
+  them; the S16 code's marker check will refresh once, since the list it
+  knows differs from the marker S17 wrote).
+- 2026-10-09 (S17): Endpoints, no route cache (the S16 rule), reads in a
+  new `server/db/analytics/rivals.js` with `db` keys `getRivalNetwork` and
+  `getPilotRivalry`, kept answers through `meta.js`'s `until` (now
+  exported) so `clearDerivedCaches` drops them after a refresh: `GET
+  /api/stats/rivalries` (in `routes/stats.js`) answers `{ pilots, kills,
+  damage, pairs, totals }`, the 12 pilots with the most logged kills on
+  opponents (then damage, then key) with their totals over every
+  opponent, `kills[i][j]` and `damage[i][j]` what pilot i did to pilot j
+  (null on the diagonal), the 25 pairs with the most kills exchanged (each
+  once, from the side whose key sorts first), and the totals over every
+  pair. `GET /api/pilot/:name/rivalry` (in `routes/pilots.js`) answers `{
+  opponents, totals, clutch, community }`: the 10 opponents with the most
+  kills exchanged (then damage exchanged, then key), the totals over every
+  opponent, the pilot's clutch rows and everyone's per kind; a pilot with
+  no logged ranked match gets empty lists and zeros, not a 404. The client
+  reads them through `fetchRivalNetwork` and `fetchPilotRivalry` (null on
+  failure) and `useLoad`.
+- 2026-10-09 (S17): The views. `/rivals` is a route in `siteRoutes.js`
+  ("Rivalries", under Leaderboards in the nav like `/rankings` and
+  `/ladders`, linked from the leaderboard's tab bar), with a share
+  description in `pageMeta.js` ("Rivalries from the kill log: A 41-21 B
+  (3 matches), ..." for the top three pairs, the side with more kills
+  first; the site description while there are none). The count is
+  `?by=kills|damage` through `useQueryParam` (kills left out; anything else
+  reads as kills); it switches the grid only. The view
+  (`components/Rivals.tsx`, lazy, with `rivals/RivalGrid.tsx`,
+  `rivals/RivalPairs.tsx` and `rivals/rivalText.ts`) shows the grid on
+  `HeatTable`, each cell coloured by its share of the row's total over
+  every opponent, so a row reads as where that pilot's kills went (a
+  share of the whole table would have coloured only the top killers'
+  rows), counts of 10,000 and up as "12k" with the exact number in the
+  title and the `DetailsTable`, then the pairs (rank, the leader, kills
+  each way, the other pilot, matches, damage each way; damage hidden below
+  640 px). The match page's damage tab (`DamageMatrix.tsx`) is now the
+  same `HeatTable`: dealer by target over the whole log, self-damage and
+  teammates included as before, pilots grouped by team, each cell
+  coloured by its share of the damage dealt to other pilots, the
+  self-damage diagonal uncoloured with its number, a total column; a match
+  with no damage log gets an EmptyState saying so (an empty log used to
+  draw a table of dashes). The pilot page gets `pilotDetail/KillLogRivalry`
+  under the rivals section: "Rivals from the kill log" (`RivalBars`, a
+  back-to-back bar per opponent, their kills on the pilot left in
+  `chart.label` and the pilot's on them right in `chart.series`, the S16
+  emphasis pair the validator passed, on one scale, numbers beside each
+  bar and a screen-reader sentence per row, so no `DetailsTable`) and
+  "Clutch" (`ClutchProfile`, three tiles: first-blood rate over matches,
+  the share of kills in the last 60 s and the share while trailing, each
+  with its counts and everyone's share, and a `DetailsTable` by kind). It
+  loads beside the rating, career and weapon mix, so a mode change does
+  not ask again. `HeatTable` is now a shared chunk (the maps page, the
+  match page and `/rivals`).
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -5121,6 +5247,48 @@ Not counted in the 28 sessions.
   added three matches during the session (40 to 43), so the counts in
   the Validated entry name the number at that step.
 
+- (S17) Earlier flags that name S17, rivals, head-to-head, the dominance
+  index, threat centrality, damage, first blood, clutch, the kill log, the
+  pilot page or the match page, decided:
+  - (S2, audit item 15) The pilot page's "Frequent Adversaries" card counts
+    encounters with teammates, and its kills exchanged include team kills:
+    still open. S17's "Rivals from the kill log" card sits under it and
+    counts opponents only, so the page now shows two rival lists that can
+    disagree (most encounters against most kills exchanged). Replacing the
+    old card changes the Tale of the Tape, which S20 owns.
+  - (S2, S13, S16) Multi-player head-to-head and the dominance index
+    compare raw kills, teammates included: still open; the new tables read
+    none of it.
+  - (audit) Threat centrality's PageRank runs on edges estimated from the
+    scoreboards: still open. `pilot_rivals` now holds real kill edges, but
+    only for logged matches; moving the PageRank onto them changes the PPI
+    of every pilot and gives a pilot without a logged match no edge at
+    all. The owner's call.
+  - (S5) `game_players.damage` excludes self-damage while
+    `pilot_stats_cache.total_damage` includes it; (S12) the overview
+    table's damage fallback counts self-damage: still open. The S17 flows
+    follow `playerRows` (no self-damage) and the match grid shows it apart
+    on the diagonal.
+  - (S12) The fixtures hold no kill log: S17 also writes damage logs by
+    hand (`teamWithDamage`, `ffaWithDamage` in `server/testFixtures.js`).
+    A real tracker match with both logs as a third fixture file still
+    needs the owner's say-so.
+  - (S16) The weapon meta counts only logged matches: the same holds for
+    every S17 number, and the pages say so.
+  - (S8) The rival picked on a pilot page is not in the URL: still open.
+  - (S1) `/api/overload/status` answers 401 without an admin session, and
+    Chrome logs it on every page as a failed resource: still seen in the
+    S17 checks, which filter it.
+- (S17) Not built, from the plan page's clutch and rivalry items and
+  outside the S17 entry: the time-to-first-death survival curve, a wingman
+  chart from `assisted`, clutch on the fight-night recap, and a per-match
+  kill grid on the match page (the damage tab has the flow; the kill log's
+  edges per match are on the timeline only).
+- (S17) In a team game, a pilot listed without a team counts toward the
+  clutch `matches` (the first-blood rate's denominator) though
+  `opponentsOf` leaves them out of the pairs. No local or fixture match
+  has one.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -5143,6 +5311,10 @@ S16 adds `map_weapons`, `pilot_weapons`, `pilot_maps`, `duel_snapshots`,
 `pilot_duels` and `pilot_objectives` to `tracker.db`, all derived: after
 its revert `DROP TABLE` any of them, or leave them. The S15 code's startup
 check does not know them, so it will not refresh for them.
+S17 adds `pilot_rivals` and `pilot_clutch` to `tracker.db`, both derived:
+after its revert `DROP TABLE` either, or leave them. The S16 code's built
+marker names its own list, so the first start after the revert refreshes
+once.
 
 ## Open questions
 
@@ -5154,6 +5326,9 @@ check does not know them, so it will not refresh for them.
   see the S15 decisions and the S14 thresholds flag.
 - S16's three (what a duel is, how the ladder ranks, radar or not) were
   settled by the owner at its start; see the S16 decisions.
+- S17's six (force graph or not, chord or not, the late window, trailing in
+  FFA, ranked only, opponents only) were settled by the owner at its start;
+  see the S17 decisions.
 
 ## Skills to load
 

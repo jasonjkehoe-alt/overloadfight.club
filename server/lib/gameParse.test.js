@@ -969,7 +969,11 @@ describe('rivalries, damage flow and clutch (S17)', () => {
             expect(opponentsOf(game)).toEqual(opponentsOf(teamWithLog));
         });
 
-        it('gives nothing for a match that is not ranked or has no kill log', () => {
+        it('pairs the pilots of a match with a damage log and no kill log, so its damage has matches', () => {
+            expect(opponentsOf({ ...teamWithDamage, kills: [] })).toEqual(opponentsOf(teamWithLog));
+        });
+
+        it('gives nothing for a match that is not ranked or has no log', () => {
             expect(opponentsOf(short(teamWithLog))).toEqual([]);
             expect(opponentsOf(byId(72099))).toEqual([]);
         });
@@ -1019,6 +1023,12 @@ describe('rivalries, damage flow and clutch (S17)', () => {
             const at = t => clutchOf({ ...teamWithLog, kills: [{ time: t, attacker: 'INSANER', defender: 'MAESTRO', weapon: 'Flak' }] }).kills[0].late;
             expect(at(end - CLUTCH.lateSeconds)).toBe(true);
             expect(at(end - CLUTCH.lateSeconds - 0.01)).toBe(false);
+        });
+
+        it('skips a log entry that is not an object instead of throwing', () => {
+            const clutch = clutchOf({ ...teamWithLog, kills: [null, ...teamWithLog.kills, 'x'] });
+            expect(clutch.kills).toHaveLength(10);
+            expect(scoreboardAt({ ...ffaWithLog, kills: [null, ...ffaWithLog.kills] }).sides.map(s => s.score)).toEqual([2, 2]);
         });
 
         it('gives nothing for a match that is not ranked, not kill-scored or has no kill log', () => {
