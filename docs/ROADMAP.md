@@ -2979,7 +2979,65 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          leaderboard, rankings, ladders, rivalries, pilot pages, maps and
          match page still work.
 - [ ] **S19 OG share cards** (M). PNG cards for pilot, match, fight night, map
-      and tape URLs via satori + resvg.
+      and tape URLs via satori + resvg. The owner decided at the start of
+      S19: cards for the pilot, match, fight-night and map pages now, the
+      tape left to S20; one shared layout, each card showing its own page's
+      numbers; Orbitron and Roboto Mono from the Fontsource packages;
+      rendered on request, one at a time, and kept in an in-memory cache
+      whose key changes when the card's numbers change; `og:image` on the
+      request's origin, as `og:url`; the S18 recap embed gets the
+      fight-night card as its image; `@resvg/resvg-js` for the PNG. Done
+      when (written at the start of S19):
+      1. The card's words and numbers are pure functions in
+         `server/lib/shareCards.js`, each tested on fixture data, that read
+         what the page and its `og:description` already read and reuse the
+         rules in `gameParse.js` and the wording in `matchResult.js`: the
+         pilot card (name, matches and kills from `getPilotSummary`, the
+         rating and its rank or standing from `getPilotRating`, Combat Ratio
+         from `pilot_stats_cache`, the last match's fight-night day), the
+         match card (map, `resultLine(winnerOf)`, mode, `clock` of
+         `measuredDurationOf`, `VERDICT_LABEL[verdictOf]`, the fight-night
+         day), the fight-night card (the saved recap's date, matches,
+         pilots, kills and most kills) and the map card (name, author,
+         matches, kills, matches in the last 30 days and the top pilot from
+         `getMapIntel`, and its cached image when one is on disk). The
+         page's `og:description` is built from the same object, so the two
+         cannot disagree. The map page gets an `og:description` it lacked.
+      2. One layout in `server/lib/cardLayout.js`: 1200 × 630, colours,
+         radius and the small text size from `designTokens.js`, the page's
+         kind, a title, a sentence, up to four stat tiles and the site's
+         name; long names cut with an ellipsis; tested without rendering.
+      3. `GET /api/card/<page path>` (in `server/routes/cards.js`) answers
+         the page's PNG (`image/png`, 1200 × 630), 404 for a page without a
+         card or an unknown pilot, match, night or map, and never blocks
+         the event loop for long: renders go one at a time, the PNG is
+         drawn by resvg's `renderAsync` off the main thread, and the render
+         time is logged and sent as `Server-Timing`. The cache holds about
+         200 cards in memory, keyed by the path and a hash of the card's
+         words and numbers, so a new match, a stats refresh or a recap save
+         that changes them makes a new card and one that does not reuses it.
+         The existing endpoints answer as before.
+      4. `server/pageMeta.js` adds `og:image` (with the `?v=` hash, so a
+         preview's own cache moves on when the numbers do), its width,
+         height and alt text, and `twitter:card` `summary_large_image` to
+         the four pages, on the request's origin like `og:url`. A page
+         with no card, or whose card failed to render, gets no `og:image`
+         and still loads.
+      5. The S18 recap embed carries the fight-night card under `SITE_URL`
+         as its image, built from the saved recap with no database read,
+         tested.
+      6. satori, `@resvg/resvg-js` and the two Fontsource packages are
+         dependencies with a decision entry each, install from prebuilds
+         with no compile on darwin-arm64 and `node:26-alpine`, and the
+         Docker image builds, runs healthy and renders a card. No
+         headless browser renders cards. Nothing in `App.tsx` changes and
+         the entry chunk does not grow (233.36 KB raw / 74.80 KB gzip
+         before).
+      7. Checked with curl against the local server (each page's
+         `og:image` tag and its PNG, looked at), and in headless Chrome at
+         1,280 and 390 px; the dashboard, fight night, leaderboard,
+         rankings, ladders, rivalries, pilot pages, maps, match page and
+         the admin page still work.
 - [ ] **S20 Tale of the Tape permalinks** (M). `/tape/:a/:b`.
 - [ ] **S21 Belts and achievements** (M).
 - [ ] **S22 Fight-night schedule and iCal** (S). Events table, `.ics` feed,

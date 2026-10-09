@@ -1,4 +1,5 @@
-import { hotDb } from '../connection.js';
+import path from 'path';
+import { hotDb, mapImagesDir } from '../connection.js';
 import '../migrations.js';
 
 // The maps table: the stock map seed, the library list and intel (joined with
@@ -354,6 +355,11 @@ export const getMapIntel = (idOrName) => {
     recordMatch: map.record_match ? (typeof map.record_match === 'string' ? JSON.parse(map.record_match) : map.record_match) : null
   };
 };
+
+// Where a map's image is cached on disk: its stored file name, or the one the
+// image route saves a downloaded image under. The file may not exist yet.
+export const mapImagePath = (map) =>
+  path.join(mapImagesDir, map.local_image || `${map.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${map.id}.jpg`);
 
 export const getMapById = (id) => {
   return hotDb.prepare('SELECT * FROM maps WHERE id = ?').get(id);

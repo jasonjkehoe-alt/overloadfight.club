@@ -139,9 +139,8 @@ router.get('/maps/:id/image', async (req, res) => {
             return res.status(404).json({ error: 'Map not found' });
         }
 
-        const safeBase = map.name.replace(/[^a-zA-Z0-9_-]/g, '_');
-        const filename = map.local_image || `${safeBase}_${map.id}.jpg`;
-        const localPath = path.join(db.mapImagesDir, filename);
+        const localPath = db.mapImagePath(map);
+        const filename = path.basename(localPath);
 
         // If local file exists, serve with browser cache
         if (fs.existsSync(localPath)) {

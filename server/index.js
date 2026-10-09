@@ -123,7 +123,7 @@ app.get('/robots.txt', (req, res) => {
         return res.sendFile(robotsPath);
     }
     res.setHeader('Content-Type', 'text/plain');
-    res.send("User-agent: *\nAllow: /\nAllow: /pilots\nAllow: /maps\nAllow: /stats\nAllow: /history\nDisallow: /api/\nDisallow: /admin\n");
+    res.send("User-agent: *\nAllow: /\nAllow: /pilots\nAllow: /maps\nAllow: /stats\nAllow: /history\nAllow: /api/card/\nDisallow: /api/\nDisallow: /admin\n");
 });
 
 app.get('/favicon.ico', (req, res) => {

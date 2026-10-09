@@ -1,5 +1,6 @@
 // The wording for a winnerOf() result (gameParse.js), shared by the match page
 // (utils/matchResult.ts) and the match's share preview (server/pageMeta.js).
+import { RATING } from './gameParse.js';
 
 // m:ss for a number of seconds, 0:00 for anything below zero
 export const clock = seconds => {
@@ -55,3 +56,15 @@ export function resultLine({ team, ranking, winners }) {
 
 // A count for a narrow table cell: 10,000 and up in thousands, 12,345 as "12k" (S17).
 export const shortCount = n => (n >= 10000 ? `${Math.round(n / 1000)}k` : n.toLocaleString());
+
+/**
+ * Where a pilot stands in the power rankings, or why they are not in them
+ * (rankStatus in gameParse.js): the rating card's words and the share card's.
+ * @param {{ status: string | null, rank: number | null, matches: number }} rating db.getPilotRating
+ * @returns {string}
+ */
+export function ratingStanding({ status, rank, matches }) {
+    if (status === 'provisional') return `Provisional: ${matches} of ${RATING.rankedAfter} rated matches`;
+    if (status === 'inactive' || rank === null) return `Not ranked: no rated match in the last ${RATING.activeDays} days`;
+    return `#${rank} in the power rankings`;
+}

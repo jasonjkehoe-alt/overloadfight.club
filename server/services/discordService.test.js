@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { day, onDay, sample, veteranSoup } from '../testFixtures.js';
 import { FIGHT_NIGHT_PING, dayStart, fightNightDay, netKills, pilotKey, shiftDay } from '../lib/gameParse.js';
 import { EMBED_LIMITS, PING_SERVERS, RECAP_RANKINGS, movement, pingMessage, plain, recapMessage } from '../lib/discordMessages.js';
+import { cardKey, fightNightCard } from '../lib/shareCards.js';
 
 // The Discord webhook (S18) against a local stub server that records what it
 // receives. The URL's token is a made-up secret that no log line, error or
@@ -161,6 +162,14 @@ describe('the recap embed on fixture data', () => {
         expect(ranked.name).toBe(`Power rankings on ${shiftDay(day, 1)} (▲▼ over 7 days)`);
         expect(ranked.value.split('\n')).toEqual(rankings.pilots.slice(0, 5).map(p => `${p.rank}. ${plain(p.name)} ${Math.round(p.rating)} NEW`));
         expect(embed.fields).toHaveLength(10);
+    });
+
+    it('shows the night\'s share card under SITE_URL, with the numbers the embed gives', () => {
+        const [embed] = message.embeds;
+        const card = fightNightCard(recap);
+        expect(embed.image).toEqual({ url: `${ORIGIN}/api/card/fight-night/${day}?v=${cardKey(card)}` });
+        expect(`${card.line}`).toBe(embed.description);
+        expect(card.stats.find(s => s.label === 'Most kills').value).toBe(recap.topFragger.name);
     });
 
     it('shows each kind of movement and the top 5 only', () => {

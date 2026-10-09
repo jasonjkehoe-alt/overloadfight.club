@@ -4,6 +4,7 @@ Allow: /pilots
 Allow: /maps
 Allow: /stats
 Allow: /history
+Allow: /api/card/
 Disallow: /api/
 Disallow: /admin
 Disallow: /admin/

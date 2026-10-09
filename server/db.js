@@ -18,7 +18,7 @@ import {
 import { getAdminSetting, setAdminSetting } from './db/repos/settings.js';
 import { dropStaleDiscordPosts, getAllDiscordPosts, getDiscordPost, getRecentDiscordPosts, putDiscordPost, restoreDiscordPosts } from './db/repos/discordPosts.js';
 import {
-  seedStockMaps, getMaps, countMaps, getMapIntel, getMapById, getMapByName, upsertMap,
+  seedStockMaps, getMaps, countMaps, getMapIntel, getMapById, getMapByName, mapImagePath, upsertMap,
   incrementMapDownloads, updateMapLocalPaths, deleteMap
 } from './db/repos/maps.js';
 import { getFightNightRecaps, getFightNightRecapByDate, saveFightNightRecap, deleteFightNightRecapsSince } from './db/repos/fightNights.js';
@@ -147,6 +147,7 @@ const db = {
   getMapIntel,
   getMapById,
   getMapByName,
+  mapImagePath,
   upsertMap,
   incrementMapDownloads,
   updateMapLocalPaths,
