@@ -4,30 +4,33 @@
 // card's hash (cardKey), so a card whose words and numbers have not changed is
 // never drawn twice and one whose numbers moved gets a new key. resvg's
 // renderAsync runs on libuv's thread pool; satori's part runs here and takes a
-// few milliseconds. A card that fails is remembered, so its page leaves
-// og:image out instead of pointing at a broken image.
+// few milliseconds. satori and the fonts load on the first draw (satori alone
+// is about 80 ms and 44 MB), not at startup. A card that fails is remembered,
+// so its page leaves og:image out instead of pointing at a broken image.
 import fs from 'fs';
 import { createRequire } from 'module';
-import satori from 'satori';
 import { renderAsync } from '@resvg/resvg-js';
 import { CARD_FONTS, CARD_SIZE, cardTree } from '../lib/cardLayout.js';
 import { cardKey } from '../lib/shareCards.js';
 
 const require = createRequire(import.meta.url);
 
-// The cards kept, newest use last; a 1200 × 630 card is about 30 to 250 KB.
-export const CARD_CACHE_SIZE = 200;
-// The most draws waiting at once. Past it a card is not queued (CardBusy): a
-// crawler asking for thousands of cards cannot hold a preview's fetch behind
-// all of them.
-export const CARD_QUEUE_LIMIT = 20;
+// The cards kept, least recently used dropped first: at most `cards`, and at
+// most `bytes` of PNG (a card is about 30 to 250 KB). `waiting` is the most
+// draws the card route lets wait at once (routes/cards.js); past it a card is
+// not queued (CardBusy), so a crawler asking for thousands of cards cannot
+// hold a preview's fetch behind all of them. The recap's own draw
+// (discordService.js) always waits its turn.
+export const CARD_LIMITS = { cards: 200, bytes: 20 * 1024 * 1024, waiting: 20 };
 export class CardBusy extends Error {}
 
 const cache = new Map();
+let cachedBytes = 0;
 const failed = new Map();
 const pending = new Map();
 let queue = Promise.resolve();
 let fonts = null;
+let satori = null;
 
 // The Fontsource files the layout's two families need. Orbitron has latin
 // only. For a glyph a font lacks, satori tries the other fonts in the list,
@@ -62,37 +65,56 @@ async function imageData(image) {
 
 async function draw(card) {
     const started = performance.now();
+    satori ??= (await import('satori')).default;
     const svg = await satori(cardTree(card, await imageData(card.image)), { ...CARD_SIZE, fonts: await loadFonts() });
     // satori draws text as paths, so resvg needs no fonts of its own
     const png = (await renderAsync(svg, { font: { loadSystemFonts: false }, fitTo: { mode: 'width', value: CARD_SIZE.width } })).asPng();
     return { png, ms: Math.round(performance.now() - started) };
 }
 
-// Keep `key` last in `map`, dropping the oldest past CARD_CACHE_SIZE.
-function remember(map, key, entry) {
+// Keep `key` last in `map`, dropping the oldest past `limit` entries.
+function remember(map, key, entry, limit = CARD_LIMITS.cards) {
     map.delete(key);
     map.set(key, entry);
-    if (map.size > CARD_CACHE_SIZE) map.delete(map.keys().next().value);
+    if (map.size > limit) map.delete(map.keys().next().value);
+}
+
+// The PNG cached under `key`, now the most recently used, or undefined.
+export function cachedCard(key) {
+    const png = cache.get(key);
+    if (png) {
+        cache.delete(key);
+        cache.set(key, png);
+    }
+    return png;
+}
+
+function cachePng(key, png) {
+    cache.set(key, png);
+    cachedBytes += png.length;
+    for (const [oldest, old] of cache) {
+        if (cache.size <= CARD_LIMITS.cards && cachedBytes <= CARD_LIMITS.bytes) break;
+        cache.delete(oldest);
+        cachedBytes -= old.length;
+    }
 }
 
 /**
  * The card's PNG and how long it took to draw (0 when it came from the cache).
- * Rejects when the card cannot be drawn (cardFailed then says so), or with
- * CardBusy when CARD_QUEUE_LIMIT draws are already waiting.
+ * Rejects when the card cannot be drawn (cardFailed then says so), or, given
+ * a `waitLimit`, with CardBusy when that many draws are already waiting.
  * @param {import('../lib/shareCards.js').Card} card
+ * @param {{ waitLimit?: number }} [options]
  * @returns {Promise<{ png: Buffer, ms: number }>}
  */
-export function renderCard(card) {
+export function renderCard(card, { waitLimit = Infinity } = {}) {
     const key = cardKey(card);
-    const hit = cache.get(key);
-    if (hit) {
-        remember(cache, key, hit);
-        return Promise.resolve({ png: hit, ms: 0 });
-    }
+    const hit = cachedCard(key);
+    if (hit) return Promise.resolve({ png: hit, ms: 0 });
     if (pending.has(key)) return pending.get(key);
-    if (pending.size >= CARD_QUEUE_LIMIT) return Promise.reject(new CardBusy(`${CARD_QUEUE_LIMIT} cards are already waiting`));
+    if (pending.size >= waitLimit) return Promise.reject(new CardBusy(`${waitLimit} cards are already waiting`));
     const job = queue.then(() => draw(card)).then(result => {
-        remember(cache, key, result.png);
+        cachePng(key, result.png);
         failed.delete(key);
         console.log(`[Card] ${card.path} drawn in ${result.ms} ms`);
         return result;
@@ -114,5 +136,6 @@ export const cardFailed = key => failed.has(key);
 // Empty the cache and the failures (tests).
 export function clearCards() {
     cache.clear();
+    cachedBytes = 0;
     failed.clear();
 }

@@ -23,7 +23,7 @@ const withCard = (card, extra = {}) => (card ? { ...extra, card, description: ca
 function pilotMeta(name) {
     const summary = db.getPilotSummary(name);
     if (!summary) return {};
-    return withCard(pilotCard(name, summary, db.getPilotStanding(summary.name), db.getPilotPPI(summary.name)));
+    return withCard(pilotCard(name, summary, db.getPilotRating(summary.name), db.getPilotPPI(summary.name)));
 }
 
 // "BLUE wins 42–35. TEAM ANARCHY on Vault, 15:10." The name is the map, for the title.
@@ -46,16 +46,10 @@ function mapMeta(name) {
     const intel = db.getMapIntel(name);
     if (!intel) return {};
     const map = intel.id ? db.getMapById(intel.id) : null;
-    let image = null;
-    if (map) {
-        const file = db.mapImagePath(map);
-        try {
-            image = { file, mtime: fs.statSync(file).mtimeMs };
-        } catch {
-            // not downloaded yet
-        }
-    }
-    return withCard(mapCard(intel, image));
+    const file = map && db.mapImagePath(map);
+    // undefined until the image route has downloaded it
+    const stat = file && fs.statSync(file, { throwIfNoEntry: false });
+    return withCard(mapCard(intel, stat ? { file, mtime: stat.mtimeMs } : null));
 }
 
 // "Power rankings for 2026-10-08: 1. WD-40 (1612), 2. OKSTER (1580), 3. RAZOR (1555)."
@@ -120,12 +114,18 @@ function routeMeta({ view, param }, query) {
 
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
+// The views with a share card.
+const CARD_VIEWS = new Set(['pilot', 'game-detail', 'fight-night', 'maps']);
+
 /**
  * The share card of the page at `pathname`, or null for a page without one
  * (server/routes/cards.js). Throws when the lookup does.
  * @param {string} pathname
  */
-export const pageCard = pathname => routeMeta(parseRoute(pathname), new URLSearchParams()).card ?? null;
+export function pageCard(pathname) {
+    const route = parseRoute(pathname);
+    return CARD_VIEWS.has(route.view) ? routeMeta(route, new URLSearchParams()).card ?? null : null;
+}
 
 /**
  * index.html with the page's title and share tags in place of its <title>.

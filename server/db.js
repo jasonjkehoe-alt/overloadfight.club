@@ -40,7 +40,7 @@ import {
   getPilotDetailedStats, getPilotBreakdown, getPilotTelemetry, normalizeWeaponName,
   PRIMARY_WEAPONS, SECONDARY_WEAPONS
 } from './db/analytics/pilotTelemetry.js';
-import { getPilotRating, getPilotStanding, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
+import { getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
 import { clearDerivedCaches, clearDerivedTablesBuilt, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
@@ -213,7 +213,6 @@ const db = {
 
   // analytics/ratings.js
   getPilotRating,
-  getPilotStanding,
   hasRatingSnapshots,
   getPowerRankings,
 

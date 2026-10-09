@@ -12,11 +12,6 @@ const latestOnOrBefore = hotDb.prepare(`
     ON m.pilot = s.pilot AND m.day = s.day
 `);
 
-const pilotLatest = hotDb.prepare(`
-  SELECT name, day, rating, rd, volatility, matches FROM rating_snapshots
-  WHERE pilot = ? ORDER BY day DESC LIMIT 1
-`);
-
 const pilotHistory = hotDb.prepare(`
   SELECT name, day, rating, rd, volatility, matches FROM rating_snapshots
   WHERE pilot = ? ORDER BY day
@@ -44,14 +39,6 @@ export const getPowerRankings = (day = fightNightDay(Date.now())) => {
   return { day, since, total: ranked.length, pilots: rankingMovement(ranked, rankedOn(since)) };
 };
 
-// A pilot's rating on `day` (today by default) from their latest snapshot,
-// without the history: { name, rating, rd, matches, status, rank }, the nulls
-// and 0 matches of getPilotRating for a pilot with no rated match.
-const standing = (pilot, last, day) => (last
-  ? { name: last.name, rating: last.rating, rd: rdOn(last, day), matches: last.matches, status: rankStatus(last, day), rank: rankedOn(day).find(r => r.pilot === pilot)?.rank ?? null }
-  : { name: null, rating: null, rd: null, matches: 0, status: null, rank: null });
-export const getPilotStanding = (name, day = fightNightDay(Date.now())) => standing(pilotKey(name), pilotLatest.get(pilotKey(name)), day);
-
 // A pilot's rating on `day` (today by default) and at the end of every day
 // they played; `history` is empty for a pilot with no rated match. `rd` has
 // grown for the days since the last one; `status` is rankStatus() and `rank`
@@ -59,8 +46,15 @@ export const getPilotStanding = (name, day = fightNightDay(Date.now())) => stand
 export const getPilotRating = (name, day = fightNightDay(Date.now())) => {
   const pilot = pilotKey(name);
   const history = pilotHistory.all(pilot);
+  const last = history[history.length - 1];
+  if (!last) return { name: null, rating: null, rd: null, matches: 0, status: null, rank: null, history: [] };
   return {
-    ...standing(pilot, history[history.length - 1], day),
+    name: last.name,
+    rating: last.rating,
+    rd: rdOn(last, day),
+    matches: last.matches,
+    status: rankStatus(last, day),
+    rank: rankedOn(day).find(r => r.pilot === pilot)?.rank ?? null,
     history: history.map(({ day: d, rating, rd, matches }) => ({ day: d, rating, rd, matches }))
   };
 };

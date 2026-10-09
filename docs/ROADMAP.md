@@ -5043,16 +5043,20 @@ Not counted in the 28 sessions.
   kills from `getPilotSummary` (the leaderboard's all-time row, as
   `og:description` since S8), the rating with `ratingStanding` (the rating
   card's words, moved from `RatingCard.tsx` to `matchResult.js` so the two
-  share them), the career Combat Ratio from `pilot_stats_cache` (the
-  profile's card, negative shown as 0), and the last match's fight-night
-  day. Match: the map, `resultLine(winnerOf)`, the mode, `clock` of
+  share them; read through a new `getPilotStanding`, the latest snapshot
+  without the history, a new `db` key in `analytics/ratings.js`, which
+  `getPilotRating` now builds on), the career Combat Ratio from
+  `pilot_stats_cache` (the profile's card, negative shown as 0), and the
+  last match's fight-night day (left out for a date that does not parse). Match: the map, `resultLine(winnerOf)`, the mode, `clock` of
   `measuredDurationOf` (no length when only the limit is known, as in S8's
   description), `VERDICT_LABEL[verdictOf]` and the fight-night day. Fight
   night: the saved recap's date, matches, pilots, kills and most kills.
   Map: the name, its author (left out when "Unknown"), matches, kills,
   matches in the last 30 days and the top pilot as `getMapIntel` gives the
   map popup, and the image when the image route has cached it on disk (a
-  card never fetches it from overloadmaps.com). Each builder also writes
+  card never fetches it from overloadmaps.com); a map with an all-digit
+  name gets its card at `/maps/<id>`, because the server reads digits as a
+  map id (S8). Each builder also writes
   the page's `og:description`, so the preview's text and image read one
   object; the pilot, match and fight-night sentences are S8's, now with
   `plural` ("1 match", which S8's "1 matches" got wrong), and the map page
@@ -5085,8 +5089,13 @@ Not counted in the 28 sessions.
   without an image and 75 to 90 ms with one (a 230 KB PNG), logged as
   `[Card] <path> drawn in N ms` and sent as `Server-Timing: render;dur=N`
   (0 from the cache). The PNG is kept in a 200-entry in-memory map, least
-  recently used dropped first, keyed by `cardKey`: a SHA-1 of every word,
-  number and the image path on the card. That is a change from the owner's
+  recently used dropped first, keyed by `cardKey`: a SHA-1 of every word
+  and number on the card, plus the map image's path and modified time, so
+  a re-downloaded image makes a new card. At most 20 draws wait at once
+  (`CARD_QUEUE_LIMIT`); past that the route answers 503 with `Retry-After:
+  5` and nothing is remembered as failed, so a crawler asking for
+  thousands of cards cannot leave a preview's fetch waiting behind them
+  all (/code-review). That is a change from the owner's
   answer, which named stamps (the latest match id, the recap's save time):
   the hash makes a card stale exactly when what it shows changes, where a
   new match id would have redrawn every pilot's card after every match and
@@ -5114,8 +5123,10 @@ Not counted in the 28 sessions.
   the page loads as before.
 - 2026-10-09 (S19): The recap embed (S18) gets `image: { url }`, the
   fight-night card under `SITE_URL`, built from the saved recap alone, so
-  `discordMessages.js` still reads no database. Discord fetches the image
-  from the public site when it shows the post.
+  `discordMessages.js` still reads no database. Before posting,
+  `discordService.js` draws the card, so Discord's fetch finds it cached,
+  and a card that fails to draw is left out of the embed rather than shown
+  broken (/code-review).
 - 2026-10-09 (S19): Dependencies. satori 0.33.5 (MPL-2.0, Vercel's HTML and
   CSS to SVG; pure JavaScript with WebAssembly for yoga and harfbuzz): the
   newest release more than two weeks old on 2026-10-09. 23 releases
@@ -5126,10 +5137,12 @@ Not counted in the 28 sessions.
   nothing compiled (the Command Line Tools postmortem does not bite).
   `@fontsource/orbitron` and `@fontsource/roboto-mono` 5.3.0 (OFL-1.1): the
   `.woff` files satori reads (it cannot read WOFF2); Orbitron 700 and 900
-  latin, Roboto Mono 400 and 600 latin and latin-ext, loaded once. Orbitron
-  has no latin-ext; satori falls back to Roboto Mono for a glyph it lacks,
-  and a name in a script neither covers draws nothing for those
-  characters (flagged). All four are `dependencies`, kept by `npm prune
+  latin, Roboto Mono 400 and 600 in latin, latin-ext, Cyrillic,
+  Cyrillic-ext, Greek and Vietnamese, loaded once. satori falls back to
+  another font for a glyph only across fonts with other names (found when
+  /code-review showed a Cyrillic name drawn blank), so each extra Roboto
+  Mono script is registered as "Roboto Mono <script>". A name in CJK or
+  with emoji still draws nothing for those characters (flagged). All four are `dependencies`, kept by `npm prune
   --omit=dev`. The runtime image now copies `designTokens.js`, which
   `cardLayout.js` imports from the repo root. The image is 619 MB against
   599 MB. Rejected: `@resvg/resvg-wasm` (no native code, but on the main
@@ -6104,12 +6117,11 @@ Not counted in the 28 sessions.
   - (S5) `pilot_stats_cache` lookups do not trim the name: the pilot card
     reads the cache by the summary's spelling, which is trimmed, so the
     card is not affected; `/ppi` still is.
-- (S19) Orbitron ships latin only and Roboto Mono latin and latin-ext. A
-  pilot name in Cyrillic, Greek, CJK or with emoji draws nothing for those
-  characters on the card (satori asks for a font through
-  `loadAdditionalAsset`, which the service does not supply). The page and
-  the description show the name in full. Adding Fontsource's `cyrillic` and
-  `greek` files, or a Noto fallback, would cover most of it.
+- (S19) A pilot or map name in CJK, or with emoji, draws nothing for those
+  characters on the card: no font loaded covers them (satori asks for one
+  through `loadAdditionalAsset`, which the service does not supply). The
+  page and the description show the name in full. A Noto CJK fallback
+  would cover it at several MB a weight.
 - (S19) Cards live in memory: a restart or a deploy empties the cache, and
   the first preview of each page after it pays the draw (20 to 90 ms on
   this Mac, unknown on the NAS's Atom). The cache holds 200 cards; a

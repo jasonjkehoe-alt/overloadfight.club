@@ -20,12 +20,11 @@ import { urlFor } from './siteRoutes.js';
  * where it stands, the career Combat Ratio and the last match's day.
  * @param {string} param the name as the URL has it
  * @param {object} summary db.getPilotSummary
- * @param {object} rating db.getPilotStanding
+ * @param {object} rating db.getPilotRating
  * @param {object | null} cached db.getPilotPPI, the pilot_stats_cache row
- * @returns {Card | null}
+ * @returns {Card}
  */
 export function pilotCard(param, summary, rating, cached) {
-    if (!summary) return null;
     // null for a date that does not parse
     const last = fightNightDay(summary.lastSeen);
     const stats = [
@@ -34,7 +33,7 @@ export function pilotCard(param, summary, rating, cached) {
     ];
     if (rating?.matches > 0) stats.push({ label: 'Rating', value: String(Math.round(rating.rating)), note: ratingStanding(rating) });
     // the profile's Combat Ratio card: the career number from the stats cache
-    if (cached?.kda !== undefined && cached?.kda !== null) stats.push({ label: 'Combat Ratio', value: Math.max(0, cached.kda).toFixed(2) });
+    if (cached?.kda != null) stats.push({ label: 'Combat Ratio', value: Math.max(0, cached.kda).toFixed(2) });
     return {
         path: urlFor('pilot', param),
         kind: 'Pilot',
@@ -50,15 +49,14 @@ export function pilotCard(param, summary, rating, cached) {
  * verdict and the fight-night day.
  * @param {number} id
  * @param {object} game the stored details
- * @returns {Card | null}
+ * @returns {Card}
  */
 export function matchCard(id, game) {
-    if (!game) return null;
     const { matchMode, level } = game.settings || {};
     const seconds = measuredDurationOf(game);
     const result = winnerOf(game);
     const verdict = verdictOf(result);
-    const day = game.date ? fightNightDay(game.date) : null;
+    const day = fightNightDay(game.date);
     const where = [matchMode, level && `on ${level}`].filter(Boolean).join(' ');
     const detail = where ? `${where}${seconds ? `, ${clock(seconds)}` : ''}.` : '';
     const stats = [
@@ -108,10 +106,9 @@ export function fightNightCard(recap) {
  * when one is cached on disk.
  * @param {object} intel db.getMapIntel
  * @param {CardImage | null} image the cached image
- * @returns {Card | null}
+ * @returns {Card}
  */
 export function mapCard(intel, image) {
-    if (!intel) return null;
     const author = intel.author && intel.author !== 'Unknown' ? intel.author : null;
     const top = intel.topPilot?.name ? intel.topPilot : null;
     const stats = [

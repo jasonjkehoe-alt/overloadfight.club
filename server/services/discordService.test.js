@@ -8,6 +8,7 @@ import { day, onDay, sample, veteranSoup } from '../testFixtures.js';
 import { FIGHT_NIGHT_PING, dayStart, fightNightDay, netKills, pilotKey, shiftDay } from '../lib/gameParse.js';
 import { EMBED_LIMITS, PING_SERVERS, RECAP_RANKINGS, movement, pingMessage, plain, recapMessage } from '../lib/discordMessages.js';
 import { cardKey, fightNightCard } from '../lib/shareCards.js';
+import { cachedCard } from './cardService.js';
 
 // The Discord webhook (S18) against a local stub server that records what it
 // receives. The URL's token is a made-up secret that no log line, error or
@@ -168,7 +169,7 @@ describe('the recap embed on fixture data', () => {
         const [embed] = message.embeds;
         const card = fightNightCard(recap);
         expect(embed.image).toEqual({ url: `${ORIGIN}/api/card/fight-night/${day}?v=${cardKey(card)}` });
-        expect(`${card.line}`).toBe(embed.description);
+        expect(embed.url).toBe(`${ORIGIN}${card.path}`);
         expect(card.stats.find(s => s.label === 'Most kills').value).toBe(recap.topFragger.name);
         // a card that failed to draw is left out
         expect(recapMessage(recap, rankings, ORIGIN, { image: false }).embeds[0]).not.toHaveProperty('image');
@@ -313,6 +314,10 @@ describe('the recap post from the detector', () => {
         // the detector saves the next day's (new) and finds `day`'s already saved
         await detectAt(morning);
         expect(recapPosts().map(r => r.body.embeds[0].url)).toEqual([`${ORIGIN}/fight-night/${shiftDay(day, 1)}`]);
+        // its share card was drawn before the post, so Discord's fetch finds it cached
+        const card = fightNightCard(db.getFightNightRecapByDate(shiftDay(day, 1)));
+        expect(recapPosts()[0].body.embeds[0].image).toEqual({ url: `${ORIGIN}/api/card${card.path}?v=${cardKey(card)}` });
+        expect(cachedCard(cardKey(card))).toBeDefined();
         // the rankings on the morning after that night
         expect(recapPosts()[0].body.embeds[0].fields.at(-1).name).toBe(`Power rankings on ${shiftDay(day, 2)} (▲▼ over 7 days)`);
         expect(db.getDiscordPost('recap', day)).toBeNull();

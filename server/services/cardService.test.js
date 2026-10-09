@@ -3,10 +3,11 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { day, onDay, sample, veteranSoup } from '../testFixtures.js';
 import { combatRatio, durationOf, fightNightDay, netKills, pilotKey, rankedMatch } from '../lib/gameParse.js';
 import { cardKey } from '../lib/shareCards.js';
+import { dayLabel } from '../lib/matchResult.js';
 
 // satori, counted: how many cards it drew, how many at once at most, and a
 // title that makes it throw.
@@ -67,9 +68,18 @@ beforeEach(() => {
     Object.assign(drawn, { calls: 0, running: 0, most: 0 });
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 // The width and height in a PNG's IHDR chunk.
 const pngSize = png => ({ width: png.readUInt32BE(16), height: png.readUInt32BE(20), signature: png.subarray(1, 4).toString() });
 const stat = (card, label) => card.stats.find(s => s.label === label);
+// A card with only a title, cheap to draw.
+const stub = (title, path = '/game/1') => ({ path, kind: 'K', title, line: '', stats: [], description: '' });
+// Make the fight night's card fail to draw (satori throws on this text), quietly.
+const failNight = () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    return vi.spyOn(db, 'getFightNightRecapByDate').mockReturnValue({ ...recap, formattedDate: 'THROW ME' });
+};
 const ogImage = url => withPageMeta(template, ORIGIN, url).match(/<meta property="og:image" content="([^"]*)" \/>/)?.[1];
 
 describe('the cards on fixture data', () => {
@@ -86,7 +96,7 @@ describe('the cards on fixture data', () => {
         const rating = db.getPilotRating('ZERGLING');
         expect(rating.matches).toBeGreaterThan(0);
         expect(stat(card, 'Rating').value).toBe(String(Math.round(rating.rating)));
-        expect(card.line).toBe(`Last match ${new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`);
+        expect(card.line).toBe(`Last match ${dayLabel(day)}`);
         // only WD-40 has 10 rated matches in the samples (pageMeta.test.js)
         expect(stat(pageCard('/pilot/WD-40'), 'Rating').note).toMatch(/^#1 in the power rankings$/);
         expect(stat(card, 'Rating').note).toMatch(/^Provisional: \d of 10 rated matches$/);
@@ -165,9 +175,9 @@ describe('renderCard', () => {
         expect(drawn.calls).toBe(2);
     });
 
-    it('keeps the CARD_CACHE_SIZE cards used most recently', async () => {
-        const card = i => ({ path: `/game/${i}`, kind: 'K', title: String(i), line: '', stats: [], description: '' });
-        const size = cards.CARD_CACHE_SIZE;
+    it('keeps the CARD_LIMITS.cards cards used most recently', async () => {
+        const card = i => stub(String(i));
+        const size = cards.CARD_LIMITS.cards;
         for (let i = 0; i < size; i++) await cards.renderCard(card(i));
         await cards.renderCard(card(0)); // a hit makes the first card the newest
         expect(drawn.calls).toBe(size);
@@ -178,6 +188,23 @@ describe('renderCard', () => {
         await cards.renderCard(card(1));
         expect(drawn.calls).toBe(size + 2);
     }, 30000);
+
+    it('keeps at most CARD_LIMITS.bytes of PNG, dropping the oldest', async () => {
+        const bytes = cards.CARD_LIMITS.bytes;
+        const first = await cards.renderCard(stub('first'));
+        // room for two of these cards, not three
+        cards.CARD_LIMITS.bytes = Math.round(first.png.length * 2.5);
+        try {
+            await cards.renderCard(stub('second'));
+            await cards.renderCard(stub('third'));
+            expect(drawn.calls).toBe(3);
+            await cards.renderCard(stub('first')); // dropped for the third
+            expect(drawn.calls).toBe(4);
+            expect(cards.cachedCard(cardKey(stub('third')))).toBeDefined();
+        } finally {
+            cards.CARD_LIMITS.bytes = bytes;
+        }
+    });
 
     it('draws a map card with its cached image, and without one it cannot read', async () => {
         // a stock map with its image on disk: a PNG the render itself made
@@ -200,24 +227,27 @@ describe('renderCard', () => {
         fs.rmSync(file);
     });
 
-    it('turns away a card past CARD_QUEUE_LIMIT waiting draws, without calling it failed', async () => {
-        const card = i => ({ path: `/game/${i}`, kind: 'K', title: `busy ${i}`, line: '', stats: [], description: '' });
-        const jobs = Array.from({ length: cards.CARD_QUEUE_LIMIT + 3 }, (_, i) => cards.renderCard(card(i)));
+    it('turns away a card past its wait limit, without calling it failed; with none, every card waits', async () => {
+        const card = i => stub(`busy ${i}`);
+        const limit = cards.CARD_LIMITS.waiting;
+        const jobs = Array.from({ length: limit + 3 }, (_, i) => cards.renderCard(card(i), { waitLimit: limit }));
         const settled = await Promise.allSettled(jobs);
-        expect(settled.filter(r => r.status === 'fulfilled')).toHaveLength(cards.CARD_QUEUE_LIMIT);
+        expect(settled.filter(r => r.status === 'fulfilled')).toHaveLength(limit);
         const busy = settled.filter(r => r.status === 'rejected');
         expect(busy).toHaveLength(3);
         expect(busy.every(r => r.reason instanceof cards.CardBusy)).toBe(true);
-        expect(cards.cardFailed(cardKey(card(cards.CARD_QUEUE_LIMIT)))).toBe(false);
+        expect(cards.cardFailed(cardKey(card(limit)))).toBe(false);
         // once the queue has drained the same card is drawn
-        expect(pngSize((await cards.renderCard(card(cards.CARD_QUEUE_LIMIT))).png).width).toBe(1200);
+        expect(pngSize((await cards.renderCard(card(limit), { waitLimit: limit })).png).width).toBe(1200);
+        // the recap's draw has no limit
+        const all = await Promise.allSettled(Array.from({ length: limit + 3 }, (_, i) => cards.renderCard(stub(`open ${i}`))));
+        expect(all.every(r => r.status === 'fulfilled')).toBe(true);
     });
 
     it('draws Cyrillic, Greek and Vietnamese names, from Roboto Mono where Orbitron has no glyph', async () => {
-        const base = { path: '/pilot/x', kind: 'Pilot', line: '', stats: [], description: '' };
-        const blank = (await cards.renderCard({ ...base, title: '' })).png;
+        const blank = (await cards.renderCard(stub(''))).png;
         for (const title of ['Влад', 'Ξένος', 'Nguyễn']) {
-            const { png } = await cards.renderCard({ ...base, title });
+            const { png } = await cards.renderCard(stub(title));
             expect(png.length).toBeGreaterThan(blank.length + 500);
         }
     });
@@ -229,14 +259,13 @@ describe('renderCard', () => {
         expect(cards.cardFailed(cardKey(bad))).toBe(true);
         expect(cards.cardFailed(cardKey(pageCard('/game/72108')))).toBe(false);
         expect(pngSize((await cards.renderCard(pageCard('/game/72108'))).png).width).toBe(1200);
-        vi.mocked(console.error).mockRestore();
     });
 });
 
 describe('og:image', () => {
     it('points the four pages at their card on the request\'s origin, with its size and alt text', () => {
         for (const url of ['/pilot/WD-40', '/game/72102', `/fight-night/${day}`, '/fight-night', '/maps/ascent']) {
-            const card = pageCard(url.split('?')[0]);
+            const card = pageCard(url);
             const html = withPageMeta(template, 'http://192.168.0.105:3000', url);
             expect(ogImage(url).startsWith(`${ORIGIN}/api/card/`)).toBe(true);
             expect(html).toContain(`<meta property="og:image" content="http://192.168.0.105:3000/api/card${card.path}?v=${cardKey(card)}" />`);
@@ -262,14 +291,12 @@ describe('og:image', () => {
         }
         const card = pageCard('/game/72102');
         // make this card's draw fail, then load its page
-        vi.spyOn(console, 'error').mockImplementation(() => {});
-        const failing = vi.spyOn(db, 'getFightNightRecapByDate').mockReturnValue({ ...recap, formattedDate: 'THROW ME' });
+        const failing = failNight();
         await expect(cards.renderCard(pageCard(`/fight-night/${day}`))).rejects.toThrow();
         const html = withPageMeta(template, ORIGIN, `/fight-night/${day}`);
         expect(html).not.toMatch(/og:image|twitter:card/);
         expect(html).toContain('<meta property="og:description" content="THROW ME: ');
         failing.mockRestore();
-        vi.mocked(console.error).mockRestore();
         expect(ogImage(`/fight-night/${day}`)).toBeDefined();
         expect(ogImage('/game/72102')).toBe(`${ORIGIN}/api/card/game/72102?v=${cardKey(card)}`);
     });
@@ -285,6 +312,15 @@ describe('GET /api/card/*', () => {
         expect(pngSize(Buffer.from(await res.arrayBuffer()))).toEqual({ width: 1200, height: 630, signature: 'PNG' });
         const cached = await fetch(`${base}/api/card/pilot/WD-40`);
         expect(cached.headers.get('server-timing')).toBe('render;dur=0');
+        // a cached card is sent by its ?v= with no database read
+        const key = cardKey(pageCard('/pilot/WD-40'));
+        const read = vi.spyOn(db, 'getPilotSummary');
+        const byKey = await fetch(`${base}/api/card/pilot/WD-40?v=${key}`);
+        expect([byKey.status, byKey.headers.get('server-timing')]).toEqual([200, 'render;dur=0']);
+        expect(read).not.toHaveBeenCalled();
+        // an old ?v= reads the page and answers its current card
+        expect((await fetch(`${base}/api/card/pilot/WD-40?v=000000000000`)).status).toBe(200);
+        expect(read).toHaveBeenCalledTimes(1);
         for (const url of [`/fight-night/${day}`, '/fight-night', '/fight-nights/' + day, '/game/72102', '/maps/ASCENT', '/pilot/zergling']) {
             expect((await fetch(`${base}/api/card${url}`)).status).toBe(200);
         }
@@ -295,14 +331,25 @@ describe('GET /api/card/*', () => {
             const res = await fetch(`${base}/api/card${url}`);
             expect(res.status).toBe(404);
         }
-        vi.spyOn(console, 'error').mockImplementation(() => {});
-        const failing = vi.spyOn(db, 'getFightNightRecapByDate').mockReturnValue({ ...recap, formattedDate: 'THROW ME' });
+        const failing = failNight();
         expect((await fetch(`${base}/api/card/fight-night/${day}`)).status).toBe(500);
         failing.mockImplementation(() => { throw new Error('database closed'); });
         const res = await fetch(`${base}/api/card/fight-night/${day}`);
         expect(res.status).toBe(500);
         expect(await res.json()).toEqual({ error: 'Failed to read the card' });
-        failing.mockRestore();
-        vi.mocked(console.error).mockRestore();
+    });
+
+    it('answers 503 past the wait limit for a card it would have to draw, and a cached one still', async () => {
+        await fetch(`${base}/api/card/game/72102`);
+        const waiting = cards.CARD_LIMITS.waiting;
+        cards.CARD_LIMITS.waiting = 0;
+        try {
+            const busy = await fetch(`${base}/api/card/game/72108`);
+            expect([busy.status, busy.headers.get('retry-after')]).toEqual([503, '5']);
+            expect((await fetch(`${base}/api/card/game/72102`)).status).toBe(200);
+        } finally {
+            cards.CARD_LIMITS.waiting = waiting;
+        }
+        expect((await fetch(`${base}/api/card/game/72108`)).status).toBe(200);
     });
 });

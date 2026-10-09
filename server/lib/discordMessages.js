@@ -73,14 +73,16 @@ export function recapMessage(recap, rankings, origin, { image = true } = {}) {
             value: top.map(p => `${p.rank}. ${plain(p.name, NAME_MAX)} ${Math.round(p.rating)} ${movement(p.change)}`).join('\n')
         });
     }
+    // the night's share card: its page, its sentence of totals and its image
+    const card = fightNightCard(recap);
     return {
         allowed_mentions: NO_MENTIONS,
         embeds: [fit({
             title: plain(`Fight Night: ${recap.formattedDate}`, EMBED_LIMITS.title),
-            url: `${origin}${urlFor('fight-night', recap.date)}`,
-            description: `${plural(recap.totalMatches, 'match', 'matches')}, ${plural(recap.totalPilots, 'pilot', 'pilots')}, ${plural(recap.totalFrags, 'kill', 'kills')}.`,
+            url: `${origin}${card.path}`,
+            description: card.line,
             fields,
-            ...(image ? { image: { url: `${origin}${cardUrl(fightNightCard(recap))}` } } : {})
+            ...(image ? { image: { url: `${origin}${cardUrl(card)}` } } : {})
         })]
     };
 }

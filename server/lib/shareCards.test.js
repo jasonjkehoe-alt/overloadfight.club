@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { byId } from '../testFixtures.js';
 import { RATING, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
+import { dayLabel } from './matchResult.js';
 import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard } from './shareCards.js';
 
 const stat = (card, label) => card.stats.find(s => s.label === label);
+const recap = { date: '2026-10-06', formattedDate: 'Tuesday, October 6, 2026', totalMatches: 18, totalPilots: 11, totalFrags: 1102, topFragger: { name: 'WD-40', kills: 237 } };
 
 describe('matchCard', () => {
     it('reads the map, result, mode, measured length, verdict and day of a team match', () => {
@@ -32,7 +34,6 @@ describe('matchCard', () => {
         expect(card.title).toBe('Unknown map');
         expect(card.stats).toEqual([{ label: 'Mode', value: 'ANARCHY' }]);
         expect(card.line).toBe('No result: this match has no scores to compare.');
-        expect(matchCard(1, null)).toBeNull();
     });
 
     it('leaves the length out when only the time limit is known, as the share description does', () => {
@@ -58,7 +59,7 @@ describe('matchCard', () => {
     it('names the fight-night day the match was played on', () => {
         const game = byId(72102);
         const day = fightNightDay(game.date);
-        expect(stat(matchCard(72102, game), 'Played').value).toBe(new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }));
+        expect(stat(matchCard(72102, game), 'Played').value).toBe(dayLabel(day));
     });
 });
 
@@ -89,7 +90,6 @@ describe('pilotCard', () => {
         expect(unrated.description).toBe('WD-40: 1 match, 1 kill, last match 2026-10-07.');
         // the profile shows a negative cached ratio as 0
         expect(stat(pilotCard('a', summary, ranked, { kda: -1 }), 'Combat Ratio').value).toBe('0.00');
-        expect(pilotCard('a', null, ranked, null)).toBeNull();
         // a last match whose date does not parse: no day, no throw
         const undated = pilotCard('a', { ...summary, lastSeen: 'not a date' }, ranked, null);
         expect(undated.line).toBe('');
@@ -98,7 +98,6 @@ describe('pilotCard', () => {
 });
 
 describe('fightNightCard', () => {
-    const recap = { date: '2026-10-06', formattedDate: 'Tuesday, October 6, 2026', totalMatches: 18, totalPilots: 11, totalFrags: 1102, topFragger: { name: 'WD-40', kills: 237 } };
 
     it('shows the saved recap\'s matches, pilots, kills and most kills', () => {
         const card = fightNightCard(recap);
@@ -145,7 +144,6 @@ describe('mapCard', () => {
         expect(card).not.toHaveProperty('image');
         expect(card.stats).toHaveLength(3);
         expect(card.description).toBe('BLIZZARD: 1 match, 1 kill.');
-        expect(mapCard(null, null)).toBeNull();
     });
 
     it('names an all-digit map by its id, which the server reads digits as', () => {
@@ -158,7 +156,6 @@ describe('mapCard', () => {
 
 describe('cardKey and cardUrl', () => {
     it('keep a card\'s key while its words and numbers stay, and change it when one moves', () => {
-        const recap = { date: '2026-10-06', formattedDate: 'Tuesday, October 6, 2026', totalMatches: 18, totalPilots: 11, totalFrags: 1102, topFragger: { name: 'WD-40', kills: 237 } };
         const key = cardKey(fightNightCard(recap));
         expect(key).toMatch(/^[0-9a-f]{12}$/);
         expect(cardKey(fightNightCard(structuredClone(recap)))).toBe(key);
