@@ -5027,6 +5027,113 @@ Not counted in the 28 sessions.
   save fails. A Refresh button reloads the latest posts (the archive toggle still does not, S11
   flag). Loading, ErrorState with Retry and EmptyState come from
   `States.tsx`.
+- 2026-10-09 (S19): The owner's answers at the start of S19, each the
+  recommended option. Cards for the pilot, match, fight-night and map pages
+  now; the tape's card waits for S20's page, and no route is reserved for
+  it. One layout, each card showing its own page's numbers. Orbitron and
+  Roboto Mono from the Fontsource packages, not font files in the repo.
+  Rendered on request and kept in memory; stale when the card's numbers
+  change. `og:image` on the request's origin, like `og:url`. The S18 recap
+  embed carries the fight-night card. `@resvg/resvg-js`, not the WebAssembly
+  build. Rejected: list-page cards (rankings, ladders, rivals, servers), a
+  layout per page, a disk cache under `DATA_DIR`, rendering ahead in the
+  nightly job, `SITE_URL` for `og:image`.
+- 2026-10-09 (S19): What each card says (`server/lib/shareCards.js`, pure
+  builders over rows the page route already reads). Pilot: matches and
+  kills from `getPilotSummary` (the leaderboard's all-time row, as
+  `og:description` since S8), the rating with `ratingStanding` (the rating
+  card's words, moved from `RatingCard.tsx` to `matchResult.js` so the two
+  share them), the career Combat Ratio from `pilot_stats_cache` (the
+  profile's card, negative shown as 0), and the last match's fight-night
+  day. Match: the map, `resultLine(winnerOf)`, the mode, `clock` of
+  `measuredDurationOf` (no length when only the limit is known, as in S8's
+  description), `VERDICT_LABEL[verdictOf]` and the fight-night day. Fight
+  night: the saved recap's date, matches, pilots, kills and most kills.
+  Map: the name, its author (left out when "Unknown"), matches, kills,
+  matches in the last 30 days and the top pilot as `getMapIntel` gives the
+  map popup, and the image when the image route has cached it on disk (a
+  card never fetches it from overloadmaps.com). Each builder also writes
+  the page's `og:description`, so the preview's text and image read one
+  object; the pilot, match and fight-night sentences are S8's, now with
+  `plural` ("1 match", which S8's "1 matches" got wrong), and the map page
+  gets one for the first time ("BLIZZARD by Revival Productions: 40
+  matches, 1,200 kills, top pilot WD-40."). The map card's image file is
+  `mapImagePath` in `db/repos/maps.js` (a new `db` key), the rule the
+  image route used inline.
+- 2026-10-09 (S19): The layout (`server/lib/cardLayout.js`, a satori element
+  tree, tested without rendering). 1200 × 630 on `surface.page` with a
+  12 px brand bar down the left; the page's kind in brand and the site's
+  name in `chart.label` across the top; the title in Orbitron 900 (88 px,
+  smaller for longer titles, one line with an ellipsis); one sentence in
+  Roboto Mono, up to two lines; up to four tiles on `surface.card` with a
+  `line` border, each a label, a value in Orbitron 700 in brand and an
+  optional note. The tokens are the site's at 2.5 times: `rounded-card`'s
+  8 px is 20 px, `text-2xs`'s 10 px is 25 px for the kind and the labels.
+  Values step down from 46 to 22 px with their length, because Orbitron's
+  capitals are about 0.85 em wide ("BADASS" at 46 px ran out of its tile);
+  past 11 characters a value wraps onto two lines, a note onto three. A map
+  with a cached image shows it at 30% behind a gradient from the page
+  colour.
+- 2026-10-09 (S19): Rendering and the cache (`server/services/cardService.js`).
+  A card is drawn the first time its URL is asked for: satori turns the tree
+  into SVG with the text as paths, then resvg's `renderAsync` turns that into
+  PNG on libuv's thread pool. Draws go one at a time through a promise
+  queue, and a second request for a card already being drawn waits for the
+  same draw. resvg is told not to load system fonts: with them it spent
+  2.2 s on the first render on this Mac and 220 ms on each after; without
+  them, 9 ms sync, 1.5 ms async. The whole draw took 19 to 25 ms for a card
+  without an image and 75 to 90 ms with one (a 230 KB PNG), logged as
+  `[Card] <path> drawn in N ms` and sent as `Server-Timing: render;dur=N`
+  (0 from the cache). The PNG is kept in a 200-entry in-memory map, least
+  recently used dropped first, keyed by `cardKey`: a SHA-1 of every word,
+  number and the image path on the card. That is a change from the owner's
+  answer, which named stamps (the latest match id, the recap's save time):
+  the hash makes a card stale exactly when what it shows changes, where a
+  new match id would have redrawn every pilot's card after every match and
+  missed a stats refresh that moved a rating with no new match. A failed
+  draw is remembered under the same key (200 at most), so the page leaves
+  `og:image` out until the card's numbers change. Nothing is written to
+  disk and no table is added, so there is no migration: a restart starts
+  with an empty cache and the first request redraws. Rollback: revert.
+- 2026-10-09 (S19): `GET /api/card/<page path>` (`server/routes/cards.js`,
+  mounted with the other `/api` routers). The path is a page path that
+  `parseRoute` reads (`/api/card/pilot/WD-40`, `/api/card/fight-night` for
+  the latest night, `/api/card/maps/BLIZZARD`), so the card URL needs no
+  route table of its own. It answers `image/png` with `Cache-Control:
+  public, max-age=600`, 404 for a page with no card (any other page, an
+  unknown pilot, match, night or map), and 500 when the lookup throws or the
+  draw fails. The `?v=<cardKey>` the page adds only moves previews' own
+  caches on; the route always draws the page's current card. `robots.txt`
+  (the file and the fallback) gains `Allow: /api/card/` above `Disallow:
+  /api/`, so crawlers that read robots fetch the image.
+- 2026-10-09 (S19): The share tags. For a page with a card, `withPageMeta`
+  adds `og:image` (the request's origin plus `cardUrl`), `og:image:width`
+  1200, `og:image:height` 630, `og:image:alt` (the card's sentence) and
+  `twitter:card` `summary_large_image`, which Discord reads to show the
+  image large. No card, or a card that failed, gives none of the five and
+  the page loads as before.
+- 2026-10-09 (S19): The recap embed (S18) gets `image: { url }`, the
+  fight-night card under `SITE_URL`, built from the saved recap alone, so
+  `discordMessages.js` still reads no database. Discord fetches the image
+  from the public site when it shows the post.
+- 2026-10-09 (S19): Dependencies. satori 0.33.5 (MPL-2.0, Vercel's HTML and
+  CSS to SVG; pure JavaScript with WebAssembly for yoga and harfbuzz): the
+  newest release more than two weeks old on 2026-10-09. 23 releases
+  followed it (0.34.0 to 0.47.1), 17 of them on 2026-10-08 and 10-09. `@resvg/resvg-js` 2.6.2 (MPL-2.0,
+  2024-03): a native N-API addon whose binary comes as an optional package
+  per platform, so `npm ci` installs `resvg-js-darwin-arm64` here and
+  `resvg-js-linux-arm64-musl` in the arm64 image with no install script and
+  nothing compiled (the Command Line Tools postmortem does not bite).
+  `@fontsource/orbitron` and `@fontsource/roboto-mono` 5.3.0 (OFL-1.1): the
+  `.woff` files satori reads (it cannot read WOFF2); Orbitron 700 and 900
+  latin, Roboto Mono 400 and 600 latin and latin-ext, loaded once. Orbitron
+  has no latin-ext; satori falls back to Roboto Mono for a glyph it lacks,
+  and a name in a script neither covers draws nothing for those
+  characters (flagged). All four are `dependencies`, kept by `npm prune
+  --omit=dev`. The runtime image now copies `designTokens.js`, which
+  `cardLayout.js` imports from the repo root. The image is 619 MB against
+  599 MB. Rejected: `@resvg/resvg-wasm` (no native code, but on the main
+  thread), a headless browser, font files committed to the repo.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -5973,6 +6080,55 @@ Not counted in the 28 sessions.
   `role="switch"` button in the brand colour). One shared switch would
   cover both (/simplify, outside the diff). The card's "06:15" is
   written out, not read from `DETECTOR_DELAY_MS`.
+
+- (S19) Earlier flags that name S19, share cards, og tags, pageMeta, fonts,
+  images or the map images, decided:
+  - (S12) "The verdict thresholds ... are not in the share description;
+    S19's cards could use them": covered. The match card shows the verdict;
+    the description is unchanged.
+  - (S8) The share tags read the database on every page load: still open,
+    and the four card pages read a little more now (the pilot's rating and
+    cache row, the map's row and a file check). The card route repeats the
+    page's reads, because the card's key is the hash of what it shows.
+  - (S8) Whether the DSM proxy passes the original `Host`: still open, and
+    `og:image` now depends on it too.
+  - (S18) Four maps whose image overloadmaps.com answers 404 for: still
+    open (the S19 Chrome checks report them on `/history` and `/maps`). A
+    map card only draws an image the image route has already cached, so
+    those four, and any map nobody has opened on `/maps`, get a card
+    without one.
+  - (S18) The recap's saved lines say "1 matches" and "a ANARCHY
+    slugfest": still open in `fightNightService.js`. The share sentences
+    S19 builds use `plural`, so the pilot, fight-night and map
+    descriptions say "1 match".
+  - (S5) `pilot_stats_cache` lookups do not trim the name: the pilot card
+    reads the cache by the summary's spelling, which is trimmed, so the
+    card is not affected; `/ppi` still is.
+- (S19) Orbitron ships latin only and Roboto Mono latin and latin-ext. A
+  pilot name in Cyrillic, Greek, CJK or with emoji draws nothing for those
+  characters on the card (satori asks for a font through
+  `loadAdditionalAsset`, which the service does not supply). The page and
+  the description show the name in full. Adding Fontsource's `cyrillic` and
+  `greek` files, or a Noto fallback, would cover most of it.
+- (S19) Cards live in memory: a restart or a deploy empties the cache, and
+  the first preview of each page after it pays the draw (20 to 90 ms on
+  this Mac, unknown on the NAS's Atom). The cache holds 200 cards; a
+  crawler walking thousands of pilot pages would draw each once and push
+  older cards out.
+- (S19) `og:image` on a page opened over the LAN points at the LAN
+  address, which Discord cannot fetch. That follows the owner's choice of
+  the request's origin (S8's rule for `og:url`); a link shared from the
+  public site works.
+- (S19) Previews cache by URL. Discord and others keep the image they
+  fetched for a `?v=`; a pilot whose numbers moved gets a new `?v=` only
+  when the page is shared again, so an old message keeps its old card.
+- (S19) Twitter (X) and Slack read `robots.txt`, so `Allow: /api/card/` is
+  what lets them fetch the image; Discord does not read it. Nobody pasted
+  a link into any of them (see NOT validated).
+- (S19) The image grew from 599 to 619 MB: satori and its WebAssembly
+  (about 12 MB with `yoga-layout`, `harfbuzzjs` and `@shuding/opentype.js`),
+  resvg's musl binary and the two Fontsource packages (2.7 MB, every
+  subset and weight, of which the cards load six files).
 
 ## Rollback
 

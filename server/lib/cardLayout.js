@@ -34,7 +34,7 @@ function tile({ label, value, note }) {
     }, [
         el('div', { fontSize: SMALL * 0.9, color: chart.label, textTransform: 'uppercase', letterSpacing: 1, ...oneLine }, label),
         el('div', { fontFamily: CARD_FONTS.display, fontWeight: 700, fontSize: valueSize(value), lineHeight: 1.15, color: colors.brand.DEFAULT, marginTop: 10, ...clamp(2) }, value),
-        ...(note ? [el('div', { fontSize: SMALL * 0.8, lineHeight: 1.3, color: chart.text, marginTop: 8, ...clamp(2) }, note)] : [])
+        ...(note ? [el('div', { fontSize: SMALL * 0.8, lineHeight: 1.3, color: chart.text, marginTop: 8, ...clamp(3) }, note)] : [])
     ]);
 }
 
