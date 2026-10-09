@@ -121,6 +121,14 @@ describe('ratings (rating_snapshots)', () => {
         expect(db.getPilotRating('FRAGGER').rating).toBeLessThan(1500);
     });
 
+    it('reads a pilot\'s standing without the history, as the rating does (S19 share cards)', () => {
+        for (const name of ['jftp', 'WD-40', 'BALLER', 'NOBODY']) {
+            const { history, ...rating } = db.getPilotRating(name);
+            expect(db.getPilotStanding(name)).toEqual(rating);
+        }
+        expect(db.getPilotStanding('jftp')).toMatchObject({ matches: 10, rating: expect.any(Number) });
+    });
+
     it('answers an empty history for a pilot with no rated match', () => {
         expect(db.getPilotRating('NOBODY')).toMatchObject({ matches: 0, status: null, rank: null, history: [] });
     });

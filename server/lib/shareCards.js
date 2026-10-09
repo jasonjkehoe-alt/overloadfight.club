@@ -10,8 +10,9 @@ import { urlFor } from './siteRoutes.js';
 
 /**
  * @typedef {{ label: string, value: string, note?: string }} CardStat
+ * @typedef {{ file: string, mtime: number }} CardImage a cached image and when it was written
  * @typedef {{ path: string, kind: string, title: string, line: string,
- *   stats: CardStat[], description: string, image?: string }} Card
+ *   stats: CardStat[], description: string, image?: CardImage }} Card
  */
 
 /**
@@ -19,12 +20,13 @@ import { urlFor } from './siteRoutes.js';
  * where it stands, the career Combat Ratio and the last match's day.
  * @param {string} param the name as the URL has it
  * @param {object} summary db.getPilotSummary
- * @param {object} rating db.getPilotRating
+ * @param {object} rating db.getPilotStanding
  * @param {object | null} cached db.getPilotPPI, the pilot_stats_cache row
  * @returns {Card | null}
  */
 export function pilotCard(param, summary, rating, cached) {
     if (!summary) return null;
+    // null for a date that does not parse
     const last = fightNightDay(summary.lastSeen);
     const stats = [
         { label: 'Matches', value: count(summary.games) },
@@ -37,9 +39,9 @@ export function pilotCard(param, summary, rating, cached) {
         path: urlFor('pilot', param),
         kind: 'Pilot',
         title: summary.name,
-        line: `Last match ${dayLabel(last)}`,
+        line: last ? `Last match ${dayLabel(last)}` : '',
         stats,
-        description: `${summary.name}: ${plural(summary.games, 'match', 'matches')}, ${plural(summary.kills, 'kill', 'kills')}, last match ${last}.`
+        description: `${summary.name}: ${plural(summary.games, 'match', 'matches')}, ${plural(summary.kills, 'kill', 'kills')}${last ? `, last match ${last}` : ''}.`
     };
 }
 
@@ -56,13 +58,14 @@ export function matchCard(id, game) {
     const seconds = measuredDurationOf(game);
     const result = winnerOf(game);
     const verdict = verdictOf(result);
+    const day = game.date ? fightNightDay(game.date) : null;
     const where = [matchMode, level && `on ${level}`].filter(Boolean).join(' ');
     const detail = where ? `${where}${seconds ? `, ${clock(seconds)}` : ''}.` : '';
     const stats = [
         matchMode && { label: 'Mode', value: matchMode },
         seconds > 0 && { label: 'Length', value: clock(seconds) },
         verdict && { label: 'Verdict', value: VERDICT_LABEL[verdict] },
-        game.date && { label: 'Played', value: dayLabel(fightNightDay(game.date)) }
+        day && { label: 'Played', value: dayLabel(day) }
     ].filter(Boolean);
     return {
         path: urlFor('game-detail', id),
@@ -104,7 +107,7 @@ export function fightNightCard(recap) {
  * last 30 days and its top pilot, as the map popup shows them, with its image
  * when one is cached on disk.
  * @param {object} intel db.getMapIntel
- * @param {string | null} image the cached image's path
+ * @param {CardImage | null} image the cached image
  * @returns {Card | null}
  */
 export function mapCard(intel, image) {
@@ -119,7 +122,8 @@ export function mapCard(intel, image) {
     if (top) stats.push({ label: 'Top pilot', value: top.name, note: plural(top.kills, 'kill', 'kills') });
     const by = author ? ` by ${author}` : '';
     return {
-        path: urlFor('maps', intel.name),
+        // the server reads an all-digit name as a map id, so such a map is named by its id
+        path: urlFor('maps', /^\d+$/.test(intel.name) && intel.id ? intel.id : intel.name),
         kind: 'Map',
         title: intel.name,
         line: author ? `Made by ${author}` : 'Overload map',
@@ -134,4 +138,4 @@ export function mapCard(intel, image) {
 export const cardKey = card => createHash('sha1').update(JSON.stringify(card)).digest('hex').slice(0, 12);
 
 // "/api/card/pilot/WD-40?v=3f2a9c1b04de": the card's PNG for the page at card.path.
-export const cardUrl = card => `/api/card${card.path}?v=${cardKey(card)}`;
+export const cardUrl = (card, key = cardKey(card)) => `/api/card${card.path}?v=${key}`;

@@ -170,6 +170,8 @@ describe('the recap embed on fixture data', () => {
         expect(embed.image).toEqual({ url: `${ORIGIN}/api/card/fight-night/${day}?v=${cardKey(card)}` });
         expect(`${card.line}`).toBe(embed.description);
         expect(card.stats.find(s => s.label === 'Most kills').value).toBe(recap.topFragger.name);
+        // a card that failed to draw is left out
+        expect(recapMessage(recap, rankings, ORIGIN, { image: false }).embeds[0]).not.toHaveProperty('image');
     });
 
     it('shows each kind of movement and the top 5 only', () => {

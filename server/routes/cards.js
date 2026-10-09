@@ -1,6 +1,6 @@
 import express from 'express';
 import { pageCard } from '../pageMeta.js';
-import { renderCard } from '../services/cardService.js';
+import { CardBusy, renderCard } from '../services/cardService.js';
 
 // The share cards (S19): GET /api/card/<page path> answers the PNG a page's
 // og:image points at, for the pages that have one (a pilot, a match, a fight
@@ -21,7 +21,8 @@ router.get('/card/*', async (req, res) => {
         const { png, ms } = await renderCard(card);
         res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=600', 'Server-Timing': `render;dur=${ms}` });
         res.send(png);
-    } catch {
+    } catch (e) {
+        if (e instanceof CardBusy) return res.status(503).set('Retry-After', '5').json({ error: 'Too many cards waiting, try again shortly' });
         // renderCard has logged it
         res.status(500).json({ error: 'Failed to draw the card' });
     }

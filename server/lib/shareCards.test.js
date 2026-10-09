@@ -44,6 +44,12 @@ describe('matchCard', () => {
         expect(card.description).toBe('BLUE wins 42–35. TEAM ANARCHY on ASCENT.');
     });
 
+    it('leaves the day out for a date that does not parse', () => {
+        // the measured length reads the date too, so it goes as well
+        const card = matchCard(72102, { ...byId(72102), date: 'not a date' });
+        expect(card.stats.map(s => s.label)).toEqual(['Mode', 'Verdict']);
+    });
+
     it('dates a match after midnight UTC to the Chicago evening it was played', () => {
         // 03:00 UTC on the 8th is 22:00 on the 7th in Chicago
         expect(stat(matchCard(1, { ...byId(72102), date: '2026-10-08T03:00:00.000Z' }), 'Played').value).toBe('Wed, Oct 7, 2026');
@@ -84,6 +90,10 @@ describe('pilotCard', () => {
         // the profile shows a negative cached ratio as 0
         expect(stat(pilotCard('a', summary, ranked, { kda: -1 }), 'Combat Ratio').value).toBe('0.00');
         expect(pilotCard('a', null, ranked, null)).toBeNull();
+        // a last match whose date does not parse: no day, no throw
+        const undated = pilotCard('a', { ...summary, lastSeen: 'not a date' }, ranked, null);
+        expect(undated.line).toBe('');
+        expect(undated.description).toBe('WD-40: 1,234 matches, 5,678 kills.');
     });
 });
 
@@ -115,8 +125,11 @@ describe('mapCard', () => {
     const intel = { name: 'BLIZZARD', author: 'Revival Productions', sorties: 40, totalKills: 1200, recent30d: 1, topPilot: { name: 'WD-40', kills: 300 } };
 
     it('shows the matches, kills, last 30 days and top pilot the map popup shows', () => {
-        const card = mapCard(intel, '/data/map_images/BLIZZARD_1.jpg');
-        expect(card).toMatchObject({ path: '/maps/BLIZZARD', kind: 'Map', title: 'BLIZZARD', line: 'Made by Revival Productions', image: '/data/map_images/BLIZZARD_1.jpg' });
+        const image = { file: '/data/map_images/BLIZZARD_1.jpg', mtime: 1760000000000 };
+        const card = mapCard(intel, image);
+        expect(card).toMatchObject({ path: '/maps/BLIZZARD', kind: 'Map', title: 'BLIZZARD', line: 'Made by Revival Productions', image });
+        // a re-downloaded image is a new card
+        expect(cardKey(mapCard(intel, { ...image, mtime: image.mtime + 1 }))).not.toBe(cardKey(card));
         expect(card.stats).toEqual([
             { label: 'Matches', value: '40' },
             { label: 'Kills', value: '1,200' },
@@ -133,6 +146,13 @@ describe('mapCard', () => {
         expect(card.stats).toHaveLength(3);
         expect(card.description).toBe('BLIZZARD: 1 match, 1 kill.');
         expect(mapCard(null, null)).toBeNull();
+    });
+
+    it('names an all-digit map by its id, which the server reads digits as', () => {
+        expect(mapCard({ ...intel, name: '1999', id: 42 }, null).path).toBe('/maps/42');
+        expect(mapCard({ ...intel, name: 'BLIZZARD', id: 42 }, null).path).toBe('/maps/BLIZZARD');
+        // a map known only from its matches has no id to give
+        expect(mapCard({ ...intel, name: '1999', id: 0 }, null).path).toBe('/maps/1999');
     });
 });
 

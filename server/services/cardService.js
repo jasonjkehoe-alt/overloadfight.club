@@ -15,8 +15,13 @@ import { cardKey } from '../lib/shareCards.js';
 
 const require = createRequire(import.meta.url);
 
-// The cards kept, newest use last; a 1200 × 630 card is about 30 to 200 KB.
+// The cards kept, newest use last; a 1200 × 630 card is about 30 to 250 KB.
 export const CARD_CACHE_SIZE = 200;
+// The most draws waiting at once. Past it a card is not queued (CardBusy): a
+// crawler asking for thousands of cards cannot hold a preview's fetch behind
+// all of them.
+export const CARD_QUEUE_LIMIT = 20;
+export class CardBusy extends Error {}
 
 const cache = new Map();
 const failed = new Map();
@@ -24,15 +29,19 @@ const pending = new Map();
 let queue = Promise.resolve();
 let fonts = null;
 
-// The Fontsource files the layout's two families need: latin for both, and
-// latin-ext for Roboto Mono, which satori falls back to for a name's accents.
+// The Fontsource files the layout's two families need. Orbitron has latin
+// only. For a glyph a font lacks, satori tries the other fonts in the list,
+// but only those under another name, so each extra Roboto Mono script is
+// named apart ("Roboto Mono cyrillic"): a name in Cyrillic, Greek or
+// Vietnamese draws in Roboto Mono. CJK and emoji have no font here.
+const ROBOTO_SUBSETS = ['latin', 'latin-ext', 'cyrillic', 'cyrillic-ext', 'greek', 'vietnamese'];
 const FONT_FILES = [
     [CARD_FONTS.display, 700, '@fontsource/orbitron/files/orbitron-latin-700-normal.woff'],
     [CARD_FONTS.display, 900, '@fontsource/orbitron/files/orbitron-latin-900-normal.woff'],
-    [CARD_FONTS.text, 400, '@fontsource/roboto-mono/files/roboto-mono-latin-400-normal.woff'],
-    [CARD_FONTS.text, 600, '@fontsource/roboto-mono/files/roboto-mono-latin-600-normal.woff'],
-    [CARD_FONTS.text, 400, '@fontsource/roboto-mono/files/roboto-mono-latin-ext-400-normal.woff'],
-    [CARD_FONTS.text, 600, '@fontsource/roboto-mono/files/roboto-mono-latin-ext-600-normal.woff']
+    ...ROBOTO_SUBSETS.flatMap(subset => [400, 600].map(weight => [
+        subset === 'latin' ? CARD_FONTS.text : `${CARD_FONTS.text} ${subset}`, weight,
+        `@fontsource/roboto-mono/files/roboto-mono-${subset}-${weight}-normal.woff`
+    ]))
 ];
 
 const loadFonts = async () => fonts ??= await Promise.all(FONT_FILES.map(async ([name, weight, file]) =>
@@ -40,10 +49,10 @@ const loadFonts = async () => fonts ??= await Promise.all(FONT_FILES.map(async (
 
 // The card's image file as a data: URL, or nothing when it cannot be read or
 // is not a JPEG or PNG (the image route saves whatever the map site sent).
-async function imageData(file) {
-    if (!file) return undefined;
+async function imageData(image) {
+    if (!image) return undefined;
     try {
-        const bytes = await fs.promises.readFile(file);
+        const bytes = await fs.promises.readFile(image.file);
         const type = bytes[0] === 0xff && bytes[1] === 0xd8 ? 'jpeg' : bytes.subarray(1, 4).toString() === 'PNG' ? 'png' : null;
         return type ? `data:image/${type};base64,${bytes.toString('base64')}` : undefined;
     } catch {
@@ -68,7 +77,8 @@ function remember(map, key, entry) {
 
 /**
  * The card's PNG and how long it took to draw (0 when it came from the cache).
- * Rejects when the card cannot be drawn; cardFailed then says so.
+ * Rejects when the card cannot be drawn (cardFailed then says so), or with
+ * CardBusy when CARD_QUEUE_LIMIT draws are already waiting.
  * @param {import('../lib/shareCards.js').Card} card
  * @returns {Promise<{ png: Buffer, ms: number }>}
  */
@@ -80,6 +90,7 @@ export function renderCard(card) {
         return Promise.resolve({ png: hit, ms: 0 });
     }
     if (pending.has(key)) return pending.get(key);
+    if (pending.size >= CARD_QUEUE_LIMIT) return Promise.reject(new CardBusy(`${CARD_QUEUE_LIMIT} cards are already waiting`));
     const job = queue.then(() => draw(card)).then(result => {
         remember(cache, key, result.png);
         failed.delete(key);
@@ -96,8 +107,9 @@ export function renderCard(card) {
     return job;
 }
 
-// Whether this card failed to draw, so its page should leave og:image out.
-export const cardFailed = card => failed.has(cardKey(card));
+// Whether the card with this key (cardKey) failed to draw, so its page should
+// leave og:image out.
+export const cardFailed = key => failed.has(key);
 
 // Empty the cache and the failures (tests).
 export function clearCards() {

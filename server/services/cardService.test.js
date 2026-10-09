@@ -187,11 +187,11 @@ describe('renderCard', () => {
         expect(pageCard('/maps/Vault')).not.toHaveProperty('image');
         fs.writeFileSync(file, (await cards.renderCard(pageCard('/game/72102'))).png);
         const card = pageCard('/maps/vault');
-        expect(card.image).toBe(file);
+        expect(card.image).toEqual({ file, mtime: fs.statSync(file).mtimeMs });
         const withImage = await cards.renderCard(card);
         expect(pngSize(withImage.png).width).toBe(1200);
         // the same card drawn without the image is a different picture
-        const without = await cards.renderCard({ ...card, image: path.join(dataDir, 'missing.jpg') });
+        const without = await cards.renderCard({ ...card, image: { file: path.join(dataDir, 'missing.jpg'), mtime: 0 } });
         expect(without.png.equals(withImage.png)).toBe(false);
         // a file that is neither JPEG nor PNG is left out, not a failed card
         fs.writeFileSync(file, 'not an image');
@@ -200,12 +200,34 @@ describe('renderCard', () => {
         fs.rmSync(file);
     });
 
+    it('turns away a card past CARD_QUEUE_LIMIT waiting draws, without calling it failed', async () => {
+        const card = i => ({ path: `/game/${i}`, kind: 'K', title: `busy ${i}`, line: '', stats: [], description: '' });
+        const jobs = Array.from({ length: cards.CARD_QUEUE_LIMIT + 3 }, (_, i) => cards.renderCard(card(i)));
+        const settled = await Promise.allSettled(jobs);
+        expect(settled.filter(r => r.status === 'fulfilled')).toHaveLength(cards.CARD_QUEUE_LIMIT);
+        const busy = settled.filter(r => r.status === 'rejected');
+        expect(busy).toHaveLength(3);
+        expect(busy.every(r => r.reason instanceof cards.CardBusy)).toBe(true);
+        expect(cards.cardFailed(cardKey(card(cards.CARD_QUEUE_LIMIT)))).toBe(false);
+        // once the queue has drained the same card is drawn
+        expect(pngSize((await cards.renderCard(card(cards.CARD_QUEUE_LIMIT))).png).width).toBe(1200);
+    });
+
+    it('draws Cyrillic, Greek and Vietnamese names, from Roboto Mono where Orbitron has no glyph', async () => {
+        const base = { path: '/pilot/x', kind: 'Pilot', line: '', stats: [], description: '' };
+        const blank = (await cards.renderCard({ ...base, title: '' })).png;
+        for (const title of ['Влад', 'Ξένος', 'Nguyễn']) {
+            const { png } = await cards.renderCard({ ...base, title });
+            expect(png.length).toBeGreaterThan(blank.length + 500);
+        }
+    });
+
     it('remembers a card that failed, rejects, and draws the next one', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const bad = { ...pageCard('/game/72108'), line: 'THROW ME' };
         await expect(cards.renderCard(bad)).rejects.toThrow('satori failed');
-        expect(cards.cardFailed(bad)).toBe(true);
-        expect(cards.cardFailed(pageCard('/game/72108'))).toBe(false);
+        expect(cards.cardFailed(cardKey(bad))).toBe(true);
+        expect(cards.cardFailed(cardKey(pageCard('/game/72108')))).toBe(false);
         expect(pngSize((await cards.renderCard(pageCard('/game/72108'))).png).width).toBe(1200);
         vi.mocked(console.error).mockRestore();
     });

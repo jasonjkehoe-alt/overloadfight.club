@@ -8,7 +8,7 @@ import { parseRoute, pageTitle } from './lib/siteRoutes.js';
 import { SERVER_WINDOW_DEFAULT } from './lib/gameParse.js';
 import { regionLabel } from './lib/serverRegions.js';
 import { count, percent } from './lib/matchResult.js';
-import { cardUrl, fightNightCard, mapCard, matchCard, pilotCard } from './lib/shareCards.js';
+import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard } from './lib/shareCards.js';
 import { CARD_SIZE } from './lib/cardLayout.js';
 import { cardFailed } from './services/cardService.js';
 
@@ -23,7 +23,7 @@ const withCard = (card, extra = {}) => (card ? { ...extra, card, description: ca
 function pilotMeta(name) {
     const summary = db.getPilotSummary(name);
     if (!summary) return {};
-    return withCard(pilotCard(name, summary, db.getPilotRating(summary.name), db.getPilotPPI(summary.name)));
+    return withCard(pilotCard(name, summary, db.getPilotStanding(summary.name), db.getPilotPPI(summary.name)));
 }
 
 // "BLUE wins 42–35. TEAM ANARCHY on Vault, 15:10." The name is the map, for the title.
@@ -40,13 +40,22 @@ function fightNightMeta(date) {
 }
 
 // "BLIZZARD by Revival Productions: 40 matches, 1,200 kills, top pilot WD-40."
-// The image is drawn on the card when the image route has cached it on disk.
+// The image is drawn on the card when the image route has cached it on disk;
+// its time is part of the card, so a replaced image makes a new card.
 function mapMeta(name) {
     const intel = db.getMapIntel(name);
     if (!intel) return {};
     const map = intel.id ? db.getMapById(intel.id) : null;
-    const file = map ? db.mapImagePath(map) : null;
-    return withCard(mapCard(intel, file && fs.existsSync(file) ? file : null));
+    let image = null;
+    if (map) {
+        const file = db.mapImagePath(map);
+        try {
+            image = { file, mtime: fs.statSync(file).mtimeMs };
+        } catch {
+            // not downloaded yet
+        }
+    }
+    return withCard(mapCard(intel, image));
 }
 
 // "Power rankings for 2026-10-08: 1. WD-40 (1612), 2. OKSTER (1580), 3. RAZOR (1555)."
@@ -142,9 +151,10 @@ export function withPageMeta(html, origin, url) {
         `<meta property="og:url" content="${escapeHtml(origin + url)}" />`
     ];
     // a card that failed to draw is left out rather than shown broken
-    if (meta.card && !cardFailed(meta.card)) {
+    const key = meta.card && cardKey(meta.card);
+    if (key && !cardFailed(key)) {
         tags.push(
-            `<meta property="og:image" content="${escapeHtml(origin + cardUrl(meta.card))}" />`,
+            `<meta property="og:image" content="${escapeHtml(origin + cardUrl(meta.card, key))}" />`,
             `<meta property="og:image:width" content="${CARD_SIZE.width}" />`,
             `<meta property="og:image:height" content="${CARD_SIZE.height}" />`,
             `<meta property="og:image:alt" content="${escapeHtml(meta.card.description)}" />`,

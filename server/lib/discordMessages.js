@@ -56,8 +56,9 @@ export const movement = change => (change === null ? 'NEW' : change > 0 ? `▲${
  * @param {object} recap a saved recap (fightNightService.generateRecapForDate)
  * @param {{ day: string, pilots: object[] }} rankings db.getPowerRankings()
  * @param {string} origin "https://overloadfight.club"
+ * @param {{ image?: boolean }} [options] image: false leaves the card out (it failed to draw)
  */
-export function recapMessage(recap, rankings, origin) {
+export function recapMessage(recap, rankings, origin, { image = true } = {}) {
     const fields = [];
     const { topFragger, mostActivePilot } = recap;
     if (topFragger?.kills > 0) fields.push({ name: 'Most kills', value: `${plain(topFragger.name, NAME_MAX)}, ${count(topFragger.kills)}`, inline: true });
@@ -79,7 +80,7 @@ export function recapMessage(recap, rankings, origin) {
             url: `${origin}${urlFor('fight-night', recap.date)}`,
             description: `${plural(recap.totalMatches, 'match', 'matches')}, ${plural(recap.totalPilots, 'pilot', 'pilots')}, ${plural(recap.totalFrags, 'kill', 'kills')}.`,
             fields,
-            image: { url: `${origin}${cardUrl(fightNightCard(recap))}` }
+            ...(image ? { image: { url: `${origin}${cardUrl(fightNightCard(recap))}` } } : {})
         })]
     };
 }
