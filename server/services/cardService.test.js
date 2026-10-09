@@ -165,14 +165,18 @@ describe('renderCard', () => {
         expect(drawn.calls).toBe(2);
     });
 
-    it('keeps the newest CARD_CACHE_SIZE cards', async () => {
+    it('keeps the CARD_CACHE_SIZE cards used most recently', async () => {
         const card = i => ({ path: `/game/${i}`, kind: 'K', title: String(i), line: '', stats: [], description: '' });
-        for (let i = 0; i <= cards.CARD_CACHE_SIZE; i++) await cards.renderCard(card(i));
-        expect(drawn.calls).toBe(cards.CARD_CACHE_SIZE + 1);
-        await cards.renderCard(card(cards.CARD_CACHE_SIZE)); // the newest: cached
-        expect(drawn.calls).toBe(cards.CARD_CACHE_SIZE + 1);
-        await cards.renderCard(card(0)); // the oldest: dropped
-        expect(drawn.calls).toBe(cards.CARD_CACHE_SIZE + 2);
+        const size = cards.CARD_CACHE_SIZE;
+        for (let i = 0; i < size; i++) await cards.renderCard(card(i));
+        await cards.renderCard(card(0)); // a hit makes the first card the newest
+        expect(drawn.calls).toBe(size);
+        await cards.renderCard(card(size)); // one more drops the oldest, card 1
+        expect(drawn.calls).toBe(size + 1);
+        await cards.renderCard(card(0));
+        expect(drawn.calls).toBe(size + 1);
+        await cards.renderCard(card(1));
+        expect(drawn.calls).toBe(size + 2);
     }, 30000);
 
     it('draws a map card with its cached image, and without one it cannot read', async () => {

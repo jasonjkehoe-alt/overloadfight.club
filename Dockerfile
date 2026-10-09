@@ -28,6 +28,8 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
+# the share cards (server/lib/cardLayout.js) draw with the site's tokens
+COPY --from=build /app/designTokens.js ./
 
 # The server writes databases and backups to /app/data (the volume) and admin uploads to /app/uploads
 RUN mkdir -p data uploads && chown node:node data uploads

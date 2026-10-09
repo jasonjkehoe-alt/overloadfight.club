@@ -19,12 +19,13 @@ const el = (type, style, children) => ({ type, props: { style, children } });
 // One line of text, cut with an ellipsis where it would overflow.
 const oneLine = { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' };
 
-// Smaller type for longer text, so most names fit; past 13 characters a
-// value wraps onto a second line before the ellipsis.
+// Smaller type for longer text, so most names fit a tile (Orbitron's capitals
+// are about 0.85 em wide); past 11 characters a value wraps onto a second
+// line before the ellipsis.
 const titleSize = text => (text.length <= 12 ? 88 : text.length <= 20 ? 72 : text.length <= 28 ? 58 : 48);
-const valueSize = text => (text.length <= 6 ? 46 : text.length <= 9 ? 34 : text.length <= 13 ? 26 : 22);
+const valueSize = text => (text.length <= 5 ? 46 : text.length <= 7 ? 34 : text.length <= 11 ? 26 : 22);
 // Up to `lines` lines, cut with an ellipsis after the last.
-const clamp = lines => ({ display: 'block', lineClamp: lines });
+const clamp = lines => ({ display: 'block', lineClamp: lines, overflow: 'hidden', wordBreak: 'break-word' });
 
 function tile({ label, value, note }) {
     return el('div', {

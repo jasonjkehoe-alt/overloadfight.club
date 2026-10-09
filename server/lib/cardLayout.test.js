@@ -40,6 +40,7 @@ describe('cardTree', () => {
         expect(size('x'.repeat(64))).toMatchObject({ fontSize: 48, whiteSpace: 'nowrap', textOverflow: 'ellipsis' });
         const value = v => walk(cardTree({ ...card, stats: [{ label: 'L', value: v }] })).find(n => n.props?.children === v).props.style;
         expect(value('1,234').fontSize).toBe(46);
+        expect(value('BADASS').fontSize).toBe(34);
         expect(value('FUTZPIMMEL').fontSize).toBe(26);
         expect(value('Tue, Oct 6, 2026')).toMatchObject({ fontSize: 22, lineClamp: 2 });
     });

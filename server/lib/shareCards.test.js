@@ -35,6 +35,20 @@ describe('matchCard', () => {
         expect(matchCard(1, null)).toBeNull();
     });
 
+    it('leaves the length out when only the time limit is known, as the share description does', () => {
+        const game = byId(72102);
+        const limitOnly = { ...game, date: undefined, settings: { ...game.settings, start: undefined, end: undefined, timeLimit: 900 } };
+        expect(measuredDurationOf(limitOnly)).toBe(0);
+        const card = matchCard(72102, limitOnly);
+        expect(card.stats.map(s => s.label)).toEqual(['Mode', 'Verdict']);
+        expect(card.description).toBe('BLUE wins 42–35. TEAM ANARCHY on ASCENT.');
+    });
+
+    it('dates a match after midnight UTC to the Chicago evening it was played', () => {
+        // 03:00 UTC on the 8th is 22:00 on the 7th in Chicago
+        expect(stat(matchCard(1, { ...byId(72102), date: '2026-10-08T03:00:00.000Z' }), 'Played').value).toBe('Wed, Oct 7, 2026');
+    });
+
     it('names the fight-night day the match was played on', () => {
         const game = byId(72102);
         const day = fightNightDay(game.date);
