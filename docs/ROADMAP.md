@@ -94,7 +94,10 @@ S16 is merged into `main` (PR #17, squash-merged 2026-10-09 15:57 UTC
 as `5e2d02d`), with no owner commits after it. (The S17 prompt allowed
 for it still being open; it had merged.)
 
-S17 is on branch `ofc/s17-rivalry-network`, based on `5e2d02d`, its PR
+S17 is merged into `main` (PR #18, squash-merged 2026-10-09 20:01 UTC
+as `726e536`), with no owner commits after it.
+
+S18 is on branch `ofc/s18-discord-webhook`, based on `726e536`, its PR
 open against `main` and not merged, 2026-10-09 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
@@ -106,11 +109,139 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 17 of 28 sessions done (S1 to S16 merged, S17 in its PR).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 0/11. The Node 26
+Counts: 18 of 28 sessions done (S1 to S17 merged, S18 in its PR).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 1/11. The Node 26
 maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-09 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S16 and Node 26 merged into `main`, `main` at 5e2d02d, S17 on `ofc/s17-rivalry-network`)
+## Validated (as of 2026-10-09 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S17 and Node 26 merged into `main`, `main` at 726e536, S18 on `ofc/s18-discord-webhook`)
+
+- S18, first move on Node 26.11.1, on `main` at `726e536` (PR #18
+  merged, no owner commits after it; `git diff
+  origin/ofc/s17-rivalry-network origin/main` is empty; `10223be` is not
+  an object here, so the pre-rewrite check fails as it should): `npx
+  vitest run` passed 17 files, 293 tests (the S18 prompt said 286, the
+  count before S17's review fixes). `npx vite build` wrote the entry at
+  233.26 KB raw / 74.78 KB gzip (the table said 74.77), `AdminPanel`
+  29.59 KB / 7.65 KB gzip, `GameList` 41.67 KB / 11.43 KB gzip and
+  `FightNightSection` 14.13 KB / 3.04 KB gzip. `npx tsc --noEmit` exited
+  0. `wc -l` before building: `fightNightService.js` 528, `maintenance.js`
+  127, `ingest.js` 105, `repos/settings.js` 6, `repos/fightNights.js` 62,
+  `admin-routes.js` 441, `auth.js` 100, `useAdminSettings.ts` 26,
+  `AdminDashboardConfig.tsx` 43, `apiService.ts` 798, `pageMeta.js` 127,
+  `siteRoutes.js` 98, `gameParse.js` 1,135, `.env.example` 18.
+- S18, the owner's answers at the start (see the decisions).
+- S18, tests: `npx vitest run` passes 18 files, 313 tests (293 at the
+  start). The new `server/services/discordService.test.js` (18 tests)
+  runs a temp database with the fixture games on two nights, a local stub
+  webhook (`http.createServer` recording each body) and the admin router
+  on a session stub. The recap embed's totals, most kills and most
+  matches are counted again from the fixture games and match; its seven
+  lines equal the saved recap's; its rankings equal `getPowerRankings` on
+  the day after the night; ▲, ▼, – and NEW, the top 5 only; 200 copies of
+  `**@everyone**` stay inside 6,000 characters and come out escaped; a
+  masked link's brackets are escaped. The ping lists the busy servers
+  most first with the count `browserPilots` reads, at most 10. One ping
+  per fight-night day: none switched off, none at 4 or 5 pilots, none
+  again after a quiet spell the same day, none at 06:01 for an evening
+  still on, one for a new evening the next day. A 429 with `retry_after`
+  0.05 waits it and retries once; a 404 is dropped after one request;
+  three failing posts of two requests each end `dropped`. The detector
+  posts the recap it saves once, and nothing for `day`'s recap saved by
+  a forced generate, a second run or the S14 rebuild; a recap saved while
+  switched off posts nothing; a 503 twice leaves it pending and the next
+  run posts it; a recap that cannot be built counts a try; stale pending
+  pings and recaps are dropped. Admin: 401 for a non-admin on both
+  endpoints, the URL masked, the generic settings read has no URL, the
+  test post one request with or without the switch, 400 with no URL, a
+  scheme-less URL called invalid and a closed port "no answer from
+  Discord (ECONNREFUSED)", none quoting the URL; an unparsable URL posts
+  no ping and writes no row; no captured console line holds the token; a
+  post that ends after `stopDiscord()` writes nothing. `gameParse.test.js`:
+  `browserPilots` with offline servers, missing games, lobbies, no IP and
+  a server listed twice (the first listing counts). `db.test.js`: the
+  restore keeps the rows written before it over a backup without the
+  table. `apiService.test.ts`: the two new helpers' URLs, method and a
+  502's body.
+- S18, mutations (`mutate.py` in the scratch folder: each edit on a source
+  file, the four test files run, the file restored from a copy named by
+  its absolute path; `git status` the same after every run): 32 of 33
+  fail a test. The survivor drops the wait for a refresh already under
+  way before the recap's rankings (flagged). Two had survived the first
+  run (a 5-pilot tick and the rankings' day) and got tests.
+- S18, against the stub webhook with plain `node` (so the ES-module
+  imports run outside vitest), on a copy of `/tmp/ofc-data` and the real
+  server browser answer of 15:28 local (21 servers, 19 online, 0 pilots)
+  with two online servers given 3 and 4 players: one ping ("It's on: 7
+  pilots in the server browser.", Overloader: Dallas 4 of 8 in the lobby,
+  Descentforum.NET 3 of 8 TEAM ANARCHY on Vault), a second tick posting
+  nothing. The detector with the thresholds lowered to 1 match and 1
+  pilot (no local night passes the real ones) saved and posted
+  2026-10-08 (5 matches, 5 pilots, 436 kills, most kills SMILEYGNOME 123,
+  most matches WILLIE 4) and 2026-10-07 (14 matches, 14 pilots, 1,069
+  kills, BADASS 216, WILLIE 7), each with 10 fields and the rankings of
+  the next day (CHEKM8 1639, WD-40 1439, WILLIE 1409, LORD JOHN WARFIN
+  1359, all NEW); a second run posted nothing.
+- S18, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` on the built `dist/`
+  with `DISCORD_WEBHOOK_URL` at the stub and `SITE_URL=http://localhost:3100`:
+  "Startup sync complete." logged; `/api/admin/discord` and its test 401
+  without a session; with one, `{"enabled":false,"configured":true,
+  "webhook":"http://127.0.0.1:3901/…zzzz",...}`, a test post 200
+  `{"ok":true,"status":204}` and, with the stub answering 404, 502
+  `{"ok":false,"status":404,"error":"Discord answered 404."}`. The
+  thirteen API paths in the prompt all 200 (`total_games: 48`; rivalries
+  12 pilots, 25 pairs, 731 kills). `grep` finds the URL's token in none
+  of three server logs. SIGTERM logged `[Shutdown] Done.` twice. The
+  real browser had 0 pilots all session, so the server itself never
+  pinged.
+- S18, headless Chrome 154 over CDP (`cdp.mjs`, my own 120-line client
+  over Node's WebSocket with Fetch-domain mocks that fulfil, fail or hold,
+  held requests failed when the mocks change), 66 checks at 1,280 and 390
+  px, 62 pass. The admin card with a real login: the masked URL, no token
+  anywhere in the page, the links' origin, the switch saved and kept
+  across a reload, "Test post sent.", no overflow, no console errors.
+  Mocked: no URL (the instructions, switch and test button disabled, "No
+  posts yet"), on with no URL (the switch can be turned off), every post
+  status, a failed save moving the switch back with its message, a
+  failed test post saying "Discord answered 404.", a 500 showing
+  ErrorState and Retry loading it, a held request showing Loading. Pages:
+  `/`, `/fight-night`, `/fight-night/2026-10-06`, `/pilots`, `/rankings`,
+  `/ladders`, `/rivals`, `/pilot/WD-40`, `/game/78782` and
+  `/server/143.110.230.67` load with content, no alert, no overflow and
+  no console error but the S1 401. The four failures are `/history` and
+  `/maps` at both widths, each logging 404s for four map images that
+  overloadmaps.com itself answers 404 for (flagged; no S18 change).
+- S18 /code-review found 9 issues: a recap left pending forever once its
+  date leaves the detector's window, a message that cannot be built
+  never counting a try, a refresh under way handing back stale rankings,
+  a recap saved while switched off never posting, a second ping at the
+  06:00 rollover, a restore losing newer rows, an unparsable URL burning
+  tries, the test route's extra reads, and the switch stuck on with no
+  URL plus a stale posts list. All fixed but the switched-off recap, kept
+  by decision. /simplify (four agents): one `browserRows` dedupe for the
+  stored tick and the ping (the two copies had opposite rules for a
+  server listed twice), `count` and `plural` in `matchResult.js`, the
+  default origin from `SITE_NAME`, one upsert for the posts, the recap's
+  refresh only when a match is newer than the caches, the detector's
+  window named once, stale pings dropped by the tick, a smaller test-post
+  answer, one status table and a caption function in the card, three
+  test cleanups. Skipped: the previous tick read from the database
+  instead of memory (a full scan; flagged), a follow-up refresh queued
+  inside `refreshPilotStats` for every caller (outside the diff;
+  flagged), one shared switch component (the archive toggle is outside
+  the diff), the detector's 06:15 served to the card, an `absoluteUrl`
+  helper for two joins, the per-tick reads (microseconds).
+- S18, sizes on Node 26.11.1 at the end: entry `index-*.js` 233.36 KB raw
+  / 74.80 KB gzip (the two admin helpers); `AdminPanel-*.js` 35.18 KB /
+  9.32 KB gzip (7.65: the card and its hook); `GameList` 41.67 KB / 11.42
+  KB gzip; `FightNightSection` 14.13 KB / 3.05 KB gzip. No new Recharts
+  chunk. `npx tsc --noEmit` exits 0. `wc -l`: `discordService.js` 213,
+  `discordMessages.js` 119, `repos/discordPosts.js` 30, `AdminDiscord.tsx`
+  112, `useAdminDiscord.ts` 67, `gameParse.js` 1,156,
+  `fightNightService.js` 537, `migrations.js` 414, `db.js` 248,
+  `admin-routes.js` 463, `apiService.ts` 805, `matchResult.js` 57; no new
+  file is over 500.
+- S18, `docker compose config` on both compose files: `DISCORD_WEBHOOK_URL`
+  and `SITE_URL` empty by default and passed through when set.
 
 - S17, first move on Node 26.11.1, on `main` at `5e2d02d` (PR #17
   merged, no owner commits after it; `git diff
@@ -1832,6 +1963,24 @@ maintenance item does not count toward the 28.
 
 ## NOT validated, do not claim these work
 
+- Nothing has posted to a real Discord channel: the [HUMAN] webhook task
+  is open, so every post went to a local stub. Whether Discord renders
+  the embed as planned (the escaped names, the ▲▼ field name, the inline
+  pair at 390 px in the app), whether a real 429 carries `Retry-After` in
+  the header or only the body, and how long a real post takes are
+  unknown.
+- The server never pinged on its own: the real server browser showed 0
+  pilots all session. The ping ran from the tick code in tests and a
+  `node` script with players added to a real answer.
+- No local night passes the fight-night thresholds, so the recap posts
+  were checked with them lowered; on the NAS nothing posts until a real
+  night qualifies.
+- The recap's stats refresh before the rankings ran on 48 matches; how
+  long it holds the post back on the NAS's 75,000 is unknown.
+- Headless Chrome 154 on macOS only, at 1,280 and 390 px. Not Safari,
+  Firefox or a real phone; no screen reader on the switch.
+- CI on the S18 PR before it opened; see the PR's checks.
+
 - S17 ran on the 43 local matches (five with both logs, all Anarchy or
   Team Anarchy), the fixtures with hand-written logs and mocked answers.
   Nobody has run it on the NAS: how many matches there carry a damage log
@@ -2182,7 +2331,10 @@ maintenance item does not count toward the 28.
   empty databases. There is no production data locally; use the sample JSON
   files as fixtures.
 - Env vars the server reads: `PORT`, `DATA_DIR`, `NODE_ENV`, `ADMIN_PASSWORD`,
-  `SESSION_SECRET`, `REDIS_URL`, `GEMINI_API_KEY`. None are set locally.
+  `SESSION_SECRET`, `REDIS_URL`, `GEMINI_API_KEY`, and since S18
+  `DISCORD_WEBHOOK_URL` (a secret; posting also needs the admin switch)
+  and `SITE_URL` (the origin a post links to, default
+  `https://overloadfight.club`). None are set locally.
   `.env.example` lists them. Without `NODE_ENV=production` the server falls
   back to `admin123` and a dev session secret with a warning; with it, both
   secrets are required. The SSH scripts in `scripts/` read `NAS_SSH_PASSWORD`
@@ -2197,11 +2349,11 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 17 files, 293 tests pass on 26.11.1 (S17; 265 at its start) | 2026-10-09 |
+| `npx vitest run` | all pass | 18 files, 313 tests pass on 26.11.1 (S18; 293 at its start) | 2026-10-09 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 233.26 KB raw / 74.77 KB gzip, pilot page `PilotDetail` 56.92 KB / 14.61 KB gzip, match page `GameDetail` 123.94 KB / 40.03 KB gzip, maps page `MapLibrary` 34.22 KB / 8.92 KB gzip, the shared `HeatTable` 1.61 KB / 0.71 KB, `Ladders` 7.54 KB / 2.38 KB, the new `Rivals` 7.00 KB / 2.38 KB gzip, dashboard `GameList` 41.67 KB / 11.43 KB gzip and no Recharts on its first visit, on 26.11.1 (S17; 74.64, 13.42, 39.81 and 9.35 at its start; `LiveGameDetail` 2.93 KB and `ServerHistory` 3.76 KB gzip in S15; one 351.07 KB chunk before S4) | 2026-10-09 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S17) | 2026-10-09 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S17 on `/tmp/ofc-data`: `total_games: 43`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/health`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/specialists`, `/api/stats/duels`, `/api/stats/objectives` and `/api/pilot/WD-40/weapon-mix` all 200 as in S16; new `/api/stats/rivalries` (12 pilots, 25 pairs, 577 kills) and `/api/pilot/WD-40/rivalry` 200; the first start refreshed for the marker (60 rival pairs, 19 clutch rows), the next skipped | 2026-10-09 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 233.36 KB raw / 74.80 KB gzip, admin page `AdminPanel` 35.18 KB / 9.32 KB gzip, dashboard `GameList` 41.67 KB / 11.42 KB gzip and no Recharts on its first visit, `FightNightSection` 14.13 KB / 3.05 KB gzip, on 26.11.1 (S18; 74.78 and 7.65 at its start). S17's other chunks unchanged: `PilotDetail` 56.92 KB / 14.61 KB, `GameDetail` 123.94 KB / 40.03 KB, `MapLibrary` 34.22 KB / 8.92 KB, `Ladders` 7.54 KB / 2.38 KB, `Rivals` 7.00 KB / 2.38 KB gzip (one 351.07 KB chunk before S4) | 2026-10-09 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S18) | 2026-10-09 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S18 on `/tmp/ofc-data` with `DISCORD_WEBHOOK_URL` at a local stub: `total_games: 48`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries` (12 pilots, 25 pairs, 731 kills), `/api/pilot/WD-40/rivalry` and `/api/health` all 200; new `/api/admin/discord` and `/api/admin/discord/test` 401 without a session, the URL masked and a test post 200 or 502 with one; the token in no log line | 2026-10-09 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine`, arm64: healthy in 5 s, uid 1000, 599 MB (Node 26; S6 on `node:22-alpine`: about 9 s, 567 MB) | 2026-10-08 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
@@ -2237,6 +2389,10 @@ maintenance item does not count toward the 28.
 | S17 `checks.mjs`: headless Chrome over CDP, `/rivals` in both views (local; 12 long names, 120k cells and 25 pairs mocked; `?by=` by click, reload and a bad value; empty, failed, held), the pilot page's kill-log card (local; no logged match, failed, held), the match page's damage tab (local; no damage log mocked), the leaderboard's link, then the dashboard, history, leaderboard, rankings, ladders, server page, maps, a map popup, a match, fight night and a second pilot, at 1,280 and 390 px | cells, bars and tiles equal the API, ramp and emphasis colours only, URL state across reload, shared states, no new Recharts chunk, no wider than the window, no console errors but the known S1 401 | 160 of 160 (S17) | 2026-10-09 |
 | S17 `mutate.py`: 24 edits to the S17 rules, pass and reads, each restored from a copy, three test files run | every edit fails a test | 24 of 24 fail at least one test (S17) | 2026-10-09 |
 | dataviz `validate_palette.js --mode dark --surface "#111111"` on the back-to-back bars' `chart.series,chart.label` | as S16: all but the chroma floor, which a de-emphasis grey fails by design | same as S16 (S17) | 2026-10-09 |
+| S18 `server/services/discordService.test.js`: a temp database with the fixtures on two nights, a local `http` stub webhook, the admin router on a session stub | the embed's numbers equal the fixtures and the rankings; one ping per day; one retry; posts kept from repeating; no token in any console line | 18 of 18 (S18) | 2026-10-09 |
+| S18 `real.mjs`, run by `node` on a copy of `/tmp/ofc-data` against the stub: a real server-browser answer with players added, then the detector with the thresholds lowered, twice | one ping, one recap per night, nothing on the second run | 1 ping and 2 recaps, 10 fields each, nothing more (S18) | 2026-10-09 |
+| S18 `checks.mjs`: headless Chrome over CDP, the admin Discord card (real login against the stub; mocked: no URL, on with no URL, every post status, failed save, failed test, failed load and Retry, held), then the dashboard, history, both fight-night pages, leaderboard, rankings, ladders, rivals, a pilot, maps, a match and a server page, at 1,280 and 390 px | the card's states, no token in the page, no wider than the window, no console errors but the S1 401 | 62 of 66; the 4 failures are map-image 404s on `/history` and `/maps` from overloadmaps.com (S18) | 2026-10-09 |
+| S18 `mutate.py`: 33 edits to the S18 rules, each restored from a copy, four test files run | every edit fails a test | 32 of 33; the wait for a refresh under way survives (S18) | 2026-10-09 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -2257,7 +2413,10 @@ maintenance item does not count toward the 28.
       history. Pulling into them or pushing a branch from the old history
       would bring the purged commits back.
 - [ ] [HUMAN] Create a Discord webhook URL for the fight-night channel (needed
-      by S18).
+      by S18). Since S18: put it in the NAS's `.env` as
+      `DISCORD_WEBHOOK_URL=...` (never in the database or a tracked file),
+      restart the container, press "Send test post" on the admin page's
+      Discord card, then turn "Post to Discord" on.
 - [x] [HUMAN] Add GitHub user `kehoej` as a collaborator. Done 2026-10-06.
 - [ ] [HUMAN] Before the first start of the S6 image on the NAS, stop the
       container and run `sudo chown -R 1000:1000
@@ -2737,7 +2896,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 
 ### Phase 4: into Discord, and a reason to come back
 
-- [ ] **S18 Discord webhook** (S). Recap embed on save; "it's on" ping once per
+- [x] **S18 Discord webhook** (S). PR #19. Recap embed on save; "it's on" ping once per
       evening; webhook URL as an admin setting. The owner decided at the
       start of S18: the evening is on when the server browser shows 6 or
       more pilots across servers (the plan's rule, read at the S15 minute
@@ -4675,6 +4834,129 @@ Not counted in the 28 sessions.
   loads beside the rating, career and weapon mix, so a mode change does
   not ask again. `HeatTable` is now a shared chunk (the maps page, the
   match page and `/rivals`).
+- 2026-10-09 (S18): The owner's answers at the start of S18, each the
+  recommended option. The evening is on when the server browser shows 6
+  or more pilots across servers (the plan's rule and its "six pilots on a
+  Saturday"). The ping fires at most once per fight-night day. Only a
+  recap the detector saves posts. The embed carries the night's totals
+  and lines, the top pilots, a link to the night and the power-rankings
+  movement. The URL lives in the environment, and the admin page only
+  switches posting on and off. A failed post is retried once, then logged
+  and dropped, and counts as sent only on success. Links use `SITE_URL`.
+  The admin page gets a test-post button. Rejected: the first ranked match
+  of the day (fires on any quiet weeknight 1v1), matches or pilots within
+  an hour (lags a match length behind the browser), the S14 thresholds
+  partway (usually hours in, close to the recap), a second ping after a
+  long gap.
+- 2026-10-09 (S18): Where the webhook URL lives and who reads it. Only
+  `DISCORD_WEBHOOK_URL` in the server's environment holds it
+  (`.env.example`, both compose files pass it through, empty by default).
+  Nothing writes it to the database, so neither the nightly backup nor the
+  admin backup download carries it. The admin status shows the URL's
+  origin and its last four characters (`https://discord.com/…abcd`), or
+  says it is not a valid http(s) URL. No log line, error or answer holds
+  the URL: a failed request is logged as "Discord answered 404" or "no
+  answer from Discord (ECONNREFUSED)", from the status or the error's code
+  and never from `error.message`, because fetch quotes a URL it cannot
+  parse there. The switch is `discord_enabled` in `admin_settings`
+  (`'true'` posts), saved through the existing `POST /api/admin/settings`,
+  and off until the admin turns it on, so setting the variable alone posts
+  nothing. Rejected: the URL in `admin_settings` (it would travel in every
+  backup), the `GEMINI_API_KEY` pattern of either one.
+- 2026-10-09 (S18): `SITE_URL` (default `https://overloadfight.club`,
+  trailing slashes trimmed) is the origin every link in a post starts
+  with; the path comes from `urlFor`. S8 rejected a `PUBLIC_URL` setting
+  for share tags because a page request carries the host. A post has no
+  request, so it needs one; share tags still read the request.
+- 2026-10-09 (S18): What triggers each post. The ping rides the S15
+  server-browser tick: after the tick is stored, `checkPing` counts the
+  pilots on the online servers in that answer (`browserPilots` in
+  `gameParse.js`, through `browserRows`, lobbies included, a server
+  listed twice counted by its first listing, the rule the stored tick now
+  shares) and posts when the count reaches
+  `FIGHT_NIGHT_PING.pilots` (6) having been below it at the tick before
+  (held in memory), or when the day's ping is still pending. So an evening
+  still on when the day rolls over at 06:00 does not ping again, which a
+  plain once-per-day key would do (a /code-review finding); a restart
+  counts the first busy tick as a new evening, and the day's row still
+  stops a second ping. The recap posts from
+  `checkAndGenerateRecentFightNight` only: a recap the detector has just
+  saved is queued and posted, if posting is on at that moment; a queued
+  recap still pending is posted again on the detector's next run (06:15,
+  each start, the admin's manual check). A recap saved while posting is
+  off is never queued, so switching on later does not post old nights a
+  day late (kept against a /code-review finding).
+  The S14 rebuild, the empty-table backfill of 10, `GET
+  /api/fight-nights/:date` and a forced `generateRecapForDate` save
+  recaps without posting. Neither post is awaited: the tick and the
+  detector move on, and no request or ingest poll waits on Discord. No new
+  timer. A shutdown calls `stopDiscord()` after the snapshot timer and
+  before `db.close()`: nothing new starts, and a post that ends later
+  writes nothing.
+- 2026-10-09 (S18): `discord_posts(kind, key, status, tries, updated_at)`,
+  primary key `(kind, key)`, in `tracker.db`, keeps a post from repeating.
+  `kind` is `ping` (keyed by fight-night day) or `recap` (keyed by recap
+  date); `status` is `pending` until Discord takes the post, then `sent`,
+  or `dropped`. A recap rebuilt or regenerated later keeps its row, so it
+  does not post again; a restart reads the rows. One post per row at a
+  time in the process. A busy tick drops the pings still pending from
+  before its day, and each detector run the recaps still pending from
+  before its two days (`DETECTOR_DAYS`), which nothing would try again. First build: `ensureDiscordPosts` in
+  `migrations.js` creates it empty at startup (`CREATE TABLE IF NOT
+  EXISTS`), so the first start of S18 posts nothing old. A restart needs no
+  repair. `restoreHot` reads the live rows first and writes them back over
+  the backup's (recreating the table for a backup from before S18), so a
+  post sent after the backup was taken does not go out again. Rollback: revert, pull the
+  old image, and `DROP TABLE discord_posts;` on `tracker.db`, or leave it
+  (nothing older reads it). `discord_enabled` can stay in `admin_settings`.
+- 2026-10-09 (S18): Failure and rate limits. One post is one request (10 s
+  timeout) and, after a 429, a 5xx or no answer, one more: a 429 waits its
+  `Retry-After` header or the body's `retry_after` (capped at 60 s), the
+  others 5 s. A post that still fails stays `pending` and the next tick
+  (ping) or detector run (recap) tries again, up to 3 posts, so a dead
+  channel costs at most 6 requests per post. Any other 4xx (a deleted
+  webhook answers 404) is `dropped` at once. A message that cannot be
+  built (its recap gone) counts as a failed try. An unparsable URL posts
+  nothing and writes no row; the admin card says the URL is not valid. Each outcome is one
+  `[Discord]` log line. Every message sets `allowed_mentions: { parse: []
+  }`, so a pilot named `@everyone` pings nobody, and `plain()` escapes
+  Discord's markdown in tracker text (names, maps, the recap's lines),
+  masked-link brackets included. Rejected: a growing backoff (the owner's
+  call), retrying a 4xx.
+- 2026-10-09 (S18): The messages (`server/lib/discordMessages.js`, no
+  database reads). The recap: one embed titled "Fight Night: <weekday,
+  date>" linking to `/fight-night/:date`, the description "N matches, N
+  pilots, N kills.", then Most kills and Most matches side by side, then
+  the saved recap's seven lines as written (Headline match, Upset, Biggest
+  win, Closest finish, Busiest map, New pilots, Longest streak), then the
+  top 5 of the power rankings on the day after the night with their 7-day
+  movement (▲3, ▼1, – or NEW). Before reading the rankings the post waits
+  out a refresh under way (it may have started before the night's last
+  matches were stored), then, when a stored match is newer than the
+  caches (the startup check's rule), awaits `db.refreshPilotStats()`, the
+  stats worker, so the night's matches count. A failed refresh posts the
+  rankings as they stand. A match played before the last refresh but
+  stored after it is missed by that rule, as at startup. The ping: "It's on: N pilots in the server browser." and
+  an embed "Live servers" linking to the live page, with the servers that
+  have pilots, most first, at most 10 ("4 of 8 pilots, TEAM ANARCHY on
+  Vault" or "in the lobby"). Fields that would push an embed past
+  Discord's 6,000 characters are dropped from the end; pilot names are cut
+  at 64 characters. The test post is one line of text.
+- 2026-10-09 (S18): Endpoints, both in `admin-routes.js` behind
+  `requireAuth`. `GET /api/admin/discord` answers `{ enabled, configured,
+  webhook (masked), siteUrl, pingPilots, posts }`, the 5 latest rows.
+  `POST /api/admin/discord/test` sends the test post as one request (no
+  retry, no row), whether or not the switch is on, so the owner can check
+  the URL before turning posting on; it answers 200 `{ ok, status,
+  message }`, 400 when no URL is set and 502 with "Discord answered N." or
+  "no answer from Discord (CODE)." Client: `fetchAdminDiscord` and
+  `sendAdminDiscordTest` on the S11 admin helper; `hooks/useAdminDiscord`
+  and `components/admin/AdminDiscord` below Dashboard Config. The switch
+  is a `role="switch"` button, disabled with no URL unless it is on (so it
+  can always be turned off), and moves back with a line of text if the
+  save fails. A Refresh button reloads the latest posts (the archive toggle still does not, S11
+  flag). Loading, ErrorState with Retry and EmptyState come from
+  `States.tsx`.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -5576,6 +5858,51 @@ Not counted in the 28 sessions.
   clutch `matches` (the first-blood rate's denominator) though
   `opponentsOf` leaves them out of the pairs. No local or fixture match
   has one.
+- (S18) `GET /api/fight-nights/:date` generates and saves a recap for any
+  date with no saved one, including a night still running or one between
+  06:00 and the 06:15 detector. If that night qualifies, the detector then
+  finds it saved: it neither regenerates the partial recap nor posts it.
+  The page only reaches that URL when someone types it. A guard in the
+  route (generate only for days before today's) would fix both; outside
+  the S18 entry.
+- (S18) The Monday power-rankings post is not built. S13's movement
+  decision says "a Monday post (S18) reads the same numbers", but the S18
+  entry names the recap and the ping only, and no later session owns it.
+  The recap carries the top 5 with their movement instead.
+- (S18) The recap's saved lines go into Discord as written, so their old
+  faults now post too: "1 matches" and "a ANARCHY slugfest" (seen on the
+  local nights), a 0 - 0 team draw as the closest finish, Biggest Upset
+  naming the top fragger of a losing team and the streak counting a
+  suicide (S2). The embed's own words are new; the lines are
+  `fightNightService.js`'s.
+- (S18) On the local data no fight-night day passes the thresholds (S14
+  flag), so the deployed site posts no recap until a night does. The
+  check above ran with the thresholds lowered in a script.
+- (S18) Four maps first played since S17 (`ST-HIGHWALL-00-NOUVEAU`, `REC
+  CENTRE`, `SUB ROSA`, `ICEWOLF DEATH MATCH V.1`) have no local image and
+  overloadmaps.com answers 404 for their image URL, so `/history` and
+  `/maps` log a 404 per card for them. Not an S18 change.
+- (S18) The ping counts players in lobbies, so six pilots idling in one
+  lobby count as an evening. The owner chose the browser count; a lobby
+  that never starts a match still pings.
+- (S18) The wait for a refresh already under way before the recap's
+  rankings (`refreshInProgress`) is the one S18 mutant no test kills: the
+  fixtures cannot hold a refresh that started before the night's matches.
+- (S18) The ping's "was the count below the line at the tick before" is
+  held in memory, so a restart during an evening that crossed 06:00 can
+  ping that new day once. Reading the last stored tick instead needs a
+  scan of `server_snapshots` without an index on `at` (/simplify,
+  skipped).
+- (S18) `refreshPilotStats()` joins a refresh already under way, which may
+  have started before the caller's writes; the recap waits one out first,
+  but the backfill, archive ingest, map sync and the admin's refresh
+  button do not. A follow-up run queued inside `refresh.js` would fix
+  every caller (/simplify, outside the diff).
+- (S18) The admin page now has two hand-made switches that differ (the
+  archive toggle's `sr-only` checkbox in blue, the Discord card's
+  `role="switch"` button in the brand colour). One shared switch would
+  cover both (/simplify, outside the diff). The card's "06:15" is
+  written out, not read from `DETECTOR_DELAY_MS`.
 
 ## Rollback
 
@@ -5603,6 +5930,10 @@ S17 adds `pilot_rivals` and `pilot_clutch` to `tracker.db`, both derived:
 after its revert `DROP TABLE` either, or leave them. The S16 code's built
 marker names its own list, so the first start after the revert refreshes
 once.
+S18 adds `discord_posts` to `tracker.db` and the `discord_enabled` row to
+`admin_settings`; after its revert `DROP TABLE discord_posts;` or leave
+it, and the row can stay. Nothing posts once the S18 code is gone;
+`DISCORD_WEBHOOK_URL` and `SITE_URL` in `.env` are then unread.
 
 ## Open questions
 
@@ -5617,6 +5948,9 @@ once.
 - S17's six (force graph or not, chord or not, the late window, trailing in
   FFA, ranked only, opponents only) were settled by the owner at its start;
   see the S17 decisions.
+- S18's (the ping's trigger and how often, which saves post, the embed,
+  where the URL lives, failures, the origin, a test button) were settled
+  by the owner at its start; see the S18 decisions.
 
 ## Skills to load
 
@@ -6300,13 +6634,32 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   into the query and the damage grid into `gameParse.js`; five findings
   skipped. 24 of 24 mutants fail a test (one survived at first). Chrome
   checks: 160 of 160. PR #18 opened against `main`, not merged.
+- 2026-10-09, S18 (Claude Opus 5.5): the Discord webhook. Status line
+  checked first: PR #18 had merged (`726e536`, nothing after it), so S18
+  branched from `origin/main`; `10223be` is not an object here. First
+  move: 17 files, 293 tests (the prompt said 286, S17's count before its
+  review fixes); entry 74.78 KB gzip (the table said 74.77); tsc 0. The
+  owner took every recommendation: the ping at 6 pilots in the server
+  browser once per fight-night day, only the detector's new recaps post,
+  the full embed with the rankings, the URL in the environment with an
+  admin switch, one retry then drop, `SITE_URL`, a test button. A
+  `discord_posts` table keeps posts from repeating; the ping rides the
+  S15 tick and the recap the detector, so no new timer. /code-review
+  found nine issues, among them a second ping when an evening runs past
+  06:00 and pending rows that could never leave `pending`; eight fixed,
+  one kept by decision. /simplify (four agents) found the new ping
+  counting a server listed twice by the opposite rule to the stored
+  tick; both now share `browserRows`. 32 of 33 mutants fail a test.
+  Chrome checks: 62 of 66, the four failures map-image 404s from
+  overloadmaps.com. Nothing posted to a real channel (the [HUMAN] task is
+  open). PR #19 opened against `main`, not merged.
 
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S18: Discord webhook.
+Continue the overloadfight.club roadmap. This session is S19: OG share cards.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first (a hook blocks reads over 350 lines, so read it in sections), then verify its status line against the repo before building on anything in it.
@@ -6315,56 +6668,54 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S17 is on branch ofc/s17-rivalry-network, PR #18. PRs #1 to #17 are merged.
-  If PR #18 is merged:
-    git checkout -B ofc/s18-discord-webhook origin/main
-  If PR #18 is still open:
-    git checkout -B ofc/s18-discord-webhook origin/ofc/s17-rivalry-network
-    and open the S18 PR against main anyway; say in its description that it sits on PR #18.
-  Check again before opening the PR: if PR #18 merged during the session, rebase onto origin/main first.
+  S18 is on branch ofc/s18-discord-webhook, PR #19. PRs #1 to #18 are merged.
+  If PR #19 is merged:
+    git checkout -B ofc/s19-og-share-cards origin/main
+  If PR #19 is still open:
+    git checkout -B ofc/s19-og-share-cards origin/ofc/s18-discord-webhook
+    and open the S19 PR against main anyway; say in its description that it sits on PR #19.
+  Check again before opening the PR: if PR #19 merged during the session, rebase onto origin/main first.
   `git checkout -B ... origin/...` sets the remote branch as upstream; run `git branch --unset-upstream` so a bare push cannot go to main.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #18 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #19 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 26
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
-If neither origin/main nor origin/ofc/s17-rivalry-network has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s18-discord-webhook has docs/ROADMAP.md, stop and tell me.
 
-Before building, ask me the questions the S18 entry leaves open: what makes an evening "on" for the ping (the first ranked match of the fight-night day, a number of matches or pilots within an hour, or the S14 fight-night thresholds partway through the night), and whether it fires once per fight-night day (06:00 Chicago rollover) or can fire again after a long gap; what the recap embed carries (the saved recap's verdict lines, top pilots, a link to /fight-night/:date, the power-rankings movement) and whether a recap rebuilt or regenerated later (the S14 rebuild, a forced regenerate) posts again; whether the webhook URL is stored in admin_settings (and so travels in the nightly backup) or read from an environment variable with the admin setting only switching it on and off; and what happens when Discord fails or rate-limits (one retry, a backoff, or log and drop). The [HUMAN] task for the webhook URL is still open, so nothing posts to a real channel this session: test against a local stub server or Fetch-domain mocks. Do not pick silently.
+Before building, ask me the questions the S19 entry leaves open: which pages get a card now (pilot, match, fight night and map; the tape URL does not exist until S20, so leave it out or reserve its route), what each card shows (the numbers pageMeta.js already writes into og:description, or a different set per page) and whether the cards share one layout; which font the card uses (satori needs the font file itself, so Orbitron and Roboto Mono would ship in the repo or come from a package); whether a card is rendered on request and cached (in memory, on disk under DATA_DIR, and what makes it stale: a new match, a refresh, a recap save) or rendered ahead by the nightly job; the og:image origin (the request's host as og:url does, or S18's SITE_URL); and whether the S18 Discord recap embed gets the fight-night card as its image. Do not pick silently.
 
 Read first:
-- docs/ROADMAP.md, the S18 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the fight-night service, the admin page and the share tags already have, and quote it in the PR description. Also "Canonical contract", "Open questions", "[HUMAN] tasks" (the webhook URL), the S1 decisions (secrets from the environment only, admin auth, the login rate limit), S6 (backups of admin_settings, the shutdown order), S8 (share tags and og:url, pageMeta.js), S11 (server/routes/ layout, apiService's admin requests and AdminRequestError, the admin hooks and components/admin/), S13 (power rankings and their weekly movement, which the plan says a Monday post can read), S14 (fight-night days, the detector's 06:15 timer, saved recaps, the recap rebuild and its `fight_night_day_rule` row, the thresholds), S15 (the server-browser timer, how a timer stops before the database closes), S17 (the tracker's prose rules applied to a new surface), every "Flagged, not fixed" item that names S18, Discord, the recap, fight nights, the detector, the thresholds, admin settings or secrets (decide for each whether S18 covers it; flag the rest again), and the Postmortems.
-- server/services/fightNightService.js (generateRecapForDate, saveFightNightRecap's caller, checkAndGenerateRecentFightNight, rebuildRecapsForDayRule, FIGHT_NIGHT_THRESHOLDS), server/maintenance.js (the detector timer and the startup checks), server/ingest.js (where new matches arrive), server/db/repos/settings.js and server/db/repos/fightNights.js, server/admin-routes.js (the settings routes and requireAuth), server/auth.js, hooks/useAdminSettings.ts and components/admin/AdminDashboardConfig.tsx, services/apiService.ts (the admin helpers), server/pageMeta.js and server/lib/siteRoutes.js (the URLs an embed links to), server/lib/gameParse.js (fightNightDay, dayBounds, powerRankings, rankingMovement) and .env.example. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S19 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the share tags and the pages already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S8 decisions (share tags, og:url from the request, the rejected PUBLIC_URL), S9 (design tokens), S11 (server/routes/ layout), S13 to S17 (the numbers each page shows), S18 (SITE_URL, the recap embed, discordMessages.js), every "Flagged, not fixed" item that names S19, share cards, og tags, pageMeta, fonts, images or the map images (the S18 flag: four maps whose image overloadmaps.com answers 404 for), and the Postmortems (the Command Line Tools on this Mac cannot link native modules: a new dependency has to install from a prebuild on darwin-arm64 and on node:26-alpine).
+- server/pageMeta.js (the share tags), server/index.js (the page route that fills them and the static file serving), server/lib/siteRoutes.js (urlFor, pageTitle), server/routes/maps.js (the map image route), server/lib/matchResult.js (count, plural, resultLine), server/lib/discordMessages.js (the recap embed), designTokens.js, tailwind.config.js, index.html (the fonts), the Dockerfile and package.json. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
-- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every number an embed shows ships with a test on fixture data.
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every number a card shows ships with a test on fixture data.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
-- Secrets come from the environment or admin-only storage, never from tracked files, logs, error messages, API answers to non-admins or share tags. A webhook URL is a secret: an admin read shows it masked.
-- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. A new table gets a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/ or admin-routes.js behind requireAuth. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules: the kill-log rules, the ranked filter, the rating, the duel rule and the day rule (America/Chicago, 06:00 rollover). Never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request or in a post.
-- server/lib/siteRoutes.js owns page URLs (`urlFor`); an embed's links are built from it and the request-free origin the owner chooses, not hard-coded paths.
-- A timer starts at `listen` and stops before `db.close()` on shutdown (S15); a post never blocks a request or the ingest poll.
-- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; the focus ring and tap state are the rules in index.css. Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx; keep both error boundaries (S9). Admin requests go through apiService's admin helpers (S11).
+- Secrets come from the environment or admin-only storage, never from tracked files, logs, error messages, API answers to non-admins or share tags. A card never shows anything a non-admin page does not.
+- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. A new table or cache on disk gets a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
+- server/lib/gameParse.js owns the game rules; server/lib/matchResult.js the shared wording (count, plural, resultLine); server/lib/siteRoutes.js the page URLs (`urlFor`). A card reads the same numbers its page and its og:description show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
+- A card request must not block the event loop for long: render off the request path or cache it, and record the render time. A failed render falls back to no og:image, never to a broken page.
+- Colours, radius and small text come from designTokens.js. The card is not a React view: nothing in App.tsx changes for it, and the entry chunk does not grow.
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; charts stay out of the entry chunk and the dashboard's first visit loads no Recharts chunk. Record the entry size (S17 left 233.26 KB raw / 74.77 KB gzip) and the admin chunk, before and after.
-- Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
-- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI).
-- Do not add a router library, state library, ORM, component library or a Discord SDK; Node's fetch posts the webhook.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (43 local matches, five with logs, at the end of S17; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Point the webhook at a local stub server that records what it receives; never at a real Discord URL. Check the admin page in headless Chrome over CDP, as S4 and S7 to S17 did (S17's harness was a 100-line CDP client over Node's WebSocket with a Fetch-domain mock list, held requests failed when the mocks change; write your own); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other.
-- Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy kept in the scratch folder, named by absolute path (S17 wrote a backup into the repo by resolving `__file__` from stdin), not with `git checkout`, which also discards uncommitted work. Run `git status` after every mutation run.
+- Every view in App.tsx is React.lazy behind one Suspense; charts stay out of the entry chunk and the dashboard's first visit loads no Recharts chunk. Record the entry size (S18 left 233.36 KB raw / 74.80 KB gzip) before and after.
+- Keep new components and modules under 500 lines (S11).
+- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI). A new dependency gets a decision entry; satori and resvg are the plan's choice, and no headless browser renders cards. Build the Docker image once to show the new dependencies install on node:26-alpine without a compile.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (48 local matches at the end of S18; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the cards by fetching them and looking at the PNGs, and the pages' tags with curl; check the pages in headless Chrome over CDP, as S4 and S7 to S18 did (S18's harness was a 120-line CDP client over Node's WebSocket with a Fetch-domain mock list that fulfils, fails or holds; held requests failed when the mocks change; write your own); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/history` and `/maps` also log 404s for four map images overloadmaps.com lacks (S18 flag); report them, do not filter them.
+- Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy kept in the scratch folder, named by absolute path, not with `git checkout`, which also discards uncommitted work. Run `git status` after every mutation run.
 
 Rules for this session:
-- One PR, scope is the S18 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the owner's answers, where the webhook URL lives and who can read it, what triggers each post and how a post is kept from repeating (across restarts and recap rebuilds), the embed's fields, the failure and rate-limit handling, any new table or setting and its migration, and any new endpoint.
+- One PR, scope is the S19 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the owner's answers, the two dependencies, where cards are rendered and cached and what makes one stale, the card layouts and their numbers, the og:image origin, any new table, setting or file cache and its migration, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
-- Apply the unslop skill to the PR description, the tracker prose and the embed's words.
+- Apply the unslop skill to the PR description, the tracker prose and the cards' words.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S18 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S19 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S19.
+- Before ending: tick S19 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S20 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S20.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S17 left 17 files, 286 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|AdminPanel|GameList|FightNightSection)-.*\.js"` (the Verification table records the entry at 74.77 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S18 Done-when list into the tracker.
-Done when: every item of the S18 Done-when list is true and checked on fixture data, against a local stub webhook and in headless Chrome (the admin setting at 1,280 and 390 px), the dashboard, fight night, leaderboard, rankings, ladders, rivalries, pilot pages, maps and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S18 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/:name/rivalry` and `/api/health`, no webhook URL appears in a log line, an error or a non-admin answer, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S18 left 18 files, 313 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|AdminPanel|GameList|FightNightSection)-.*\.js"` (the Verification table records the entry at 74.80 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S19 Done-when list into the tracker.
+Done when: every item of the S19 Done-when list is true and checked on fixture data, with curl against the local server (each page's og:image tag and its PNG) and in headless Chrome at 1,280 and 390 px; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, pilot pages, maps, match page and the admin page still work; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S19 PR; the Docker image builds and reports healthy; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/:name/rivalry` and `/api/health`; and the PR is open with the tracker updated.
 ```
