@@ -5,7 +5,7 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureGamePlayersTable, ensurePilotMonths, ensureRatingSnapshots, ensureRegionMonths, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
+import { ensureDerivedTables, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
@@ -42,6 +42,7 @@ import {
 import { clearRankings, getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
+import { clearDuelLadder, derivedTablesFilled, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -67,14 +68,13 @@ const db = {
     // A backup from before S5 has no game_players; build it for the restored games.
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
-    // A backup from before S13 has no rating_snapshots, one from before S14 no
-    // pilot_months, one from before S15 no region_months; the next refresh
-    // fills them. Nor does it have the server tables, which start empty again.
-    ensureRatingSnapshots();
-    ensurePilotMonths();
-    ensureRegionMonths();
+    // A backup from before S13 to S16 lacks some of the derived tables; the
+    // next refresh fills them. Nor does it have the server tables, which
+    // start empty again.
+    ensureDerivedTables();
     ensureServerTables();
     clearRankings();
+    clearDuelLadder();
     clearServerSummaries();
   },
   migrateGamePlayers,
@@ -206,6 +206,14 @@ const db = {
   getServerSummary,
   getRegionShare,
   hasRegionMonths,
+
+  // analytics/meta.js
+  derivedTablesFilled,
+  getWeaponMeta,
+  getPilotWeaponMix,
+  getSpecialists,
+  getDuelLadder,
+  getObjectiveBoards,
 
   // analytics/refresh.js
   refreshPilotStats,

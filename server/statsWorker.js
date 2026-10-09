@@ -7,7 +7,7 @@
 import fs from 'fs';
 import { parentPort, workerData } from 'worker_threads';
 import Database from 'better-sqlite3';
-import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS, REGION_MONTH_COLUMNS, archivePass, mapPass, pilotPass, ratingPass, regionPass } from './lib/statsPasses.js';
+import { DERIVED_TABLES, archivePass, derivedColumns, duelPass, mapPass, pilotPass, ratingPass, regionPass, weaponPass } from './lib/statsPasses.js';
 import { regionOf } from './lib/serverRegions.js';
 
 const PAGE_SIZE = 500;
@@ -31,7 +31,20 @@ function regionsByIp() {
     }
 }
 
-const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass(), regions: regionPass(regionsByIp()) };
+const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass(), regions: regionPass(regionsByIp()), weapons: weaponPass(), duels: duelPass() };
+// Each derived table (statsPasses.js DERIVED_TABLES): the pass that builds it
+// and the rows it gives.
+const derivedRows = {
+    rating_snapshots: ['ratings', () => passes.ratings.rows()],
+    pilot_months: ['pilots', () => passes.pilots.months()],
+    region_months: ['regions', () => passes.regions.rows()],
+    map_weapons: ['weapons', () => passes.weapons.maps()],
+    pilot_weapons: ['weapons', () => passes.weapons.pilots()],
+    pilot_maps: ['pilots', () => passes.pilots.maps()],
+    duel_snapshots: ['duels', () => passes.duels.rows()],
+    pilot_duels: ['duels', () => passes.duels.pairs()],
+    pilot_objectives: ['pilots', () => passes.pilots.objectives()]
+};
 // Ids read from hot storage. The pages are separate reads, so a game moved to
 // cold storage mid-pass (or left in both files by a crash) would otherwise be
 // read twice.
@@ -67,12 +80,13 @@ for (const file of [hotPath, coldPath]) {
     }
 }
 
-// What the main thread must write to bring a derived table (rating_snapshots,
-// pilot_months, region_months) in line with the rows this pass built: the rows that are new or
-// differ, and the keys (two columns, `columns[0]` and `columns[1]`) the pass no
-// longer has. Most refreshes change only the latest days or months, so this
-// keeps a rewrite of every row off the main thread.
-function tableChanges(table, columns, rows) {
+// What the main thread must write to bring a derived table in line with the
+// rows its pass built: the rows that are new or differ, and the keys (the
+// first two columns) the pass no longer has. Most refreshes change only the
+// latest days or months, so this keeps a rewrite of every row off the main
+// thread.
+function tableChanges(table, rows) {
+    const columns = derivedColumns(table);
     const [a, b] = columns;
     const fresh = new Map(rows.map(r => [`${r[a]}\n${r[b]}`, r]));
     const deletes = [];
@@ -92,29 +106,21 @@ function tableChanges(table, columns, rows) {
 
 const size = file => (fs.existsSync(file) ? fs.statSync(file).size : 0);
 const pilots = errors.pilots ? [] : passes.pilots.rows();
-// The replay runs here, after the scan, so a failure in it must not lose the other passes.
-let ratings = null;
-if (!errors.ratings) {
-    try {
-        ratings = tableChanges('rating_snapshots', RATING_SNAPSHOT_COLUMNS, passes.ratings.rows());
-    } catch (err) {
-        errors.ratings = err.message;
+// The rating replays run here, after the scan, so a failure in one must not
+// lose the other passes: a table whose pass failed, or whose rows fail, is
+// left out (null) and the main thread keeps what it has.
+const derived = {};
+for (const table of Object.keys(DERIVED_TABLES)) {
+    const [pass, rows] = derivedRows[table];
+    if (errors[pass]) {
+        derived[table] = null;
+        continue;
     }
-}
-let months = null;
-if (!errors.pilots) {
     try {
-        months = tableChanges('pilot_months', PILOT_MONTH_COLUMNS, passes.pilots.months());
+        derived[table] = tableChanges(table, rows());
     } catch (err) {
-        errors.months = err.message;
-    }
-}
-let regions = null;
-if (!errors.regions) {
-    try {
-        regions = tableChanges('region_months', REGION_MONTH_COLUMNS, passes.regions.rows());
-    } catch (err) {
-        errors.regions = err.message;
+        errors[table] = err.message;
+        derived[table] = null;
     }
 }
 parentPort.postMessage({
@@ -122,7 +128,5 @@ parentPort.postMessage({
     pilots,
     archive: errors.archive || errors.pilots ? null : passes.archive.payload(pilots, { hotDbSize: size(hotPath), coldDbSize: size(coldPath) }),
     maps: errors.maps ? null : passes.maps.rows(),
-    ratings,
-    months,
-    regions
+    derived
 });

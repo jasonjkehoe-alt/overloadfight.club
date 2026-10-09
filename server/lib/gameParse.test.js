@@ -8,7 +8,9 @@ import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, mome
 import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
 import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, weekdayOf, winRate } from './gameParse.js';
 import { HOUR_MS, SERVER_STATE, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, regionShare, serverSummary, serverWindow, snapshotRow } from './gameParse.js';
-import { ffaWithLog, teamWithLog } from '../testFixtures.js';
+import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
+import { duelPass, weaponPass } from './statsPasses.js';
+import { byId, detailSample, ffaWithLog, sample, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
@@ -800,5 +802,127 @@ describe('server history (S15)', () => {
             { month: '2026-02', total: 0, counts: {} }
         ]);
         expect(regionShare([], '2026-02')).toEqual([]);
+    });
+});
+
+describe('weapon meta and ladders (S16)', () => {
+    const families = kills => kills.reduce((c, k) => ({ ...c, [k.family]: (c[k.family] || 0) + 1 }), {});
+
+    describe('weaponKills', () => {
+        it('lists every kill on an opponent under its weapon family, with the attacker', () => {
+            const kills = weaponKills(teamWithLog);
+            expect(kills).toHaveLength(10);
+            expect(families(kills)).toEqual({ laser: 2, thunderbolt: 1, flak: 1, missile: 2, mine: 1, driller: 1, heavy: 1, other: 1 });
+            expect(kills.filter(k => k.attacker === 'INSANER')).toHaveLength(5);
+            expect(weaponKills(ffaWithLog).map(k => `${k.attacker}:${k.family}`)).toEqual(['JFTP:laser', '.:missile', '.:thunderbolt', 'JFTP:driller']);
+        });
+
+        it('leaves out suicides, team kills (teams read from the players) and deaths without an attacker', () => {
+            const game = {
+                ...teamWithLog,
+                kills: [
+                    ...teamWithLog.kills,
+                    { time: 200, attacker: 'INSANER', defender: 'INSANER', weapon: 'Nova' },
+                    { time: 210, attacker: 'INSANER', defender: 'PHOENIX', weapon: 'Flak' },
+                    { time: 220, attacker: '', defender: 'STITCH', weapon: 'Miscellaneous' }
+                ]
+            };
+            expect(weaponKills(game)).toHaveLength(10);
+        });
+
+        it('gives nothing for a match that is not ranked or has no log', () => {
+            expect(weaponKills({ ...teamWithLog, date: new Date(Date.parse(teamWithLog.settings.start) + 30000).toISOString() })).toEqual([]);
+            expect(weaponKills(byId(72099))).toEqual([]);
+            expect(weaponKills(null)).toEqual([]);
+        });
+    });
+
+    describe('duelMatch', () => {
+        it('is a ranked 1v1 Anarchy match, with one pilot a side', () => {
+            const sides = duelMatch(byId(72090));
+            expect(sides.map(s => `${s.pilots[0].name}:${s.score}`)).toEqual(['OKSTER:5', 'WD-40:3']);
+            expect(sides.every(s => s.pilots.length === 1)).toBe(true);
+        });
+
+        it('is also a one-a-side team match, scored by the team score', () => {
+            const game = { ...byId(72090), teamScore: { BLUE: 3, ORANGE: 5 }, settings: { ...byId(72090).settings, matchMode: 'TEAM ANARCHY' } };
+            game.players = game.players.map((p, i) => ({ ...p, team: i ? 'ORANGE' : 'BLUE' }));
+            expect(duelMatch(game).map(s => `${s.pilots[0].name}:${s.score}`)).toEqual(['OKSTER:5', 'WD-40:3']);
+        });
+
+        it('is not a CTF or Monsterball 1v1, a match with a third pilot, or one too short to rank', () => {
+            const game = byId(72090);
+            expect(duelMatch({ ...game, settings: { ...game.settings, matchMode: 'CTF' }, teamScore: { BLUE: 1, ORANGE: 0 }, players: game.players.map((p, i) => ({ ...p, team: i ? 'ORANGE' : 'BLUE' })) })).toBeNull();
+            expect(duelMatch({ ...game, settings: { ...game.settings, matchMode: 'MONSTERBALL' }, teamScore: { BLUE: 1, ORANGE: 0 }, players: game.players.map((p, i) => ({ ...p, team: i ? 'ORANGE' : 'BLUE' })) })).toBeNull();
+            expect(duelMatch({ ...game, players: [...game.players, { name: 'THIRD', kills: 0, deaths: 0, assists: 0 }] })).toBeNull();
+            expect(duelMatch(byId(72102))).toBeNull();
+            expect(duelMatch({ ...game, date: new Date(Date.parse(game.settings.start) + 30000).toISOString() })).toBeNull();
+        });
+
+        it('counts a pilot listed twice once', () => {
+            const game = byId(72090);
+            expect(duelMatch({ ...game, players: [...game.players, { ...game.players[0] }] })).toHaveLength(2);
+        });
+
+        it('finds 11 duels in the 25 sample matches, each pair\'s record mirrored', () => {
+            const pass = duelPass();
+            for (const g of sample) pass.add({ id: g.id, date: g.date }, g);
+            const pairs = pass.pairs();
+            const record = (a, b) => pairs.find(r => r.pilot === a && r.opponent === b);
+            expect(pairs.reduce((n, r) => n + r.wins, 0)).toBe(pairs.reduce((n, r) => n + r.losses, 0));
+            expect(record('okster', 'wd-40')).toMatchObject({ wins: 3, losses: 1, ties: 1, last: '2025-11-24T07:58:31.969Z' });
+            expect(record('wd-40', 'okster')).toMatchObject({ wins: 1, losses: 3, ties: 1 });
+            expect(record('jftp', '.')).toMatchObject({ wins: 2, losses: 0, ties: 1 });
+            expect(record('b2af', 'behemoth')).toMatchObject({ wins: 0, losses: 2, ties: 0 });
+            const snapshots = pass.rows();
+            expect(new Set(snapshots.map(s => s.pilot))).toEqual(new Set(['jftp', 'xb1', '.', 'wd-40', 'okster', 'b2af', 'behemoth']));
+            // the duel subset's replay: WD-40's five duels, JFTP's four
+            expect(Math.max(...snapshots.filter(s => s.pilot === 'wd-40').map(s => s.matches))).toBe(5);
+            expect(Math.max(...snapshots.filter(s => s.pilot === 'jftp').map(s => s.matches))).toBe(4);
+        });
+    });
+
+    describe('duelLadder', () => {
+        const snapshot = (pilot, rating, matches, day = '2026-10-01') => ({ pilot, name: pilot.toUpperCase(), day, rating, rd: 80, volatility: 0.06, matches });
+        it('lists pilots from DUEL.listedAfter duels by rating, then the provisional ones, with their RD on the day', () => {
+            const ladder = duelLadder([snapshot('a', 1500, 5), snapshot('b', 1700, 2), snapshot('c', 1600, DUEL.listedAfter), snapshot('d', 1600, 7), snapshot('e', 1400, 1)], '2026-10-21');
+            expect(ladder.map(p => `${p.rank}:${p.pilot}:${p.status}`)).toEqual(['1:d:listed', '2:c:listed', '3:a:listed', '4:b:provisional', '5:e:provisional']);
+            expect(ladder[0].rd).toBe(92.6);
+        });
+        it('has no activity window: a pilot idle for a year stays listed', () => {
+            expect(duelLadder([snapshot('a', 1500, 5, '2025-10-01')], '2026-10-21')[0].status).toBe('listed');
+        });
+    });
+
+    describe('objectives', () => {
+        it('names the objective modes whatever the case or spacing', () => {
+            expect(objectiveMode({ settings: { matchMode: 'MONSTERBALL' } })).toBe('MONSTERBALL');
+            expect(objectiveMode({ settings: { matchMode: ' ctf ' } })).toBe('CTF');
+            expect(objectiveMode(byId(72102))).toBeNull();
+            expect(objectiveMode({})).toBeNull();
+        });
+
+        it('adds the tracker\'s per-player counts to a career line, missing ones as 0', () => {
+            const line = addToObjectives(emptyObjectives(), detailSample.players[0], 'tie');
+            expect(line).toMatchObject({ matches: 1, ties: 1, kills: 0, deaths: 1, goals: 1, goal_assists: 0, blunders: 1, captures: 0, returns: 0, pickups: 0, carrier_kills: 0 });
+            addToObjectives(line, { name: 'X', kills: 2, captures: 3, returns: '1', carrierKills: 2 }, 'win');
+            expect(line).toMatchObject({ matches: 2, wins: 1, kills: 2, goals: 1, captures: 3, returns: 1, carrier_kills: 2 });
+            for (const { field } of OBJECTIVE_FIELDS) expect(line).toHaveProperty(field);
+            for (const mode of Object.values(OBJECTIVE_MODES)) expect(mode.fields).toContain(mode.sort);
+        });
+    });
+
+    describe('weaponPass', () => {
+        it('counts the logged kills by map and by attacker, both adding up to the kills', () => {
+            const pass = weaponPass();
+            for (const g of [teamWithLog, ffaWithLog, byId(72102), { ...teamWithLog, id: 1, settings: { ...teamWithLog.settings, level: 'ascent' } }]) pass.add({ id: g.id, date: g.date }, g);
+            const maps = pass.maps();
+            const pilots = pass.pilots();
+            expect(maps.reduce((n, r) => n + r.kills, 0)).toBe(24);
+            expect(pilots.reduce((n, r) => n + r.kills, 0)).toBe(24);
+            expect(maps.filter(r => r.map === 'ASCENT').reduce((n, r) => n + r.kills, 0)).toBe(20);
+            expect(maps.find(r => r.map === 'POSEIDON' && r.family === 'laser').kills).toBe(1);
+            expect(pilots.find(r => r.pilot === 'insaner' && r.family === 'other').kills).toBe(2);
+        });
     });
 });

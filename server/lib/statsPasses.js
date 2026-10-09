@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, addToLine, careerMonth, emptyLine, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winRate, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, duelMatch, emptyLine, emptyObjectives, combatRatio, durationOf, lethality, netKills, objectiveMode, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
 import { regionOf, UNKNOWN_REGION } from './serverRegions.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
@@ -21,6 +21,8 @@ export function pilotPass() {
 
         const result = winnerOf(g);
         const month = careerMonth(row.date || g.date);
+        const map = mapKey(g);
+        const objective = objectiveMode(g);
 
         for (let j = 0; j < players.length; j++) {
             const p = players[j];
@@ -42,7 +44,9 @@ export function pilotPass() {
                     totalDamage: 0,
                     playtimeSec: 0,
                     lastSeen: row.date || g.end || g.date || null,
-                    months: new Map()
+                    months: new Map(),
+                    maps: new Map(),
+                    objectives: new Map()
                 };
             }
 
@@ -62,6 +66,14 @@ export function pilotPass() {
             if (month) {
                 if (!pilot.months.has(month)) pilot.months.set(month, emptyLine());
                 addToLine(pilot.months.get(month), p, outcome, durationSec);
+            }
+            if (map) {
+                if (!pilot.maps.has(map)) pilot.maps.set(map, emptyLine());
+                addToLine(pilot.maps.get(map), p, outcome);
+            }
+            if (objective) {
+                if (!pilot.objectives.has(objective)) pilot.objectives.set(objective, emptyObjectives());
+                addToObjectives(pilot.objectives.get(objective), p, outcome);
             }
         }
 
@@ -274,14 +286,101 @@ export function pilotPass() {
             [...p.months].map(([month, m]) => ({ pilot, month, ...m, seconds: Math.round(m.seconds * 1000) / 1000 })));
     }
 
-    return { add, rows, months };
+    // pilot_maps rows (S16): a pilot's ranked matches per map, with the
+    // latest spelling of their name
+    function maps() {
+        return Object.entries(pilotMap).flatMap(([pilot, p]) =>
+            [...p.maps].map(([map, m]) => ({ pilot, map, name: p.name, matches: m.matches, wins: m.wins, losses: m.losses, ties: m.ties, kills: m.kills, deaths: m.deaths })));
+    }
+
+    // pilot_objectives rows (S16): a pilot's ranked matches per objective mode
+    function objectives() {
+        return Object.entries(pilotMap).flatMap(([pilot, p]) =>
+            [...p.objectives].map(([mode, { seconds: _, ...o }]) => ({ pilot, mode, name: p.name, ...o })));
+    }
+
+    return { add, rows, months, maps, objectives };
 }
 
-// pilot_months columns, in table order, and its key.
-export const PILOT_MONTH_COLUMNS = ['pilot', 'month', 'matches', 'wins', 'losses', 'ties', 'kills', 'deaths', 'assists', 'seconds'];
+// The map a match names, as the S16 tables key it: the level in upper case
+// (map_stats_cache keys by lower case and shows the first spelling seen).
+const mapKey = g => String(g?.settings?.level ?? '').trim().toUpperCase() || null;
 
-// rating_snapshots columns, in table order.
-export const RATING_SNAPSHOT_COLUMNS = ['pilot', 'day', 'name', 'rating', 'rd', 'volatility', 'matches'];
+// map_weapons and pilot_weapons rows (S16): every weaponKills() entry of every
+// ranked match with a kill log, by the map and by the attacker.
+export function weaponPass() {
+    const byMap = new Map();
+    const byPilot = new Map();
+    const count = (counts, key) => counts.set(key, (counts.get(key) || 0) + 1);
+    function add(row, g) {
+        if (!g) return;
+        const kills = weaponKills(g);
+        if (kills.length === 0) return;
+        const map = mapKey(g);
+        for (const { attacker, family } of kills) {
+            if (map) count(byMap, `${map}\n${family}`);
+            count(byPilot, `${pilotKey(attacker)}\n${family}`);
+        }
+    }
+    const rows = (counts, first) => [...counts].map(([key, kills]) => {
+        const [a, family] = key.split('\n');
+        return { [first]: a, family, kills };
+    });
+    return { add, maps: () => rows(byMap, 'map'), pilots: () => rows(byPilot, 'pilot') };
+}
+
+// duel_snapshots and pilot_duels rows (S16): every duelMatch() kept as its
+// sides, replayed through ratingSnapshots() once every game has been read, and
+// each pair's record (both directions) with the day of their last duel.
+export function duelPass() {
+    const duels = [];
+    function add(row, g) {
+        const sides = g && duelMatch(g);
+        if (sides) duels.push({ id: row.id, date: row.date || g.date, sides });
+    }
+    function pairs() {
+        const records = new Map();
+        const record = (a, b) => {
+            const key = `${a.key}\n${b.key}`;
+            if (!records.has(key)) records.set(key, { pilot: a.key, opponent: b.key, wins: 0, losses: 0, ties: 0, last: null });
+            return records.get(key);
+        };
+        for (const { date, sides } of duels) {
+            const [a, b] = sides.map(s => s.pilots[0]);
+            const outcome = sides[0].score > sides[1].score ? ['wins', 'losses'] : sides[0].score < sides[1].score ? ['losses', 'wins'] : ['ties', 'ties'];
+            for (const [me, them, field] of [[a, b, outcome[0]], [b, a, outcome[1]]]) {
+                const r = record(me, them);
+                r[field]++;
+                if (!r.last || date > r.last) r.last = date;
+            }
+        }
+        return [...records.values()];
+    }
+    return { add, rows: () => ratingSnapshots(duels), pairs };
+}
+
+// The derived tables (rating_snapshots, pilot_months, region_months and the
+// S16 tables) in tracker.db: built by the worker on every refresh and brought
+// in line by server/statsWorker.js tableChanges and analytics/refresh.js
+// writeChanges. Keyed by their first two columns. One list, so the schema
+// (migrations.js), the restore, the startup check and the write step agree.
+export const DERIVED_TABLES = {
+    rating_snapshots: 'pilot TEXT, day TEXT, name TEXT, rating REAL, rd REAL, volatility REAL, matches INTEGER',
+    pilot_months: 'pilot TEXT, month TEXT, matches INTEGER, wins INTEGER, losses INTEGER, ties INTEGER, kills INTEGER, deaths INTEGER, assists INTEGER, seconds REAL',
+    region_months: 'region TEXT, month TEXT, matches INTEGER',
+    map_weapons: 'map TEXT, family TEXT, kills INTEGER',
+    pilot_weapons: 'pilot TEXT, family TEXT, kills INTEGER',
+    pilot_maps: 'pilot TEXT, map TEXT, name TEXT, matches INTEGER, wins INTEGER, losses INTEGER, ties INTEGER, kills INTEGER, deaths INTEGER',
+    duel_snapshots: 'pilot TEXT, day TEXT, name TEXT, rating REAL, rd REAL, volatility REAL, matches INTEGER',
+    pilot_duels: 'pilot TEXT, opponent TEXT, wins INTEGER, losses INTEGER, ties INTEGER, last TEXT',
+    pilot_objectives: 'pilot TEXT, mode TEXT, name TEXT, matches INTEGER, wins INTEGER, losses INTEGER, ties INTEGER, kills INTEGER, deaths INTEGER, assists INTEGER, goals INTEGER, goal_assists INTEGER, blunders INTEGER, captures INTEGER, returns INTEGER, pickups INTEGER, carrier_kills INTEGER'
+};
+// A derived table's column names, in table order.
+export const derivedColumns = table => DERIVED_TABLES[table].split(', ').map(c => c.split(' ')[0]);
+
+// Kept for the callers that name them.
+export const PILOT_MONTH_COLUMNS = derivedColumns('pilot_months');
+export const RATING_SNAPSHOT_COLUMNS = derivedColumns('rating_snapshots');
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
 // sides and replayed in date order once every game has been read.
@@ -294,8 +393,7 @@ export function ratingPass() {
     return { add, rows: () => ratingSnapshots(matches) };
 }
 
-// region_months columns, in table order.
-export const REGION_MONTH_COLUMNS = ['region', 'month', 'matches'];
+export const REGION_MONTH_COLUMNS = derivedColumns('region_months');
 
 // region_months rows (S15): every stored match, hot and cold, counted by the
 // region of its server and the month of its fight-night day. The region comes

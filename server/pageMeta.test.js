@@ -78,6 +78,18 @@ describe('withPageMeta', () => {
         expect(tags.description).toBe(`Power rankings for ${today}: 1. WD-40 (${Math.round(pilots[0].rating)}).`);
     });
 
+    it('describes the duel ladder by its listed top three', () => {
+        const { day: today, pilots } = db.getDuelLadder();
+        const listed = pilots.filter(p => p.status === 'listed');
+        // five sample duels each: WD-40 and OKSTER (JFTP has four)
+        expect(listed.map(p => p.name).sort()).toEqual(['OKSTER', 'WD-40']);
+        expect(pilots.filter(p => p.status === 'provisional').map(p => p.name)).toContain('JFTP');
+        const tags = tagsFor('/ladders');
+        expect(tags.title).toBe('Ladders | overloadfight.club');
+        expect(tags.description).toBe(`Duel ladder for ${today}: ${listed.map(p => `${p.rank}. ${p.name} (${Math.round(p.rating)})`).join(', ')}.`);
+        expect(tagsFor('/ladders?board=ctf').url).toBe('https://overloadfight.club/ladders?board=ctf');
+    });
+
     it('keeps the query string in og:url and leaves the rest of the page alone', () => {
         const tags = tagsFor('/pilots?tab=online&min=10');
         expect(tags.url).toBe('https://overloadfight.club/pilots?tab=online&#38;min=10');

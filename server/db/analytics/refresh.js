@@ -1,17 +1,27 @@
 import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
-import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS, REGION_MONTH_COLUMNS } from '../../lib/statsPasses.js';
+import { DERIVED_TABLES, derivedColumns } from '../../lib/statsPasses.js';
 import { clearRankings } from './ratings.js';
+import { clearDuelLadder } from './meta.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
 // the run in progress. Never rejects: a failure is logged and the old caches stay,
-// except rating_snapshots, pilot_months and region_months, whose chunks already
-// written stay until the next refresh.
+// except the derived tables (statsPasses.js DERIVED_TABLES), whose chunks
+// already written stay until the next refresh.
 let refreshing = null;
-// rating_snapshots, pilot_months and region_months rows written per transaction (see writeChanges)
+// derived-table rows written per transaction (see writeChanges)
 const WRITE_CHUNK = 2000;
+// What a derived table's readers keep in memory, cleared once it is written
+// (also after a failed chunk, so the ranks agree with the days written).
+const AFTER_WRITE = { rating_snapshots: clearRankings, duel_snapshots: clearDuelLadder };
+// Each derived table's log line: its tag and what its rows are
+const LOG_LINE = {
+  rating_snapshots: ['Ratings', 'daily rating snapshots'], pilot_months: ['Career', 'pilot months'], region_months: ['Regions', 'region months'],
+  map_weapons: ['Weapons', 'map weapon rows'], pilot_weapons: ['Weapons', 'pilot weapon rows'], pilot_maps: ['Maps', 'pilot map rows'],
+  duel_snapshots: ['Duels', 'daily duel snapshots'], pilot_duels: ['Duels', 'duel records'], pilot_objectives: ['Objectives', 'objective rows']
+};
 // The stats worker while a refresh runs, so close() can stop it first.
 let statsWorker = null;
 export const refreshPilotStats = () => {
@@ -44,7 +54,8 @@ const runStatsWorker = () => new Promise((resolve, reject) => {
 // first refresh, or one after an older match arrives, moves most rows, which
 // is too long to hold the event loop on the NAS. A read between chunks sees
 // some rows new and some old.
-async function writeChanges(table, columns, { upserts, deletes }) {
+async function writeChanges(table, { upserts, deletes }) {
+  const columns = derivedColumns(table);
   const upsertStmt = hotDb.prepare(`
     INSERT OR REPLACE INTO ${table} (${columns.join(', ')})
     VALUES (${columns.map(c => `@${c}`).join(', ')})
@@ -66,7 +77,7 @@ async function refreshCaches() {
     ensurePilotStatsCache();
 
     const started = performance.now();
-    const { errors, pilots, archive, maps, ratings, months, regions } = await runStatsWorker();
+    const { errors, pilots, archive, maps, derived } = await runStatsWorker();
     for (const [pass, message] of Object.entries(errors)) console.error(`[StatsWorker] ${pass} pass failed: ${message}`);
 
     if (!errors.pilots) {
@@ -117,22 +128,16 @@ async function refreshCaches() {
       })();
       console.log(`[MapStats] Built map_stats_cache for ${maps.length} maps.`);
     }
-    if (ratings) {
+    for (const table of Object.keys(DERIVED_TABLES)) {
+      const changes = derived[table];
+      if (!changes) continue;
       try {
-        await writeChanges('rating_snapshots', RATING_SNAPSHOT_COLUMNS, ratings);
+        await writeChanges(table, changes);
       } finally {
-        // also after a failed chunk, so the ranks agree with the days written
-        clearRankings();
+        AFTER_WRITE[table]?.();
       }
-      console.log(`[Ratings] ${ratings.total} daily rating snapshots: ${ratings.upserts.length} written, ${ratings.deletes.length} removed.`);
-    }
-    if (months) {
-      await writeChanges('pilot_months', PILOT_MONTH_COLUMNS, months);
-      console.log(`[Career] ${months.total} pilot months: ${months.upserts.length} written, ${months.deletes.length} removed.`);
-    }
-    if (regions) {
-      await writeChanges('region_months', REGION_MONTH_COLUMNS, regions);
-      console.log(`[Regions] ${regions.total} region months: ${regions.upserts.length} written, ${regions.deletes.length} removed.`);
+      const [tag, rows] = LOG_LINE[table];
+      console.log(`[${tag}] ${changes.total} ${rows}: ${changes.upserts.length} written, ${changes.deletes.length} removed.`);
     }
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);
   } catch (err) {

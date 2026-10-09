@@ -284,6 +284,83 @@ describe('career (pilot_months, /api/pilot/:name/career) and the heatmap', () =>
     });
 });
 
+describe('weapon meta and ladders (S16)', () => {
+    const today = fightNightDay(Date.now());
+
+    it('counts the one logged kill on an opponent by map and family, not the suicide', () => {
+        const meta = db.getWeaponMeta();
+        expect(meta.kills).toBe(1);
+        expect(meta.community).toMatchObject({ laser: 1, thunderbolt: 0, other: 0 });
+        expect(meta.maps).toEqual([{ map: byId(72106).settings.level.toUpperCase(), kills: 1, families: meta.community }]);
+        expect(db.getPilotWeaponMix('stitch')).toMatchObject({ kills: 1, pilot: { laser: 1 }, community: meta.community, communityKills: 1 });
+        expect(db.getPilotWeaponMix('XB1')).toMatchObject({ kills: 0, communityKills: 1 });
+    });
+
+    it('builds the specialist grid from each pilot\'s ranked matches per map', () => {
+        const { pilots, maps, cells } = db.getSpecialists();
+        expect(pilots.length).toBeGreaterThan(0);
+        expect(pilots.length).toBeLessThanOrEqual(20);
+        expect(maps.length).toBeLessThanOrEqual(12);
+        expect(cells).toHaveLength(pilots.length);
+        // every cell's matches add up to the pilot's matches on the listed maps
+        const i = pilots.findIndex(p => p.name === 'WD-40');
+        const j = maps.findIndex(m => m.map === 'TERMINAL');
+        expect(i).toBeGreaterThanOrEqual(0);
+        expect(j).toBeGreaterThanOrEqual(0);
+        // 72086 (11-16, a loss) and 72087 (1-1, a tie) on TERMINAL
+        expect(cells[i][j]).toEqual({ matches: 2, wins: 0, losses: 1, ties: 1 });
+        const jftp = pilots.find(p => p.name === 'JFTP');
+        // spellings merged: 10 ranked matches, every one on a map
+        expect(jftp.matches).toBe(10);
+    });
+
+    it('ranks the duel ladder from five duels, spellings merged, with each record', () => {
+        const ladder = db.getDuelLadder(today);
+        expect(ladder.day).toBe(today);
+        const listed = ladder.pilots.filter(p => p.status === 'listed');
+        // JFTP: four sample duels plus the "jftp" copy of 72107, whose spelling is the latest (S13)
+        expect(listed.map(p => p.pilot).sort()).toEqual(['jftp', 'okster', 'wd-40']);
+        expect(ladder.listed).toBe(3);
+        expect(listed.map(p => p.rank)).toEqual([1, 2, 3]);
+        expect(ladder.pilots.find(p => p.pilot === 'jftp')).toMatchObject({ name: 'jftp', matches: 5, wins: 2, losses: 2, ties: 1 });
+        expect(ladder.pilots.find(p => p.pilot === 'okster')).toMatchObject({ name: 'OKSTER', matches: 5, wins: 3, losses: 1, ties: 1, last: fightNightDay(onDay(byId(72090)).date) });
+        const provisional = ladder.pilots.filter(p => p.status === 'provisional');
+        // LONER and PARTNER from the career test above
+        expect(provisional.map(p => p.pilot).sort()).toEqual(['.', 'b2af', 'behemoth', 'loner', 'partner', 'xb1']);
+        expect(provisional[0].rank).toBe(4);
+        // the 1v1 Monsterball copies are not duels
+        expect(ladder.pilots.find(p => p.pilot === 'baller')).toBeUndefined();
+        // the ladder's ratings are the duel replay, not the main rating
+        expect(ladder.pilots.find(p => p.pilot === 'wd-40').rating).not.toBe(db.getPilotRating('WD-40').rating);
+    });
+
+    it('fills the objective boards from the per-player counts of ranked matches in that mode', () => {
+        const boards = db.getObjectiveBoards();
+        expect(boards.CTF).toEqual([]);
+        expect(boards.MONSTERBALL.map(p => `${p.rank}:${p.name}:${p.wins}-${p.losses}-${p.ties}:${p.goals}`)).toEqual(['1:BALLER:3-0-0:0', '2:FRAGGER:0-3-0:0']);
+        expect(boards.MONSTERBALL[0]).toMatchObject({ matches: 3, goal_assists: 0, blunders: 0, captures: 0, carrier_kills: 0 });
+    });
+
+    it('brings the S16 tables back in line on the next refresh', async () => {
+        const hot = connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'pilot_duels'").get());
+        const table = () => hot.prepare('SELECT * FROM pilot_duels ORDER BY pilot, opponent').all();
+        const before = table();
+        hot.prepare("INSERT INTO pilot_duels (pilot, opponent, wins, losses, ties, last) VALUES ('ghost', 'nobody', 1, 0, 0, '2001-01-01')").run();
+        hot.prepare("UPDATE pilot_duels SET wins = 9 WHERE pilot = 'jftp' AND opponent = '.'").run();
+        hot.prepare("DELETE FROM map_weapons").run();
+        const log = vi.spyOn(console, 'log');
+        await db.refreshPilotStats();
+        expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Duels]'))).toEqual([
+            expect.stringMatching(/^\[Duels\] \d+ daily duel snapshots: 0 written, 0 removed\.$/),
+            `[Duels] ${before.length} duel records: 1 written, 1 removed.`
+        ]);
+        expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Weapons]'))).toEqual(['[Weapons] 1 map weapon rows: 1 written, 0 removed.', '[Weapons] 1 pilot weapon rows: 0 written, 0 removed.']);
+        log.mockRestore();
+        expect(table()).toEqual(before);
+        expect(db.getWeaponMeta().kills).toBe(1);
+    });
+});
+
 describe('getPilotStats', () => {
     it('counts suicides instead of reporting 0', () => {
         const xb1 = db.getPilotStats.all().find(r => r.name === 'XB1');
@@ -479,12 +556,15 @@ describe('backup and restore (backupHot, restoreHot)', () => {
     it('copies the live database and writes the copy back into it', async () => {
         const copy = path.join(dataDir, 'copy.db');
         await db.backupHot(copy);
-        // as a backup from before S13, S14 and S15
+        // as a backup from before S13, S14, S15 and S16
         const old = new Database(copy);
         old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months; DROP TABLE region_months; DROP TABLE servers; DROP TABLE server_snapshots; DROP TABLE server_hours');
+        old.exec('DROP TABLE map_weapons; DROP TABLE pilot_weapons; DROP TABLE pilot_maps; DROP TABLE duel_snapshots; DROP TABLE pilot_duels; DROP TABLE pilot_objectives');
         old.close();
         const today = fightNightDay(Date.now());
         expect(db.hasRatingSnapshots()).toBe(true);
+        expect(db.derivedTablesFilled()).toBe(true);
+        expect(db.getDuelLadder(today).pilots.length).toBeGreaterThan(0);
         expect(db.getPowerRankings(today).total).toBeGreaterThan(0);
         const before = db.countGames(null, null).count;
         db.saveGames([{ ...onDay(byId(72099)), id: 99999 }]);
@@ -502,7 +582,12 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.hasRatingSnapshots()).toBe(false);
         expect(db.hasPilotMonths()).toBe(false);
         expect(db.hasRegionMonths()).toBe(false);
+        expect(db.derivedTablesFilled()).toBe(false);
         expect(db.getRegionShare().months).toEqual([]);
+        expect(db.getWeaponMeta()).toMatchObject({ kills: 0, maps: [] });
+        expect(db.getSpecialists()).toEqual({ pilots: [], maps: [], cells: [] });
+        expect(db.getDuelLadder(today)).toEqual({ day: today, listed: 0, pilots: [] });
+        expect(db.getObjectiveBoards()).toEqual({ MONSTERBALL: [], CTF: [] });
         expect(db.getServerHistory('143.110.230.67', 30)).toMatchObject({ firstSeen: null, samples: 0 });
         expect(db.getPilotCareer('JFTP').months).toEqual([]);
         expect(db.getPilotRating('JFTP').history).toEqual([]);

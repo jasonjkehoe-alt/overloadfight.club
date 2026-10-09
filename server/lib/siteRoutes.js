@@ -19,6 +19,7 @@ const ROUTES = [
     { view: 'admin', path: '/admin', title: 'Admin' },
     { view: 'pilots', path: '/pilots', title: 'Leaderboards' },
     { view: 'rankings', path: '/rankings', title: 'Power rankings', section: 'pilots' },
+    { view: 'ladders', path: '/ladders', title: 'Ladders', section: 'pilots' },
     { view: 'pilot-manager', path: '/pilot', title: 'Pilot settings' },
     // detail pages: always a parameter; without one they fall back to `bare`
     { view: 'pilot', path: '/pilot', param: true, bare: 'pilot-manager' },

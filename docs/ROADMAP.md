@@ -2123,7 +2123,84 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          leaderboard, rankings, pilot pages and match page still work.
 - [ ] **S16 Weapon meta and ladders** (M). Weapon × map heatmap; weapon mix
       radar vs community; pilot × map grid; 1v1 duel ladder; CTF and
-      Monsterball objective leaderboards.
+      Monsterball objective leaderboards. The owner decided at the start of
+      S16: a duel is a ranked, kill-scored match with exactly two pilots on
+      different sides (a 1v1 Anarchy match or a one-a-side Team Anarchy
+      match; CTF and Monsterball 1v1s are out); the ladder is Glicko-2
+      replayed over duels alone, listed from 5 duels; the weapon mix is a
+      dumbbell per weapon family, not a radar. Done when (written at the
+      start of S16):
+      1. `server/lib/gameParse.js` owns the counting rules, each tested on
+         fixture games: which kills count for the weapon meta
+         (`weaponKills`: a ranked match's kill-log entries worth a point by
+         `killPoints`, so suicides, team kills and deaths without an
+         attacker are out, each under its `weaponFamily`); what a duel is
+         (`duelMatch`); how the ladder lists (`DUEL`: 5 duels to be listed,
+         the rest provisional, by rating then duels then name, no activity
+         window, `duelLadder`), on the S13 `ratingSides` and
+         `ratingSnapshots` so no rating maths is copied; and the objective
+         counts (`objectiveLine`: Monsterball goals, goal assists and
+         blunders; CTF captures, returns, pickups and carrier kills, from
+         the stored player fields of ranked matches in that mode).
+      2. The stats worker builds, in the same scan as the other passes,
+         derived tables in `tracker.db` beside `games`, each created empty
+         in `migrations.js`, filled by the first refresh (the startup check
+         refreshes while any derived table is empty), kept in line with
+         `tableChanges` and `writeChanges`, and dropped to roll back:
+         `map_weapons(map, family, kills)`, `pilot_weapons(pilot, family,
+         kills)`, `pilot_maps(pilot, map, matches, wins, losses, ties,
+         kills, deaths)`, `duel_snapshots` (the `rating_snapshots` shape
+         over duels), `pilot_duels(pilot, opponent, wins, losses, ties,
+         last)` and `pilot_objectives(pilot, mode, matches, wins, losses,
+         ties, goals, goal_assists, blunders, captures, returns, pickups,
+         carrier_kills)`. The derived tables are one list, used by the
+         ensure, restore, startup-check and write steps (the S14 flag).
+         Tested on fixture data: the map rows add up to the community
+         totals, a pilot's family rows to their logged kills, a pilot's map
+         rows to their ranked matches that name a map, and the duel table
+         to `ratingSnapshots` over the duels.
+      3. New endpoints, read through `apiService` (null on failure) and
+         `useLoad`; the existing endpoints answer as before, and no request
+         walks every stored match: `GET /api/stats/weapons` (the
+         community's kills per family and each map's), `GET
+         /api/stats/specialists` (the top pilots by ranked matches against
+         the top maps by matches, each cell a record), `GET
+         /api/pilot/:name/weapon-mix` (the pilot's kills per family beside
+         the community's), `GET /api/stats/duels` (the ladder for today
+         with each pilot's record) and `GET /api/stats/objectives` (the
+         CTF and Monsterball boards).
+      4. The maps page gets two grids as hand-drawn tables (no Recharts):
+         "Weapon meta", maps by weapon family coloured by the family's
+         share of the map's logged kills in `chart.ramp`, with an "All
+         maps" row, each share readable without a pointer, a
+         `DetailsTable` and the shared states; and "Specialists", pilots by
+         maps coloured by win rate over ranked matches with a result, the
+         record on hover and in the table, a cell under 3 matches left
+         uncoloured.
+      5. The pilot page's arsenal section gets "Weapon mix vs the
+         community": a dumbbell per family in hand-drawn SVG (the pilot's
+         share beside the community's, the kills behind both, in one hue
+         and two shades that pass the dataviz validator against
+         `surface-card`), a table, and an EmptyState for a pilot with no
+         logged kill.
+      6. A `/ladders` view (route, title and the pilots nav section in
+         `siteRoutes.js`, share description in `pageMeta.js`, lazy in
+         `App.tsx`, linked from the leaderboard's tab bar beside Power
+         rankings) with `?board=duels|ctf|monsterball` (duels left out of
+         the URL): the duel ladder (rank, pilot, duel rating, RD, W-L-T,
+         duels, last duel; provisional pilots below the listed ones) and
+         the CTF and Monsterball boards (pilot, matches, W-L-T and the
+         objective counts, by captures or goals), with the shared states,
+         390 px wide at 390 px.
+      7. Charts stay out of the entry chunk and the pilot page loads no new
+         Recharts chunk; the entry, `PilotDetail`, `GameDetail`,
+         `MapLibrary` and the new view's chunk are recorded before and
+         after.
+      8. Checked in headless Chrome at 1,280 and 390 px: the maps page's
+         two grids, the pilot page's weapon mix and the ladders view on all
+         three boards, on local data plus Fetch-domain mocks for full
+         tables; the dashboard, server page, leaderboard, rankings, pilot
+         pages, maps and match page still work.
 - [ ] **S17 Rivalry network and damage flow** (L). Force graph from real kill
       edges; chord diagram of damage per match and career; clutch profile
       (first blood, late kills, kills while trailing).

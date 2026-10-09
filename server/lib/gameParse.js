@@ -886,3 +886,83 @@ export function regionShare(rows, thisMonth) {
     const first = [...byMonth.keys()].sort()[0];
     return first ? monthsTo(first, thisMonth).map(month => byMonth.get(month) || { month, total: 0, counts: {} }) : [];
 }
+
+// Weapon meta and ladders (S16).
+
+// The kills that count for the weapon meta: a ranked match's kill-log entries
+// worth a point by killPoints() (a kill on an opponent: not a suicide, not a
+// team kill, not a death without an attacker), each as { attacker, family },
+// `family` being weaponFamily() of the weapon. Teams missing from an entry
+// come from game.players, as the scoreboard replay reads them. A match that
+// is not rankedMatch() or has no log gives none.
+export function weaponKills(game) {
+    if (!rankedMatch(game) || !hasKillLog(game)) return [];
+    const kills = [];
+    replayLog(game, Infinity, (t, kill, points) => {
+        if (points.points > 0) kills.push({ attacker: points.scorer, family: weaponFamily(kill.weapon) });
+    });
+    return kills;
+}
+
+// A duel (the owner's rule at the start of S16): a ranked, killScored() match
+// with exactly two named pilots on different sides, so a 1v1 Anarchy match or
+// a one-a-side Team Anarchy match; a CTF or Monsterball 1v1 is not one. Gives
+// ratingSides() of the match (two sides of one pilot each) or null.
+export function duelMatch(game) {
+    if (!killScored(game)) return null;
+    const sides = ratingSides(game);
+    return sides && sides.length === 2 && sides.every(s => s.pilots.length === 1) && new Set((game.players || []).map(p => pilotKey(p?.name)).filter(Boolean)).size === 2
+        ? sides
+        : null;
+}
+
+// The duel ladder: a pilot is listed from DUEL.listedAfter duels, whenever
+// their last one was (duels are rarer than matches, so no activity window);
+// below that they are provisional and shown under the listed ones.
+export const DUEL = { listedAfter: 5 };
+export const DUEL_HINT = `Duel rating: Glicko-2 over 1v1 matches alone (${RANKED.pilots} pilots on different sides, ${RANKED.seconds} s or more, a result, kills as the score). Listed from ${DUEL.listedAfter} duels; fewer is provisional. ${RD_HINT}`;
+
+// The ladder on `day` from each pilot's latest duel snapshot (the
+// rating_snapshots shape, from ratingSnapshots() over duelMatch() sides):
+// listed pilots by rating (then duels, then name), then the provisional ones
+// the same way, each with `rank` from 1, `status` and its RD on `day` (rdOn).
+export function duelLadder(latest, day) {
+    const order = (a, b) => b.rating - a.rating || b.matches - a.matches || a.pilot.localeCompare(b.pilot);
+    const listed = latest.filter(s => s.matches >= DUEL.listedAfter).sort(order);
+    const provisional = latest.filter(s => s.matches < DUEL.listedAfter).sort(order);
+    return [...listed, ...provisional].map((s, i) => ({ ...s, rd: rdOn(s, day), rank: i + 1, status: s.matches >= DUEL.listedAfter ? 'listed' : 'provisional' }));
+}
+
+// Objective counts (S16): the tracker's per-player fields (`player`) and the
+// pilot_objectives column each adds up to (`field`), with the board's word.
+export const OBJECTIVE_FIELDS = [
+    { field: 'goals', player: 'goals', label: 'Goals' },
+    { field: 'goal_assists', player: 'goalAssists', label: 'Goal assists' },
+    { field: 'blunders', player: 'blunders', label: 'Blunders' },
+    { field: 'captures', player: 'captures', label: 'Captures' },
+    { field: 'returns', player: 'returns', label: 'Returns' },
+    { field: 'pickups', player: 'pickups', label: 'Pickups' },
+    { field: 'carrier_kills', player: 'carrierKills', label: 'Carrier kills' }
+];
+// The objective modes: the fields each board shows, in order, and the one it sorts by.
+export const OBJECTIVE_MODES = {
+    MONSTERBALL: { label: 'Monsterball', fields: ['goals', 'goal_assists', 'blunders'], sort: 'goals' },
+    CTF: { label: 'CTF', fields: ['captures', 'returns', 'pickups', 'carrier_kills'], sort: 'captures' }
+};
+
+// The objective mode of a match (an OBJECTIVE_MODES key), or null.
+export function objectiveMode(game) {
+    const mode = String(game?.settings?.matchMode ?? '').trim().toUpperCase();
+    return OBJECTIVE_MODES[mode] ? mode : null;
+}
+
+// A pilot's objective totals for a board: a career line (matches, wins,
+// losses, ties, kills, deaths, assists) plus every objective field, each 0 to
+// start. addToObjectives() adds one player's ranked match in that mode: the
+// fields are the tracker's per-player counts, missing ones counting 0.
+export const emptyObjectives = () => ({ ...emptyLine(), ...Object.fromEntries(OBJECTIVE_FIELDS.map(f => [f.field, 0])) });
+export function addToObjectives(line, player, outcome) {
+    addToLine(line, player, outcome);
+    for (const { field, player: from } of OBJECTIVE_FIELDS) line[field] += Number(player?.[from]) || 0;
+    return line;
+}
