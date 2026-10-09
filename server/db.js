@@ -43,6 +43,7 @@ import { getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analy
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
 import { clearDerivedCaches, clearDerivedTablesBuilt, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
+import { getPilotRivalry, getRivalNetwork } from './db/analytics/rivals.js';
 import { refreshPilotStats, refreshInProgress, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -220,6 +221,10 @@ const db = {
   getSpecialists,
   getDuelLadder,
   getObjectiveBoards,
+
+  // analytics/rivals.js
+  getRivalNetwork,
+  getPilotRivalry,
 
   // analytics/refresh.js
   refreshPilotStats,

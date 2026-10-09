@@ -2440,7 +2440,87 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          pages, maps and match page still work.
 - [ ] **S17 Rivalry network and damage flow** (L). Force graph from real kill
       edges; chord diagram of damage per match and career; clutch profile
-      (first blood, late kills, kills while trailing).
+      (first blood, late kills, kills while trailing). The owner decided at
+      the start of S17: no force graph and no chord diagram (the dataviz
+      form test fails both); the network is a killer × victim heat table
+      plus a ranked list of pairs, and the damage flow a dealer × target
+      heat table per match and in the network view, plus each pilot's top
+      opponents; a late kill is one in the last 60 s; trailing means
+      behind the leader at that moment (in team games, another team
+      ahead); only ranked matches with a log count, and only kills and
+      damage on opponents. Done when (written at the start of S17):
+      1. `server/lib/gameParse.js` owns the counting rules, each tested on
+         fixture games with hand-written logs: the kill edges are
+         `weaponKills`' entries (a ranked match's kills on opponents by
+         `killPoints`), which now carry the defender too; who met whom
+         (`opponentsOf`: every pair of named pilots on different sides in
+         a ranked match with a kill log, each pilot once); the damage flows
+         (`damageFlows`: a ranked match's damage-log entries on an
+         opponent, so no self-damage and no damage to a teammate, teams
+         from the players); and the clutch counts (`clutchOf`, on ranked,
+         `killScored` matches with a kill log: first blood by
+         `firstBloodOf`, and for each kill on an opponent whether it came
+         in the last `CLUTCH.lateSeconds` (60) of `replayLengthOf` and
+         whether the killer's side was behind the leading side just before
+         it, a level score not counting). Nothing is copied: the replay is
+         `replayLog`'s visitor, the kill rule `killPoints`.
+      2. The stats worker builds two derived tables in the same scan,
+         joined to `DERIVED_TABLES` (so the schema, the restore, the
+         startup check's marker and the write step pick them up), each
+         with a migration decision entry: `pilot_rivals(pilot, opponent,
+         name, opponent_name, matches, kills, deaths, damage_dealt,
+         damage_taken)`, both directions of every pair, and
+         `pilot_clutch(pilot, kind, name, matches, first_bloods, kills,
+         late_kills, trailing_kills)`, `kind` being `ffa` or `team`.
+         Tested on fixture data: each pair's row mirrors the other
+         direction, a pilot's kills over their rows equal their
+         `weaponKills` entries, damage over the rows equals
+         `damageFlows`, and the clutch kills equal the kill-scored
+         matches' kills on opponents.
+      3. New endpoints, read through `apiService` (null on failure) and
+         `useLoad`, no route cache (the S16 rule): `GET
+         /api/stats/rivalries` (the 12 pilots with the most logged kills on
+         opponents, a kills grid and a damage grid among them, and the 25
+         pairs with the most kills exchanged) and `GET
+         /api/pilot/:name/rivalry` (the pilot's 10 opponents with the most
+         kills exchanged, their clutch counts by kind and the community's).
+         The existing endpoints answer as before and no request walks
+         every stored match.
+      4. A `/rivals` view (route, title and the pilots nav section in
+         `siteRoutes.js`, share description in `pageMeta.js`, lazy in
+         `App.tsx`, linked from the leaderboard's tab bar beside Power
+         rankings and Ladders) with `?by=kills|damage` (kills left out of
+         the URL): the grid on `HeatTable`, killer rows by victim columns,
+         each cell coloured by its share of the row's total, the diagonal
+         empty, with `RampLegend` and a `DetailsTable`; and the ranked
+         list of pairs (both pilots linked, kills each way, matches, damage
+         each way). The page says the numbers come only from ranked
+         matches with a log. Shared states; 390 px wide at 390 px.
+      5. The match page's damage tab: the damage matrix becomes a
+         `HeatTable` of dealer by target over the whole damage log (self
+         and teammates included, as the matrix showed them), coloured by
+         each cell's share of the match's damage, self-damage on the
+         diagonal uncoloured, with each pilot's total dealt; a match with
+         no damage log gets an EmptyState that says so.
+      6. The pilot page gets "Rivals from the kill log" (the 10 opponents:
+         matches, kills on them against kills by them as a back-to-back
+         bar in the S16 emphasis pair, `chart.series` for the pilot and
+         `chart.label` for the opponent, and damage dealt and taken) and a
+         "Clutch" card (first-blood rate, share of kills in the last 60 s,
+         share of kills while trailing, each beside the community's, with
+         the counts behind them and a `DetailsTable` by FFA and team),
+         hand-drawn, loaded beside the rating, career and weapon mix; an
+         EmptyState for a pilot with no logged ranked match; shared
+         states; words that say only logged matches count.
+      7. Charts stay out of the entry chunk and the pilot and match pages
+         load no new Recharts chunk; the entry, `PilotDetail`,
+         `GameDetail`, `MapLibrary`, `Ladders` and the new view's chunk
+         are recorded before and after.
+      8. Checked in headless Chrome at 1,280 and 390 px: `/rivals` in
+         both views, the pilot page's two cards and the match page's
+         damage tab, on local data plus Fetch-domain mocks for full
+         tables; the dashboard, server page, leaderboard, rankings,
+         ladders, pilot pages, maps and match page still work.
 
 ### Phase 4: into Discord, and a reason to come back
 

@@ -62,3 +62,28 @@ export const ffaWithLog = {
         kill(80, 'JFTP', '.', 'Lancer')
     ]
 };
+
+// S17: damage logs for the two logged fixtures (the tracker's damage log has
+// no times and no teams). 72099's holds 900.75 damage on opponents, plus a
+// teammate's (PHOENIX on INSANER), a self-damage (MAESTRO) and an entry
+// without an attacker, which the flows leave out.
+const hit = (attacker, defender, weapon, damage) => ({ attacker, defender, weapon, damage });
+export const teamWithDamage = {
+    ...teamWithLog,
+    damage: [
+        hit('INSANER', 'MAESTRO', 'Thunderbolt', 300.5),
+        hit('INSANER', 'STITCH', 'Flak', 120),
+        hit('STITCH', 'PHOENIX', 'Impulse', 250),
+        hit('STITCH', 'INSANER', 'Falcon', 80.25),
+        hit('MAESTRO', 'PHOENIX', 'Creeper', 90),
+        hit('PHOENIX', 'STITCH', 'Reflex', 60),
+        hit('PHOENIX', 'INSANER', 'Flak', 15),
+        hit('MAESTRO', 'MAESTRO', 'Creeper', 20),
+        hit('', 'STITCH', 'Miscellaneous', 10)
+    ]
+};
+// 72098's: JFTP 210 on ".", "." 180.5 on JFTP, and "." 12 on himself.
+export const ffaWithDamage = {
+    ...ffaWithLog,
+    damage: [hit('JFTP', '.', 'Impulse', 210), hit('.', 'JFTP', 'Hunter', 180.5), hit('.', '.', 'Hunter', 12)]
+};

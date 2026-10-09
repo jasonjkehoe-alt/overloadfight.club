@@ -97,6 +97,19 @@ describe('withPageMeta', () => {
         expect(ctf.description).toBe('Live Overload servers, match results and pilot stats.');
     });
 
+    it('describes the rivalries by the three pairs with the most kills exchanged, the leader first', () => {
+        // the samples carry no kill log
+        expect(db.getRivalNetwork().pairs).toEqual([]);
+        const empty = tagsFor('/rivals?by=damage');
+        expect(empty.title).toBe('Rivalries | overloadfight.club');
+        expect(empty.description).toBe('Live Overload servers, match results and pilot stats.');
+        expect(empty.url).toBe('https://overloadfight.club/rivals?by=damage');
+        const pair = (name, opponent_name, kills, deaths, matches) => ({ name, opponent_name, kills, deaths, matches });
+        const network = vi.spyOn(db, 'getRivalNetwork').mockReturnValue({ pairs: [pair('A', 'B', 41, 21, 3), pair('C', 'D', 10, 30, 1), pair('E', 'F', 9, 9, 2), pair('G', 'H', 1, 0, 1)] });
+        expect(tagsFor('/rivals').description).toBe('Rivalries from the kill log: A 41-21 B (3 matches), D 30-10 C (1 match), E 9-9 F (2 matches).');
+        network.mockRestore();
+    });
+
     it('keeps the query string in og:url and leaves the rest of the page alone', () => {
         const tags = tagsFor('/pilots?tab=online&min=10');
         expect(tags.url).toBe('https://overloadfight.club/pilots?tab=online&#38;min=10');

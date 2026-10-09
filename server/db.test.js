@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { byId, day, onDay, sample, veteranSoup } from './testFixtures.js';
+import { byId, day, ffaWithDamage, onDay, sample, teamWithDamage, veteranSoup } from './testFixtures.js';
 import { HOUR_MS, RATING, dayBounds, dayStart, fightNightDay, heatmapCells, shiftDay } from './lib/gameParse.js';
 
 // Fixture games built from the samples:
@@ -604,16 +604,20 @@ describe('backup and restore (backupHot, restoreHot)', () => {
     it('copies the live database and writes the copy back into it', async () => {
         const copy = path.join(dataDir, 'copy.db');
         await db.backupHot(copy);
-        // as a backup from before S13, S14, S15 and S16
+        // as a backup from before S13, S14, S15, S16 and S17
         const old = new Database(copy);
         old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months; DROP TABLE region_months; DROP TABLE servers; DROP TABLE server_snapshots; DROP TABLE server_hours');
         old.exec('DROP TABLE map_weapons; DROP TABLE pilot_weapons; DROP TABLE pilot_maps; DROP TABLE duel_snapshots; DROP TABLE pilot_duels; DROP TABLE pilot_objectives');
+        old.exec('DROP TABLE pilot_rivals; DROP TABLE pilot_clutch');
         old.close();
         const today = fightNightDay(Date.now());
         expect(db.hasRatingSnapshots()).toBe(true);
         expect(db.derivedTablesBuilt()).toBe(true);
         expect(db.getDuelLadder(today).pilots.length).toBeGreaterThan(0);
         expect(db.getPowerRankings(today).total).toBeGreaterThan(0);
+        // 90004's one kill on an opponent
+        expect(db.getRivalNetwork().totals.kills).toBe(1);
+        expect(db.getPilotRivalry('STITCH').clutch).toHaveLength(1);
         const before = db.countGames(null, null).count;
         db.saveGames([{ ...onDay(byId(72099)), id: 99999 }]);
         expect(db.countGames(null, null).count).toBe(before + 1);
@@ -642,6 +646,8 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.getSpecialists()).toEqual({ pilots: [], maps: [], cells: [] });
         expect(db.getDuelLadder(today)).toEqual({ day: today, listed: 0, pilots: [] });
         expect(db.getObjectiveBoards()).toEqual({ MONSTERBALL: [], CTF: [] });
+        expect(db.getRivalNetwork()).toEqual({ pilots: [], kills: [], damage: [], pairs: [], totals: { kills: 0, damage: 0 } });
+        expect(db.getPilotRivalry('STITCH')).toMatchObject({ opponents: [], clutch: [], community: [] });
         expect(db.getServerHistory('143.110.230.67', 30)).toMatchObject({ firstSeen: null, samples: 0 });
         expect(db.getPilotCareer('JFTP').months).toEqual([]);
         expect(db.getPilotRating('JFTP').history).toEqual([]);
@@ -668,5 +674,45 @@ describe('ratings after a refresh', () => {
         const baller = db.getPilotRating('BALLER');
         expect(baller.matches).toBe(4);
         expect(baller.history[0]).toMatchObject({ day: '2020-06-01', matches: 1 });
+    });
+});
+
+// Last again: it adds logged matches, which would move the ratings above.
+describe('rivalries and clutch (S17)', () => {
+    beforeAll(async () => {
+        db.saveGames([{ ...onDay(teamWithDamage), id: 90040 }, { ...onDay(ffaWithDamage), id: 90041 }]);
+        await db.refreshPilotStats();
+    });
+
+    it('builds the network from the logged kills and damage on opponents', () => {
+        const net = db.getRivalNetwork();
+        // 90004's STITCH on XB1 and the ten kills of 90040 and four of 90041
+        expect(net.totals).toEqual({ kills: 15, damage: 1292 });
+        // JFTP before "." on damage (210 against 180.5)
+        expect(net.pilots.map(p => `${p.name}:${p.kills}`)).toEqual(['INSANER:5', 'STITCH:4', 'JFTP:2', '.:2', 'MAESTRO:1', 'PHOENIX:1']);
+        const at = name => net.pilots.findIndex(p => p.name === name);
+        expect(net.kills[at('INSANER')][at('MAESTRO')]).toBe(4);
+        expect(net.kills[at('MAESTRO')][at('INSANER')]).toBe(0);
+        expect(net.kills[at('INSANER')][at('INSANER')]).toBeNull();
+        expect(net.damage[at('INSANER')][at('MAESTRO')]).toBe(301);
+        // the damage log's teammate entry (PHOENIX on INSANER) is not a flow
+        expect(net.damage[at('PHOENIX')][at('INSANER')]).toBe(0);
+        // most kills exchanged first, each pair once, ties by key
+        expect(net.pairs.slice(0, 3).map(p => `${p.pilot}-${p.opponent}:${p.kills}-${p.deaths}`)).toEqual(['.-jftp:2-2', 'insaner-maestro:4-0', 'phoenix-stitch:1-2']);
+    });
+
+    it('lists a pilot\'s opponents and clutch counts beside everyone\'s', () => {
+        const insaner = db.getPilotRivalry('insaner');
+        // PHOENIX is a teammate, so no pair
+        expect(insaner.opponents.map(o => `${o.opponent_name}:${o.kills}-${o.deaths}`)).toEqual(['MAESTRO:4-0', 'STITCH:1-1']);
+        // most kills exchanged first, not most matches (each met STITCH once)
+        expect(db.getPilotRivalry('STITCH').opponents.map(o => `${o.opponent_name}:${o.kills}-${o.deaths}`)).toEqual(['PHOENIX:2-1', 'INSANER:1-1', 'XB1:1-0', 'JFTP:0-0']);
+        expect(insaner.totals).toEqual({ opponents: 2, kills: 5, deaths: 1, damage_dealt: 421, damage_taken: 80 });
+        expect(insaner.clutch).toEqual([{ kind: 'team', matches: 1, first_bloods: 0, kills: 5, late_kills: 1, trailing_kills: 3 }]);
+        const everyone = Object.fromEntries(insaner.community.map(c => [c.kind, c]));
+        // 90004 and 90041 in FFA (3 and 2 pilots), 90040 in teams (4)
+        expect(everyone.ffa).toMatchObject({ matches: 5, first_bloods: 2, kills: 5 });
+        expect(everyone.team).toMatchObject({ matches: 4, first_bloods: 1, kills: 10, late_kills: 1, trailing_kills: 4 });
+        expect(db.getPilotRivalry('NOBODY')).toEqual({ opponents: [], totals: { opponents: 0, kills: 0, deaths: 0, damage_dealt: 0, damage_taken: 0 }, clutch: [], community: insaner.community });
     });
 });

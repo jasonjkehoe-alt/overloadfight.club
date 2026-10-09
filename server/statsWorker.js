@@ -7,7 +7,7 @@
 import fs from 'fs';
 import { parentPort, workerData } from 'worker_threads';
 import Database from 'better-sqlite3';
-import { DERIVED_TABLES, archivePass, derivedColumns, duelPass, mapPass, pilotPass, ratingPass, regionPass, weaponPass } from './lib/statsPasses.js';
+import { DERIVED_TABLES, archivePass, derivedColumns, duelPass, mapPass, pilotPass, ratingPass, regionPass, rivalPass, weaponPass } from './lib/statsPasses.js';
 import { regionOf } from './lib/serverRegions.js';
 
 const PAGE_SIZE = 500;
@@ -32,7 +32,7 @@ function regionsByIp() {
 }
 
 // the keys are the `pass` names in statsPasses.js DERIVED_TABLES
-const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass(), regions: regionPass(regionsByIp()), weapons: weaponPass(), duels: duelPass() };
+const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass(), regions: regionPass(regionsByIp()), weapons: weaponPass(), duels: duelPass(), rivals: rivalPass() };
 // Ids read from hot storage. The pages are separate reads, so a game moved to
 // cold storage mid-pass (or left in both files by a crash) would otherwise be
 // read twice.

@@ -2,7 +2,7 @@ import express from 'express';
 import db from '../db.js';
 import cacheService from '../services/cacheService.js';
 
-// /pilot/:name/*: one pilot's stats, weapons, PPI, rating, career, breakdown and match history.
+// /pilot/:name/*: one pilot's stats, weapons, PPI, rating, career, rivalry, breakdown and match history.
 const router = express.Router();
 
 // GET /api/pilot/:name/stats - Detailed Pilot Stats
@@ -122,6 +122,19 @@ router.get('/pilot/:name/career', async (req, res) => {
     } catch (e) {
         console.error("Pilot Career Error:", e);
         res.status(500).json({ error: "Failed to fetch pilot career" });
+    }
+});
+
+// GET /api/pilot/:name/rivalry - the pilot's opponents from the kill and damage
+// logs and their clutch counts beside everyone's (S17), from pilot_rivals and
+// pilot_clutch; a pilot with no logged ranked match gets empty lists, not a
+// 404. No route cache, as for the weapon mix.
+router.get('/pilot/:name/rivalry', (req, res) => {
+    try {
+        res.json(db.getPilotRivalry(req.params.name));
+    } catch (e) {
+        console.error("Pilot Rivalry Error:", e);
+        res.status(500).json({ error: "Failed to fetch pilot rivalry" });
     }
 });
 

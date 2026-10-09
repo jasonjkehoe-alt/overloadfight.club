@@ -24,7 +24,7 @@ const sum = counts => Object.values(counts).reduce((a, b) => a + b, 0);
 // Each answer below changes only when a refresh writes its table, so it is
 // kept until then (clearDerivedCaches, from the refresh and a restore).
 const kept = new Map();
-const until = (key, build) => {
+export const until = (key, build) => {
   if (!kept.has(key)) kept.set(key, build());
   return kept.get(key);
 };

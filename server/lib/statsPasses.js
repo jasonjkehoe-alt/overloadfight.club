@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, duelMatch, emptyLine, emptyObjectives, combatRatio, durationOf, hasDate, lethality, mapKey, netKills, objectiveMode, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, clutchOf, damageFlows, duelMatch, emptyLine, emptyObjectives, combatRatio, durationOf, hasDate, lethality, mapKey, netKills, objectiveMode, opponentsOf, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
 import { regionOf, UNKNOWN_REGION } from './serverRegions.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
@@ -361,8 +361,85 @@ export function duelPass() {
     return { add, rows: () => ratingSnapshots(duels), pairs };
 }
 
+// pilot_rivals and pilot_clutch rows (S17), from ranked matches with a log:
+// for each pair of opponents, both directions, the logged matches they met in
+// (opponentsOf), the kills each way (weaponKills: kills on opponents) and the
+// damage each way (damageFlows: damage on opponents); and per pilot and kind
+// of match (ffa or team), the clutch counts of clutchOf(). `name` and
+// `opponent_name` are each pilot's latest spelling, as pilot_stats_cache
+// keeps it, so the reads need no join.
+export function rivalPass() {
+    const pairs = new Map();
+    const clutch = new Map();
+    // pilotKey -> { name, date }: the spelling of the latest match
+    const names = new Map();
+    const spell = (name, date) => {
+        const key = pilotKey(name);
+        const seen = names.get(key);
+        if (key && (!seen || date > seen.date)) names.set(key, { name: String(name).trim(), date });
+        return key;
+    };
+    const pair = (pilot, opponent) => {
+        const key = `${pilot}\n${opponent}`;
+        if (!pairs.has(key)) pairs.set(key, { pilot, opponent, matches: 0, kills: 0, deaths: 0, damage_dealt: 0, damage_taken: 0 });
+        return pairs.get(key);
+    };
+    const line = (pilot, kind) => {
+        const key = `${pilot}\n${kind}`;
+        if (!clutch.has(key)) clutch.set(key, { pilot, kind, matches: 0, first_bloods: 0, kills: 0, late_kills: 0, trailing_kills: 0 });
+        return clutch.get(key);
+    };
+
+    function add(row, g) {
+        if (!g) return;
+        const met = opponentsOf(g);
+        const kills = weaponKills(g);
+        const flows = damageFlows(g);
+        const match = clutchOf(g);
+        if (met.length === 0 && kills.length === 0 && flows.length === 0 && !match) return;
+        const date = row.date || g.date || '';
+        const listed = new Set(g.players.map(p => spell(p?.name, date)).filter(Boolean));
+        for (const [a, b] of met) {
+            pair(a, b).matches++;
+            pair(b, a).matches++;
+        }
+        // a pilot named only in a log keeps that spelling until a listing has one
+        const key = name => spell(name, '');
+        for (const k of kills) {
+            const [a, b] = [key(k.attacker), key(k.defender)];
+            if (!b) continue;
+            pair(a, b).kills++;
+            pair(b, a).deaths++;
+        }
+        for (const f of flows) {
+            const [a, b] = [key(f.attacker), key(f.defender)];
+            pair(a, b).damage_dealt += f.damage;
+            pair(b, a).damage_taken += f.damage;
+        }
+        if (match) {
+            const kind = match.team ? 'team' : 'ffa';
+            for (const pilot of listed) line(pilot, kind).matches++;
+            if (match.firstBlood) line(key(match.firstBlood), kind).first_bloods++;
+            for (const k of match.kills) {
+                const l = line(key(k.attacker), kind);
+                l.kills++;
+                if (k.late) l.late_kills++;
+                if (k.trailing) l.trailing_kills++;
+            }
+        }
+    }
+    const nameOf = key => names.get(key)?.name ?? key;
+    return {
+        add,
+        pairs: () => [...pairs.values()].map(({ pilot, opponent, damage_dealt, damage_taken, ...r }) => ({
+            pilot, opponent, name: nameOf(pilot), opponent_name: nameOf(opponent), ...r, damage_dealt: Math.round(damage_dealt), damage_taken: Math.round(damage_taken)
+        })),
+        clutch: () => [...clutch.values()].map(({ pilot, kind, ...r }) => ({ pilot, kind, name: nameOf(pilot), ...r }))
+    };
+}
+
 // The derived tables (rating_snapshots, pilot_months, region_months and the
-// S16 tables) in tracker.db: built by the worker on every refresh and brought
+// S16 and S17 tables) in tracker.db: built by the worker on every refresh and brought
 // in line by server/statsWorker.js tableChanges and analytics/refresh.js
 // writeChanges. One list, so the schema (migrations.js), the restore, the
 // startup check, the worker and the write step agree: `columns` with their
@@ -379,7 +456,9 @@ export const DERIVED_TABLES = {
     pilot_maps: { columns: ['pilot TEXT', 'map TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER'], pass: 'pilots', rows: p => p.pilots.maps(), log: ['Maps', 'pilot map rows'] },
     duel_snapshots: { columns: RATING_COLUMNS, pass: 'duels', rows: p => p.duels.rows(), log: ['Duels', 'daily duel snapshots'] },
     pilot_duels: { columns: ['pilot TEXT', 'opponent TEXT', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'last TEXT'], pass: 'duels', rows: p => p.duels.pairs(), log: ['Duels', 'duel records'] },
-    pilot_objectives: { columns: ['pilot TEXT', 'mode TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER', 'assists INTEGER', 'goals INTEGER', 'goal_assists INTEGER', 'blunders INTEGER', 'captures INTEGER', 'returns INTEGER', 'pickups INTEGER', 'carrier_kills INTEGER'], pass: 'pilots', rows: p => p.pilots.objectives(), log: ['Objectives', 'objective rows'] }
+    pilot_objectives: { columns: ['pilot TEXT', 'mode TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER', 'assists INTEGER', 'goals INTEGER', 'goal_assists INTEGER', 'blunders INTEGER', 'captures INTEGER', 'returns INTEGER', 'pickups INTEGER', 'carrier_kills INTEGER'], pass: 'pilots', rows: p => p.pilots.objectives(), log: ['Objectives', 'objective rows'] },
+    pilot_rivals: { columns: ['pilot TEXT', 'opponent TEXT', 'name TEXT', 'opponent_name TEXT', 'matches INTEGER', 'kills INTEGER', 'deaths INTEGER', 'damage_dealt INTEGER', 'damage_taken INTEGER'], pass: 'rivals', rows: p => p.rivals.pairs(), log: ['Rivals', 'rival pairs'] },
+    pilot_clutch: { columns: ['pilot TEXT', 'kind TEXT', 'name TEXT', 'matches INTEGER', 'first_bloods INTEGER', 'kills INTEGER', 'late_kills INTEGER', 'trailing_kills INTEGER'], pass: 'rivals', rows: p => p.rivals.clutch(), log: ['Clutch', 'clutch rows'] }
 };
 // A derived table's column names, in table order.
 export const derivedColumns = table => DERIVED_TABLES[table].columns.map(c => c.split(' ')[0]);
