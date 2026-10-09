@@ -108,6 +108,209 @@ maintenance item does not count toward the 28.
 
 ## Validated (as of 2026-10-09 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S15 and Node 26 merged into `main`, `main` at 2463b20, S16 on `ofc/s16-weapon-meta`)
 
+- S16, first move on Node 26.11.1, on `main` at `2463b20` (PR #16
+  merged, no owner commits after it; the prompt said it was still open):
+  `npx vitest run` passed 17 files, 244 tests. `npx vite build` wrote the
+  entry at 232.38 KB raw / 74.46 KB gzip, `GameList` 41.68 KB / 11.43 KB
+  gzip, `PilotDetail` 47.94 KB / 12.52 KB gzip, `GameDetail` 123.91 KB /
+  39.82 KB gzip and `MapLibrary` 29.34 KB / 7.33 KB gzip. `npx tsc
+  --noEmit` exited 0. All match the S15 records. `wc -l`: `gameParse.js`
+  888, `statsPasses.js` 606, `statsWorker.js` 128, `pilotTelemetry.js`
+  449, `analytics/pilots.js` 289, `analytics/global.js` 394,
+  `migrations.js` 418, `PilotDetail` 919, `MapLibrary` 854,
+  `MomentumChart` 221, `designTokens.js` 83; the two sample files are one
+  line each.
+- S16, the fixtures and the local data, read by a `node` script before
+  building: the 25 sample matches are 20 Anarchy and 5 Team Anarchy with
+  no kill or damage log and empty `goals` and `flagStats`; 11 are
+  two-pilot matches, all ranked; the detail sample is a one-pilot
+  Monsterball with `goals` (one a blunder) and the per-player `goals`,
+  `goalAssists`, `blunders`, `returns`, `pickups`, `captures` and
+  `carrierKills`. The 40 local matches: 34 Anarchy, 5 Team Anarchy, one
+  CTF (a 1v1 with `flagStats: []` and a 0-0 team score); 5 with kill
+  logs (16 weapon spellings, "Thunderbolt", "Missile Pod", "Miscellaneous"
+  among them); 20 two-pilot matches.
+- S16, the owner's three answers at the start (see the decisions).
+- S16, tests: `npx vitest run` passes 17 files, 264 tests (244 at the
+  start). `gameParse.test.js` (+21): `weaponKills` on `teamWithLog` (10
+  kills on opponents, 8 families, INSANER 5 times) and `ffaWithLog`, with
+  a suicide, a team kill whose teams come from the players and an
+  attacker-less death left out, nothing for a 30-second copy, a log-less
+  fixture or null; `duelMatch` on 72090 (OKSTER 5, WD-40 3), a one-a-side
+  Team Anarchy copy, and null for CTF and Monsterball copies, a third
+  pilot in FFA, a third pilot on no team in a team game, 72102 and a
+  30-second copy, a pilot listed twice counting once; `duelPass` on the
+  samples (11 duels, OKSTER 3-1-1 against WD-40 mirrored, JFTP 2-0-1
+  against ".", WD-40's five and JFTP's four in the snapshots, undated
+  duels in neither); `duelLadder` (listed before provisional, rank, the RD
+  on the day, no activity window); `objectiveMode`, `addToObjectives` on
+  the detail sample's RONCLI (1 goal, 1 blunder) and a CTF line;
+  `weaponPass` (map rows and pilot rows both adding up to 24 kills over
+  four fixtures, a mixed-case `ascent` folded into ASCENT, a map-less
+  logged match in neither). `db.test.js` (+6, through the real refresh):
+  the one logged kill on an opponent in the fixtures (STITCH, Impulse,
+  90004's map) and not XB1's suicide, in the meta and in STITCH's and
+  XB1's mix; the specialist grid (WD-40 on TERMINAL 0-1-1, JFTP's 10
+  ranked matches across spellings); the duel ladder (jftp, OKSTER and
+  WD-40 listed from five duels with their records, six provisional
+  including the career test's LONER and PARTNER, the Monsterball copies
+  out, the duel rating not the main one); the boards (BALLER 3-0-0 and
+  FRAGGER 0-3-0 on Monsterball by goals then matches then name, CTF
+  empty); the S16 tables brought back in line on the next refresh ("1
+  written, 1 removed" for a changed and a stray duel record, map_weapons
+  rewritten after a delete); the built marker true after a refresh, false
+  once deleted, true again. The restore test drops the six S16 tables
+  too and expects the marker false and every S16 reader empty after the
+  restore. `siteRoutes.test.js` and `pageMeta.test.js`: `/ladders` reads
+  back, its title, its nav section, "Duel ladder for <day>: 1. WD-40
+  (...), 2. OKSTER (...)" from the two listed sample pilots, `og:url`
+  with `?board=ctf`.
+- S16, mutations (each file restored from a copy, three test files run):
+  `weaponKills` counting suicides and team kills fails 3 tests; ignoring
+  the ranked filter 1; not filling teams from the players 1; `duelMatch`
+  accepting CTF and Monsterball 2; accepting a third pilot 1 (the first
+  version of that mutant survived, because the test only had a third
+  pilot in FFA, where `ratingSides` already gives three sides; a team-game
+  test was added); the ladder listing everyone 3; `addToObjectives` adding
+  nothing 1; `map_weapons` counting each kill twice 3; `pilot_maps` losing
+  outcomes 1; a tie scored as a win in the duel records 2.
+- S16, real data from a script run by plain `node` (so the ES-module
+  imports are checked outside vitest) on a copy of the 40 local matches:
+  the refresh took 42 ms and set the built marker; the weapon meta
+  counts 577 logged kills on opponents (Falcon, Missile Pod, Hunter 143;
+  Thunderbolt 128; Impulse, Cyclone, Reflex 123; Flak, Crusher 70;
+  Creeper, Time Bomb 55; Nova, Devastator, Vortex 39; Driller, Lancer 18;
+  Other 1) on 5 maps (STRONGHOLD 168, ASCENT 148, SKYBOX V1.2 123,
+  KEGPARTY V3 85, ISOTOXIN V3 53); WD-40's mix is 48 kills, 25 Impulse;
+  the grid lists 20 pilots (WD-40 23, LORD JOHN WARFIN 22, CHEKM8 12,
+  WILLIE 11) on 12 maps (ICEWOLF DEATH MATCH V.1 4, LURK 3, TRUTH OR
+  CONSEQUENCES 3); the duel ladder on 2026-10-08 lists CHEKM8 1719 (3-0-2,
+  5 duels), WD-40 1570 (5-2-4, 11), WILLIE 1444 (3-3-1, 7) and LORD JOHN
+  WARFIN 1347 (2-8-3, 13), with LITHIUM1 and JESS provisional on one
+  duel each (their 1v1 CTF is not one); the boards hold the 1v1 CTF's
+  two pilots with zero captures and no Monsterball pilot; the power
+  rankings are unchanged (CHEKM8 1639, WD-40 1439). The same rows came
+  out of the server's refresh ("31 map weapon rows, 67 pilot weapon rows,
+  116 pilot map rows, 12 daily duel snapshots, 10 duel records, 2
+  objective rows").
+- S16, dataviz `validate_palette.js --mode dark --surface "#111111"` on
+  the dumbbell's pair `#3987e5,#898781` (chart.series with chart.label):
+  lightness band, CVD separation (ΔE 15.9 protan, 11.5 tritan),
+  normal-vision floor (17.0) and contrast pass; the chroma floor fails
+  for the grey ("reads gray"), which is what a de-emphasis grey is for.
+  The two-shade pairs tried first: `#3987e5,#256abf` fails the
+  normal-vision floor (9.5), `#3987e5,#6da7ec` the lightness band
+  (0.717) and the floor (10.4), `#184f95` the band and contrast. The heat
+  tables use the S14 ramp, validated then.
+- S16, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` on the built `dist/`
+  (43 matches by the end: the tracker's sync added three during the
+  session): the first start logged "The derived tables have not all been
+  built, refreshing stats..." then the nine derived-table lines, with the
+  six new tables written in full and the S13 to S15 ones "0 written";
+  the restart after the simplify pass logged "Cache already warm on
+  startup, skipping blocking sync" (the marker row reads the nine table
+  names). `/api/health`, `/api/stats/global` (`total_games: 43`),
+  `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`,
+  `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`,
+  `/api/server/143.110.230.67/history`, `/api/stats/weapons`,
+  `/api/stats/specialists`, `/api/stats/duels`, `/api/stats/objectives`
+  and `/api/pilot/WD-40/weapon-mix` all answer 200. `curl /ladders` gives
+  "Ladders | overloadfight.club" and "Duel ladder for 2026-10-08: 1.
+  CHEKM8 (1719), 2. WD-40 (1570), 3. WILLIE (1444)."; `og:url` keeps
+  `?board=ctf`. The only errors in the log are the scraper's 404s.
+- S16, headless Chrome 154 over CDP (a 130-line client over Node's
+  WebSocket with a Fetch-domain mock list), `checks.mjs`, 124 of 124 at
+  1,280 and 390 px on the final build (123 of 124 on the first run: a
+  hidden-column count that counted display-none cells; fixed in the
+  check):
+  - `/maps`: the weapon meta has an "All maps" row and one row per map
+    (6), one column per family in `WEAPON_FAMILIES` order (8, Other
+    present because one Miscellaneous kill exists), every share equal to
+    the API, every cell a ramp step or the empty colour, the largest
+    share in the table on the ramp's last step, titles with the kills
+    behind the share, the blurb naming the leading family and 577
+    kills; the specialists grid 20 × 12 with each cell the record under
+    3 matches or the win rate in ramp colours, the pilot links, both
+    details tables listing every row; no wider than the window, no
+    console errors. Mocked: 25 maps and 20 × 12 cells with blanks, the
+    page no wider than 390 px with the grid scrolling inside; a failed
+    meta (ErrorState, Retry loads it), an empty grid (EmptyState), no
+    logged kills (EmptyState), a held grid (Loading).
+  - `/pilot/WD-40`: one dumbbell row per family, each reading the pilot's
+    share against the community's ("52% vs 21%"), the pilot dot in
+    `chart.series` and the community dot in `chart.label` each at its
+    share of an axis that ends at the next tenth above the largest share
+    (60%), the row title carrying the kills, the table listing every
+    family, no radar chunk and only the rating chart's Recharts chunk,
+    no wider than the window, no console errors; mocked: no logged kill
+    (EmptyState), a 500 (ErrorState with the rest of the page there,
+    Retry loads it), a held answer (Loading).
+  - `/ladders`: one row per pilot (6), the first "1, CHEKM8, 1719,
+    3-0-2", rows linking to the pilot, the provisional divider after the
+    4 listed, the title and Leaderboards lit in the nav, the duels button
+    pressed, the footer "4 listed, 2 provisional"; RD and Last duel shown
+    at 1,280 and hidden at 390; the CTF button writes `?board=ctf` and
+    shows the CTF board (2 rows, Captures, Returns, Pickups, Carrier
+    kills), a reload keeps it, `?board=monsterball` shows "No ranked
+    Monsterball match yet", `?board=bogus` reads as duels, the duels
+    button leaves `board` out of the URL. Mocked: 40 pilots with the
+    divider after 30 and rank 40 last, 50 CTF pilots by captures, 20
+    Monsterball pilots with goals, goal assists and blunders, each no
+    wider than the window; a held ladder (Loading), a 500 (ErrorState,
+    Retry loads it), an empty ladder (EmptyState), a failed board
+    (ErrorState). The leaderboard's Ladders link opens `/ladders` in
+    place.
+  - Then `/`, `/history`, `/pilots?min=1`, `/rankings`,
+    `/server/143.110.230.67`, `/game/78764`, `/fight-night`,
+    `/live/143.110.230.67` and `/maps/BLIZZARD` render at both widths with
+    no console errors and no wider than the window; the dashboard's
+    first visit requests no Recharts chunk.
+  - Element shots of the weapon meta, the specialists grid, the weapon
+    mix and the ladders at both widths were looked at. They showed the
+    grid's row labels scrolling away at 390 px (now pinned) and the
+    blurbs calling the ramp's last step "darker" (it is lighter on the
+    dark surface; reworded).
+- S16 /code-review (high) found 10 issues, all fixed: a duel without a
+  date writing a null `last` into a `NOT NULL` column (and skipping every
+  table after it), the ladder cache cleared after one of its two tables,
+  the empty-table startup check refreshing on every start wherever a
+  table stays empty (a built marker now), pilot appearances shown as a
+  map's matches, one failed table write stopping the rest, map-less
+  logged matches in one weapon table but not the other, three unused
+  column constants, 22 queries per specialists request, the community
+  totals re-summed per pilot view, a comment stranded above the wrong
+  route. /simplify (four agents, 29 findings): one derived-table list
+  carrying each table's pass, rows and log line (the worker's and the
+  writer's own maps are gone), the worker's diffs on one connection, the
+  read caches cleared once after the writes and on a restore, the weapon
+  pass as one loop over the log without the scoreboard replay, the duel
+  check's cheap tests first, `mapKey` and `matchModeOf` in `gameParse.js`
+  (the map pass keys by the same rule), the grid's cells selected by the
+  keys already chosen, kept answers for the maps and ladders reads, a
+  `useLoad` result that stays the same object so `memo` works, the
+  boards built from `OBJECTIVE_MODES`, a `short` name per family, dead
+  guards, duplicate parsing and an empty `exec` removed. Skipped: the
+  record fallbacks in the ladder (a reader between the first fill's
+  chunks can see a snapshot before its record), `pairOutcome` for the
+  duel records (the sides' scores are what the rating compares), one
+  per-pilot duel table (the pairs keep the matrix possible),
+  `hasRatingSnapshots` and `hasRegionMonths` (db.js keeps its keys).
+- S16, sizes on Node 26.11.1 at the end: entry `index-*.js` 232.87 KB
+  raw / 74.63 KB gzip (74.46 at the start: the route row, five fetchers
+  and the lazy import); `MapLibrary-*.js` 35.57 KB / 9.29 KB gzip (7.33
+  before: the two grids); `PilotDetail-*.js` 51.61 KB / 13.39 KB gzip
+  (12.52 before: the weapon mix); `GameDetail-*.js` 123.91 KB / 39.81 KB
+  gzip (unchanged); the new `Ladders-*.js` 7.57 KB / 2.35 KB gzip;
+  `GameList` 41.68 KB / 11.43 KB gzip (unchanged); `HeatTable` lands in
+  the `MapLibrary` chunk. No new Recharts chunk anywhere. `npx tsc
+  --noEmit` exits 0. `wc -l`: `gameParse.js` 992, `statsPasses.js` 706,
+  `statsWorker.js` 115, `analytics/meta.js` 140, `analytics/refresh.js`
+  165, `migrations.js` 387, `db.js` 227, `routes/stats.js` 271,
+  `routes/pilots.js` 210, `pageMeta.js` 115, `apiService.ts` 756,
+  `HeatTable` 62, `WeaponMeta` 76, `SpecialistGrid` 83, `WeaponMix` 88,
+  `Ladders` 48, `DuelLadder` 70, `ObjectiveBoard` 61, `PilotDetail` 924,
+  `MapLibrary` 860, `useLoad` 23; no new file is over 500.
+
 - S15, first move on Node 26.11.1, on `main` at `aa05428` (PR #15
   merged, no owner commits after it): `npx vitest run` passed 14 files,
   220 tests. `npx vite build` wrote the entry at 231.71 KB raw / 74.26 KB
@@ -1441,6 +1644,29 @@ maintenance item does not count toward the 28.
 
 ## NOT validated, do not claim these work
 
+- S16 ran on the 43 local matches (five with kill logs, 20 duels, one
+  CTF match with no flag stats, no Monsterball), the fixtures and mocked
+  answers. Nobody has run it on the NAS: how many of its 75,000 matches
+  carry a kill log (the audit says mainly 2019-07 to 2022-04), how large
+  `pilot_weapons`, `pilot_maps` and `pilot_duels` come out there, how
+  long the first refresh with the three new passes takes, and whether
+  the duel ladder's bar of 5 lists a sensible number of pilots.
+- No Monsterball match exists locally, so that board was only seen on a
+  mocked answer; the CTF board on a 1v1 with zero captures. The
+  per-player objective fields were read from the detail sample and the
+  local CTF match only.
+- The weapon meta's map rows were seen on five maps; the 25-map table
+  and the 20 × 12 grid came from mocked answers.
+- Headless Chrome 154 on macOS only, at 1,280 and 390 px. Not Safari,
+  Firefox or a real phone (the heat tables' horizontal scroll with
+  pinned row labels on touch); no screen reader on the heat tables'
+  cell text, the dumbbell's `role="img"` label or the divider row. The
+  cell and row hovers are `title` tooltips, checked in the DOM only.
+- The mid-write case the ladder's record fallbacks cover (a snapshot
+  read before its record during a chunked first fill) was reasoned
+  about, not reproduced.
+- The CI workflow on the S16 PR before it opened; see the PR's checks.
+
 - S15 ran on the 40 local matches, the fixtures, a few minutes of real
   ticks from today's feed and mocked answers. Nobody has run it on the
   NAS: the region share over 75,000 real matches (how many old archive
@@ -1761,11 +1987,11 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 17 files, 244 tests pass on 26.11.1 (S15; 220 at its start) | 2026-10-08 |
+| `npx vitest run` | all pass | 17 files, 264 tests pass on 26.11.1 (S16; 244 at its start) | 2026-10-09 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.38 KB raw / 74.46 KB gzip, dashboard `GameList` 41.68 KB / 11.43 KB gzip and no Recharts on its first visit, `LiveGameDetail` 11.47 KB / 2.93 KB gzip, server page `ServerHistory` 9.52 KB / 3.76 KB gzip on 26.11.1 (S15; 74.26, 11.42 and 3.17 at its start; pilot page `PilotDetail` 12.77 KB gzip in S14; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S15) | 2026-10-08 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S15 on `/tmp/ofc-data`: `total_games: 40`, `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/health`, `/api/stats/heatmap`, `/api/pilot/WD-40/career` all 200 as in S14; new `/api/stats/regions` (one month, 40 matches) and `/api/server/143.110.230.67/history` 200; 21 servers stored per minute | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.87 KB raw / 74.63 KB gzip, maps page `MapLibrary` 35.57 KB / 9.29 KB gzip, pilot page `PilotDetail` 51.61 KB / 13.39 KB gzip, the new `Ladders` 7.57 KB / 2.35 KB gzip, match page `GameDetail` 123.91 KB / 39.81 KB gzip, dashboard `GameList` 41.68 KB / 11.43 KB gzip and no Recharts on its first visit, on 26.11.1 (S16; 74.46, 7.33, 12.52 and 39.82 at its start; `LiveGameDetail` 2.93 KB and `ServerHistory` 3.76 KB gzip in S15; one 351.07 KB chunk before S4) | 2026-10-09 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S16) | 2026-10-09 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S16 on `/tmp/ofc-data`: `total_games: 43`, `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/health`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history` all 200 as in S15; new `/api/stats/weapons` (577 kills, 5 maps), `/api/stats/specialists` (20 × 12), `/api/stats/duels` (4 listed, 2 provisional), `/api/stats/objectives` and `/api/pilot/WD-40/weapon-mix` 200; the first start refreshed for the marker, the next skipped | 2026-10-09 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine`, arm64: healthy in 5 s, uid 1000, 599 MB (Node 26; S6 on `node:22-alpine`: about 9 s, 567 MB) | 2026-10-08 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
@@ -1794,6 +2020,9 @@ maintenance item does not count toward the 28.
 | dataviz `validate_palette.js --ordinal --mode dark --surface "#111111"` on `chart.ramp` | every check passes | passes, darkest step 2.33:1 (S14) | 2026-10-08 |
 | S15 `checks.mjs`: headless Chrome over CDP, `/server/:ip` (a real local server; a mocked year at 30 and 365 days; never seen, failed, held), the dashboard's region card (local, 88 mocked months, failed, empty, held), the history links from the server browser and the live page, then the dashboard, `/history`, leaderboard, rankings, a pilot, a match, fight night and the live page, at 1,280 and 390 px | cards equal the answer, ramp and `chart.region` colours only, URL state across reload, shared states, no Recharts on the dashboard, no wider than the window, no console errors | 100 of 100 (S15) | 2026-10-08 |
 | dataviz `validate_palette.js --mode dark --surface "#111111"` on `chart.region` (7 hues) | every check passes | passes, worst adjacent CVD ΔE 8.4 in the stack order; a month missing a region puts two non-neighbours side by side, kept apart by the 2 px gap and the legend (S15) | 2026-10-08 |
+| S16 `real.mjs`, run by `node` on a copy of the local data: the refresh, then `getWeaponMeta`, `getPilotWeaponMix`, `getSpecialists`, `getDuelLadder` and `getObjectiveBoards` | the tables the server's refresh wrote, the built marker set | the same rows as the server's log (31 map weapon, 67 pilot weapon, 116 pilot map rows, 12 duel snapshots, 10 duel records, 2 objective rows), marker true (S16) | 2026-10-09 |
+| S16 `checks.mjs`: headless Chrome over CDP, the maps page's weapon meta and specialists grid (local and 25 maps / 20 × 12 mocked; failed, empty, held), the pilot page's weapon mix (local; no kills, failed, held), `/ladders` on all three boards (local and 40 duelists / 50 CTF / 20 Monsterball mocked; `?board=` by click, reload and a bad value; held, failed, empty), the leaderboard's link, then the dashboard, history, leaderboard, rankings, server page, a match, fight night, the live page and a map popup, at 1,280 and 390 px | shares and records equal the API, ramp and emphasis colours only, URL state across reload, shared states, no new Recharts chunk, no wider than the window, no console errors | 124 of 124 (S16) | 2026-10-09 |
+| dataviz `validate_palette.js --mode dark --surface "#111111"` on the dumbbell pair `chart.series,chart.label` | the categorical checks pass but the chroma floor, which a de-emphasis grey fails by design | lightness band, CVD ΔE 15.9, normal-vision 17.0 and contrast pass; chroma floor "reads gray" (S16) | 2026-10-09 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -2125,7 +2354,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          and the region card on local data plus Fetch-domain mocks for a
          year; the dashboard, the server browser, the live page,
          leaderboard, rankings, pilot pages and match page still work.
-- [ ] **S16 Weapon meta and ladders** (M). Weapon × map heatmap; weapon mix
+- [x] **S16 Weapon meta and ladders** (M). PR #17. Weapon × map heatmap; weapon mix
       radar vs community; pilot × map grid; 1v1 duel ladder; CTF and
       Monsterball objective leaderboards. The owner decided at the start of
       S16: a duel is a ranked, kill-scored match with exactly two pilots on
@@ -2182,11 +2411,13 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          record on hover and in the table, a cell under 3 matches left
          uncoloured.
       5. The pilot page's arsenal section gets "Weapon mix vs the
-         community": a dumbbell per family in hand-drawn SVG (the pilot's
-         share beside the community's, the kills behind both, in one hue
-         and two shades that pass the dataviz validator against
-         `surface-card`), a table, and an EmptyState for a pilot with no
-         logged kill.
+         community": a dumbbell per family drawn by hand (the pilot's
+         share beside the community's, the kills behind both, the pilot's
+         mark in the accent hue and the community's in the palette's
+         de-emphasis grey, checked with the dataviz validator against
+         `surface-card`; two shades of one hue were tried first and failed
+         its lightness band), a table, and an EmptyState for a pilot with
+         no logged kill.
       6. A `/ladders` view (route, title and the pilots nav section in
          `siteRoutes.js`, share description in `pageMeta.js`, lazy in
          `App.tsx`, linked from the leaderboard's tab bar beside Power
@@ -5448,6 +5679,30 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   `App` the one title writer, kept summaries per day and skipped three
   (flagged). Chrome checks: 100 of 100. PR #16 opened against `main`,
   not merged.
+
+- 2026-10-09, S16 (Claude Fable 5.1): the weapon meta (kills on opponents
+  per weapon family, by map and by pilot, from the matches with a kill
+  log), a pilot × map win-rate grid, a 1v1 duel ladder on Glicko-2 over
+  the duels alone, and CTF and Monsterball boards from the tracker's
+  per-player counts; a `/ladders` view, two grids on the maps page and a
+  dumbbell on the pilot page. Status line checked first: PR #16 had
+  merged (`2463b20`, nothing after it), so S16 branched from
+  `origin/main`; `10223be` is not an object here. First move: 17 files,
+  244 tests; entry 74.46 KB gzip; tsc 0. The owner took all three
+  recommendations (a duel is two pilots on different sides in a
+  kill-scored match, the ladder is Glicko-2 over duels from five of them,
+  the mix is a dumbbell, not a radar). Six derived tables joined the S13
+  to S15 three behind one list, which the review then had the worker,
+  the schema and the writer all read from, with a built marker in
+  `admin_settings` instead of an empty-table check. Two shades of one
+  hue failed the validator's lightness band, so the dumbbell uses the
+  emphasis form (accent plus the palette's grey). /code-review found 10
+  issues, all fixed (the worst: an undated duel breaking every later
+  table write). /simplify (four agents) folded the worker's and writer's
+  maps into the list, cut the weapon pass's replay and cached the reads;
+  four findings skipped and flagged. One mutant survived at first (a
+  third pilot on no team) and got its test. Chrome checks: 124 of 124.
+  PR #17 opened against `main`, not merged.
 
 ## Next session prompt
 
