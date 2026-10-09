@@ -3806,7 +3806,11 @@ Not counted in the 28 sessions.
   meta covers the tracker's logged years, not every match. The map is the
   level in upper case (`mapKey` in `statsPasses.js`; `map_stats_cache`
   keys by lower case and shows the first spelling, which the S16 tables do
-  not need). No day rule: the tables are all-time totals. Rejected: the
+  not need); a logged match that names no map counts in neither
+  `map_weapons` nor `pilot_weapons` (review, 2026-10-09), so a pilot's
+  shares and the community's come from the same matches. No day rule: the
+  tables are all-time totals. The community totals are summed from
+  `map_weapons` once and kept until a refresh writes it. Rejected: the
   damage log as the source (the pilot page's arsenal already splits damage
   by weapon; kills are what the plan page asked for and what the momentum
   chart draws).
@@ -3824,7 +3828,10 @@ Not counted in the 28 sessions.
   `ratingSnapshots` replays them, so a duel rating is a second history in
   its own table, never the main rating. The pair records (`pilot_duels`,
   both directions) come from the sides' scores: a higher score wins, equal
-  is a tie. Rejected: wins and losses as the order (beating weak opponents
+  is a tie; a duel without a date is left out of the records as
+  `ratingSnapshots` leaves it out of the replay (review, 2026-10-09: it
+  would have written a null `last` into a `NOT NULL` column), so the
+  records add up to the duel counts. Rejected: wins and losses as the order (beating weak opponents
   would outrank splitting with strong ones), and the rankings' bar and
   window (the ladder would be empty for weeks).
 - 2026-10-08 (S16): The objective boards' sources: the tracker's
@@ -3842,19 +3849,31 @@ Not counted in the 28 sessions.
   section): a pilot's ranked matches per map with the record (`addToLine`
   in the same `pilotPass` loop as the months, so the matches add up to the
   career totals for matches that name a map). The grid shows the 20 pilots
-  with the most ranked matches against the 12 maps with the most
-  (`META` in `analytics/meta.js`), coloured by win rate (`winRate`) from 3
-  matches (`SPECIALIST_MIN`); under that the cell shows the record alone,
-  uncoloured. Win rate rather than K/D: the plan page said a win-rate
+  with the most ranked matches against the 12 maps played most, by
+  `map_stats_cache.total_matches` (every stored match on the map;
+  `pilot_maps` rows are pilot appearances, which the review caught being
+  shown as matches), read in one query (`META` in `analytics/meta.js`),
+  coloured by win rate (`winRate`) from 3 matches (`SPECIALIST_MIN`);
+  under that the cell shows the record alone, uncoloured. Win rate rather than K/D: the plan page said a win-rate
   grid, and the pilot page's map table already shows K/D.
 - 2026-10-08 (S16): The derived tables are one list, `DERIVED_TABLES` in
   `statsPasses.js` (the S14 flag): the table name and its columns with
   their types, keyed by the first two. `migrations.js` creates each from
   it (`ensureDerivedTables`, `WITHOUT ROWID`, in `tracker.db` only), the
   worker builds each one's rows and `tableChanges` for it, `writeChanges`
-  in `refresh.js` applies them in 2,000-row chunks, `restoreHot` creates
-  the ones a backup lacks, and the startup check refreshes while any is
-  empty (`derivedTablesFilled`). The six new tables: `map_weapons(map,
+  in `refresh.js` applies them in 2,000-row chunks, each table on its own
+  so one that fails to write does not stop the rest (review), and
+  `restoreHot` creates the ones a backup lacks. A built marker in
+  `admin_settings` (`derived_tables_built`, the list's names) is written
+  when a refresh has written every table; the startup check
+  (`derivedTablesBuilt`) refreshes while the marker differs, and
+  `restoreHot` clears it (and recreates `admin_settings` for a backup
+  from before it), so a new table, a restored backup or a refresh that
+  failed to write a table each cost one refresh, and a table that stays
+  empty for good costs none. The review asked for this in place of an
+  empty-table check, which six more tables would have turned into a
+  refresh on every start wherever no duel, CTF or Monsterball match
+  exists. The six new tables: `map_weapons(map,
   family, kills)` and `pilot_weapons(pilot, family, kills)` from
   `weaponPass`; `pilot_maps(pilot, map, name, matches, wins, losses, ties,
   kills, deaths)` and `pilot_objectives(pilot, mode, name, matches, wins,
@@ -3864,22 +3883,21 @@ Not counted in the 28 sessions.
   opponent, wins, losses, ties, last)` from `duelPass`. `name` is the
   pilot's latest spelling, as `pilot_stats_cache` keeps it, so the boards
   need no join. First build: created empty at startup; the first refresh
-  fills them (the startup check runs one when a derived table is empty,
-  so the first start of S16 on a warm database refreshes once). A restart
-  needs no repair: every refresh brings each table in line. Rollback:
-  revert, pull the old image, and `DROP TABLE` any of the six on
-  `tracker.db`, or leave them (nothing older reads them). The cost of the
-  one-list check: a table that stays empty for good (no Monsterball match
-  ever, say) keeps the startup check refreshing on every start, as an
-  all-unranked database already did since S13; the refresh runs in the
-  worker. Rejected: a stored marker of which tables a refresh has filled
-  (another row to keep right across restores).
+  fills them (the startup check runs one while the marker names an older
+  list, so the first start of S16 on a warm database refreshes once). A
+  restart needs no repair: every refresh brings each table in line.
+  Rollback: revert, pull the old image, and `DROP TABLE` any of the six on
+  `tracker.db`, or leave them (nothing older reads them); the marker row
+  can stay. The S13 to S15 "refresh while the table is empty" checks are
+  gone: `hasRatingSnapshots`, `hasPilotMonths` and `hasRegionMonths` stay
+  as `db` keys (the career route reads one).
 - 2026-10-08 (S16): Endpoints, none through the route cache (each reads a
   derived table a refresh keeps, so an answer is never older than its
   table): `GET /api/stats/weapons` (`{ community, kills, maps }`, the
   kills per family over every logged match and for the 25 maps with the
   most, most first); `GET /api/stats/specialists` (`{ pilots, maps,
-  cells }`, `cells[i][j]` a record or null); `GET /api/stats/duels` (`{
+  cells }`, `cells[i][j]` a record or null, one query for the cells);
+  `GET /api/stats/duels` (`{
   day, listed, pilots }`, each pilot a duel snapshot with `rank`,
   `status`, the record and `last`, the fight-night day of their last duel;
   the ladder is kept per day until the next refresh writes duel snapshots,
@@ -4761,18 +4779,21 @@ Not counted in the 28 sessions.
   the lower-case copy has the later id. The leaderboard shows the latest
   game's spelling too, so the pages agree; it reads oddly beside the
   pilot page's URL.
-- (S16) `derivedTablesFilled` refreshes on every start while any derived
-  table is empty. A database with no Monsterball or CTF match, no duel or
-  no kill log anywhere keeps one empty and refreshes on each start (in
-  the worker). The NAS has all four; a fresh dev folder may not.
+- (S16) The built marker lives in `admin_settings` inside `tracker.db`.
+  A backup taken after a refresh carries it; `restoreHot` clears it so the
+  restored data gets one refresh. A hand edit that drops a derived table
+  without touching the marker is not caught until the next 6-hour
+  refresh, and the table only comes back at the next start
+  (`migrations.js`).
 - (S16) The map name in `map_weapons` and `pilot_maps` is the level in
   upper case; `map_stats_cache` keys by lower case and shows the first
   spelling seen. A map stored in mixed case shows in upper case on the
   grids and as stored on the map cards.
 - (S16) The specialist grid lists the top 20 pilots by ranked matches and
-  the top 12 maps; a pilot outside the 20 has no row and no way to ask
-  for one. A pilot's own map table on their page shows their top six
-  maps without a win rate.
+  the top 12 maps by every stored match (`map_stats_cache`, unranked ones
+  included); a pilot outside the 20 has no row and no way to ask for one.
+  A pilot's own map table on their page shows their top six maps without
+  a win rate.
 - (S16) `HeatTable` scales its colours to the largest share in the table,
   so a win-rate grid whose best cell is 60% paints that cell as the
   ramp's last step; the cell text carries the number. A fixed 0 to 100%

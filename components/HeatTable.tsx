@@ -46,7 +46,7 @@ const HeatTable: React.FC<HeatTableProps> = ({ caption, corner, columns, rows })
                                 key={columns[j].key}
                                 title={cell?.title}
                                 className="h-6 min-w-[2.5rem] text-center rounded-[2px] p-0 text-white/90"
-                                style={{ backgroundColor: cell?.share === null || cell?.share === undefined ? 'transparent' : rampColor(cell.share, max) }}
+                                style={{ backgroundColor: cell?.share == null ? 'transparent' : rampColor(cell.share, max) }}
                             >
                                 {cell ? <><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></> : <span className="sr-only">none</span>}
                             </td>

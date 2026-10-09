@@ -49,10 +49,10 @@ function rankingsMeta() {
 // "Duel ladder for 2026-10-08: 1. WD-40 (1612), 2. OKSTER (1580), 3. RAZOR (1555)."
 // (listed pilots only; nothing while none is listed)
 function laddersMeta() {
-    const { day, pilots } = db.getDuelLadder();
-    const listed = pilots.filter(p => p.status === 'listed');
-    if (listed.length === 0) return {};
-    const top = listed.slice(0, 3).map(p => `${p.rank}. ${p.name} (${Math.round(p.rating)})`).join(', ');
+    const { day, listed, pilots } = db.getDuelLadder();
+    if (listed === 0) return {};
+    // the listed pilots come first
+    const top = pilots.slice(0, Math.min(3, listed)).map(p => `${p.rank}. ${p.name} (${Math.round(p.rating)})`).join(', ');
     return { description: `Duel ladder for ${day}: ${top}.` };
 }
 

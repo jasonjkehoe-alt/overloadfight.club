@@ -13,8 +13,6 @@ import { PilotWeaponMix } from '../../services/apiService';
 const PILOT = chart.series;
 const COMMUNITY = chart.label;
 
-const share = (kills: number, total: number) => (total ? kills / total : 0);
-
 // Weapon mix vs the community (S16): a dumbbell per weapon family, the
 // pilot's share of their logged kills on opponents beside everyone's, in
 // hand-drawn HTML (no chart chunk), with a table for the keyboard.
@@ -28,7 +26,8 @@ const WeaponMix: React.FC<{ load: { data: PilotWeaponMix | null; failed: boolean
         body = <EmptyState compact icon={Crosshair} title="No logged kills" message="The weapon mix counts kills from matches whose kill log the tracker kept; none of this pilot's ranked matches has one." />;
     } else {
         const families = WEAPON_FAMILIES.filter(f => f.id !== 'other' || data.pilot.other > 0 || data.community.other > 0);
-        const rows = families.map(f => ({ ...f, mine: share(data.pilot[f.id] || 0, data.kills), theirs: share(data.community[f.id] || 0, data.communityKills) }));
+        // the pilot's kills are among the community's, so both totals are above 0 here
+        const rows = families.map(f => ({ ...f, mine: data.pilot[f.id] / data.kills, theirs: data.community[f.id] / data.communityKills }));
         // the axis runs to the next tenth above the largest share
         const max = Math.max(0.1, Math.ceil(Math.max(...rows.flatMap(r => [r.mine, r.theirs])) * 10) / 10);
         const at = (s: number) => `${(s / max) * 100}%`;
@@ -49,8 +48,8 @@ const WeaponMix: React.FC<{ load: { data: PilotWeaponMix | null; failed: boolean
                     {rows.map(r => {
                         const [lo, hi] = [Math.min(r.mine, r.theirs), Math.max(r.mine, r.theirs)];
                         return (
-                            <div key={r.id} className="grid grid-cols-[6.5rem_1fr_5.5rem] items-center gap-3 py-0.5" title={`${r.label}: this pilot ${percent(r.mine, 1)} (${(data.pilot[r.id] || 0).toLocaleString()} kills), everyone ${percent(r.theirs, 1)} (${(data.community[r.id] || 0).toLocaleString()})`}>
-                                <span className="text-xs text-gray-400 truncate" title={r.label}>{r.label.split(',')[0]}</span>
+                            <div key={r.id} className="grid grid-cols-[6.5rem_1fr_5.5rem] items-center gap-3 py-0.5" title={`${r.label}: this pilot ${percent(r.mine, 1)} (${data.pilot[r.id].toLocaleString()} kills), everyone ${percent(r.theirs, 1)} (${data.community[r.id].toLocaleString()})`}>
+                                <span className="text-xs text-gray-400 truncate" title={r.label}>{r.short}</span>
                                 <div className="relative h-4">
                                     <div className="absolute inset-y-1/2 left-0 right-0 h-px" style={{ backgroundColor: chart.grid }} />
                                     <div className="absolute top-1/2 -mt-px h-0.5" style={{ left: at(lo), width: `calc(${at(hi)} - ${at(lo)})`, backgroundColor: chart.axis }} />
@@ -71,7 +70,7 @@ const WeaponMix: React.FC<{ load: { data: PilotWeaponMix | null; failed: boolean
                 <DetailsTable
                     summary="Kills by weapon family"
                     headers={['Family', 'Pilot kills', 'Pilot share', 'Everyone', 'Everyone share']}
-                    rows={rows.map(r => ({ key: r.id, cells: [r.label, (data.pilot[r.id] || 0).toLocaleString(), percent(r.mine, 1), (data.community[r.id] || 0).toLocaleString(), percent(r.theirs, 1)] }))}
+                    rows={rows.map(r => ({ key: r.id, cells: [r.label, data.pilot[r.id].toLocaleString(), percent(r.mine, 1), data.community[r.id].toLocaleString(), percent(r.theirs, 1)] }))}
                 />
             </>
         );

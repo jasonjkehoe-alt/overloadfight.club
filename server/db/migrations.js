@@ -1,6 +1,6 @@
 import { hotDb, coldDb } from './connection.js';
 import { playerRows } from '../lib/gameParse.js';
-import { DERIVED_TABLES } from '../lib/statsPasses.js';
+import { DERIVED_TABLES, derivedColumns } from '../lib/statsPasses.js';
 
 // Schema for both files, in the order the server has always created it. Runs once,
 // when db.js is first imported; every repo and analytics module imports this file
@@ -190,8 +190,9 @@ migrateGamePlayers();
 // is built from both files by the stats worker, like pilot_stats_cache, so the
 // hot/cold split does not apply. Every refresh brings each one in line
 // (analytics/refresh.js writeChanges), so they start empty and the first
-// refresh fills them: the startup check in maintenance.js refreshes while any
-// is empty. Dropping one loses nothing the next refresh does not rebuild.
+// refresh fills them: the startup check in maintenance.js refreshes until a
+// refresh has written every table in the list (the built marker in
+// admin_settings). Dropping one loses nothing the next refresh does not rebuild.
 // rating_snapshots (S13): one row per pilot per fight-night day with a rated
 // match (`pilot` the pilotKey(), `day` from fightNightDay). pilot_months
 // (S14): a pilot's career totals per month of the fight-night day.
@@ -203,9 +204,9 @@ migrateGamePlayers();
 // per objective mode with the tracker's goal and flag counts. Each is keyed
 // by its first two columns.
 export function ensureDerivedTables() {
-  for (const [table, columns] of Object.entries(DERIVED_TABLES)) {
-    const [a, b] = columns.split(', ').map(c => c.split(' ')[0]);
-    hotDb.exec(`CREATE TABLE IF NOT EXISTS ${table} (${columns.split(', ').map(c => `${c} NOT NULL`).join(', ')}, PRIMARY KEY (${a}, ${b})) WITHOUT ROWID;`);
+  for (const [table, { columns }] of Object.entries(DERIVED_TABLES)) {
+    const [a, b] = derivedColumns(table);
+    hotDb.exec(`CREATE TABLE IF NOT EXISTS ${table} (${columns.map(c => `${c} NOT NULL`).join(', ')}, PRIMARY KEY (${a}, ${b})) WITHOUT ROWID;`);
   }
 }
 ensureDerivedTables();
@@ -267,8 +268,6 @@ export function ensureAdminSettings() {
   `);
 }
 ensureAdminSettings();
-hotDb.exec(`
-`);
 
 // Maps Table (HOT DB)
 hotDb.exec(`

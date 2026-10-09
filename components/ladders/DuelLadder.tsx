@@ -36,7 +36,7 @@ const DuelLadder: React.FC = () => {
                         {ladder.pilots.map((p, i) => {
                             const url = urlFor('pilot', p.name);
                             const provisional = p.status === 'provisional';
-                            const first = provisional && (i === 0 || ladder.pilots[i - 1].status === 'listed');
+                            const first = i === ladder.listed;
                             return (
                                 <React.Fragment key={p.pilot}>
                                     {first && (

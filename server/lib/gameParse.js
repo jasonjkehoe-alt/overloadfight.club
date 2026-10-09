@@ -98,11 +98,17 @@ export function rankedMatch(game, duration = durationOf(game)) {
 // `side` is the team or the pilotKey(), `name` is what to display.
 // `winners` holds every side sharing the top score: one entry is an outright
 // win, more than one is a tie, none means the game has no result to read.
+// A team game has a team score or a player on a team.
+export function teamGame(game) {
+    const teamScore = game?.teamScore && typeof game.teamScore === 'object' ? game.teamScore : {};
+    return Object.keys(teamScore).length > 0 || (Array.isArray(game?.players) ? game.players : []).some(p => teamOf(p));
+}
+
 /** @returns {{ team: boolean, ranking: { side: string, name: string, score: number }[], winners: string[] }} */
 export function winnerOf(game) {
     const players = Array.isArray(game?.players) ? game.players : [];
     const teamScore = game?.teamScore && typeof game.teamScore === 'object' ? game.teamScore : {};
-    const team = Object.keys(teamScore).length > 0 || players.some(p => teamOf(p));
+    const team = teamGame(game);
 
     const scores = new Map();
     if (team) {
@@ -205,10 +211,17 @@ export function hasKillLog(game) {
     return Array.isArray(game?.kills) && game.kills.length > 0;
 }
 
+// The match mode in upper case ('ANARCHY', 'CTF', ...), '' when unset.
+export const matchModeOf = game => String(game?.settings?.matchMode ?? '').trim().toUpperCase();
+
+// The map a match names, in upper case, or null: the key of every map table
+// (map_stats_cache shows the first spelling it saw).
+export const mapKey = game => String(game?.settings?.level ?? '').trim().toUpperCase() || null;
+
 // True when the match's score is its kills, so the kill log replays the
 // score. CTF and Monsterball score captures and goals, and Race laps.
 export function killScored(game) {
-    const mode = String(game?.settings?.matchMode ?? '').trim().toUpperCase();
+    const mode = matchModeOf(game);
     return !mode || KILL_SCORED_MODES.has(mode);
 }
 
@@ -349,15 +362,16 @@ export function firstBloodOf(game) {
 
 // Weapon families for the charts: one colour each (designTokens.js `chart.weapon`),
 // in this order. A weapon not listed is 'other', the last entry.
+// `short` names a family by its first weapon where a column is narrow.
 export const WEAPON_FAMILIES = [
-    { id: 'laser', label: 'Impulse, Cyclone, Reflex', weapons: ['IMPULSE', 'CYCLONE', 'REFLEX'] },
-    { id: 'thunderbolt', label: 'Thunderbolt', weapons: ['THUNDERBOLT'] },
-    { id: 'flak', label: 'Flak, Crusher', weapons: ['FLAK', 'CRUSHER'] },
-    { id: 'driller', label: 'Driller, Lancer', weapons: ['DRILLER', 'LANCER'] },
-    { id: 'missile', label: 'Falcon, Missile Pod, Hunter', weapons: ['FALCON', 'MISSILE POD', 'HUNTER'] },
-    { id: 'mine', label: 'Creeper, Time Bomb', weapons: ['CREEPER', 'TIME BOMB'] },
-    { id: 'heavy', label: 'Nova, Devastator, Vortex', weapons: ['NOVA', 'DEVASTATOR', 'VORTEX'] },
-    { id: 'other', label: 'Other', weapons: [] },
+    { id: 'laser', label: 'Impulse, Cyclone, Reflex', short: 'Impulse', weapons: ['IMPULSE', 'CYCLONE', 'REFLEX'] },
+    { id: 'thunderbolt', label: 'Thunderbolt', short: 'Thunderbolt', weapons: ['THUNDERBOLT'] },
+    { id: 'flak', label: 'Flak, Crusher', short: 'Flak', weapons: ['FLAK', 'CRUSHER'] },
+    { id: 'driller', label: 'Driller, Lancer', short: 'Driller', weapons: ['DRILLER', 'LANCER'] },
+    { id: 'missile', label: 'Falcon, Missile Pod, Hunter', short: 'Falcon', weapons: ['FALCON', 'MISSILE POD', 'HUNTER'] },
+    { id: 'mine', label: 'Creeper, Time Bomb', short: 'Creeper', weapons: ['CREEPER', 'TIME BOMB'] },
+    { id: 'heavy', label: 'Nova, Devastator, Vortex', short: 'Nova', weapons: ['NOVA', 'DEVASTATOR', 'VORTEX'] },
+    { id: 'other', label: 'Other', short: 'Other', weapons: [] },
 ];
 
 const FAMILY_OF_WEAPON = new Map(WEAPON_FAMILIES.flatMap(f => f.weapons.map(w => [w, f.id])));
@@ -635,10 +649,13 @@ const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
 // [{ pilot, name, day, rating, rd, volatility, matches }],
 // `pilot` being the pilotKey(), `name` the latest spelling and `matches` the
 // rated matches so far.
+// A stored date the replays can order by.
+export const hasDate = date => Number.isFinite(Date.parse(date));
+
 export function ratingSnapshots(matches) {
     const timed = matches
         .map(m => ({ ...m, at: Date.parse(m.date) }))
-        .filter(m => Number.isFinite(m.at))
+        .filter(m => hasDate(m.date))
         .sort((a, b) => a.at - b.at || a.id - b.id);
     const pilots = new Map();
     const snapshots = new Map();
@@ -893,14 +910,21 @@ export function regionShare(rows, thisMonth) {
 // worth a point by killPoints() (a kill on an opponent: not a suicide, not a
 // team kill, not a death without an attacker), each as { attacker, family },
 // `family` being weaponFamily() of the weapon. Teams missing from an entry
-// come from game.players, as the scoreboard replay reads them. A match that
-// is not rankedMatch() or has no log gives none.
+// come from game.players, as the scoreboard replay reads them; the order of
+// the log does not matter here, so it is one pass with no replay. A match
+// that is not rankedMatch() or has no log gives none.
 export function weaponKills(game) {
     if (!rankedMatch(game) || !hasKillLog(game)) return [];
+    const team = teamGame(game);
+    const teams = team ? new Map(game.players.map(p => [pilotKey(p?.name), teamOf(p)])) : null;
     const kills = [];
-    replayLog(game, Infinity, (t, kill, points) => {
+    for (const kill of game.kills) {
+        const entry = team
+            ? { ...kill, attackerTeam: kill?.attackerTeam || teams.get(pilotKey(kill?.attacker)), defenderTeam: kill?.defenderTeam || teams.get(pilotKey(kill?.defender)) }
+            : kill;
+        const points = killPoints(entry, team);
         if (points.points > 0) kills.push({ attacker: points.scorer, family: weaponFamily(kill.weapon) });
-    });
+    }
     return kills;
 }
 
@@ -909,11 +933,10 @@ export function weaponKills(game) {
 // a one-a-side Team Anarchy match; a CTF or Monsterball 1v1 is not one. Gives
 // ratingSides() of the match (two sides of one pilot each) or null.
 export function duelMatch(game) {
-    if (!killScored(game)) return null;
+    // the cheap checks first: most matches are not two pilots
+    if (!killScored(game) || new Set((game?.players || []).map(p => pilotKey(p?.name)).filter(Boolean)).size !== 2) return null;
     const sides = ratingSides(game);
-    return sides && sides.length === 2 && sides.every(s => s.pilots.length === 1) && new Set((game.players || []).map(p => pilotKey(p?.name)).filter(Boolean)).size === 2
-        ? sides
-        : null;
+    return sides && sides.length === 2 && sides.every(s => s.pilots.length === 1) ? sides : null;
 }
 
 // The duel ladder: a pilot is listed from DUEL.listedAfter duels, whenever
@@ -927,10 +950,10 @@ export const DUEL_HINT = `Duel rating: Glicko-2 over 1v1 matches alone (${RANKED
 // listed pilots by rating (then duels, then name), then the provisional ones
 // the same way, each with `rank` from 1, `status` and its RD on `day` (rdOn).
 export function duelLadder(latest, day) {
-    const order = (a, b) => b.rating - a.rating || b.matches - a.matches || a.pilot.localeCompare(b.pilot);
-    const listed = latest.filter(s => s.matches >= DUEL.listedAfter).sort(order);
-    const provisional = latest.filter(s => s.matches < DUEL.listedAfter).sort(order);
-    return [...listed, ...provisional].map((s, i) => ({ ...s, rd: rdOn(s, day), rank: i + 1, status: s.matches >= DUEL.listedAfter ? 'listed' : 'provisional' }));
+    const listed = s => s.matches >= DUEL.listedAfter;
+    return [...latest]
+        .sort((a, b) => listed(b) - listed(a) || b.rating - a.rating || b.matches - a.matches || a.pilot.localeCompare(b.pilot))
+        .map((s, i) => ({ ...s, rd: rdOn(s, day), rank: i + 1, status: listed(s) ? 'listed' : 'provisional' }));
 }
 
 // Objective counts (S16): the tracker's per-player fields (`player`) and the
@@ -952,7 +975,7 @@ export const OBJECTIVE_MODES = {
 
 // The objective mode of a match (an OBJECTIVE_MODES key), or null.
 export function objectiveMode(game) {
-    const mode = String(game?.settings?.matchMode ?? '').trim().toUpperCase();
+    const mode = matchModeOf(game);
     return OBJECTIVE_MODES[mode] ? mode : null;
 }
 

@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, duelMatch, emptyLine, emptyObjectives, combatRatio, durationOf, lethality, netKills, objectiveMode, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, duelMatch, emptyLine, emptyObjectives, combatRatio, durationOf, hasDate, lethality, mapKey, netKills, objectiveMode, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
 import { regionOf, UNKNOWN_REGION } from './serverRegions.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
@@ -302,10 +302,6 @@ export function pilotPass() {
     return { add, rows, months, maps, objectives };
 }
 
-// The map a match names, as the S16 tables key it: the level in upper case
-// (map_stats_cache keys by lower case and shows the first spelling seen).
-const mapKey = g => String(g?.settings?.level ?? '').trim().toUpperCase() || null;
-
 // map_weapons and pilot_weapons rows (S16): every weaponKills() entry of every
 // ranked match with a kill log, by the map and by the attacker.
 export function weaponPass() {
@@ -342,7 +338,7 @@ export function duelPass() {
     function add(row, g) {
         const sides = g && duelMatch(g);
         const date = row.date || g?.date;
-        if (sides && Number.isFinite(Date.parse(date))) duels.push({ id: row.id, date, sides });
+        if (sides && hasDate(date)) duels.push({ id: row.id, date, sides });
     }
     function pairs() {
         const records = new Map();
@@ -368,23 +364,27 @@ export function duelPass() {
 // The derived tables (rating_snapshots, pilot_months, region_months and the
 // S16 tables) in tracker.db: built by the worker on every refresh and brought
 // in line by server/statsWorker.js tableChanges and analytics/refresh.js
-// writeChanges. Keyed by their first two columns. One list, so the schema
-// (migrations.js), the restore, the startup check and the write step agree.
+// writeChanges. One list, so the schema (migrations.js), the restore, the
+// startup check, the worker and the write step agree: `columns` with their
+// types (the first two are the key), the `pass` that builds the table (a key
+// of the worker's passes), `rows` from those passes, and the log line's tag
+// and noun.
+const RATING_COLUMNS = ['pilot TEXT', 'day TEXT', 'name TEXT', 'rating REAL', 'rd REAL', 'volatility REAL', 'matches INTEGER'];
 export const DERIVED_TABLES = {
-    rating_snapshots: 'pilot TEXT, day TEXT, name TEXT, rating REAL, rd REAL, volatility REAL, matches INTEGER',
-    pilot_months: 'pilot TEXT, month TEXT, matches INTEGER, wins INTEGER, losses INTEGER, ties INTEGER, kills INTEGER, deaths INTEGER, assists INTEGER, seconds REAL',
-    region_months: 'region TEXT, month TEXT, matches INTEGER',
-    map_weapons: 'map TEXT, family TEXT, kills INTEGER',
-    pilot_weapons: 'pilot TEXT, family TEXT, kills INTEGER',
-    pilot_maps: 'pilot TEXT, map TEXT, name TEXT, matches INTEGER, wins INTEGER, losses INTEGER, ties INTEGER, kills INTEGER, deaths INTEGER',
-    duel_snapshots: 'pilot TEXT, day TEXT, name TEXT, rating REAL, rd REAL, volatility REAL, matches INTEGER',
-    pilot_duels: 'pilot TEXT, opponent TEXT, wins INTEGER, losses INTEGER, ties INTEGER, last TEXT',
-    pilot_objectives: 'pilot TEXT, mode TEXT, name TEXT, matches INTEGER, wins INTEGER, losses INTEGER, ties INTEGER, kills INTEGER, deaths INTEGER, assists INTEGER, goals INTEGER, goal_assists INTEGER, blunders INTEGER, captures INTEGER, returns INTEGER, pickups INTEGER, carrier_kills INTEGER'
+    rating_snapshots: { columns: RATING_COLUMNS, pass: 'ratings', rows: p => p.ratings.rows(), log: ['Ratings', 'daily rating snapshots'] },
+    pilot_months: { columns: ['pilot TEXT', 'month TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER', 'assists INTEGER', 'seconds REAL'], pass: 'pilots', rows: p => p.pilots.months(), log: ['Career', 'pilot months'] },
+    region_months: { columns: ['region TEXT', 'month TEXT', 'matches INTEGER'], pass: 'regions', rows: p => p.regions.rows(), log: ['Regions', 'region months'] },
+    map_weapons: { columns: ['map TEXT', 'family TEXT', 'kills INTEGER'], pass: 'weapons', rows: p => p.weapons.maps(), log: ['Weapons', 'map weapon rows'] },
+    pilot_weapons: { columns: ['pilot TEXT', 'family TEXT', 'kills INTEGER'], pass: 'weapons', rows: p => p.weapons.pilots(), log: ['Weapons', 'pilot weapon rows'] },
+    pilot_maps: { columns: ['pilot TEXT', 'map TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER'], pass: 'pilots', rows: p => p.pilots.maps(), log: ['Maps', 'pilot map rows'] },
+    duel_snapshots: { columns: RATING_COLUMNS, pass: 'duels', rows: p => p.duels.rows(), log: ['Duels', 'daily duel snapshots'] },
+    pilot_duels: { columns: ['pilot TEXT', 'opponent TEXT', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'last TEXT'], pass: 'duels', rows: p => p.duels.pairs(), log: ['Duels', 'duel records'] },
+    pilot_objectives: { columns: ['pilot TEXT', 'mode TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER', 'assists INTEGER', 'goals INTEGER', 'goal_assists INTEGER', 'blunders INTEGER', 'captures INTEGER', 'returns INTEGER', 'pickups INTEGER', 'carrier_kills INTEGER'], pass: 'pilots', rows: p => p.pilots.objectives(), log: ['Objectives', 'objective rows'] }
 };
 // A derived table's column names, in table order.
-export const derivedColumns = table => DERIVED_TABLES[table].split(', ').map(c => c.split(' ')[0]);
-// The value of the built marker (analytics/meta.js DERIVED_MARK) once a
-// refresh has written every table in the list: a new table changes it.
+export const derivedColumns = table => DERIVED_TABLES[table].columns.map(c => c.split(' ')[0]);
+// The value of the built marker (analytics/meta.js) once a refresh has
+// written every table in the list: a new table changes it.
 export const DERIVED_TABLES_VERSION = Object.keys(DERIVED_TABLES).join(',');
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
@@ -580,8 +580,7 @@ export function archivePass() {
 export function mapPass(thirtyDaysAgo) {
     const mapStatsMap = new Map();
 
-    function getOrInit(name) {
-        const key = name.toLowerCase().trim();
+    function getOrInit(name, key) {
         let entry = mapStatsMap.get(key);
         if (!entry) {
             entry = {
@@ -607,7 +606,7 @@ export function mapPass(thirtyDaysAgo) {
         const levelRaw = details?.settings?.level;
         if (!levelRaw || typeof levelRaw !== 'string') return;
 
-        const entry = getOrInit(levelRaw);
+        const entry = getOrInit(levelRaw, mapKey(details));
         entry.total_matches++;
 
         const date = row.date;

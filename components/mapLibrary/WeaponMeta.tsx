@@ -43,11 +43,11 @@ const WeaponMeta: React.FC = () => {
                 <HeatTable
                     caption={`Share of each map's logged kills by weapon family. Ranked matches (${RANKED.pilots}+ pilots, ${RANKED.seconds} s or more) with a kill log; kills on opponents only.`}
                     corner="Map"
-                    columns={families.map(f => ({ key: f.id, label: f.label.split(',')[0], title: f.label }))}
+                    columns={families.map(f => ({ key: f.id, label: f.short, title: f.label }))}
                     rows={rows.map(r => ({
                         key: r.map,
                         label: r.map,
-                        cells: families.map(f => cell(r.map, f.label, r.families[f.id] || 0, r.kills))
+                        cells: families.map(f => cell(r.map, f.label, r.families[f.id], r.kills))
                     }))}
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-2xs text-gray-500">
@@ -56,8 +56,8 @@ const WeaponMeta: React.FC = () => {
                 </div>
                 <DetailsTable
                     summary="Kills by weapon family, by map"
-                    headers={['Map', ...families.map(f => f.label.split(',')[0]), 'Kills']}
-                    rows={rows.map(r => ({ key: r.map, cells: [r.map, ...families.map(f => (r.kills ? percent((r.families[f.id] || 0) / r.kills) : '–')), r.kills.toLocaleString()] }))}
+                    headers={['Map', ...families.map(f => f.short), 'Kills']}
+                    rows={rows.map(r => ({ key: r.map, cells: [r.map, ...families.map(f => (r.kills ? percent(r.families[f.id] / r.kills) : '–')), r.kills.toLocaleString()] }))}
                 />
             </>
         );

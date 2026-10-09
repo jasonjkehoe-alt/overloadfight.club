@@ -2,20 +2,25 @@ import React from 'react';
 import DuelLadder from './ladders/DuelLadder';
 import ObjectiveBoard from './ladders/ObjectiveBoard';
 import { useQueryParam } from '../hooks/useLocation';
-import { DUEL_HINT, OBJECTIVE_MODES } from '../server/lib/gameParse.js';
+import { DUEL_HINT, OBJECTIVE_FIELDS, OBJECTIVE_MODES } from '../server/lib/gameParse.js';
 
-const BOARDS = [
-    { id: 'duels', label: '1v1 duels', blurb: DUEL_HINT },
-    { id: 'ctf', label: 'CTF', blurb: `Captures, returns, pickups and carrier kills as the tracker counts them per pilot, over ranked ${OBJECTIVE_MODES.CTF.label} matches.` },
-    { id: 'monsterball', label: 'Monsterball', blurb: `Goals, goal assists and blunders as the tracker counts them per pilot, over ranked ${OBJECTIVE_MODES.MONSTERBALL.label} matches.` }
-] as const;
-type Board = (typeof BOARDS)[number]['id'];
+type Mode = keyof typeof OBJECTIVE_MODES;
+const LABEL = Object.fromEntries(OBJECTIVE_FIELDS.map(f => [f.field, f.label.toLowerCase()]));
+// the duel ladder, then one board per objective mode in gameParse.js
+const BOARDS: { id: string; mode: Mode | null; label: string; blurb: string }[] = [
+    { id: 'duels', mode: null, label: '1v1 duels', blurb: DUEL_HINT },
+    ...(Object.keys(OBJECTIVE_MODES) as Mode[]).map(mode => {
+        const { label, fields } = OBJECTIVE_MODES[mode];
+        const counts = fields.map(f => LABEL[f]);
+        return { id: mode.toLowerCase(), mode, label, blurb: `${counts.slice(0, -1).join(', ')} and ${counts[counts.length - 1]} as the tracker counts them per pilot, over ranked ${label} matches.` };
+    })
+];
 const BOARD_IDS = BOARDS.map(b => b.id);
 
 // /ladders (S16): the 1v1 duel ladder and the CTF and Monsterball objective
 // boards, the board in ?board= (duels left out of the URL).
 const Ladders: React.FC = () => {
-    const [board, setBoard] = useQueryParam<Board>('board', 'duels', BOARD_IDS);
+    const [board, setBoard] = useQueryParam('board', 'duels', BOARD_IDS);
     const current = BOARDS.find(b => b.id === board)!;
 
     return (
@@ -35,7 +40,7 @@ const Ladders: React.FC = () => {
                 ))}
             </div>
 
-            {board === 'duels' ? <DuelLadder /> : <ObjectiveBoard mode={board === 'ctf' ? 'CTF' : 'MONSTERBALL'} />}
+            {current.mode ? <ObjectiveBoard mode={current.mode} /> : <DuelLadder />}
         </div>
     );
 };

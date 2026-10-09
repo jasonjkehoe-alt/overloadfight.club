@@ -2,23 +2,36 @@ import { hotDb } from '../connection.js';
 import '../migrations.js';
 import { DERIVED_TABLES_VERSION } from '../../lib/statsPasses.js';
 import { OBJECTIVE_MODES, WEAPON_FAMILIES, duelLadder, fightNightDay, pilotKey } from '../../lib/gameParse.js';
-import { setAdminSetting } from '../repos/settings.js';
+import { getAdminSetting, setAdminSetting } from '../repos/settings.js';
+import { clearRankings } from './ratings.js';
 
 // Weapon meta and ladders (S16), read from the derived tables the stats
 // worker keeps (map_weapons, pilot_weapons, pilot_maps, duel_snapshots,
 // pilot_duels, pilot_objectives). Nothing here reads a stored match.
 
-// How many maps the weapon meta lists, and the specialist grid's size.
-export const META = { maps: 25, gridPilots: 20, gridMaps: 12 };
+// How many maps the weapon meta lists, the specialist grid's size, and how
+// many pilots each objective board lists.
+const META = { maps: 25, gridPilots: 20, gridMaps: 12, boardRows: 50 };
 
-const families = WEAPON_FAMILIES.map(f => f.id);
-// { family: kills } with every family present
+// { family: kills } with every family present (weaponFamily() always gives one)
 const byFamily = rows => {
-  const counts = Object.fromEntries(families.map(f => [f, 0]));
-  for (const { family, kills } of rows) if (family in counts) counts[family] += kills;
+  const counts = Object.fromEntries(WEAPON_FAMILIES.map(f => [f.id, 0]));
+  for (const { family, kills } of rows) counts[family] += kills;
   return counts;
 };
 const sum = counts => Object.values(counts).reduce((a, b) => a + b, 0);
+
+// Each answer below changes only when a refresh writes its table, so it is
+// kept until then (clearDerivedCaches, from the refresh and a restore).
+const kept = new Map();
+const until = (key, build) => {
+  if (!kept.has(key)) kept.set(key, build());
+  return kept.get(key);
+};
+export const clearDerivedCaches = () => {
+  kept.clear();
+  clearRankings();
+};
 
 // The built marker: admin_settings holds the list of derived tables a
 // refresh last wrote in full (statsPasses.js DERIVED_TABLES_VERSION). The
@@ -26,19 +39,14 @@ const sum = counts => Object.values(counts).reduce((a, b) => a + b, 0);
 // backup (restoreHot clears it) or a refresh that failed to write a table
 // each cost one refresh, and a table that stays empty for good (no
 // Monsterball match ever) costs none.
-export const DERIVED_MARK = 'derived_tables_built';
-// its own statement: pluck() would change the shared getAdminSetting for every caller
-const readMark = hotDb.prepare('SELECT value FROM admin_settings WHERE key = ?').pluck();
-export const derivedTablesBuilt = () => readMark.get(DERIVED_MARK) === DERIVED_TABLES_VERSION;
+const DERIVED_MARK = 'derived_tables_built';
+export const derivedTablesBuilt = () => getAdminSetting.get(DERIVED_MARK)?.value === DERIVED_TABLES_VERSION;
 export const markDerivedTablesBuilt = () => setAdminSetting.run(DERIVED_MARK, DERIVED_TABLES_VERSION);
 export const clearDerivedTablesBuilt = () => hotDb.prepare('DELETE FROM admin_settings WHERE key = ?').run(DERIVED_MARK);
 
-// The community's kills per family, over every map, kept until a refresh
-// writes map_weapons (clearWeaponTotals): the pilot page reads it on each view.
+// The community's kills per family, over every map.
 const communityWeapons = hotDb.prepare('SELECT family, SUM(kills) AS kills FROM map_weapons GROUP BY family');
-let community = null;
-const communityTotals = () => (community ??= byFamily(communityWeapons.all()));
-export const clearWeaponTotals = () => { community = null; };
+const communityTotals = () => until('community', () => byFamily(communityWeapons.all()));
 const mapWeapons = hotDb.prepare(`
   SELECT map, family, kills FROM map_weapons
   WHERE map IN (SELECT map FROM map_weapons GROUP BY map ORDER BY SUM(kills) DESC, map LIMIT ?)
@@ -48,17 +56,15 @@ const mapWeapons = hotDb.prepare(`
 // the kills on opponents per weapon family over every ranked match with a
 // kill log, and the same for the META.maps maps with the most logged kills,
 // most first.
-export function getWeaponMeta() {
+export const getWeaponMeta = () => until('weapons', () => {
   const community = communityTotals();
-  const maps = new Map();
-  for (const { map, family, kills } of mapWeapons.all(META.maps)) {
-    if (!maps.has(map)) maps.set(map, { map, kills: 0, families: byFamily([]) });
-    const m = maps.get(map);
-    if (family in m.families) m.families[family] += kills;
-    m.kills += kills;
-  }
-  return { community, kills: sum(community), maps: [...maps.values()].sort((a, b) => b.kills - a.kills || a.map.localeCompare(b.map)) };
-}
+  const rows = Map.groupBy(mapWeapons.all(META.maps), r => r.map);
+  const maps = [...rows].map(([map, r]) => {
+    const families = byFamily(r);
+    return { map, kills: sum(families), families };
+  });
+  return { community, kills: sum(community), maps: maps.sort((a, b) => b.kills - a.kills || a.map.localeCompare(b.map)) };
+});
 
 const pilotWeapons = hotDb.prepare('SELECT family, kills FROM pilot_weapons WHERE pilot = ?');
 
@@ -81,24 +87,24 @@ const topGridMaps = hotDb.prepare(`
   SELECT UPPER(map_name) AS map, total_matches AS matches FROM map_stats_cache
   WHERE map_name IN (SELECT DISTINCT map FROM pilot_maps) ORDER BY total_matches DESC, map_name LIMIT ?
 `);
+// the grid's cells, by the pilots and maps the two reads above chose
 const gridCells = hotDb.prepare(`
   SELECT pilot, map, matches, wins, losses, ties FROM pilot_maps
-  WHERE pilot IN (SELECT pilot FROM pilot_maps GROUP BY pilot ORDER BY SUM(matches) DESC, pilot LIMIT ?)
-    AND map IN (SELECT UPPER(map_name) FROM map_stats_cache WHERE map_name IN (SELECT DISTINCT map FROM pilot_maps) ORDER BY total_matches DESC, map_name LIMIT ?)
+  WHERE pilot IN (SELECT value FROM json_each(?)) AND map IN (SELECT value FROM json_each(?))
 `);
 
 // The specialist grid: the META.gridPilots pilots with the most ranked matches
 // against the META.gridMaps maps played most, `cells[i][j]` the pilot's
 // record on the map ({ matches, wins, losses, ties }) or null.
-export function getSpecialists() {
+export const getSpecialists = () => until('specialists', () => {
   const pilots = topGridPilots.all(META.gridPilots);
   const maps = topGridMaps.all(META.gridMaps);
   const row = new Map(pilots.map((p, i) => [p.pilot, i]));
   const column = new Map(maps.map((m, j) => [m.map, j]));
   const cells = pilots.map(() => maps.map(() => null));
-  for (const { pilot, map, ...record } of gridCells.all(META.gridPilots, META.gridMaps)) cells[row.get(pilot)][column.get(map)] = record;
+  for (const { pilot, map, ...record } of gridCells.all(JSON.stringify([...row.keys()]), JSON.stringify([...column.keys()]))) cells[row.get(pilot)][column.get(map)] = record;
   return { pilots, maps, cells };
-}
+});
 
 // Each pilot's latest duel snapshot on or before a day.
 const latestDuelOnOrBefore = hotDb.prepare(`
@@ -110,35 +116,25 @@ const duelRecords = hotDb.prepare(`
   SELECT pilot, SUM(wins) AS wins, SUM(losses) AS losses, SUM(ties) AS ties, MAX(last) AS last FROM pilot_duels GROUP BY pilot
 `);
 
-// The ladder per day until the next refresh writes duel snapshots (clearDuelLadder).
-const ladderByDay = new Map();
-export const clearDuelLadder = () => ladderByDay.clear();
-
 // { day, listed, pilots }: the duel ladder on `day` (today's fight-night day
 // by default), each pilot a duel snapshot plus `rank`, `status` ('listed' or
 // 'provisional'), their record and the day of their last duel; `listed` is
-// how many are past the listing bar.
-export function getDuelLadder(day = fightNightDay(Date.now())) {
-  if (!ladderByDay.has(day)) {
-    const records = new Map(duelRecords.all().map(r => [r.pilot, r]));
-    const pilots = duelLadder(latestDuelOnOrBefore.all(day), day).map(s => {
-      const r = records.get(s.pilot);
-      return { ...s, wins: r?.wins ?? 0, losses: r?.losses ?? 0, ties: r?.ties ?? 0, last: r?.last ? fightNightDay(r.last) : s.day };
-    });
-    ladderByDay.set(day, { day, listed: pilots.filter(p => p.status === 'listed').length, pilots });
-  }
-  return ladderByDay.get(day);
-}
+// how many are past the listing bar. A pilot's record can lag their snapshot
+// while the first fill writes the two tables in chunks, hence the fallbacks.
+export const getDuelLadder = (day = fightNightDay(Date.now())) => until(`ladder\n${day}`, () => {
+  const records = new Map(duelRecords.all().map(r => [r.pilot, r]));
+  const pilots = duelLadder(latestDuelOnOrBefore.all(day), day).map(s => {
+    const r = records.get(s.pilot);
+    return { ...s, wins: r?.wins ?? 0, losses: r?.losses ?? 0, ties: r?.ties ?? 0, last: r?.last ? fightNightDay(r.last) : s.day };
+  });
+  return { day, listed: pilots.filter(p => p.status === 'listed').length, pilots };
+});
 
 const objectiveRows = Object.fromEntries(Object.entries(OBJECTIVE_MODES).map(([mode, { sort }]) => [mode, hotDb.prepare(`
   SELECT * FROM pilot_objectives WHERE mode = ? ORDER BY ${sort} DESC, matches DESC, pilot LIMIT ?
 `)]));
 
-// How many pilots each objective board lists.
-export const OBJECTIVE_BOARD_SIZE = 50;
-
 // { CTF: [...], MONSTERBALL: [...] }: each board's pilots by its sort field
 // (OBJECTIVE_MODES), each a pilot_objectives row with `rank`.
-export function getObjectiveBoards() {
-  return Object.fromEntries(Object.entries(objectiveRows).map(([mode, stmt]) => [mode, stmt.all(mode, OBJECTIVE_BOARD_SIZE).map((row, i) => ({ ...row, rank: i + 1 }))]));
-}
+export const getObjectiveBoards = () => until('objectives', () =>
+  Object.fromEntries(Object.entries(objectiveRows).map(([mode, stmt]) => [mode, stmt.all(mode, META.boardRows).map((row, i) => ({ ...row, rank: i + 1 }))])));

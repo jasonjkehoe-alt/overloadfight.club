@@ -11,7 +11,7 @@ import { fetchSpecialists, SpecialistCell } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
 
 // Matches on a map before its win rate colours the cell.
-export const SPECIALIST_MIN = 3;
+const SPECIALIST_MIN = 3;
 
 const record = (c: SpecialistCell) => `${c.wins}-${c.losses}${c.ties ? `-${c.ties}` : ''}`;
 

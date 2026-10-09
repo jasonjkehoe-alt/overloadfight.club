@@ -2,8 +2,7 @@ import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
 import { DERIVED_TABLES, derivedColumns } from '../../lib/statsPasses.js';
-import { clearRankings } from './ratings.js';
-import { clearDuelLadder, clearWeaponTotals, markDerivedTablesBuilt } from './meta.js';
+import { clearDerivedCaches, markDerivedTablesBuilt } from './meta.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
@@ -13,15 +12,7 @@ import { clearDuelLadder, clearWeaponTotals, markDerivedTablesBuilt } from './me
 let refreshing = null;
 // derived-table rows written per transaction (see writeChanges)
 const WRITE_CHUNK = 2000;
-// What a derived table's readers keep in memory, cleared once it is written
-// (also after a failed chunk, so the ranks agree with the days written).
-const AFTER_WRITE = { rating_snapshots: clearRankings, duel_snapshots: clearDuelLadder, pilot_duels: clearDuelLadder, map_weapons: clearWeaponTotals };
-// Each derived table's log line: its tag and what its rows are
-const LOG_LINE = {
-  rating_snapshots: ['Ratings', 'daily rating snapshots'], pilot_months: ['Career', 'pilot months'], region_months: ['Regions', 'region months'],
-  map_weapons: ['Weapons', 'map weapon rows'], pilot_weapons: ['Weapons', 'pilot weapon rows'], pilot_maps: ['Maps', 'pilot map rows'],
-  duel_snapshots: ['Duels', 'daily duel snapshots'], pilot_duels: ['Duels', 'duel records'], pilot_objectives: ['Objectives', 'objective rows']
-};
+
 // The stats worker while a refresh runs, so close() can stop it first.
 let statsWorker = null;
 export const refreshPilotStats = () => {
@@ -128,24 +119,27 @@ async function refreshCaches() {
       })();
       console.log(`[MapStats] Built map_stats_cache for ${maps.length} maps.`);
     }
-    // each table on its own, so one that fails to write does not stop the rest
+    // each table on its own, so one that fails to write does not stop the
+    // rest; what the readers keep in memory is cleared once, after the last
+    // write (also after a failed chunk, so the ranks agree with the days written)
     let built = true;
-    for (const table of Object.keys(DERIVED_TABLES)) {
-      const changes = derived[table];
-      const [tag, rows] = LOG_LINE[table];
-      if (!changes) {
-        built = false;
-        continue;
+    try {
+      for (const [table, { log: [tag, rows] }] of Object.entries(DERIVED_TABLES)) {
+        const changes = derived[table];
+        if (!changes) {
+          built = false;
+          continue;
+        }
+        try {
+          await writeChanges(table, changes);
+          console.log(`[${tag}] ${changes.total} ${rows}: ${changes.upserts.length} written, ${changes.deletes.length} removed.`);
+        } catch (err) {
+          built = false;
+          console.error(`[${tag}] Failed to write ${table}:`, err);
+        }
       }
-      try {
-        await writeChanges(table, changes);
-        console.log(`[${tag}] ${changes.total} ${rows}: ${changes.upserts.length} written, ${changes.deletes.length} removed.`);
-      } catch (err) {
-        built = false;
-        console.error(`[${tag}] Failed to write ${table}:`, err);
-      } finally {
-        AFTER_WRITE[table]?.();
-      }
+    } finally {
+      clearDerivedCaches();
     }
     // the startup check reads this: a refresh has filled every derived table
     if (built) markDerivedTablesBuilt();

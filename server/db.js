@@ -39,10 +39,10 @@ import {
   getPilotDetailedStats, getPilotBreakdown, getPilotTelemetry, normalizeWeaponName,
   PRIMARY_WEAPONS, SECONDARY_WEAPONS
 } from './db/analytics/pilotTelemetry.js';
-import { clearRankings, getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
+import { getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
-import { clearDerivedTablesBuilt, clearDuelLadder, clearWeaponTotals, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
+import { clearDerivedCaches, clearDerivedTablesBuilt, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -69,16 +69,14 @@ const db = {
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
     // A backup from before S13 to S16 lacks some of the derived tables; the
-    // next refresh fills them, and the startup check runs one because the
-    // built marker is cleared. Nor does it have the server tables, which
-    // start empty again.
+    // next refresh fills them. The built marker is cleared whatever the
+    // backup carried, so a restore always gets one refresh at the next start.
+    // Nor does it have the server tables, which start empty again.
     ensureDerivedTables();
     ensureServerTables();
     ensureAdminSettings();
     clearDerivedTablesBuilt();
-    clearRankings();
-    clearDuelLadder();
-    clearWeaponTotals();
+    clearDerivedCaches();
     clearServerSummaries();
   },
   migrateGamePlayers,
