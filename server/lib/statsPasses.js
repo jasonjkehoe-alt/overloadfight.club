@@ -384,8 +384,8 @@ export const DERIVED_TABLES = {
 // A derived table's column names, in table order.
 export const derivedColumns = table => DERIVED_TABLES[table].columns.map(c => c.split(' ')[0]);
 // The value of the built marker (analytics/meta.js) once a refresh has
-// written every table in the list: a new table changes it.
-export const DERIVED_TABLES_VERSION = Object.keys(DERIVED_TABLES).join(',');
+// written every table in the list: a new table or column changes it.
+export const DERIVED_TABLES_VERSION = Object.entries(DERIVED_TABLES).map(([table, { columns }]) => `${table}(${columns.join(',')})`).join(';');
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
 // sides and replayed in date order once every game has been read.

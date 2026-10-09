@@ -12,7 +12,7 @@ import { HOUR_MS, RATING, dayBounds, dayStart, fightNightDay, heatmapCells, shif
 // 90003: game 72107 with JFTP spelled "jftp".
 // 90004: game 72106 with a kill log in which XB1 kills himself once.
 // 90010-90012: game 72099 cut to a 1v1 Monsterball that BLUE wins 2-1 on goals
-//   while scoring fewer kills.
+//   while scoring fewer kills; the loser has the more goals, so the board ranks him first.
 // 2: veteranSoup from testFixtures.js (cold storage).
 const orangeWin = { ...byId(72102), id: 90001, teamScore: { BLUE: 35, ORANGE: 42 } };
 const teamTie = { ...byId(72096), id: 90002, teamScore: { BLUE: 10, ORANGE: 10 } };
@@ -33,8 +33,8 @@ const monsterball = [90010, 90011, 90012].map(id => ({
     settings: { ...byId(72099).settings, matchMode: 'MONSTERBALL' },
     teamScore: { BLUE: 2, ORANGE: 1 },
     players: [
-        { name: 'BALLER', team: 'BLUE', kills: 1, deaths: 5, assists: 0 },
-        { name: 'FRAGGER', team: 'ORANGE', kills: 5, deaths: 1, assists: 0 }
+        { name: 'BALLER', team: 'BLUE', kills: 1, deaths: 5, assists: 0, goals: 1 },
+        { name: 'FRAGGER', team: 'ORANGE', kills: 5, deaths: 1, assists: 0, goals: 2 }
     ]
 }));
 
@@ -297,13 +297,20 @@ describe('weapon meta and ladders (S16)', () => {
     });
 
     it('builds the specialist grid from each pilot\'s ranked matches per map', () => {
+        // a map whose name folds in JS but not in SQLite (the next refresh removes
+        // the pilot_maps row, which takes the map out of the grid)
+        const hot = connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'pilot_maps'").get());
+        hot.prepare("INSERT INTO map_stats_cache (map_name, total_matches) VALUES ('Café', 99)").run();
+        hot.prepare("INSERT INTO pilot_maps (pilot, map, name, matches, wins, losses, ties, kills, deaths) VALUES ('wd-40', 'CAFÉ', 'WD-40', 3, 3, 0, 0, 9, 1)").run();
         const { pilots, maps, cells } = db.getSpecialists();
         expect(pilots.length).toBeGreaterThan(0);
         expect(pilots.length).toBeLessThanOrEqual(20);
         expect(maps.length).toBeLessThanOrEqual(12);
         expect(cells).toHaveLength(pilots.length);
-        // every cell's matches add up to the pilot's matches on the listed maps
         const i = pilots.findIndex(p => p.name === 'WD-40');
+        expect(maps[0]).toEqual({ map: 'CAFÉ', matches: 99 });
+        expect(cells[i][0]).toEqual({ matches: 3, wins: 3, losses: 0, ties: 0 });
+        // WD-40's record on TERMINAL
         const j = maps.findIndex(m => m.map === 'TERMINAL');
         expect(i).toBeGreaterThanOrEqual(0);
         expect(j).toBeGreaterThanOrEqual(0);
@@ -337,7 +344,8 @@ describe('weapon meta and ladders (S16)', () => {
     it('fills the objective boards from the per-player counts of ranked matches in that mode', () => {
         const boards = db.getObjectiveBoards();
         expect(boards.CTF).toEqual([]);
-        expect(boards.MONSTERBALL.map(p => `${p.rank}:${p.name}:${p.wins}-${p.losses}-${p.ties}:${p.goals}`)).toEqual(['1:BALLER:3-0-0:0', '2:FRAGGER:0-3-0:0']);
+        // by goals, not by the record
+        expect(boards.MONSTERBALL.map(p => `${p.rank}:${p.name}:${p.wins}-${p.losses}-${p.ties}:${p.goals}`)).toEqual(['1:FRAGGER:0-3-0:6', '2:BALLER:3-0-0:3']);
         expect(boards.MONSTERBALL[0]).toMatchObject({ matches: 3, goal_assists: 0, blunders: 0, captures: 0, carrier_kills: 0 });
     });
 
@@ -348,25 +356,56 @@ describe('weapon meta and ladders (S16)', () => {
         hot.prepare("INSERT INTO pilot_duels (pilot, opponent, wins, losses, ties, last) VALUES ('ghost', 'nobody', 1, 0, 0, '2001-01-01')").run();
         hot.prepare("UPDATE pilot_duels SET wins = 9 WHERE pilot = 'jftp' AND opponent = '.'").run();
         hot.prepare("DELETE FROM map_weapons").run();
+        hot.prepare("INSERT INTO pilot_weapons (pilot, family, kills) VALUES ('ghost', 'laser', 7)").run();
+        // an answer kept from before the refresh
+        expect(db.getPilotWeaponMix('ghost').kills).toBe(7);
         const log = vi.spyOn(console, 'log');
         await db.refreshPilotStats();
         expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Duels]'))).toEqual([
             expect.stringMatching(/^\[Duels\] \d+ daily duel snapshots: 0 written, 0 removed\.$/),
             `[Duels] ${before.length} duel records: 1 written, 1 removed.`
         ]);
-        expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Weapons]'))).toEqual(['[Weapons] 1 map weapon rows: 1 written, 0 removed.', '[Weapons] 1 pilot weapon rows: 0 written, 0 removed.']);
+        expect(log.mock.calls.flat().filter(m => String(m).startsWith('[Weapons]'))).toEqual(['[Weapons] 1 map weapon rows: 1 written, 0 removed.', '[Weapons] 1 pilot weapon rows: 0 written, 1 removed.']);
         log.mockRestore();
         expect(table()).toEqual(before);
         expect(db.getWeaponMeta().kills).toBe(1);
+        // the kept answer went with the refresh
+        expect(db.getPilotWeaponMix('ghost').kills).toBe(0);
     });
 
-    it('marks the derived tables built only when every one wrote, and the marker survives a refresh', async () => {
+    it('marks the derived tables built only when every one wrote', async () => {
         expect(db.derivedTablesBuilt()).toBe(true);
         const hot = connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'pilot_duels'").get());
         hot.prepare("DELETE FROM admin_settings WHERE key = 'derived_tables_built'").run();
         expect(db.derivedTablesBuilt()).toBe(false);
         await db.refreshPilotStats();
         expect(db.derivedTablesBuilt()).toBe(true);
+        // a table that fails to write leaves the marker clear until a refresh writes every table
+        hot.prepare('DELETE FROM pilot_objectives').run();
+        hot.exec("CREATE TRIGGER block_objectives BEFORE INSERT ON pilot_objectives BEGIN SELECT RAISE(ABORT, 'blocked'); END");
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        await db.refreshPilotStats();
+        error.mockRestore();
+        expect(db.derivedTablesBuilt()).toBe(false);
+        expect(db.getObjectiveBoards().MONSTERBALL).toEqual([]);
+        hot.exec('DROP TRIGGER block_objectives');
+        await db.refreshPilotStats();
+        expect(db.derivedTablesBuilt()).toBe(true);
+        expect(db.getObjectiveBoards().MONSTERBALL).toHaveLength(2);
+    });
+
+    it('recreates a derived table whose columns differ from the list', async () => {
+        const { ensureDerivedTables } = await import('./db/migrations.js');
+        const { derivedColumns } = await import('./lib/statsPasses.js');
+        const hot = connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'pilot_duels'").get());
+        const rows = () => hot.prepare('SELECT COUNT(*) AS n FROM pilot_duels').get().n;
+        expect(rows()).toBeGreaterThan(0);
+        hot.exec('ALTER TABLE pilot_duels ADD COLUMN streak INTEGER NOT NULL DEFAULT 0');
+        ensureDerivedTables();
+        expect(hot.pragma('table_info(pilot_duels)').map(c => c.name)).toEqual(derivedColumns('pilot_duels'));
+        expect(rows()).toBe(0);
+        await db.refreshPilotStats();
+        expect(rows()).toBeGreaterThan(0);
     });
 });
 
@@ -582,7 +621,13 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         db.saveServerSnapshot(Date.parse(dayStart(day)) + 14 * HOUR_MS, [{ server: { ip: '143.110.230.67', online: true } }]);
         expect(db.getServerHistory('143.110.230.67', 30).samples).toBe(1);
 
+        // a refresh under way is stopped and waited out, so it cannot write its
+        // diffs of the old tables into the restored ones or set the marker back
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const running = db.refreshPilotStats();
         await db.restoreHot(copy);
+        await running;
+        error.mockRestore();
         expect(db.countGames(null, null).count).toBe(before);
         expect(db.getGameById.get(99999)).toBeFalsy();
         expect(db.getGameById.get(72099)).toBeTruthy();

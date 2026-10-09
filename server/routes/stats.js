@@ -194,7 +194,7 @@ router.get('/stats/active-count', async (req, res) => {
 
 // S16: the weapon meta, the specialist grid, the duel ladder and the objective
 // boards, each from a derived table the stats refresh keeps; no route cache,
-// so an answer is never older than its table.
+// and analytics/meta.js keeps each answer until a refresh has finished writing.
 const derivedRoute = (path, read, label) => router.get(path, (req, res) => {
     try {
         res.json(read());

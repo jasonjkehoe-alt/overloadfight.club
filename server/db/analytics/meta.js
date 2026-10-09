@@ -1,7 +1,7 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
 import { DERIVED_TABLES_VERSION } from '../../lib/statsPasses.js';
-import { OBJECTIVE_MODES, WEAPON_FAMILIES, duelLadder, fightNightDay, pilotKey } from '../../lib/gameParse.js';
+import { BOARD_ROWS, OBJECTIVE_MODES, WEAPON_FAMILIES, duelLadder, fightNightDay, mapKey, pilotKey } from '../../lib/gameParse.js';
 import { getAdminSetting, setAdminSetting } from '../repos/settings.js';
 import { clearRankings } from './ratings.js';
 
@@ -9,9 +9,9 @@ import { clearRankings } from './ratings.js';
 // worker keeps (map_weapons, pilot_weapons, pilot_maps, duel_snapshots,
 // pilot_duels, pilot_objectives). Nothing here reads a stored match.
 
-// How many maps the weapon meta lists, the specialist grid's size, and how
-// many pilots each objective board lists.
-const META = { maps: 25, gridPilots: 20, gridMaps: 12, boardRows: 50 };
+// How many maps the weapon meta lists and the specialist grid's size (the
+// objective boards list BOARD_ROWS pilots).
+const META = { maps: 25, gridPilots: 20, gridMaps: 12 };
 
 // { family: kills } with every family present (weaponFamily() always gives one)
 const byFamily = rows => {
@@ -78,15 +78,22 @@ export function getPilotWeaponMix(name) {
 
 // The pilots with the most ranked matches, and the maps among their rows
 // with the most matches by map_stats_cache (every stored match on the map;
-// pilot_maps rows are pilot appearances, not matches). map_stats_cache's
-// name is NOCASE, so it matches pilot_maps' upper-case key.
+// pilot_maps rows are pilot appearances, not matches). The maps are keyed in
+// JS by mapKey(), as pilot_maps is: SQLite's NOCASE and UPPER() fold ASCII only.
 const topGridPilots = hotDb.prepare(`
   SELECT pilot, name, SUM(matches) AS matches FROM pilot_maps GROUP BY pilot ORDER BY matches DESC, pilot LIMIT ?
 `);
-const topGridMaps = hotDb.prepare(`
-  SELECT UPPER(map_name) AS map, total_matches AS matches FROM map_stats_cache
-  WHERE map_name IN (SELECT DISTINCT map FROM pilot_maps) ORDER BY total_matches DESC, map_name LIMIT ?
-`);
+const mapMatches = hotDb.prepare('SELECT map_name AS name, total_matches AS matches FROM map_stats_cache');
+const playedMaps = hotDb.prepare('SELECT DISTINCT map FROM pilot_maps');
+const topGridMaps = limit => {
+  const played = new Set(playedMaps.all().map(r => r.map));
+  const matches = new Map();
+  for (const m of mapMatches.all()) {
+    const map = mapKey({ settings: { level: m.name } });
+    if (played.has(map)) matches.set(map, (matches.get(map) || 0) + m.matches);
+  }
+  return [...matches].map(([map, n]) => ({ map, matches: n })).sort((a, b) => b.matches - a.matches || a.map.localeCompare(b.map)).slice(0, limit);
+};
 // the grid's cells, by the pilots and maps the two reads above chose
 const gridCells = hotDb.prepare(`
   SELECT pilot, map, matches, wins, losses, ties FROM pilot_maps
@@ -98,7 +105,7 @@ const gridCells = hotDb.prepare(`
 // record on the map ({ matches, wins, losses, ties }) or null.
 export const getSpecialists = () => until('specialists', () => {
   const pilots = topGridPilots.all(META.gridPilots);
-  const maps = topGridMaps.all(META.gridMaps);
+  const maps = topGridMaps(META.gridMaps);
   const row = new Map(pilots.map((p, i) => [p.pilot, i]));
   const column = new Map(maps.map((m, j) => [m.map, j]));
   const cells = pilots.map(() => maps.map(() => null));
@@ -137,4 +144,4 @@ const objectiveRows = Object.fromEntries(Object.entries(OBJECTIVE_MODES).map(([m
 // { CTF: [...], MONSTERBALL: [...] }: each board's pilots by its sort field
 // (OBJECTIVE_MODES), each a pilot_objectives row with `rank`.
 export const getObjectiveBoards = () => until('objectives', () =>
-  Object.fromEntries(Object.entries(objectiveRows).map(([mode, stmt]) => [mode, stmt.all(mode, META.boardRows).map((row, i) => ({ ...row, rank: i + 1 }))])));
+  Object.fromEntries(Object.entries(objectiveRows).map(([mode, stmt]) => [mode, stmt.all(mode, BOARD_ROWS).map((row, i) => ({ ...row, rank: i + 1 }))])));

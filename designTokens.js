@@ -71,13 +71,18 @@ export const chart = {
 // grey.
 chart.region = Object.fromEntries(REGIONS.map((r, i) => [r.id, Object.values(chart.weapon)[i]]));
 
-// The ramp colour for `count` against the largest count shown: each step
-// covers a fifth of the way to `max`.
+// The ramp step for `count` against the largest count shown, 0 to 4, each
+// covering a fifth of the way to `max`; -1 for no count.
+/** @type {(count: number, max: number) => number} */
+export const rampStep = (count, max) =>
+  count > 0 && max > 0 ? Math.min(chart.ramp.length - 1, Math.ceil((count / max) * chart.ramp.length) - 1) : -1;
+
+// The ramp colour for `count` against the largest count shown.
 /** @type {(count: number, max: number) => string} */
-export const rampColor = (count, max) =>
-  count > 0 && max > 0
-    ? chart.ramp[Math.min(chart.ramp.length - 1, Math.ceil((count / max) * chart.ramp.length) - 1)]
-    : colors.surface.raised;
+export const rampColor = (count, max) => {
+  const step = rampStep(count, max);
+  return step >= 0 ? chart.ramp[step] : colors.surface.raised;
+};
 
 // Text in a Recharts tooltip, with chartTooltip as its box
 export const chartTooltipText = { itemStyle: { color: chart.ink }, labelStyle: { color: chart.text } };

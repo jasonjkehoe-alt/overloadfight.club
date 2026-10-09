@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { day, onDay, sample, veteranSoup } from './testFixtures.js';
 import { HOUR_MS, dayStart, netKills } from './lib/gameParse.js';
 
@@ -87,7 +87,14 @@ describe('withPageMeta', () => {
         const tags = tagsFor('/ladders');
         expect(tags.title).toBe('Ladders | overloadfight.club');
         expect(tags.description).toBe(`Duel ladder for ${today}: ${listed.map(p => `${p.rank}. ${p.name} (${Math.round(p.rating)})`).join(', ')}.`);
-        expect(tagsFor('/ladders?board=ctf').url).toBe('https://overloadfight.club/ladders?board=ctf');
+        // three of four listed
+        const ladder = vi.spyOn(db, 'getDuelLadder').mockReturnValue({ day: today, listed: 4, pilots: [1, 2, 3, 4].map(rank => ({ rank, name: `P${rank}`, rating: 1500 + rank, status: 'listed' })) });
+        expect(tagsFor('/ladders').description).toBe(`Duel ladder for ${today}: 1. P1 (1501), 2. P2 (1502), 3. P3 (1503).`);
+        ladder.mockRestore();
+        // an objective board is not the duel ladder
+        const ctf = tagsFor('/ladders?board=ctf');
+        expect(ctf.url).toBe('https://overloadfight.club/ladders?board=ctf');
+        expect(ctf.description).toBe('Live Overload servers, match results and pilot stats.');
     });
 
     it('keeps the query string in og:url and leaves the rest of the page alone', () => {

@@ -1,18 +1,18 @@
 import React from 'react';
 import DuelLadder from './ladders/DuelLadder';
-import ObjectiveBoard from './ladders/ObjectiveBoard';
+import ObjectiveBoard, { LABEL } from './ladders/ObjectiveBoard';
 import { useQueryParam } from '../hooks/useLocation';
-import { DUEL_HINT, OBJECTIVE_FIELDS, OBJECTIVE_MODES } from '../server/lib/gameParse.js';
+import { DUEL_HINT, OBJECTIVE_MODES } from '../server/lib/gameParse.js';
 
 type Mode = keyof typeof OBJECTIVE_MODES;
-const LABEL = Object.fromEntries(OBJECTIVE_FIELDS.map(f => [f.field, f.label.toLowerCase()]));
+type BoardId = 'duels' | Lowercase<Mode>;
 // the duel ladder, then one board per objective mode in gameParse.js
-const BOARDS: { id: string; mode: Mode | null; label: string; blurb: string }[] = [
+const BOARDS: { id: BoardId; mode: Mode | null; label: string; blurb: string }[] = [
     { id: 'duels', mode: null, label: '1v1 duels', blurb: DUEL_HINT },
     ...(Object.keys(OBJECTIVE_MODES) as Mode[]).map(mode => {
         const { label, fields } = OBJECTIVE_MODES[mode];
-        const counts = fields.map(f => LABEL[f]);
-        return { id: mode.toLowerCase(), mode, label, blurb: `${counts.slice(0, -1).join(', ')} and ${counts[counts.length - 1]} as the tracker counts them per pilot, over ranked ${label} matches.` };
+        const counts = fields.map(f => LABEL[f].toLowerCase());
+        return { id: mode.toLowerCase() as Lowercase<Mode>, mode, label, blurb: `${counts.slice(0, -1).join(', ')} and ${counts[counts.length - 1]} as the tracker counts them per pilot, over ranked ${label} matches.` };
     })
 ];
 const BOARD_IDS = BOARDS.map(b => b.id);

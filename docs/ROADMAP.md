@@ -131,8 +131,8 @@ maintenance item does not count toward the 28.
   logs (16 weapon spellings, "Thunderbolt", "Missile Pod", "Miscellaneous"
   among them); 20 two-pilot matches.
 - S16, the owner's three answers at the start (see the decisions).
-- S16, tests: `npx vitest run` passes 17 files, 264 tests (244 at the
-  start). `gameParse.test.js` (+21): `weaponKills` on `teamWithLog` (10
+- S16, tests: `npx vitest run` passes 17 files, 265 tests (244 at the
+  start). `gameParse.test.js` (+13): `weaponKills` on `teamWithLog` (10
   kills on opponents, 8 families, INSANER 5 times) and `ffaWithLog`, with
   a suicide, a team kill whose teams come from the players and an
   attacker-less death left out, nothing for a 30-second copy, a log-less
@@ -147,7 +147,7 @@ maintenance item does not count toward the 28.
   the detail sample's RONCLI (1 goal, 1 blunder) and a CTF line;
   `weaponPass` (map rows and pilot rows both adding up to 24 kills over
   four fixtures, a mixed-case `ascent` folded into ASCENT, a map-less
-  logged match in neither). `db.test.js` (+6, through the real refresh):
+  logged match in neither). `db.test.js` (+7, through the real refresh):
   the one logged kill on an opponent in the fixtures (STITCH, Impulse,
   90004's map) and not XB1's suicide, in the meta and in STITCH's and
   XB1's mix; the specialist grid (WD-40 on TERMINAL 0-1-1, JFTP's 10
@@ -296,11 +296,11 @@ maintenance item does not count toward the 28.
   per-pilot duel table (the pairs keep the matrix possible),
   `hasRatingSnapshots` and `hasRegionMonths` (db.js keeps its keys).
 - S16, sizes on Node 26.11.1 at the end: entry `index-*.js` 232.87 KB
-  raw / 74.63 KB gzip (74.46 at the start: the route row, five fetchers
-  and the lazy import); `MapLibrary-*.js` 35.57 KB / 9.29 KB gzip (7.33
-  before: the two grids); `PilotDetail-*.js` 51.61 KB / 13.39 KB gzip
+  raw / 74.64 KB gzip (74.46 at the start: the route row, five fetchers
+  and the lazy import); `MapLibrary-*.js` 35.68 KB / 9.35 KB gzip (7.33
+  before: the two grids); `PilotDetail-*.js` 51.73 KB / 13.42 KB gzip
   (12.52 before: the weapon mix); `GameDetail-*.js` 123.91 KB / 39.81 KB
-  gzip (unchanged); the new `Ladders-*.js` 7.57 KB / 2.35 KB gzip;
+  gzip (unchanged); the new `Ladders-*.js` 7.54 KB / 2.37 KB gzip;
   `GameList` 41.68 KB / 11.43 KB gzip (unchanged); `HeatTable` lands in
   the `MapLibrary` chunk. No new Recharts chunk anywhere. `npx tsc
   --noEmit` exits 0. `wc -l`: `gameParse.js` 992, `statsPasses.js` 706,
@@ -1989,9 +1989,9 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 17 files, 264 tests pass on 26.11.1 (S16; 244 at its start) | 2026-10-09 |
+| `npx vitest run` | all pass | 17 files, 265 tests pass on 26.11.1 (S16; 244 at its start) | 2026-10-09 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.87 KB raw / 74.63 KB gzip, maps page `MapLibrary` 35.57 KB / 9.29 KB gzip, pilot page `PilotDetail` 51.61 KB / 13.39 KB gzip, the new `Ladders` 7.57 KB / 2.35 KB gzip, match page `GameDetail` 123.91 KB / 39.81 KB gzip, dashboard `GameList` 41.68 KB / 11.43 KB gzip and no Recharts on its first visit, on 26.11.1 (S16; 74.46, 7.33, 12.52 and 39.82 at its start; `LiveGameDetail` 2.93 KB and `ServerHistory` 3.76 KB gzip in S15; one 351.07 KB chunk before S4) | 2026-10-09 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.87 KB raw / 74.64 KB gzip, maps page `MapLibrary` 35.68 KB / 9.35 KB gzip, pilot page `PilotDetail` 51.73 KB / 13.42 KB gzip, the new `Ladders` 7.54 KB / 2.37 KB gzip, match page `GameDetail` 123.91 KB / 39.81 KB gzip, dashboard `GameList` 41.68 KB / 11.43 KB gzip and no Recharts on its first visit, on 26.11.1 (S16; 74.46, 7.33, 12.52 and 39.82 at its start; `LiveGameDetail` 2.93 KB and `ServerHistory` 3.76 KB gzip in S15; one 351.07 KB chunk before S4) | 2026-10-09 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S16) | 2026-10-09 |
 | `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S16 on `/tmp/ofc-data`: `total_games: 43`, `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/health`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history` all 200 as in S15; new `/api/stats/weapons` (577 kills, 5 maps), `/api/stats/specialists` (20 × 12), `/api/stats/duels` (4 listed, 2 provisional), `/api/stats/objectives` and `/api/pilot/WD-40/weapon-mix` 200; the first start refreshed for the marker, the next skipped | 2026-10-09 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
@@ -4037,7 +4037,7 @@ Not counted in the 28 sessions.
   come from the players, as the scoreboard replay reads them), each under
   `weaponFamily` of its weapon. Matches without a log give nothing, so the
   meta covers the tracker's logged years, not every match. The map is the
-  level in upper case (`mapKey` in `statsPasses.js`; `map_stats_cache`
+  level in upper case (`mapKey` in `gameParse.js`; `map_stats_cache`
   keys by lower case and shows the first spelling, which the S16 tables do
   not need); a logged match that names no map counts in neither
   `map_weapons` nor `pilot_weapons` (review, 2026-10-09), so a pilot's
@@ -4097,13 +4097,15 @@ Not counted in the 28 sessions.
   in `refresh.js` applies them in 2,000-row chunks, each table on its own
   so one that fails to write does not stop the rest (review), and
   `restoreHot` creates the ones a backup lacks. A built marker in
-  `admin_settings` (`derived_tables_built`, the list's names) is written
-  when a refresh has written every table; the startup check
-  (`derivedTablesBuilt`) refreshes while the marker differs, and
-  `restoreHot` clears it (and recreates `admin_settings` for a backup
-  from before it), so a new table, a restored backup or a refresh that
-  failed to write a table each cost one refresh, and a table that stays
-  empty for good costs none. The review asked for this in place of an
+  `admin_settings` (`derived_tables_built`, the list's names and columns)
+  is cleared as a refresh starts writing and written back when it has
+  written every table; the startup check (`derivedTablesBuilt`) refreshes
+  while the marker differs, and `restoreHot` clears it (and recreates
+  `admin_settings` for a backup from before it, after stopping and waiting
+  out a refresh under way), so a new table or column (`ensureDerivedTables`
+  recreates a table whose columns differ from the list), a restored backup
+  or a refresh that failed to write a table or died part-way each cost one
+  refresh, and a table that stays empty for good costs none. The review asked for this in place of an
   empty-table check, which six more tables would have turned into a
   refresh on every start wherever no duel, CTF or Monsterball match
   exists. The six new tables: `map_weapons(map,
@@ -4125,16 +4127,16 @@ Not counted in the 28 sessions.
   gone: `hasRatingSnapshots`, `hasPilotMonths` and `hasRegionMonths` stay
   as `db` keys (the career route reads one).
 - 2026-10-08 (S16): Endpoints, none through the route cache (each reads a
-  derived table a refresh keeps, so an answer is never older than its
-  table): `GET /api/stats/weapons` (`{ community, kills, maps }`, the
+  derived table a refresh keeps; `meta.js` keeps the answer until a
+  refresh has finished writing, `clearDerivedCaches`): `GET /api/stats/weapons` (`{ community, kills, maps }`, the
   kills per family over every logged match and for the 25 maps with the
   most, most first); `GET /api/stats/specialists` (`{ pilots, maps,
   cells }`, `cells[i][j]` a record or null, one query for the cells);
   `GET /api/stats/duels` (`{
   day, listed, pilots }`, each pilot a duel snapshot with `rank`,
   `status`, the record and `last`, the fight-night day of their last duel;
-  the ladder is kept per day until the next refresh writes duel snapshots,
-  `clearDuelLadder`, as the rankings are); `GET /api/stats/objectives`
+  the ladder is kept per day until the next refresh has written every
+  derived table, `clearDerivedCaches`, as the rankings are); `GET /api/stats/objectives`
   (`{ CTF, MONSTERBALL }`, each a board with `rank`); and `GET
   /api/pilot/:name/weapon-mix` (`{ pilot, kills, community,
   communityKills }`, zeros for a pilot with no logged kill, not a 404, the
@@ -5705,6 +5707,36 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   four findings skipped and flagged. One mutant survived at first (a
   third pilot on no team) and got its test. Chrome checks: 124 of 124.
   PR #17 opened against `main`, not merged.
+- 2026-10-09, S16 review (Claude Fable 5.1, `/pr-review` on PR #17, five
+  lanes, every finding validated at the ref): the built marker is cleared
+  as a refresh starts writing (a failed write or a kill part-way had left
+  it set, so the start skipped the refresh the comments promised);
+  `restoreHot` stops and waits out a refresh under way (its diffs of the
+  old tables landed in the restored ones and set the marker back);
+  `DERIVED_TABLES_VERSION` carries the columns and `ensureDerivedTables`
+  recreates a table whose columns differ from the list (a column change
+  never reached a live database); the specialist grid's maps keyed by
+  `mapKey` in JS (NOCASE and `UPPER()` fold ASCII only); dark ink on the
+  two lightest `HeatTable` steps (white on `#9ec5f4` is 1.8:1); the weapon
+  mix's empty state when the community total is 0 (NaN shares after a
+  partial write) and an "all time, all modes" label; the specialist
+  grid's map count called "matches", not "ranked matches", and the
+  caption without "with a result"; `Top 50 pilots` at the board cap
+  (`BOARD_ROWS`); no share description for an objective board; the
+  `?board=` ids typed; one `LABEL`; `duelMatch` without its dead tail
+  check; `weaponKills` keeping a pilot's first listing as the replay does;
+  `teamGame` and `hasDate` moved from between a doc block and its
+  function. Tests that could not fail for their names got fixtures that
+  disagree with the alternative (a team score against the kills, goal
+  assists and pickups, the board sort, a kept answer, a blocked table
+  write, four listed pilots, the duel count), plus a recreate test and a
+  "Café" map: 17 files, 265 tests; every new test fails its mutant except
+  the restore's write-phase wait, which only the worker-stage ordering
+  reproduces on the fixtures. Flagged for the owner, unchanged: the S17
+  prompt's three binding-rule edits ("no d3", tables in
+  `statsPasses.js`, no force-layout library), the marker in place of the
+  empty-table check and the DDL in `statsPasses.js`, the specialist grid's
+  relative colour scale.
 
 ## Next session prompt
 
@@ -5750,7 +5782,7 @@ Binding decisions, do not re-derive:
 - Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js (`chart.weapon` for weapon families, `chart.ramp` for counts and shares, `chart.series` with `chart.label` for one series against its context) and any new series colour or ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12, S14).
 - Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9). A chart's keyboard path is a DetailsTable (components/DetailsTable.tsx); a rows × columns share is a HeatTable (components/HeatTable.tsx).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, the dashboard's first visit loads no Recharts chunk (S14), and a page that did not load Recharts gets a chart as a lazy chunk behind its own Suspense or as hand-drawn SVG (S13 to S16). Record the entry size (S16 left 232.87 KB raw / 74.63 KB gzip), the pilot page's PilotDetail chunk (13.41 KB gzip in S16), the match page's GameDetail chunk (39.82 KB gzip) and any new view's chunk, before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, the dashboard's first visit loads no Recharts chunk (S14), and a page that did not load Recharts gets a chart as a lazy chunk behind its own Suspense or as hand-drawn SVG (S13 to S16). Record the entry size (S16 left 232.87 KB raw / 74.64 KB gzip), the pilot page's PilotDetail chunk (13.42 KB gzip in S16), the match page's GameDetail chunk (39.81 KB gzip) and any new view's chunk, before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI).
 - Do not add a router library, state library, ORM, component library or layout library (no d3). Recharts is already a dependency; prefer it, or hand-drawn SVG and tables, to a new chart library.
@@ -5768,6 +5800,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S16 left 17 files, 263 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|PilotDetail|GameDetail|MapLibrary|Ladders)-.*\.js"` (the Verification table records the entry at 74.63 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S17 Done-when list into the tracker.
+First move: run `npx vitest run` (S16 left 17 files, 265 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|PilotDetail|GameDetail|MapLibrary|Ladders)-.*\.js"` (the Verification table records the entry at 74.64 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S17 Done-when list into the tracker.
 Done when: every item of the S17 Done-when list is true and checked on fixture data and in headless Chrome (every new chart, table and view at 1,280 and 390 px), the dashboard, the server page, leaderboard, rankings, ladders, pilot pages, maps and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S17 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/specialists`, `/api/stats/duels`, `/api/stats/objectives`, `/api/pilot/:name/weapon-mix` and `/api/health`, and the PR is open with the tracker updated.
 ```

@@ -3,11 +3,12 @@ import { Flag } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from '../States';
 import Link, { LinkCell } from '../Link';
 import { urlFor } from '../../server/lib/siteRoutes.js';
-import { OBJECTIVE_FIELDS, OBJECTIVE_MODES, RANKED } from '../../server/lib/gameParse.js';
+import { BOARD_ROWS, OBJECTIVE_FIELDS, OBJECTIVE_MODES, RANKED } from '../../server/lib/gameParse.js';
 import { fetchObjectiveBoards } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
 
-const LABEL = Object.fromEntries(OBJECTIVE_FIELDS.map(f => [f.field, f.label]));
+// each objective column's word, by pilot_objectives field
+export const LABEL: Record<string, string> = Object.fromEntries(OBJECTIVE_FIELDS.map(f => [f.field, f.label]));
 
 // A CTF or Monsterball board (S16): each pilot's objective counts over their
 // ranked matches in that mode, by the mode's sort field (OBJECTIVE_MODES).
@@ -51,7 +52,7 @@ const ObjectiveBoard: React.FC<{ mode: keyof typeof OBJECTIVE_MODES }> = ({ mode
                 </table>
             </div>
             <div className="px-4 py-3 border-t border-line flex flex-wrap justify-between gap-2 text-xs font-mono text-gray-500">
-                <span>{pilots.length.toLocaleString()} pilot{pilots.length === 1 ? '' : 's'} by {LABEL[sort].toLowerCase()}, over ranked {label} matches</span>
+                <span>{pilots.length === BOARD_ROWS ? `Top ${BOARD_ROWS} pilots` : `${pilots.length} pilot${pilots.length === 1 ? '' : 's'}`} by {LABEL[sort].toLowerCase()}, over ranked {label} matches</span>
                 <Link to={urlFor('pilots')} className="text-brand hover:text-brand-hover underline">Full leaderboard</Link>
             </div>
         </div>

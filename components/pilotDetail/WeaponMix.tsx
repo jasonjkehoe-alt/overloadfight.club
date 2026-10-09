@@ -22,11 +22,10 @@ const WeaponMix: React.FC<{ load: { data: PilotWeaponMix | null; failed: boolean
         body = <ErrorState compact title="Weapon mix unavailable" message="Could not load the weapon mix." onRetry={retry} />;
     } else if (!data) {
         body = <Loading compact label="Loading weapon mix..." />;
-    } else if (data.kills === 0) {
+    } else if (data.kills === 0 || data.communityKills === 0) {
         body = <EmptyState compact icon={Crosshair} title="No logged kills" message="The weapon mix counts kills from matches whose kill log the tracker kept; none of this pilot's ranked matches has one." />;
     } else {
         const families = WEAPON_FAMILIES.filter(f => f.id !== 'other' || data.pilot.other > 0 || data.community.other > 0);
-        // the pilot's kills are among the community's, so both totals are above 0 here
         const rows = families.map(f => ({ ...f, mine: data.pilot[f.id] / data.kills, theirs: data.community[f.id] / data.communityKills }));
         // the axis runs to the next tenth above the largest share
         const max = Math.max(0.1, Math.ceil(Math.max(...rows.flatMap(r => [r.mine, r.theirs])) * 10) / 10);
@@ -78,7 +77,7 @@ const WeaponMix: React.FC<{ load: { data: PilotWeaponMix | null; failed: boolean
 
     return (
         <div className="bg-surface-card border border-line p-4 rounded-card mt-4">
-            <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Weapon mix vs the community</h4>
+            <h4 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Weapon mix vs the community <span className="normal-case tracking-normal font-normal">(all time, all modes)</span></h4>
             {body}
         </div>
     );

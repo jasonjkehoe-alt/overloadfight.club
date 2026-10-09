@@ -2,7 +2,7 @@ import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
 import { DERIVED_TABLES, derivedColumns } from '../../lib/statsPasses.js';
-import { clearDerivedCaches, markDerivedTablesBuilt } from './meta.js';
+import { clearDerivedCaches, clearDerivedTablesBuilt, markDerivedTablesBuilt } from './meta.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
@@ -21,6 +21,9 @@ export const refreshPilotStats = () => {
   });
   return refreshing;
 };
+// The refresh under way, settled once it has finished writing; settled at
+// once while none runs.
+export const refreshInProgress = () => refreshing ?? Promise.resolve();
 
 const runStatsWorker = () => new Promise((resolve, reject) => {
   const worker = new Worker(new URL('../../statsWorker.js', import.meta.url), {
@@ -121,8 +124,12 @@ async function refreshCaches() {
     }
     // each table on its own, so one that fails to write does not stop the
     // rest; what the readers keep in memory is cleared once, after the last
-    // write (also after a failed chunk, so the ranks agree with the days written)
+    // write (also after a failed chunk, so the ranks agree with the days written).
+    // The built marker is cleared first and set back once every table wrote,
+    // so a refresh that failed to write a table or died part-way costs the
+    // next start one refresh.
     let built = true;
+    clearDerivedTablesBuilt();
     try {
       for (const [table, { log: [tag, rows] }] of Object.entries(DERIVED_TABLES)) {
         const changes = derived[table];

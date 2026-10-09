@@ -1,5 +1,5 @@
 import React from 'react';
-import { rampColor } from '../designTokens.js';
+import { chart, colors, rampColor, rampStep } from '../designTokens.js';
 
 export interface HeatCell {
     // 0 to 1, the share that picks the chart.ramp colour; null leaves the cell uncoloured
@@ -41,16 +41,20 @@ const HeatTable: React.FC<HeatTableProps> = ({ caption, corner, columns, rows })
                 {rows.map(row => (
                     <tr key={row.key}>
                         <th scope="row" className="sticky left-0 bg-surface-card text-left font-normal text-gray-300 pr-2 whitespace-nowrap max-w-[11rem] truncate">{row.label}</th>
-                        {row.cells.map((cell, j) => (
+                        {row.cells.map((cell, j) => {
+                            // dark ink on the two lightest steps, where white fails contrast
+                            const dark = cell?.share != null && rampStep(cell.share, max) >= chart.ramp.length - 2;
+                            return (
                             <td
                                 key={columns[j].key}
                                 title={cell?.title}
-                                className="h-6 min-w-[2.5rem] text-center rounded-[2px] p-0 text-white/90"
-                                style={{ backgroundColor: cell?.share == null ? 'transparent' : rampColor(cell.share, max) }}
+                                className="h-6 min-w-[2.5rem] text-center rounded-[2px] p-0"
+                                style={{ backgroundColor: cell?.share == null ? 'transparent' : rampColor(cell.share, max), color: dark ? colors.surface.page : chart.ink }}
                             >
                                 {cell ? <><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></> : <span className="sr-only">none</span>}
                             </td>
-                        ))}
+                            );
+                        })}
                     </tr>
                 ))}
             </tbody>

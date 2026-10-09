@@ -845,9 +845,10 @@ describe('weapon meta and ladders (S16)', () => {
         });
 
         it('is also a one-a-side team match, scored by the team score', () => {
-            const game = { ...byId(72090), teamScore: { BLUE: 3, ORANGE: 5 }, settings: { ...byId(72090).settings, matchMode: 'TEAM ANARCHY' } };
+            // a team score that disagrees with the kills: the first pilot listed is BLUE
+            const game = { ...byId(72090), teamScore: { BLUE: 1, ORANGE: 4 }, settings: { ...byId(72090).settings, matchMode: 'TEAM ANARCHY' } };
             game.players = game.players.map((p, i) => ({ ...p, team: i ? 'ORANGE' : 'BLUE' }));
-            expect(duelMatch(game).map(s => `${s.pilots[0].name}:${s.score}`)).toEqual(['OKSTER:5', 'WD-40:3']);
+            expect(duelMatch(game).map(s => `${s.pilots[0].name}:${s.score}`)).toEqual([`${game.players[1].name}:4`, `${game.players[0].name}:1`]);
         });
 
         it('is not a CTF or Monsterball 1v1, a match with a third pilot, or one too short to rank', () => {
@@ -872,6 +873,8 @@ describe('weapon meta and ladders (S16)', () => {
             for (const g of sample) pass.add({ id: g.id, date: g.date }, g);
             const pairs = pass.pairs();
             const record = (a, b) => pairs.find(r => r.pilot === a && r.opponent === b);
+            // each duel is in both pilots' records
+            expect(pairs.reduce((n, r) => n + r.wins + r.losses + r.ties, 0)).toBe(22);
             expect(pairs.reduce((n, r) => n + r.wins, 0)).toBe(pairs.reduce((n, r) => n + r.losses, 0));
             expect(record('okster', 'wd-40')).toMatchObject({ wins: 3, losses: 1, ties: 1, last: '2025-11-24T07:58:31.969Z' });
             expect(record('wd-40', 'okster')).toMatchObject({ wins: 1, losses: 3, ties: 1 });
@@ -914,8 +917,8 @@ describe('weapon meta and ladders (S16)', () => {
         it('adds the tracker\'s per-player counts to a career line, missing ones as 0', () => {
             const line = addToObjectives(emptyObjectives(), detailSample.players[0], 'tie');
             expect(line).toMatchObject({ matches: 1, ties: 1, kills: 0, deaths: 1, goals: 1, goal_assists: 0, blunders: 1, captures: 0, returns: 0, pickups: 0, carrier_kills: 0 });
-            addToObjectives(line, { name: 'X', kills: 2, captures: 3, returns: '1', carrierKills: 2 }, 'win');
-            expect(line).toMatchObject({ matches: 2, wins: 1, kills: 2, goals: 1, captures: 3, returns: 1, carrier_kills: 2 });
+            addToObjectives(line, { name: 'X', kills: 2, goalAssists: 4, captures: 3, returns: '1', pickups: 5, carrierKills: 2 }, 'win');
+            expect(line).toMatchObject({ matches: 2, wins: 1, kills: 2, goals: 1, goal_assists: 4, captures: 3, returns: 1, pickups: 5, carrier_kills: 2 });
             for (const { field } of OBJECTIVE_FIELDS) expect(line).toHaveProperty(field);
             for (const mode of Object.values(OBJECTIVE_MODES)) expect(mode.fields).toContain(mode.sort);
         });

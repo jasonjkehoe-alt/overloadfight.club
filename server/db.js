@@ -43,7 +43,7 @@ import { getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analy
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
 import { clearDerivedCaches, clearDerivedTablesBuilt, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
-import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
+import { refreshPilotStats, refreshInProgress, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
 export { pilotStatements } from './db/analytics/pilots.js';
@@ -59,6 +59,10 @@ const db = {
   mapImagesDir,
   // Replace tracker.db through SQLite's backup API, then rebuild game_players.
   restoreHot: async source => {
+    // a refresh under way would write its diffs of the old tables into the
+    // restored ones and set the built marker back: stop it and wait it out
+    await stopStatsWorker();
+    await refreshInProgress();
     const uploaded = new Database(source, { readonly: true, fileMustExist: true });
     try {
       await uploaded.backup(dbPath);

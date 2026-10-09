@@ -92,18 +92,18 @@ export function rankedMatch(game, duration = durationOf(game)) {
     return Array.isArray(game?.players) && game.players.length >= RANKED.pilots && duration >= RANKED.seconds;
 }
 
-// Who won. Team games rank teams by teamScore (any number of teams; teams
-// with players but no score entry count as 0). FFA ranks pilots by their
-// in-game score (`kills`). `ranking` lists { side, name, score } best first;
-// `side` is the team or the pilotKey(), `name` is what to display.
-// `winners` holds every side sharing the top score: one entry is an outright
-// win, more than one is a tie, none means the game has no result to read.
 // A team game has a team score or a player on a team.
 export function teamGame(game) {
     const teamScore = game?.teamScore && typeof game.teamScore === 'object' ? game.teamScore : {};
     return Object.keys(teamScore).length > 0 || (Array.isArray(game?.players) ? game.players : []).some(p => teamOf(p));
 }
 
+// Who won. Team games rank teams by teamScore (any number of teams; teams
+// with players but no score entry count as 0). FFA ranks pilots by their
+// in-game score (`kills`). `ranking` lists { side, name, score } best first;
+// `side` is the team or the pilotKey(), `name` is what to display.
+// `winners` holds every side sharing the top score: one entry is an outright
+// win, more than one is a tie, none means the game has no result to read.
 /** @returns {{ team: boolean, ranking: { side: string, name: string, score: number }[], winners: string[] }} */
 export function winnerOf(game) {
     const players = Array.isArray(game?.players) ? game.players : [];
@@ -642,6 +642,9 @@ export function ratingSides(game) {
 const mean = values => values.reduce((a, b) => a + b, 0) / values.length;
 const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
 
+// A stored date the replays can order by.
+export const hasDate = date => Number.isFinite(Date.parse(date));
+
 // Replays rated matches ([{ id, date, sides }], sides from ratingSides()) in
 // date order (id order for equal dates; a match without a date is skipped)
 // and returns each pilot's rating at the end of every fight-night day they
@@ -649,9 +652,6 @@ const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
 // [{ pilot, name, day, rating, rd, volatility, matches }],
 // `pilot` being the pilotKey(), `name` the latest spelling and `matches` the
 // rated matches so far.
-// A stored date the replays can order by.
-export const hasDate = date => Number.isFinite(Date.parse(date));
-
 export function ratingSnapshots(matches) {
     const timed = matches
         .map(m => ({ ...m, at: Date.parse(m.date) }))
@@ -916,7 +916,9 @@ export function regionShare(rows, thisMonth) {
 export function weaponKills(game) {
     if (!rankedMatch(game) || !hasKillLog(game)) return [];
     const team = teamGame(game);
-    const teams = team ? new Map(game.players.map(p => [pilotKey(p?.name), teamOf(p)])) : null;
+    // a pilot's first listing, as the replay's rowFor() keeps it
+    const teams = new Map();
+    if (team) for (const p of game.players) { const key = pilotKey(p?.name); if (key && !teams.has(key)) teams.set(key, teamOf(p)); }
     const kills = [];
     for (const kill of game.kills) {
         const entry = team
@@ -933,10 +935,12 @@ export function weaponKills(game) {
 // a one-a-side Team Anarchy match; a CTF or Monsterball 1v1 is not one. Gives
 // ratingSides() of the match (two sides of one pilot each) or null.
 export function duelMatch(game) {
-    // the cheap checks first: most matches are not two pilots
-    if (!killScored(game) || new Set((game?.players || []).map(p => pilotKey(p?.name)).filter(Boolean)).size !== 2) return null;
-    const sides = ratingSides(game);
-    return sides && sides.length === 2 && sides.every(s => s.pilots.length === 1) ? sides : null;
+    // exactly two named pilots in a kill-scored match (most matches are not
+    // two pilots, so that is checked first); ratingSides() then gives their
+    // two sides, or null when both are on one side or the match is too short
+    const players = Array.isArray(game?.players) ? game.players : [];
+    if (!killScored(game) || new Set(players.map(p => pilotKey(p?.name)).filter(Boolean)).size !== 2) return null;
+    return ratingSides(game);
 }
 
 // The duel ladder: a pilot is listed from DUEL.listedAfter duels, whenever
@@ -973,6 +977,8 @@ export const OBJECTIVE_MODES = {
     CTF: { label: 'CTF', fields: ['captures', 'returns', 'pickups', 'carrier_kills'], sort: 'captures' },
     MONSTERBALL: { label: 'Monsterball', fields: ['goals', 'goal_assists', 'blunders'], sort: 'goals' }
 };
+// How many pilots an objective board lists.
+export const BOARD_ROWS = 50;
 
 // The objective mode of a match (an OBJECTIVE_MODES key), or null.
 export function objectiveMode(game) {

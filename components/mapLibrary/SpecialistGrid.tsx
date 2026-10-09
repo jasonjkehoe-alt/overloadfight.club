@@ -29,7 +29,8 @@ const cell = (name: string, map: string, c: SpecialistCell | null): HeatCell | n
 };
 
 // Pilot × map grid (S16): the pilots with the most ranked matches against
-// the maps with the most, each cell their record there, from
+// the maps with the most stored matches (unranked ones included), each cell
+// their record there, from
 // /api/stats/specialists (the stats worker's pilot_maps table).
 const SpecialistGrid: React.FC = () => {
     const { data, failed, retry } = useLoad(fetchSpecialists, []);
@@ -39,7 +40,7 @@ const SpecialistGrid: React.FC = () => {
         body = <ErrorState compact title="Specialists unavailable" message="Could not load the pilot and map grid." onRetry={retry} />;
     } else if (!data) {
         body = <Loading compact label="Loading specialists..." />;
-    } else if (data.pilots.length === 0) {
+    } else if (data.pilots.length === 0 || data.maps.length === 0) {
         body = <EmptyState compact icon={MapIcon} title="No ranked matches yet" />;
     } else {
         body = (
@@ -48,9 +49,9 @@ const SpecialistGrid: React.FC = () => {
                     The {data.pilots.length} pilots with the most ranked matches on the {data.maps.length} maps played most. A lighter cell is a higher win rate; a cell with under {SPECIALIST_MIN} matches shows the record alone.
                 </p>
                 <HeatTable
-                    caption={`Each pilot's win rate on each map over ranked matches (${RANKED.pilots}+ pilots, ${RANKED.seconds} s or more) with a result.`}
+                    caption={`Each pilot's win rate on each map over ranked matches (${RANKED.pilots}+ pilots, ${RANKED.seconds} s or more).`}
                     corner="Pilot"
-                    columns={data.maps.map(m => ({ key: m.map, label: m.map, title: `${m.map}: ${m.matches.toLocaleString()} ranked matches` }))}
+                    columns={data.maps.map(m => ({ key: m.map, label: m.map, title: `${m.map}: ${m.matches.toLocaleString()} matches` }))}
                     rows={data.pilots.map((p, i) => ({
                         key: p.pilot,
                         label: <Link to={urlFor('pilot', p.name)} className="hover:text-brand" title={`${p.name}: ${p.matches.toLocaleString()} ranked matches`}>{p.name}</Link>,
