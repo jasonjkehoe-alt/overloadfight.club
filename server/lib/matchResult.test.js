@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { winnerOf } from './gameParse.js';
-import { clock, resultLine } from './matchResult.js';
+import { clock, resultLine, shortCount } from './matchResult.js';
 import { byId, detailSample } from '../testFixtures.js';
 
 // The match page's result line, built from winnerOf() on the fixture games.
@@ -45,5 +45,13 @@ describe('clock', () => {
         expect(clock(910.849)).toBe('15:10'); // fixture 72108's length
         expect(clock(59.99)).toBe('0:59');
         expect(clock(-3)).toBe('0:00');
+    });
+});
+
+describe('shortCount', () => {
+    it('writes 10,000 and up in thousands', () => {
+        expect(shortCount(9999)).toBe((9999).toLocaleString());
+        expect(shortCount(10000)).toBe('10k');
+        expect(shortCount(12345)).toBe('12k');
     });
 });

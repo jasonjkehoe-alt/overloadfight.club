@@ -653,6 +653,48 @@ export interface ObjectivePilot {
 export type ObjectiveBoards = Record<string, ObjectivePilot[]>;
 export const fetchObjectiveBoards = () => getJson<ObjectiveBoards>(`${API_BASE}/stats/objectives`);
 
+// S17: rivalries and clutch, from ranked matches with a kill or damage log.
+// A pair of opponents from `pilot`'s side: kills are pilot on opponent,
+// deaths opponent on pilot.
+export interface RivalPair {
+    pilot: string;
+    opponent: string;
+    name: string;
+    opponent_name: string;
+    matches: number;
+    kills: number;
+    deaths: number;
+    damage_dealt: number;
+    damage_taken: number;
+}
+export interface RivalNetwork {
+    // the pilots with the most logged kills on opponents, totals over every opponent
+    pilots: { pilot: string; name: string; kills: number; damage: number }[];
+    // [i][j]: what pilot i did to pilot j, null on the diagonal
+    kills: (number | null)[][];
+    damage: (number | null)[][];
+    // most kills exchanged first, each pair once
+    pairs: RivalPair[];
+    totals: { kills: number; damage: number };
+}
+export const fetchRivalNetwork = () => getJson<RivalNetwork>(`${API_BASE}/stats/rivalries`);
+
+export interface ClutchCounts {
+    kind: 'ffa' | 'team';
+    matches: number;
+    first_bloods: number;
+    kills: number;
+    late_kills: number;
+    trailing_kills: number;
+}
+export interface PilotRivalry {
+    opponents: RivalPair[];
+    totals: { opponents: number; kills: number; deaths: number; damage_dealt: number; damage_taken: number };
+    clutch: ClutchCounts[];
+    community: ClutchCounts[];
+}
+export const fetchPilotRivalry = (name: string) => getJson<PilotRivalry>(`${API_BASE}/pilot/${encodeURIComponent(name)}/rivalry`);
+
 // Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.

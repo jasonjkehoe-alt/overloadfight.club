@@ -57,6 +57,15 @@ function laddersMeta(board) {
     return { description: `Duel ladder for ${day}: ${top}.` };
 }
 
+// "Rivalries from the kill log: FUTZPIMMEL 41-21 BADASS (3 matches), ..." for the
+// three pairs with the most kills exchanged (each read from the leader's side).
+function rivalsMeta() {
+    const { pairs } = db.getRivalNetwork();
+    if (pairs.length === 0) return {};
+    const top = pairs.slice(0, 3).map(p => `${p.name} ${p.kills}-${p.deaths} ${p.opponent_name} (${count(p.matches)} ${p.matches === 1 ? 'match' : 'matches'})`).join(', ');
+    return { description: `Rivalries from the kill log: ${top}.` };
+}
+
 // "Overloader: Dallas, TX (North America Central): online 99.0% of the minutes
 // checked in the last 30 days, a match running 12.0% of that time, 6.5 pilots
 // in a match on average. Join at 192.227.193.172." The parts with no ticks
@@ -81,6 +90,7 @@ function routeMeta({ view, param }, query) {
         case 'fight-night': return fightNightMeta(param);
         case 'rankings': return rankingsMeta();
         case 'ladders': return laddersMeta(query.get('board'));
+        case 'rivals': return rivalsMeta();
         case 'live-game-detail': return { name: db.getServerListing(param)?.name, description: `Live Overload match. Join at ${param}.` };
         case 'server': return serverMeta(param);
         default: return {};

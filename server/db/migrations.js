@@ -201,8 +201,11 @@ migrateGamePlayers();
 // family, by map and by pilot. pilot_maps (S16): a pilot's ranked matches per
 // map. duel_snapshots and pilot_duels (S16): the duel ladder's rating history
 // and each pair's record. pilot_objectives (S16): a pilot's ranked matches
-// per objective mode with the tracker's goal and flag counts. Each is keyed
-// by its first two columns.
+// per objective mode with the tracker's goal and flag counts. pilot_rivals
+// (S17): each pair of opponents' logged matches, kills and damage, both
+// directions. pilot_clutch (S17): a pilot's first bloods, late kills and kills
+// while trailing per kind of match (ffa, team). Each is keyed by its first two
+// columns.
 export function ensureDerivedTables() {
   for (const [table, { columns }] of Object.entries(DERIVED_TABLES)) {
     const names = derivedColumns(table);

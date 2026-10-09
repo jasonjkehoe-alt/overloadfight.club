@@ -48,3 +48,6 @@ export function resultLine({ team, ranking, winners }) {
         ? `${first.name} wins ${first.score}–${second.score}.`
         : `${first.name} wins on ${first.score}, ${first.score - second.score} ahead of ${second.name}.`;
 }
+
+// A count for a narrow table cell: 10,000 and up in thousands, 12,345 as "12k" (S17).
+export const shortCount = n => (n >= 10000 ? `${Math.round(n / 1000)}k` : n.toLocaleString());

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
-import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X, Users, Swords } from 'lucide-react';
+import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X, Users, Swords, Network } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
 import SortHeader from './SortHeader';
@@ -266,6 +266,9 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                 </Link>
                 <Link to={urlFor('ladders')} className="px-4 py-3 font-mono text-sm font-bold text-gray-400 hover:text-brand flex items-center gap-2 whitespace-nowrap">
                     <Swords size={14} className="text-brand" aria-hidden /> LADDERS
+                </Link>
+                <Link to={urlFor('rivals')} className="px-4 py-3 font-mono text-sm font-bold text-gray-400 hover:text-brand flex items-center gap-2 whitespace-nowrap">
+                    <Network size={14} className="text-brand" aria-hidden /> RIVALRIES
                 </Link>
             </div>
 

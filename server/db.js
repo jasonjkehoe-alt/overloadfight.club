@@ -43,6 +43,7 @@ import { getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analy
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
 import { clearDerivedCaches, clearDerivedTablesBuilt, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
+import { getPilotRivalry, getRivalNetwork } from './db/analytics/rivals.js';
 import { refreshPilotStats, refreshInProgress, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -72,7 +73,7 @@ const db = {
     // A backup from before S5 has no game_players; build it for the restored games.
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
-    // A backup from before S13 to S16 lacks some of the derived tables; the
+    // A backup from before S13 to S17 lacks some of the derived tables; the
     // next refresh fills them. The built marker is cleared whatever the
     // backup carried, so a restore always gets one refresh at the next start.
     // Nor does it have the server tables, which start empty again.
@@ -220,6 +221,10 @@ const db = {
   getSpecialists,
   getDuelLadder,
   getObjectiveBoards,
+
+  // analytics/rivals.js
+  getRivalNetwork,
+  getPilotRivalry,
 
   // analytics/refresh.js
   refreshPilotStats,

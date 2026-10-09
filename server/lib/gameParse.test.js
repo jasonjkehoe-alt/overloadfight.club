@@ -9,8 +9,9 @@ import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovemen
 import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, weekdayOf, winRate } from './gameParse.js';
 import { HOUR_MS, SERVER_STATE, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, regionShare, serverSummary, serverWindow, snapshotRow } from './gameParse.js';
 import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
-import { duelPass, weaponPass } from './statsPasses.js';
-import { byId, detailSample, ffaWithLog, sample, teamWithLog } from '../testFixtures.js';
+import { CLUTCH, clutchOf, damageFlows, damageGrid, opponentsOf } from './gameParse.js';
+import { duelPass, rivalPass, weaponPass } from './statsPasses.js';
+import { byId, detailSample, ffaWithDamage, ffaWithLog, sample, teamWithDamage, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readFixture = file => JSON.parse(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
@@ -940,6 +941,201 @@ describe('weapon meta and ladders (S16)', () => {
             noMap.add({ id: 3 }, { ...teamWithLog, settings: { ...teamWithLog.settings, level: '' } });
             expect(noMap.maps()).toEqual([]);
             expect(noMap.pilots()).toEqual([]);
+        });
+    });
+});
+
+describe('rivalries, damage flow and clutch (S17)', () => {
+    const short = game => ({ ...game, date: new Date(Date.parse(game.settings.start) + 30000).toISOString() });
+    const ctf = game => ({ ...game, settings: { ...game.settings, matchMode: 'CTF' } });
+
+    describe('kill edges (weaponKills)', () => {
+        it('names the defender of every kill on an opponent', () => {
+            expect(weaponKills(teamWithLog).map(k => `${k.attacker}>${k.defender}`)).toEqual([
+                'STITCH>PHOENIX', 'INSANER>MAESTRO', 'INSANER>STITCH', 'STITCH>INSANER', 'MAESTRO>PHOENIX',
+                'STITCH>PHOENIX', 'INSANER>MAESTRO', 'INSANER>MAESTRO', 'PHOENIX>STITCH', 'INSANER>MAESTRO'
+            ]);
+        });
+    });
+
+    describe('opponentsOf', () => {
+        it('pairs every pilot with each opponent once: everyone in FFA, across teams in a team game', () => {
+            expect(opponentsOf(teamWithLog)).toEqual([['stitch', 'phoenix'], ['stitch', 'insaner'], ['phoenix', 'maestro'], ['insaner', 'maestro']]);
+            expect(opponentsOf(ffaWithLog)).toEqual([['jftp', '.']]);
+        });
+
+        it('lets a pilot without a team sit out of a team game and counts a pilot listed twice once', () => {
+            const game = { ...teamWithLog, players: [...teamWithLog.players, { name: 'LONER', kills: 0, deaths: 0 }, { ...teamWithLog.players[1], name: 'stitch ' }] };
+            expect(opponentsOf(game)).toEqual(opponentsOf(teamWithLog));
+        });
+
+        it('pairs a pilot who changed team with the teammates they ended on', () => {
+            // MAESTRO, listed ORANGE beside STITCH, started on BLUE
+            const game = { ...teamWithLog, teamChanges: [{ time: 60, playerName: 'MAESTRO', previousTeam: 'BLUE', currentTeam: 'ORANGE' }] };
+            const key = ([a, b]) => [a, b].sort().join('-');
+            expect(opponentsOf(game).map(key).sort()).toEqual([...opponentsOf(teamWithLog).map(key), 'maestro-stitch'].sort());
+        });
+
+        it('pairs the pilots of a match with a damage log and no kill log, so its damage has matches', () => {
+            expect(opponentsOf({ ...teamWithDamage, kills: [] })).toEqual(opponentsOf(teamWithLog));
+        });
+
+        it('gives nothing for a match that is not ranked or has no log', () => {
+            expect(opponentsOf(short(teamWithLog))).toEqual([]);
+            expect(opponentsOf(byId(72099))).toEqual([]);
+        });
+    });
+
+    describe('damageFlows', () => {
+        it('keeps the damage on opponents and leaves out teammates, self-damage and entries without an attacker', () => {
+            const flows = damageFlows(teamWithDamage);
+            expect(flows.map(f => `${f.attacker}>${f.defender}`)).toEqual(['INSANER>MAESTRO', 'INSANER>STITCH', 'STITCH>PHOENIX', 'STITCH>INSANER', 'MAESTRO>PHOENIX', 'PHOENIX>STITCH']);
+            expect(flows.reduce((sum, f) => sum + f.damage, 0)).toBe(900.75);
+            expect(damageFlows(ffaWithDamage)).toEqual([{ attacker: 'JFTP', defender: '.', damage: 210 }, { attacker: '.', defender: 'JFTP', damage: 180.5 }]);
+        });
+
+        it('counts damage on a pilot no listing places on a team, as killPoints() counts such a kill', () => {
+            const game = { ...teamWithDamage, damage: [{ attacker: 'INSANER', defender: 'GHOST', weapon: 'Flak', damage: 5 }] };
+            expect(damageFlows(game)).toHaveLength(1);
+        });
+
+        it('keeps damage between listed teammates when one of them changed team', () => {
+            const game = { ...teamWithDamage, damage: [{ attacker: 'STITCH', defender: 'MAESTRO', weapon: 'Flak', damage: 30 }] };
+            expect(damageFlows(game)).toEqual([]);
+            const changed = { ...game, teamChanges: [{ time: 60, playerName: 'maestro', previousTeam: 'BLUE', currentTeam: 'ORANGE' }] };
+            expect(damageFlows(changed)).toEqual([{ attacker: 'STITCH', defender: 'MAESTRO', damage: 30 }]);
+            const grid = damageGrid(changed);
+            const at = name => grid.pilots.findIndex(p => p.name === name);
+            expect(grid.mate[at('STITCH')][at('MAESTRO')]).toBe(false);
+            expect(damageGrid(game).mate[at('STITCH')][at('MAESTRO')]).toBe(true);
+        });
+
+        it('leaves out entries of no damage', () => {
+            const game = { ...teamWithDamage, damage: [{ attacker: 'INSANER', defender: 'MAESTRO', weapon: 'Flak', damage: 0 }, { attacker: 'INSANER', defender: 'MAESTRO', weapon: 'Flak', damage: -4 }] };
+            expect(damageFlows(game)).toEqual([]);
+        });
+
+        it('gives nothing for a match that is not ranked or has no damage log', () => {
+            expect(damageFlows(short(teamWithDamage))).toEqual([]);
+            expect(damageFlows(teamWithLog)).toEqual([]);
+            expect(damageFlows(null)).toEqual([]);
+        });
+    });
+
+    describe('damageGrid', () => {
+        it('lays out the whole damage log by dealer and target, teams first, totals without self-damage', () => {
+            const grid = damageGrid(teamWithDamage);
+            expect(grid.pilots.map(p => `${p.team}:${p.name}`)).toEqual(['BLUE:INSANER', 'BLUE:PHOENIX', 'ORANGE:MAESTRO', 'ORANGE:STITCH']);
+            const at = name => grid.pilots.findIndex(p => p.name === name);
+            expect(grid.dealt[at('INSANER')][at('MAESTRO')]).toBe(300.5);
+            // the teammate's damage and the self-damage stay; the entry without an attacker does not
+            expect(grid.dealt[at('PHOENIX')][at('INSANER')]).toBe(15);
+            expect(grid.dealt[at('MAESTRO')][at('MAESTRO')]).toBe(20);
+            expect(grid.out[at('PHOENIX')]).toBe(75);
+            expect(grid.out[at('MAESTRO')]).toBe(90);
+            expect(grid.total).toBe(915.75);
+        });
+
+        it('gives null without a damage log', () => {
+            expect(damageGrid(teamWithLog)).toBeNull();
+            expect(damageGrid({ ...teamWithDamage, players: [] })).toBeNull();
+        });
+    });
+
+    describe('clutchOf', () => {
+        it('counts first blood, kills in the last minute and kills while trailing in a team game', () => {
+            const clutch = clutchOf(teamWithLog);
+            expect(clutch.team).toBe(true);
+            expect(clutch.firstBlood).toBe('STITCH');
+            expect(clutch.kills).toHaveLength(10);
+            // ORANGE 1-0 when INSANER scores at 0:25, BLUE 2-1 at STITCH's 0:55, ORANGE 4-2 and 4-3 at 1:50 and 2:10
+            expect(clutch.kills.filter(k => k.trailing).map(k => k.attacker)).toEqual(['INSANER', 'STITCH', 'INSANER', 'INSANER']);
+            // the match runs 3:34, so the last minute starts at 2:34: only the 3:00 kill
+            expect(clutch.kills.filter(k => k.late).map(k => k.attacker)).toEqual(['INSANER']);
+        });
+
+        it('reads trailing in FFA as behind the leader at that moment, a level score not counting', () => {
+            const clutch = clutchOf(ffaWithLog);
+            expect(clutch).toMatchObject({ team: false, firstBlood: 'JFTP' });
+            // "." trails 0-1 at 0:30 (and is level at 0:45); JFTP trails 1-2 at 1:20
+            expect(clutch.kills.map(k => `${k.attacker}:${k.trailing}`)).toEqual(['JFTP:false', '.:true', '.:false', 'JFTP:true']);
+        });
+
+        it('starts the last minute exactly CLUTCH.lateSeconds before the end of the replay', () => {
+            const end = replayLengthOf(teamWithLog);
+            const at = t => clutchOf({ ...teamWithLog, kills: [{ time: t, attacker: 'INSANER', defender: 'MAESTRO', weapon: 'Flak' }] }).kills[0].late;
+            expect(at(end - CLUTCH.lateSeconds)).toBe(true);
+            expect(at(end - CLUTCH.lateSeconds - 0.01)).toBe(false);
+        });
+
+        it('skips a log entry that is not an object instead of throwing', () => {
+            const clutch = clutchOf({ ...teamWithLog, kills: [null, ...teamWithLog.kills, 'x'] });
+            expect(clutch.kills).toHaveLength(10);
+            expect(scoreboardAt({ ...ffaWithLog, kills: [null, ...ffaWithLog.kills] }).sides.map(s => s.score)).toEqual([2, 2]);
+        });
+
+        it('gives nothing for a match that is not ranked, not kill-scored or has no kill log', () => {
+            expect(clutchOf(short(teamWithLog))).toBeNull();
+            expect(clutchOf(ctf(teamWithLog))).toBeNull();
+            expect(clutchOf(byId(72099))).toBeNull();
+        });
+
+        it('ends the last minute at the time limit, not at the later end the tracker records', () => {
+            // the fixture runs 3:34 by start and end; with a 3:20 limit the last minute starts at 2:20
+            const game = { ...teamWithLog, settings: { ...teamWithLog.settings, timeLimit: 200 } };
+            expect(clutchOf(game).kills.filter(k => k.late).map(k => k.attacker)).toEqual(['PHOENIX', 'INSANER']);
+        });
+
+        it('never counts a team-game kill by a pilot without a team as trailing', () => {
+            const game = { ...teamWithLog, players: [...teamWithLog.players, { name: 'LONER', kills: 1, deaths: 0 }], kills: [...teamWithLog.kills, { time: 200, attacker: 'LONER', defender: 'MAESTRO', weapon: 'Flak' }] };
+            expect(clutchOf(game).kills.at(-1)).toMatchObject({ attacker: 'LONER', trailing: false });
+        });
+    });
+
+    describe('rivalPass', () => {
+        const pass = rivalPass();
+        // a later copy of 72098 spells JFTP "jftp", which becomes the name shown
+        const later = { ...ffaWithDamage, players: ffaWithDamage.players.map(p => (p.name === 'JFTP' ? { ...p, name: 'jftp' } : p)) };
+        const games = [teamWithDamage, ffaWithDamage, later];
+        games.forEach((g, i) => pass.add({ id: i + 1, date: i === 2 ? '2026-01-01T00:00:00.000Z' : g.date }, g));
+        pass.add({ id: 9, date: null }, null);
+        const pairs = pass.pairs();
+        const pair = (a, b) => pairs.find(p => p.pilot === a && p.opponent === b);
+
+        it('makes no pair of a kill without a defender', () => {
+            const blank = rivalPass();
+            blank.add({ id: 1, date: teamWithDamage.date }, { ...teamWithDamage, kills: [...teamWithDamage.kills, { time: 200, attacker: 'INSANER', defender: '', weapon: 'Flak' }] });
+            expect(blank.pairs().some(p => !p.pilot || !p.opponent)).toBe(false);
+        });
+
+        it('writes each pair both ways, the kills and damage of one side the deaths and damage taken of the other', () => {
+            expect(pairs).toHaveLength(10);
+            for (const p of pairs) {
+                expect(pair(p.opponent, p.pilot)).toMatchObject({ matches: p.matches, kills: p.deaths, deaths: p.kills, damage_dealt: p.damage_taken, damage_taken: p.damage_dealt });
+            }
+            expect(pair('insaner', 'maestro')).toEqual({ pilot: 'insaner', opponent: 'maestro', name: 'INSANER', opponent_name: 'MAESTRO', matches: 1, kills: 4, deaths: 0, damage_dealt: 301, damage_taken: 0 });
+            expect(pair('jftp', '.')).toMatchObject({ name: 'jftp', matches: 2, kills: 4, deaths: 4, damage_dealt: 420, damage_taken: 361 });
+            // teammates never meet
+            expect(pair('insaner', 'phoenix')).toBeUndefined();
+        });
+
+        it('adds up to weaponKills() and damageFlows() for every pilot', () => {
+            const by = (rows, key) => rows.reduce((c, r) => ({ ...c, [pilotKey(r[key])]: (c[pilotKey(r[key])] || 0) + (r.damage ?? 1) }), {});
+            const kills = by(games.flatMap(weaponKills), 'attacker');
+            const damage = by(games.flatMap(damageFlows), 'attacker');
+            const sums = field => pairs.reduce((c, p) => ({ ...c, [p.pilot]: (c[p.pilot] || 0) + p[field] }), {});
+            expect(Object.fromEntries(Object.entries(sums('kills')).filter(([, n]) => n > 0))).toEqual(kills);
+            expect(sums('damage_dealt')).toEqual(Object.fromEntries(Object.keys(sums('damage_dealt')).map(k => [k, Math.round(damage[k] || 0)])));
+        });
+
+        it('keeps each pilot\'s clutch counts by kind, adding up to the kill-scored matches\' kills on opponents', () => {
+            const clutch = pass.clutch();
+            const line = (pilot, kind) => clutch.find(c => c.pilot === pilot && c.kind === kind);
+            expect(line('insaner', 'team')).toEqual({ pilot: 'insaner', kind: 'team', name: 'INSANER', matches: 1, first_bloods: 0, kills: 5, late_kills: 1, trailing_kills: 3 });
+            expect(line('stitch', 'team')).toMatchObject({ matches: 1, first_bloods: 1, kills: 3, trailing_kills: 1 });
+            expect(line('jftp', 'ffa')).toMatchObject({ name: 'jftp', matches: 2, first_bloods: 2, kills: 4, trailing_kills: 2 });
+            expect(clutch.reduce((n, c) => n + c.kills, 0)).toBe(games.flatMap(g => clutchOf(g).kills).length);
+            expect(clutch.reduce((n, c) => n + c.matches, 0)).toBe(4 + 2 + 2);
         });
     });
 });
