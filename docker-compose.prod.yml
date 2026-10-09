@@ -15,6 +15,9 @@ services:
       - TZ=America/Chicago
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env next to this file}
       - SESSION_SECRET=${SESSION_SECRET:?set SESSION_SECRET in .env next to this file}
+      # Optional (S18): the fight-night channel's webhook, and the origin its links use
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
+      - SITE_URL=${SITE_URL:-}
     # Rotate the container log: at most 3 files of 10 MB (Synology defaults to its own "db" driver)
     logging:
       driver: json-file

@@ -277,6 +277,25 @@ export function ensureAdminSettings() {
 }
 ensureAdminSettings();
 
+// Discord posts (S18, services/discordService.js): one row per post, so a post
+// goes out once whatever restarts, recap rebuilds or detector runs come after
+// it. `kind` is 'ping' (keyed by fight-night day) or 'recap' (by recap date);
+// `status` 'pending' until Discord takes it, then 'sent', or 'dropped' after
+// the last try. A restored backup from before it gets it back empty.
+export function ensureDiscordPosts() {
+  hotDb.exec(`
+    CREATE TABLE IF NOT EXISTS discord_posts (
+      kind TEXT NOT NULL,
+      key TEXT NOT NULL,
+      status TEXT NOT NULL,
+      tries INTEGER NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (kind, key)
+    ) WITHOUT ROWID;
+  `);
+}
+ensureDiscordPosts();
+
 // Maps Table (HOT DB)
 hotDb.exec(`
   CREATE TABLE IF NOT EXISTS maps (

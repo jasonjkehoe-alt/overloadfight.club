@@ -848,6 +848,24 @@ export function snapshotRow(entry) {
     };
 }
 
+// The Discord "it's on" ping (S18): an evening is on once one server-browser
+// answer shows this many pilots across the online servers, lobbies included.
+export const FIGHT_NIGHT_PING = { pilots: 6 };
+
+// The online servers in one server-browser answer, each as its entry and its
+// tick (snapshotRow), a server listed twice once (its last listing).
+export function onlineServers(servers) {
+    const online = new Map();
+    for (const entry of servers) {
+        const row = snapshotRow(entry);
+        if (row?.online) online.set(row.ip, { entry, row });
+    }
+    return [...online.values()];
+}
+
+// The pilots in one server-browser answer: the online servers' players.
+export const browserPilots = servers => onlineServers(servers).reduce((sum, { row }) => sum + row.players, 0);
+
 // The server page's windows, in whole fight-night days before today (the
 // heatmap's rule, so each weekday counts the same number of days in 7 and its
 // multiples), and the one shown without ?days=.

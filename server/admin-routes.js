@@ -5,6 +5,7 @@ import backfillManager from './backfill.js';
 import localIngest from './local-ingest.js';
 import mapSyncService from './services/mapSyncService.js';
 import archiveIngestService from './services/archiveIngestService.js';
+import discordService from './services/discordService.js';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
@@ -362,6 +363,28 @@ router.post('/settings', (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+// Discord (S18). The webhook URL is read from the environment and shown masked;
+// the switch is the discord_enabled setting, saved through POST /settings.
+// GET /api/admin/discord - the switch, the masked URL, the ping rule, the latest posts
+router.get('/discord', (req, res) => {
+    try {
+        res.json(discordService.discordStatus());
+    } catch (error) {
+        console.error('Error reading the Discord status:', error);
+        res.status(500).json({ error: 'Failed to read the Discord status' });
+    }
+});
+
+// POST /api/admin/discord/test - one test post, whether or not posting is on
+router.post('/discord/test', async (req, res) => {
+    if (!discordService.discordStatus().configured) {
+        return res.status(400).json({ error: 'No webhook URL is set. Set DISCORD_WEBHOOK_URL in the server\'s environment and restart it.' });
+    }
+    const result = await discordService.sendTest();
+    if (result.ok) return res.json(result);
+    res.status(502).json({ ...result, error: result.message });
 });
 
 // Map Management routes

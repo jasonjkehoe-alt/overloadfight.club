@@ -1,4 +1,5 @@
 import db from '../db.js';
+import { postRecap } from './discordService.js';
 import { FIGHT_NIGHT_DAY, dayStart, fightNightDay, netKills, pilotKey, shiftDay, winnerOf } from '../lib/gameParse.js';
 
 export const FIGHT_NIGHT_THRESHOLDS = {
@@ -439,10 +440,13 @@ export async function checkAndGenerateRecentFightNight() {
 
             if (qualifies) {
                 const existing = db.getFightNightRecapByDate ? db.getFightNightRecapByDate(dateStr) : null;
+                // Discord (S18): only a recap saved here posts, not waited for;
+                // one whose post failed is tried again on the next run
                 if (!existing) {
-                    await generateRecapForDate(dateStr);
+                    if (await generateRecapForDate(dateStr)) postRecap(dateStr, true);
                 } else {
                     console.log(`[FightNight] Recap already recorded for ${dateStr}.`);
+                    postRecap(dateStr);
                 }
             }
         }

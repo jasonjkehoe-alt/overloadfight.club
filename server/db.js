@@ -5,7 +5,7 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureAdminSettings, ensureDerivedTables, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
+import { ensureAdminSettings, ensureDerivedTables, ensureDiscordPosts, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
@@ -16,6 +16,7 @@ import {
   insertGameMetadata, getGameMetadata
 } from './db/repos/jobs.js';
 import { getAdminSetting, setAdminSetting } from './db/repos/settings.js';
+import { getDiscordPost, getRecentDiscordPosts, putDiscordPost } from './db/repos/discordPosts.js';
 import {
   seedStockMaps, getMaps, countMaps, getMapIntel, getMapById, getMapByName, upsertMap,
   incrementMapDownloads, updateMapLocalPaths, deleteMap
@@ -76,10 +77,12 @@ const db = {
     // A backup from before S13 to S17 lacks some of the derived tables; the
     // next refresh fills them. The built marker is cleared whatever the
     // backup carried, so a restore always gets one refresh at the next start.
-    // Nor does it have the server tables, which start empty again.
+    // Nor does it have the server tables, which start empty again, or the
+    // Discord posts (S18).
     ensureDerivedTables();
     ensureServerTables();
     ensureAdminSettings();
+    ensureDiscordPosts();
     clearDerivedTablesBuilt();
     clearDerivedCaches();
     clearServerSummaries();
@@ -128,6 +131,11 @@ const db = {
   // repos/settings.js
   getAdminSetting,
   setAdminSetting,
+
+  // repos/discordPosts.js
+  getDiscordPost,
+  putDiscordPost,
+  getRecentDiscordPosts,
 
   // repos/maps.js
   seedStockMaps,

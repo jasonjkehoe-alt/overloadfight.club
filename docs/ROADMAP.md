@@ -2738,7 +2738,75 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
 ### Phase 4: into Discord, and a reason to come back
 
 - [ ] **S18 Discord webhook** (S). Recap embed on save; "it's on" ping once per
-      evening; webhook URL as an admin setting.
+      evening; webhook URL as an admin setting. The owner decided at the
+      start of S18: the evening is on when the server browser shows 6 or
+      more pilots across servers (the plan's rule, read at the S15 minute
+      tick); the ping fires at most once per fight-night day; only a recap
+      the detector saves for a finished night posts, once per date, and the
+      S14 rebuild, the empty-table backfill, a public GET that generates a
+      recap and a forced regenerate never post; the embed carries the
+      night's totals, the saved recap's lines, the top pilots, a link to
+      `/fight-night/:date` and the power rankings' movement; the URL comes
+      from `DISCORD_WEBHOOK_URL` in the environment and the admin page only
+      switches posting on and off and shows the URL masked; a failed or
+      rate-limited post is retried once (after `Retry-After` on a 429, 5 s
+      otherwise), then logged and dropped, and marked sent only on success;
+      links use `SITE_URL` from the environment, defaulting to
+      `https://overloadfight.club`; the admin page gets a test-post button.
+      Done when (written at the start of S18):
+      1. `server/lib/gameParse.js` owns the ping's rule (`FIGHT_NIGHT_PING`,
+         6 pilots; `browserPilots`, the pilots on online servers in one
+         server-browser answer, read through `snapshotRow`), tested on a
+         browser list: offline servers, missing games and lobbies.
+      2. A Discord service posts with Node's fetch (no SDK): the URL only
+         from `DISCORD_WEBHOOK_URL`, posting only while `discord_enabled`
+         is `true` in `admin_settings` and a URL is set; one retry on a 429
+         (after `Retry-After`, capped) or a 5xx or network error (after
+         5 s), no retry on another 4xx; `allowed_mentions` empty, so a
+         pilot named `@everyone` pings nobody; pilot names escaped for
+         Discord markdown. No log line, error or API answer holds the URL;
+         a test runs the failure paths and checks every console line.
+      3. A new `discord_posts(kind, key, status, tries, updated_at)` table
+         in `tracker.db` keeps a post from repeating across restarts,
+         recap rebuilds and restores, with a migration decision entry: the
+         ping keyed by fight-night day, the recap by date; a post stays
+         pending until Discord accepts it, and after 3 tries or a 4xx it
+         is dropped. Tested against a local stub server: one ping per day
+         however many ticks pass the rule, none below it or while switched
+         off; a recap the detector saves posts once, and the rebuild, the
+         backfill, a GET and a second detector run do not post it again.
+      4. The recap embed: title the night's date linking to
+         `/fight-night/:date` (from `urlFor` and `SITE_URL`); the night's
+         matches, pilots and kills; most kills and most matches; the saved
+         lines (headline match, upset, biggest win, closest finish,
+         busiest map, new pilots, longest streak); the top 5 of the power
+         rankings on the next day with their 7-day movement (▲, ▼, NEW),
+         after a stats refresh so the night counts. Every number tested on
+         fixture data against the recap and `getPowerRankings`, inside
+         Discord's limits.
+      5. The ping message: the pilot count, the servers with pilots
+         (name, players of max, map and mode, or in the lobby) and a link
+         to the live page; tested on a browser list.
+      6. The ping rides the S15 server-browser tick and the recap the
+         detector, so no new timer; a post never blocks a request, the
+         ingest poll or the tick; a shutdown stops the service before
+         `db.close()`, so a post that ends later writes nothing.
+      7. Admin endpoints behind `requireAuth`: `GET /api/admin/discord`
+         (on or off, whether a URL is set, the URL masked, the ping rule,
+         the latest posts) and `POST /api/admin/discord/test` (one attempt,
+         no retry, answers the status and never the URL); a non-admin gets
+         401 from both. An admin card (`components/admin/`, its hook in
+         `hooks/`, requests through `apiService`'s admin helpers) shows the
+         switch, the masked URL or how to set one, the test button and the
+         latest posts, at 1,280 and 390 px. `.env.example`, both compose
+         files and the Environment section list `DISCORD_WEBHOOK_URL` and
+         `SITE_URL`.
+      8. The entry chunk and `AdminPanel` are recorded before and after;
+         checked in headless Chrome at 1,280 and 390 px (the admin card
+         with a mocked session and the real one), and against a local stub
+         webhook with the local server; the dashboard, fight night,
+         leaderboard, rankings, ladders, rivalries, pilot pages, maps and
+         match page still work.
 - [ ] **S19 OG share cards** (M). PNG cards for pilot, match, fight night, map
       and tape URLs via satori + resvg.
 - [ ] **S20 Tale of the Tape permalinks** (M). `/tape/:a/:b`.

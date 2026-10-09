@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     fetchAdminAuthStatus,
+    fetchAdminDiscord,
     fetchAdminExtendedStats,
     fetchVersionInfo,
     postAdminBackfillJobAction,
+    sendAdminDiscordTest,
     submitAdminLogin,
     syncAdminMaps
 } from './apiService';
@@ -80,5 +82,17 @@ describe('admin panel requests', () => {
         const err: any = await syncAdminMaps().catch((e) => e);
         expect(err.message).toBe('Network Error');
         expect(err.response).toBeUndefined();
+    });
+
+    it('reads the Discord status and sends the test post (S18); a failed post rejects with the server\'s words', async () => {
+        const mock = stubFetch(async (url: string) => (url.endsWith('/test')
+            ? new Response('{"ok":false,"status":500,"error":"Discord answered 500."}', { status: 502 })
+            : new Response('{"enabled":false,"configured":true}', { status: 200 })));
+        await expect(fetchAdminDiscord()).resolves.toEqual({ enabled: false, configured: true });
+        expect(mock.mock.calls[0][0]).toBe('/api/admin/discord');
+        const failed = await sendAdminDiscordTest().catch(e => e);
+        expect(mock.mock.calls[1][0]).toBe('/api/admin/discord/test');
+        expect(mock.mock.calls[1][1].method).toBe('POST');
+        expect(failed.response).toEqual({ status: 502, data: { ok: false, status: 500, error: 'Discord answered 500.' } });
     });
 });
