@@ -1,17 +1,18 @@
 import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
-import { PILOT_MONTH_COLUMNS, RATING_SNAPSHOT_COLUMNS, REGION_MONTH_COLUMNS } from '../../lib/statsPasses.js';
-import { clearRankings } from './ratings.js';
+import { DERIVED_TABLES, derivedColumns } from '../../lib/statsPasses.js';
+import { clearDerivedCaches, clearDerivedTablesBuilt, markDerivedTablesBuilt } from './meta.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
 // the run in progress. Never rejects: a failure is logged and the old caches stay,
-// except rating_snapshots, pilot_months and region_months, whose chunks already
-// written stay until the next refresh.
+// except the derived tables (statsPasses.js DERIVED_TABLES), whose chunks
+// already written stay until the next refresh.
 let refreshing = null;
-// rating_snapshots, pilot_months and region_months rows written per transaction (see writeChanges)
+// derived-table rows written per transaction (see writeChanges)
 const WRITE_CHUNK = 2000;
+
 // The stats worker while a refresh runs, so close() can stop it first.
 let statsWorker = null;
 export const refreshPilotStats = () => {
@@ -20,6 +21,9 @@ export const refreshPilotStats = () => {
   });
   return refreshing;
 };
+// The refresh under way, settled once it has finished writing; settled at
+// once while none runs.
+export const refreshInProgress = () => refreshing ?? Promise.resolve();
 
 const runStatsWorker = () => new Promise((resolve, reject) => {
   const worker = new Worker(new URL('../../statsWorker.js', import.meta.url), {
@@ -44,7 +48,8 @@ const runStatsWorker = () => new Promise((resolve, reject) => {
 // first refresh, or one after an older match arrives, moves most rows, which
 // is too long to hold the event loop on the NAS. A read between chunks sees
 // some rows new and some old.
-async function writeChanges(table, columns, { upserts, deletes }) {
+async function writeChanges(table, { upserts, deletes }) {
+  const columns = derivedColumns(table);
   const upsertStmt = hotDb.prepare(`
     INSERT OR REPLACE INTO ${table} (${columns.join(', ')})
     VALUES (${columns.map(c => `@${c}`).join(', ')})
@@ -66,7 +71,7 @@ async function refreshCaches() {
     ensurePilotStatsCache();
 
     const started = performance.now();
-    const { errors, pilots, archive, maps, ratings, months, regions } = await runStatsWorker();
+    const { errors, pilots, archive, maps, derived } = await runStatsWorker();
     for (const [pass, message] of Object.entries(errors)) console.error(`[StatsWorker] ${pass} pass failed: ${message}`);
 
     if (!errors.pilots) {
@@ -117,23 +122,34 @@ async function refreshCaches() {
       })();
       console.log(`[MapStats] Built map_stats_cache for ${maps.length} maps.`);
     }
-    if (ratings) {
-      try {
-        await writeChanges('rating_snapshots', RATING_SNAPSHOT_COLUMNS, ratings);
-      } finally {
-        // also after a failed chunk, so the ranks agree with the days written
-        clearRankings();
+    // each table on its own, so one that fails to write does not stop the
+    // rest; what the readers keep in memory is cleared once, after the last
+    // write (also after a failed chunk, so the ranks agree with the days written).
+    // The built marker is cleared first and set back once every table wrote,
+    // so a refresh that failed to write a table or died part-way costs the
+    // next start one refresh.
+    let built = true;
+    clearDerivedTablesBuilt();
+    try {
+      for (const [table, { log: [tag, rows] }] of Object.entries(DERIVED_TABLES)) {
+        const changes = derived[table];
+        if (!changes) {
+          built = false;
+          continue;
+        }
+        try {
+          await writeChanges(table, changes);
+          console.log(`[${tag}] ${changes.total} ${rows}: ${changes.upserts.length} written, ${changes.deletes.length} removed.`);
+        } catch (err) {
+          built = false;
+          console.error(`[${tag}] Failed to write ${table}:`, err);
+        }
       }
-      console.log(`[Ratings] ${ratings.total} daily rating snapshots: ${ratings.upserts.length} written, ${ratings.deletes.length} removed.`);
+    } finally {
+      clearDerivedCaches();
     }
-    if (months) {
-      await writeChanges('pilot_months', PILOT_MONTH_COLUMNS, months);
-      console.log(`[Career] ${months.total} pilot months: ${months.upserts.length} written, ${months.deletes.length} removed.`);
-    }
-    if (regions) {
-      await writeChanges('region_months', REGION_MONTH_COLUMNS, regions);
-      console.log(`[Regions] ${regions.total} region months: ${regions.upserts.length} written, ${regions.deletes.length} removed.`);
-    }
+    // the startup check reads this: a refresh has filled every derived table
+    if (built) markDerivedTablesBuilt();
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);
   } catch (err) {
     console.error("Failed to refresh PPI stats", err);

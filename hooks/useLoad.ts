@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // Calls `load` when `deps` change and keeps its answer: `data` is null while
 // it loads, `failed` is true when it answered null (the apiService functions
 // do on any failure), and retry() asks again. An answer that arrives after
-// the deps changed is dropped.
+// the deps changed is dropped. The result is the same object until the
+// answer changes, so a memoised component can take it as a prop.
 export function useLoad<T>(load: () => Promise<T | null>, deps: unknown[]) {
     const [state, setState] = useState<{ data: T | null; failed: boolean }>({ data: null, failed: false });
     const [retries, setRetries] = useState(0);
@@ -17,5 +18,6 @@ export function useLoad<T>(load: () => Promise<T | null>, deps: unknown[]) {
         return () => { current = false; };
     }, [...deps, retries]);
 
-    return { ...state, retry: () => setRetries(n => n + 1) };
+    const retry = useCallback(() => setRetries(n => n + 1), []);
+    return useMemo(() => ({ ...state, retry }), [state, retry]);
 }

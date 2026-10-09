@@ -192,6 +192,26 @@ router.get('/stats/active-count', async (req, res) => {
     }
 });
 
+// S16: the weapon meta, the specialist grid, the duel ladder and the objective
+// boards, each from a derived table the stats refresh keeps; no route cache,
+// and analytics/meta.js keeps each answer until a refresh has finished writing.
+const derivedRoute = (path, read, label) => router.get(path, (req, res) => {
+    try {
+        res.json(read());
+    } catch (e) {
+        console.error(`${label} Error:`, e);
+        res.status(500).json({ error: `Failed to fetch ${label.toLowerCase()}` });
+    }
+});
+// GET /api/stats/weapons - kills on opponents per weapon family, overall and per map
+derivedRoute('/stats/weapons', () => db.getWeaponMeta(), 'Weapon meta');
+// GET /api/stats/specialists - the top pilots' records on the top maps
+derivedRoute('/stats/specialists', () => db.getSpecialists(), 'Specialists');
+// GET /api/stats/duels - the 1v1 duel ladder for today
+derivedRoute('/stats/duels', () => db.getDuelLadder(), 'Duel ladder');
+// GET /api/stats/objectives - the CTF and Monsterball boards
+derivedRoute('/stats/objectives', () => db.getObjectiveBoards(), 'Objective boards');
+
 // Get robust map stats
 router.get('/stats/maps', async (req, res) => {
     try {

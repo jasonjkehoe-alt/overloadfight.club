@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, addToLine, careerMonth, emptyLine, combatRatio, durationOf, lethality, netKills, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, winRate, winnerOf } from './gameParse.js';
+import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, duelMatch, emptyLine, emptyObjectives, combatRatio, durationOf, hasDate, lethality, mapKey, netKills, objectiveMode, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
 import { regionOf, UNKNOWN_REGION } from './serverRegions.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
@@ -21,6 +21,8 @@ export function pilotPass() {
 
         const result = winnerOf(g);
         const month = careerMonth(row.date || g.date);
+        const map = mapKey(g);
+        const objective = objectiveMode(g);
 
         for (let j = 0; j < players.length; j++) {
             const p = players[j];
@@ -42,7 +44,9 @@ export function pilotPass() {
                     totalDamage: 0,
                     playtimeSec: 0,
                     lastSeen: row.date || g.end || g.date || null,
-                    months: new Map()
+                    months: new Map(),
+                    maps: new Map(),
+                    objectives: new Map()
                 };
             }
 
@@ -62,6 +66,14 @@ export function pilotPass() {
             if (month) {
                 if (!pilot.months.has(month)) pilot.months.set(month, emptyLine());
                 addToLine(pilot.months.get(month), p, outcome, durationSec);
+            }
+            if (map) {
+                if (!pilot.maps.has(map)) pilot.maps.set(map, emptyLine());
+                addToLine(pilot.maps.get(map), p, outcome);
+            }
+            if (objective) {
+                if (!pilot.objectives.has(objective)) pilot.objectives.set(objective, emptyObjectives());
+                addToObjectives(pilot.objectives.get(objective), p, outcome);
             }
         }
 
@@ -274,14 +286,106 @@ export function pilotPass() {
             [...p.months].map(([month, m]) => ({ pilot, month, ...m, seconds: Math.round(m.seconds * 1000) / 1000 })));
     }
 
-    return { add, rows, months };
+    // pilot_maps rows (S16): a pilot's ranked matches per map, with the
+    // latest spelling of their name
+    function maps() {
+        return Object.entries(pilotMap).flatMap(([pilot, p]) =>
+            [...p.maps].map(([map, m]) => ({ pilot, map, name: p.name, matches: m.matches, wins: m.wins, losses: m.losses, ties: m.ties, kills: m.kills, deaths: m.deaths })));
+    }
+
+    // pilot_objectives rows (S16): a pilot's ranked matches per objective mode
+    function objectives() {
+        return Object.entries(pilotMap).flatMap(([pilot, p]) =>
+            [...p.objectives].map(([mode, { seconds: _, ...o }]) => ({ pilot, mode, name: p.name, ...o })));
+    }
+
+    return { add, rows, months, maps, objectives };
 }
 
-// pilot_months columns, in table order, and its key.
-export const PILOT_MONTH_COLUMNS = ['pilot', 'month', 'matches', 'wins', 'losses', 'ties', 'kills', 'deaths', 'assists', 'seconds'];
+// map_weapons and pilot_weapons rows (S16): every weaponKills() entry of every
+// ranked match with a kill log, by the map and by the attacker.
+export function weaponPass() {
+    const byMap = new Map();
+    const byPilot = new Map();
+    const count = (counts, key) => counts.set(key, (counts.get(key) || 0) + 1);
+    function add(row, g) {
+        if (!g) return;
+        const kills = weaponKills(g);
+        if (kills.length === 0) return;
+        // a logged match without a map counts in neither table, so a pilot's
+        // kills and the community's come from the same matches
+        const map = mapKey(g);
+        if (!map) return;
+        for (const { attacker, family } of kills) {
+            count(byMap, `${map}\n${family}`);
+            count(byPilot, `${pilotKey(attacker)}\n${family}`);
+        }
+    }
+    const rows = (counts, first) => [...counts].map(([key, kills]) => {
+        const [a, family] = key.split('\n');
+        return { [first]: a, family, kills };
+    });
+    return { add, maps: () => rows(byMap, 'map'), pilots: () => rows(byPilot, 'pilot') };
+}
 
-// rating_snapshots columns, in table order.
-export const RATING_SNAPSHOT_COLUMNS = ['pilot', 'day', 'name', 'rating', 'rd', 'volatility', 'matches'];
+// duel_snapshots and pilot_duels rows (S16): every duelMatch() kept as its
+// sides, replayed through ratingSnapshots() once every game has been read, and
+// each pair's record (both directions) with the date of their last duel. A
+// duel without a date is skipped by both, as ratingSnapshots() skips it, so
+// the records add up to the snapshots' duel counts.
+export function duelPass() {
+    const duels = [];
+    function add(row, g) {
+        const sides = g && duelMatch(g);
+        const date = row.date || g?.date;
+        if (sides && hasDate(date)) duels.push({ id: row.id, date, sides });
+    }
+    function pairs() {
+        const records = new Map();
+        const record = (a, b) => {
+            const key = `${a.key}\n${b.key}`;
+            if (!records.has(key)) records.set(key, { pilot: a.key, opponent: b.key, wins: 0, losses: 0, ties: 0, last: null });
+            return records.get(key);
+        };
+        for (const { date, sides } of duels) {
+            const [a, b] = sides.map(s => s.pilots[0]);
+            const outcome = sides[0].score > sides[1].score ? ['wins', 'losses'] : sides[0].score < sides[1].score ? ['losses', 'wins'] : ['ties', 'ties'];
+            for (const [me, them, field] of [[a, b, outcome[0]], [b, a, outcome[1]]]) {
+                const r = record(me, them);
+                r[field]++;
+                if (!r.last || date > r.last) r.last = date;
+            }
+        }
+        return [...records.values()];
+    }
+    return { add, rows: () => ratingSnapshots(duels), pairs };
+}
+
+// The derived tables (rating_snapshots, pilot_months, region_months and the
+// S16 tables) in tracker.db: built by the worker on every refresh and brought
+// in line by server/statsWorker.js tableChanges and analytics/refresh.js
+// writeChanges. One list, so the schema (migrations.js), the restore, the
+// startup check, the worker and the write step agree: `columns` with their
+// types (the first two are the key), the `pass` that builds the table (a key
+// of the worker's passes), `rows` from those passes, and the log line's tag
+// and noun.
+const RATING_COLUMNS = ['pilot TEXT', 'day TEXT', 'name TEXT', 'rating REAL', 'rd REAL', 'volatility REAL', 'matches INTEGER'];
+export const DERIVED_TABLES = {
+    rating_snapshots: { columns: RATING_COLUMNS, pass: 'ratings', rows: p => p.ratings.rows(), log: ['Ratings', 'daily rating snapshots'] },
+    pilot_months: { columns: ['pilot TEXT', 'month TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER', 'assists INTEGER', 'seconds REAL'], pass: 'pilots', rows: p => p.pilots.months(), log: ['Career', 'pilot months'] },
+    region_months: { columns: ['region TEXT', 'month TEXT', 'matches INTEGER'], pass: 'regions', rows: p => p.regions.rows(), log: ['Regions', 'region months'] },
+    map_weapons: { columns: ['map TEXT', 'family TEXT', 'kills INTEGER'], pass: 'weapons', rows: p => p.weapons.maps(), log: ['Weapons', 'map weapon rows'] },
+    pilot_weapons: { columns: ['pilot TEXT', 'family TEXT', 'kills INTEGER'], pass: 'weapons', rows: p => p.weapons.pilots(), log: ['Weapons', 'pilot weapon rows'] },
+    pilot_maps: { columns: ['pilot TEXT', 'map TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER'], pass: 'pilots', rows: p => p.pilots.maps(), log: ['Maps', 'pilot map rows'] },
+    duel_snapshots: { columns: RATING_COLUMNS, pass: 'duels', rows: p => p.duels.rows(), log: ['Duels', 'daily duel snapshots'] },
+    pilot_duels: { columns: ['pilot TEXT', 'opponent TEXT', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'last TEXT'], pass: 'duels', rows: p => p.duels.pairs(), log: ['Duels', 'duel records'] },
+    pilot_objectives: { columns: ['pilot TEXT', 'mode TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER', 'assists INTEGER', 'goals INTEGER', 'goal_assists INTEGER', 'blunders INTEGER', 'captures INTEGER', 'returns INTEGER', 'pickups INTEGER', 'carrier_kills INTEGER'], pass: 'pilots', rows: p => p.pilots.objectives(), log: ['Objectives', 'objective rows'] }
+};
+// A derived table's column names, in table order.
+export const derivedColumns = table => DERIVED_TABLES[table].columns.map(c => c.split(' ')[0]);
+// The value of the built marker (analytics/meta.js) once a refresh has
+// written every table in the list: a new table or column changes it.
+export const DERIVED_TABLES_VERSION = Object.entries(DERIVED_TABLES).map(([table, { columns }]) => `${table}(${columns.join(',')})`).join(';');
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
 // sides and replayed in date order once every game has been read.
@@ -293,9 +397,6 @@ export function ratingPass() {
     }
     return { add, rows: () => ratingSnapshots(matches) };
 }
-
-// region_months columns, in table order.
-export const REGION_MONTH_COLUMNS = ['region', 'month', 'matches'];
 
 // region_months rows (S15): every stored match, hot and cold, counted by the
 // region of its server and the month of its fight-night day. The region comes
@@ -479,8 +580,7 @@ export function archivePass() {
 export function mapPass(thirtyDaysAgo) {
     const mapStatsMap = new Map();
 
-    function getOrInit(name) {
-        const key = name.toLowerCase().trim();
+    function getOrInit(name, key) {
         let entry = mapStatsMap.get(key);
         if (!entry) {
             entry = {
@@ -506,7 +606,7 @@ export function mapPass(thirtyDaysAgo) {
         const levelRaw = details?.settings?.level;
         if (!levelRaw || typeof levelRaw !== 'string') return;
 
-        const entry = getOrInit(levelRaw);
+        const entry = getOrInit(levelRaw, mapKey(details));
         entry.total_matches++;
 
         const date = row.date;

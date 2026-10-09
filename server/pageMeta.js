@@ -46,6 +46,17 @@ function rankingsMeta() {
     return { description: `Power rankings for ${day}: ${top}.` };
 }
 
+// "Duel ladder for 2026-10-08: 1. WD-40 (1612), 2. OKSTER (1580), 3. RAZOR (1555)."
+// (listed pilots only; nothing while none is listed, nor for an objective board)
+function laddersMeta(board) {
+    if (board && board !== 'duels') return {};
+    const { day, listed, pilots } = db.getDuelLadder();
+    if (listed === 0) return {};
+    // the listed pilots come first
+    const top = pilots.slice(0, Math.min(3, listed)).map(p => `${p.rank}. ${p.name} (${Math.round(p.rating)})`).join(', ');
+    return { description: `Duel ladder for ${day}: ${top}.` };
+}
+
 // "Overloader: Dallas, TX (North America Central): online 99.0% of the minutes
 // checked in the last 30 days, a match running 12.0% of that time, 6.5 pilots
 // in a match on average. Join at 192.227.193.172." The parts with no ticks
@@ -63,12 +74,13 @@ function serverMeta(ip) {
     return { name: s.name, description: `${name} (${regionLabel(s.region)})${parts.length ? `: ${parts.join(', ')}` : ''}. Join at ${ip}.` };
 }
 
-function routeMeta({ view, param }) {
+function routeMeta({ view, param }, query) {
     switch (view) {
         case 'pilot': return pilotMeta(param);
         case 'game-detail': return matchMeta(param);
         case 'fight-night': return fightNightMeta(param);
         case 'rankings': return rankingsMeta();
+        case 'ladders': return laddersMeta(query.get('board'));
         case 'live-game-detail': return { name: db.getServerListing(param)?.name, description: `Live Overload match. Join at ${param}.` };
         case 'server': return serverMeta(param);
         default: return {};
@@ -84,10 +96,11 @@ const escapeHtml = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCode
  * @param {string} url the request's path and query
  */
 export function withPageMeta(html, origin, url) {
-    const route = parseRoute(url.split('?')[0]);
+    const [pathname, search] = url.split('?');
+    const route = parseRoute(pathname);
     let meta = {};
     try {
-        meta = routeMeta(route);
+        meta = routeMeta(route, new URLSearchParams(search));
     } catch (e) {
         // a bad row or a closed database must not stop the page from loading
         console.error('[PageMeta] Falling back to the site description:', e.message);

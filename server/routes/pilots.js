@@ -125,6 +125,19 @@ router.get('/pilot/:name/career', async (req, res) => {
     }
 });
 
+// GET /api/pilot/:name/weapon-mix - the pilot's logged kills per weapon family
+// beside the community's (S16), from pilot_weapons and map_weapons; a pilot
+// with no logged kill gets zeros, not a 404. No route cache: the tables change
+// only when a refresh writes them.
+router.get('/pilot/:name/weapon-mix', (req, res) => {
+    try {
+        res.json(db.getPilotWeaponMix(req.params.name));
+    } catch (e) {
+        console.error("Pilot Weapon Mix Error:", e);
+        res.status(500).json({ error: "Failed to fetch pilot weapon mix" });
+    }
+});
+
 // GET /api/pilot/:name/breakdown - Pilot Map Combat & Rivals Breakdown
 router.get('/pilot/:name/breakdown', async (req, res) => {
     try {

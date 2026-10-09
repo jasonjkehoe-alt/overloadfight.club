@@ -5,7 +5,7 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureGamePlayersTable, ensurePilotMonths, ensureRatingSnapshots, ensureRegionMonths, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
+import { ensureAdminSettings, ensureDerivedTables, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
@@ -39,10 +39,11 @@ import {
   getPilotDetailedStats, getPilotBreakdown, getPilotTelemetry, normalizeWeaponName,
   PRIMARY_WEAPONS, SECONDARY_WEAPONS
 } from './db/analytics/pilotTelemetry.js';
-import { clearRankings, getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
+import { getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
-import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
+import { clearDerivedCaches, clearDerivedTablesBuilt, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
+import { refreshPilotStats, refreshInProgress, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
 export { pilotStatements } from './db/analytics/pilots.js';
@@ -58,6 +59,10 @@ const db = {
   mapImagesDir,
   // Replace tracker.db through SQLite's backup API, then rebuild game_players.
   restoreHot: async source => {
+    // a refresh under way would write its diffs of the old tables into the
+    // restored ones and set the built marker back: stop it and wait it out
+    await stopStatsWorker();
+    await refreshInProgress();
     const uploaded = new Database(source, { readonly: true, fileMustExist: true });
     try {
       await uploaded.backup(dbPath);
@@ -67,14 +72,15 @@ const db = {
     // A backup from before S5 has no game_players; build it for the restored games.
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
-    // A backup from before S13 has no rating_snapshots, one from before S14 no
-    // pilot_months, one from before S15 no region_months; the next refresh
-    // fills them. Nor does it have the server tables, which start empty again.
-    ensureRatingSnapshots();
-    ensurePilotMonths();
-    ensureRegionMonths();
+    // A backup from before S13 to S16 lacks some of the derived tables; the
+    // next refresh fills them. The built marker is cleared whatever the
+    // backup carried, so a restore always gets one refresh at the next start.
+    // Nor does it have the server tables, which start empty again.
+    ensureDerivedTables();
     ensureServerTables();
-    clearRankings();
+    ensureAdminSettings();
+    clearDerivedTablesBuilt();
+    clearDerivedCaches();
     clearServerSummaries();
   },
   migrateGamePlayers,
@@ -206,6 +212,14 @@ const db = {
   getServerSummary,
   getRegionShare,
   hasRegionMonths,
+
+  // analytics/meta.js
+  derivedTablesBuilt,
+  getWeaponMeta,
+  getPilotWeaponMix,
+  getSpecialists,
+  getDuelLadder,
+  getObjectiveBoards,
 
   // analytics/refresh.js
   refreshPilotStats,

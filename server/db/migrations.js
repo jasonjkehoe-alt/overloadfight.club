@@ -1,5 +1,6 @@
 import { hotDb, coldDb } from './connection.js';
 import { playerRows } from '../lib/gameParse.js';
+import { DERIVED_TABLES, derivedColumns } from '../lib/statsPasses.js';
 
 // Schema for both files, in the order the server has always created it. Runs once,
 // when db.js is first imported; every repo and analytics module imports this file
@@ -185,51 +186,35 @@ export function migrateGamePlayers() {
 }
 migrateGamePlayers();
 
-// rating_snapshots (S13): each pilot's Glicko-2 rating at the end of every day
-// they played a rated match (gameParse.js ratingSnapshots). Derived from both
-// files, so it lives in tracker.db only, like pilot_stats_cache. Every stats
-// refresh replays every rated match and brings it in line (analytics/refresh.js),
-// so it starts empty and a refresh fills it, at startup when it is empty;
-// dropping it loses nothing the next refresh does not rebuild. `pilot` is the pilotKey(), `day` the fight-night day (gameParse.js fightNightDay).
-export function ensureRatingSnapshots() {
-  hotDb.exec(`
-    CREATE TABLE IF NOT EXISTS rating_snapshots (
-      pilot TEXT NOT NULL,
-      day TEXT NOT NULL,
-      name TEXT NOT NULL,
-      rating REAL NOT NULL,
-      rd REAL NOT NULL,
-      volatility REAL NOT NULL,
-      matches INTEGER NOT NULL,
-      PRIMARY KEY (pilot, day)
-    ) WITHOUT ROWID;
-  `);
+// The derived tables (statsPasses.js DERIVED_TABLES), in tracker.db only: each
+// is built from both files by the stats worker, like pilot_stats_cache, so the
+// hot/cold split does not apply. Every refresh brings each one in line
+// (analytics/refresh.js writeChanges), so they start empty and the first
+// refresh fills them: the startup check in maintenance.js refreshes until a
+// refresh has written every table in the list (the built marker in
+// admin_settings). Dropping one loses nothing the next refresh does not rebuild.
+// rating_snapshots (S13): one row per pilot per fight-night day with a rated
+// match (`pilot` the pilotKey(), `day` from fightNightDay). pilot_months
+// (S14): a pilot's career totals per month of the fight-night day.
+// region_months (S15): stored matches per server region per month.
+// map_weapons and pilot_weapons (S16): logged kills on opponents per weapon
+// family, by map and by pilot. pilot_maps (S16): a pilot's ranked matches per
+// map. duel_snapshots and pilot_duels (S16): the duel ladder's rating history
+// and each pair's record. pilot_objectives (S16): a pilot's ranked matches
+// per objective mode with the tracker's goal and flag counts. Each is keyed
+// by its first two columns.
+export function ensureDerivedTables() {
+  for (const [table, { columns }] of Object.entries(DERIVED_TABLES)) {
+    const names = derivedColumns(table);
+    // a table whose columns differ from the list (one added or renamed since
+    // the database was built) is dropped; the next refresh fills it again
+    const existing = hotDb.pragma(`table_info(${table})`).map(c => c.name);
+    if (existing.length > 0 && existing.join(',') !== names.join(',')) hotDb.exec(`DROP TABLE ${table};`);
+    const [a, b] = names;
+    hotDb.exec(`CREATE TABLE IF NOT EXISTS ${table} (${columns.map(c => `${c} NOT NULL`).join(', ')}, PRIMARY KEY (${a}, ${b})) WITHOUT ROWID;`);
+  }
 }
-ensureRatingSnapshots();
-
-// pilot_months (S14): each pilot's career totals per month (the month of the
-// fight-night day), by the career cards' rules, for the pilot page's career
-// arc. Built and kept in line the same way as rating_snapshots, from the same
-// stats pass as pilot_stats_cache (statsPasses.js pilotPass). `pilot` is the
-// pilotKey(), `month` YYYY-MM, `seconds` the summed durationOf().
-export function ensurePilotMonths() {
-  hotDb.exec(`
-    CREATE TABLE IF NOT EXISTS pilot_months (
-      pilot TEXT NOT NULL,
-      month TEXT NOT NULL,
-      matches INTEGER NOT NULL,
-      wins INTEGER NOT NULL,
-      losses INTEGER NOT NULL,
-      ties INTEGER NOT NULL,
-      kills INTEGER NOT NULL,
-      deaths INTEGER NOT NULL,
-      assists INTEGER NOT NULL,
-      seconds REAL NOT NULL,
-      PRIMARY KEY (pilot, month)
-    ) WITHOUT ROWID;
-  `);
-}
-ensurePilotMonths();
+ensureDerivedTables();
 
 // Server history (S15): the tracker's server browser, stored by the server
 // every minute (services/serverSnapshots.js, gameParse.js SNAPSHOT). Unlike the
@@ -276,29 +261,18 @@ export function ensureServerTables() {
 }
 ensureServerTables();
 
-// region_months (S15): stored matches per server region (server/lib/serverRegions.js)
-// per month of their fight-night day, hot and cold, for the dashboard's region
-// share. Derived like pilot_months: the stats worker counts every match on each
-// refresh and sends only the changes (statsPasses.js regionPass).
-export function ensureRegionMonths() {
+
+// Admin Settings Table. A restored backup from before it needs it back
+// (restoreHot clears the derived tables' built marker there).
+export function ensureAdminSettings() {
   hotDb.exec(`
-    CREATE TABLE IF NOT EXISTS region_months (
-      region TEXT NOT NULL,
-      month TEXT NOT NULL,
-      matches INTEGER NOT NULL,
-      PRIMARY KEY (region, month)
-    ) WITHOUT ROWID;
+    CREATE TABLE IF NOT EXISTS admin_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
   `);
 }
-ensureRegionMonths();
-
-// Admin Settings Table
-hotDb.exec(`
-  CREATE TABLE IF NOT EXISTS admin_settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-`);
+ensureAdminSettings();
 
 // Maps Table (HOT DB)
 hotDb.exec(`

@@ -4,8 +4,9 @@ import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink,
 import PilotPerformanceCard from './PilotPerformanceCard';
 import RatingCard from './pilotDetail/RatingCard';
 import CareerCard from './pilotDetail/CareerCard';
+import WeaponMix from './pilotDetail/WeaponMix';
 import { useLoad } from '../hooks/useLoad';
-import { fetchPilotCareer, fetchPilotRating } from '../services/apiService';
+import { fetchPilotCareer, fetchPilotRating, fetchPilotWeaponMix } from '../services/apiService';
 import { colors } from '../designTokens.js';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
@@ -138,6 +139,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     // the rating does not depend on the mode, so it loads once beside the page's requests
     const rating = useLoad(() => fetchPilotRating(pilotName), [pilotName]);
     const career = useLoad(() => fetchPilotCareer(pilotName), [pilotName]);
+    // all-time and all modes, like the community it is set against
+    const weaponMix = useLoad(() => fetchPilotWeaponMix(pilotName), [pilotName]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -505,6 +508,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                     )}
                                 </div>
                             )}
+
+                            <WeaponMix load={weaponMix} />
 
                             {/* Performance Grid */}
                             <div>

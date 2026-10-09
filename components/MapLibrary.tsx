@@ -12,6 +12,8 @@ import { navigate, goBack, useUrl, useQueryParam, useQueryText } from '../hooks/
 import { useDialog } from '../hooks/useDialog';
 import { urlFor } from '../server/lib/siteRoutes.js';
 import { EmptyState, ErrorState } from './States';
+import WeaponMeta from './mapLibrary/WeaponMeta';
+import SpecialistGrid from './mapLibrary/SpecialistGrid';
 
 // Map cards per page of the grid, kept in ?page=
 const MAP_PAGE_SIZE = 24;
@@ -305,6 +307,10 @@ const MapLibrary: React.FC<MapLibraryProps> = ({ mapName }) => {
                     </div>
                 </div>
             )}
+
+            {/* Weapon meta and specialists (S16) */}
+            <WeaponMeta />
+            <SpecialistGrid />
 
             {/* Filter, Origin & Sort Control Bar */}
             <div className="bg-[#101012] border border-gray-800 p-4 rounded-xl flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">

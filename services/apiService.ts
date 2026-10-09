@@ -579,6 +579,80 @@ export interface RegionShare {
 
 export const fetchRegionShare = () => getJson<RegionShare>(`${API_BASE}/stats/regions`);
 
+// Weapon meta and ladders (S16). Kills per weapon family are keyed by
+// gameParse.js WEAPON_FAMILIES ids, every family present.
+export interface WeaponMeta {
+    community: Record<string, number>;
+    kills: number;
+    // the maps with the most logged kills, most first
+    maps: { map: string; kills: number; families: Record<string, number> }[];
+}
+export const fetchWeaponMeta = () => getJson<WeaponMeta>(`${API_BASE}/stats/weapons`);
+
+export interface PilotWeaponMix {
+    pilot: Record<string, number>;
+    kills: number;
+    community: Record<string, number>;
+    communityKills: number;
+}
+export const fetchPilotWeaponMix = (name: string) => getJson<PilotWeaponMix>(`${API_BASE}/pilot/${encodeURIComponent(name)}/weapon-mix`);
+
+export interface SpecialistCell {
+    matches: number;
+    wins: number;
+    losses: number;
+    ties: number;
+}
+export interface Specialists {
+    pilots: { pilot: string; name: string; matches: number }[];
+    maps: { map: string; matches: number }[];
+    // cells[i][j]: pilots[i]'s record on maps[j], or null
+    cells: (SpecialistCell | null)[][];
+}
+export const fetchSpecialists = () => getJson<Specialists>(`${API_BASE}/stats/specialists`);
+
+export interface DuelPilot {
+    pilot: string;
+    name: string;
+    // the day of the latest duel snapshot
+    day: string;
+    rating: number;
+    rd: number;
+    matches: number;
+    rank: number;
+    status: 'listed' | 'provisional';
+    wins: number;
+    losses: number;
+    ties: number;
+    // the fight-night day of the last duel
+    last: string;
+}
+export interface DuelLadder {
+    day: string;
+    // how many pilots are past the listing bar
+    listed: number;
+    pilots: DuelPilot[];
+}
+export const fetchDuelLadder = () => getJson<DuelLadder>(`${API_BASE}/stats/duels`);
+
+export interface ObjectivePilot {
+    pilot: string;
+    mode: string;
+    name: string;
+    matches: number;
+    wins: number;
+    losses: number;
+    ties: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    rank: number;
+    // the gameParse.js OBJECTIVE_FIELDS columns
+    [field: string]: number | string;
+}
+export type ObjectiveBoards = Record<string, ObjectivePilot[]>;
+export const fetchObjectiveBoards = () => getJson<ObjectiveBoards>(`${API_BASE}/stats/objectives`);
+
 // Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.

@@ -92,6 +92,12 @@ export function rankedMatch(game, duration = durationOf(game)) {
     return Array.isArray(game?.players) && game.players.length >= RANKED.pilots && duration >= RANKED.seconds;
 }
 
+// A team game has a team score or a player on a team.
+export function teamGame(game) {
+    const teamScore = game?.teamScore && typeof game.teamScore === 'object' ? game.teamScore : {};
+    return Object.keys(teamScore).length > 0 || (Array.isArray(game?.players) ? game.players : []).some(p => teamOf(p));
+}
+
 // Who won. Team games rank teams by teamScore (any number of teams; teams
 // with players but no score entry count as 0). FFA ranks pilots by their
 // in-game score (`kills`). `ranking` lists { side, name, score } best first;
@@ -102,7 +108,7 @@ export function rankedMatch(game, duration = durationOf(game)) {
 export function winnerOf(game) {
     const players = Array.isArray(game?.players) ? game.players : [];
     const teamScore = game?.teamScore && typeof game.teamScore === 'object' ? game.teamScore : {};
-    const team = Object.keys(teamScore).length > 0 || players.some(p => teamOf(p));
+    const team = teamGame(game);
 
     const scores = new Map();
     if (team) {
@@ -205,10 +211,17 @@ export function hasKillLog(game) {
     return Array.isArray(game?.kills) && game.kills.length > 0;
 }
 
+// The match mode in upper case ('ANARCHY', 'CTF', ...), '' when unset.
+export const matchModeOf = game => String(game?.settings?.matchMode ?? '').trim().toUpperCase();
+
+// The map a match names, in upper case, or null: the key of every map table
+// (map_stats_cache shows the first spelling it saw).
+export const mapKey = game => String(game?.settings?.level ?? '').trim().toUpperCase() || null;
+
 // True when the match's score is its kills, so the kill log replays the
 // score. CTF and Monsterball score captures and goals, and Race laps.
 export function killScored(game) {
-    const mode = String(game?.settings?.matchMode ?? '').trim().toUpperCase();
+    const mode = matchModeOf(game);
     return !mode || KILL_SCORED_MODES.has(mode);
 }
 
@@ -349,15 +362,16 @@ export function firstBloodOf(game) {
 
 // Weapon families for the charts: one colour each (designTokens.js `chart.weapon`),
 // in this order. A weapon not listed is 'other', the last entry.
+// `short` names a family by its first weapon where a column is narrow.
 export const WEAPON_FAMILIES = [
-    { id: 'laser', label: 'Impulse, Cyclone, Reflex', weapons: ['IMPULSE', 'CYCLONE', 'REFLEX'] },
-    { id: 'thunderbolt', label: 'Thunderbolt', weapons: ['THUNDERBOLT'] },
-    { id: 'flak', label: 'Flak, Crusher', weapons: ['FLAK', 'CRUSHER'] },
-    { id: 'driller', label: 'Driller, Lancer', weapons: ['DRILLER', 'LANCER'] },
-    { id: 'missile', label: 'Falcon, Missile Pod, Hunter', weapons: ['FALCON', 'MISSILE POD', 'HUNTER'] },
-    { id: 'mine', label: 'Creeper, Time Bomb', weapons: ['CREEPER', 'TIME BOMB'] },
-    { id: 'heavy', label: 'Nova, Devastator, Vortex', weapons: ['NOVA', 'DEVASTATOR', 'VORTEX'] },
-    { id: 'other', label: 'Other', weapons: [] },
+    { id: 'laser', label: 'Impulse, Cyclone, Reflex', short: 'Impulse', weapons: ['IMPULSE', 'CYCLONE', 'REFLEX'] },
+    { id: 'thunderbolt', label: 'Thunderbolt', short: 'Thunderbolt', weapons: ['THUNDERBOLT'] },
+    { id: 'flak', label: 'Flak, Crusher', short: 'Flak', weapons: ['FLAK', 'CRUSHER'] },
+    { id: 'driller', label: 'Driller, Lancer', short: 'Driller', weapons: ['DRILLER', 'LANCER'] },
+    { id: 'missile', label: 'Falcon, Missile Pod, Hunter', short: 'Falcon', weapons: ['FALCON', 'MISSILE POD', 'HUNTER'] },
+    { id: 'mine', label: 'Creeper, Time Bomb', short: 'Creeper', weapons: ['CREEPER', 'TIME BOMB'] },
+    { id: 'heavy', label: 'Nova, Devastator, Vortex', short: 'Nova', weapons: ['NOVA', 'DEVASTATOR', 'VORTEX'] },
+    { id: 'other', label: 'Other', short: 'Other', weapons: [] },
 ];
 
 const FAMILY_OF_WEAPON = new Map(WEAPON_FAMILIES.flatMap(f => f.weapons.map(w => [w, f.id])));
@@ -628,6 +642,9 @@ export function ratingSides(game) {
 const mean = values => values.reduce((a, b) => a + b, 0) / values.length;
 const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
 
+// A stored date the replays can order by.
+export const hasDate = date => Number.isFinite(Date.parse(date));
+
 // Replays rated matches ([{ id, date, sides }], sides from ratingSides()) in
 // date order (id order for equal dates; a match without a date is skipped)
 // and returns each pilot's rating at the end of every fight-night day they
@@ -638,7 +655,7 @@ const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
 export function ratingSnapshots(matches) {
     const timed = matches
         .map(m => ({ ...m, at: Date.parse(m.date) }))
-        .filter(m => Number.isFinite(m.at))
+        .filter(m => hasDate(m.date))
         .sort((a, b) => a.at - b.at || a.id - b.id);
     const pilots = new Map();
     const snapshots = new Map();
@@ -885,4 +902,97 @@ export function regionShare(rows, thisMonth) {
     }
     const first = [...byMonth.keys()].sort()[0];
     return first ? monthsTo(first, thisMonth).map(month => byMonth.get(month) || { month, total: 0, counts: {} }) : [];
+}
+
+// Weapon meta and ladders (S16).
+
+// The kills that count for the weapon meta: a ranked match's kill-log entries
+// worth a point by killPoints() (a kill on an opponent: not a suicide, not a
+// team kill, not a death without an attacker), each as { attacker, family },
+// `family` being weaponFamily() of the weapon. Teams missing from an entry
+// come from game.players, as the scoreboard replay reads them; the order of
+// the log does not matter here, so it is one pass with no replay. A match
+// that is not rankedMatch() or has no log gives none.
+export function weaponKills(game) {
+    if (!rankedMatch(game) || !hasKillLog(game)) return [];
+    const team = teamGame(game);
+    // a pilot's first listing, as the replay's rowFor() keeps it
+    const teams = new Map();
+    if (team) for (const p of game.players) { const key = pilotKey(p?.name); if (key && !teams.has(key)) teams.set(key, teamOf(p)); }
+    const kills = [];
+    for (const kill of game.kills) {
+        const entry = team
+            ? { ...kill, attackerTeam: kill?.attackerTeam || teams.get(pilotKey(kill?.attacker)), defenderTeam: kill?.defenderTeam || teams.get(pilotKey(kill?.defender)) }
+            : kill;
+        const points = killPoints(entry, team);
+        if (points.points > 0) kills.push({ attacker: points.scorer, family: weaponFamily(kill.weapon) });
+    }
+    return kills;
+}
+
+// A duel (the owner's rule at the start of S16): a ranked, killScored() match
+// with exactly two named pilots on different sides, so a 1v1 Anarchy match or
+// a one-a-side Team Anarchy match; a CTF or Monsterball 1v1 is not one. Gives
+// ratingSides() of the match (two sides of one pilot each) or null.
+export function duelMatch(game) {
+    // exactly two named pilots in a kill-scored match (most matches are not
+    // two pilots, so that is checked first); ratingSides() then gives their
+    // two sides, or null when both are on one side or the match is too short
+    const players = Array.isArray(game?.players) ? game.players : [];
+    if (!killScored(game) || new Set(players.map(p => pilotKey(p?.name)).filter(Boolean)).size !== 2) return null;
+    return ratingSides(game);
+}
+
+// The duel ladder: a pilot is listed from DUEL.listedAfter duels, whenever
+// their last one was (duels are rarer than matches, so no activity window);
+// below that they are provisional and shown under the listed ones.
+export const DUEL = { listedAfter: 5 };
+export const DUEL_HINT = `Duel rating: Glicko-2 over 1v1 matches alone (${RANKED.pilots} pilots on different sides, ${RANKED.seconds} s or more, a result, kills as the score). Listed from ${DUEL.listedAfter} duels; fewer is provisional. ${RD_HINT}`;
+
+// The ladder on `day` from each pilot's latest duel snapshot (the
+// rating_snapshots shape, from ratingSnapshots() over duelMatch() sides):
+// listed pilots by rating (then duels, then name), then the provisional ones
+// the same way, each with `rank` from 1, `status` and its RD on `day` (rdOn).
+export function duelLadder(latest, day) {
+    const listed = s => s.matches >= DUEL.listedAfter;
+    return [...latest]
+        .sort((a, b) => listed(b) - listed(a) || b.rating - a.rating || b.matches - a.matches || a.pilot.localeCompare(b.pilot))
+        .map((s, i) => ({ ...s, rd: rdOn(s, day), rank: i + 1, status: listed(s) ? 'listed' : 'provisional' }));
+}
+
+// Objective counts (S16): the tracker's per-player fields (`player`) and the
+// pilot_objectives column each adds up to (`field`), with the board's word.
+export const OBJECTIVE_FIELDS = [
+    { field: 'goals', player: 'goals', label: 'Goals' },
+    { field: 'goal_assists', player: 'goalAssists', label: 'Goal assists' },
+    { field: 'blunders', player: 'blunders', label: 'Blunders' },
+    { field: 'captures', player: 'captures', label: 'Captures' },
+    { field: 'returns', player: 'returns', label: 'Returns' },
+    { field: 'pickups', player: 'pickups', label: 'Pickups' },
+    { field: 'carrier_kills', player: 'carrierKills', label: 'Carrier kills' }
+];
+// The objective modes, in the order the ladders page lists their boards:
+// the fields each board shows, in order, and the one it sorts by.
+export const OBJECTIVE_MODES = {
+    CTF: { label: 'CTF', fields: ['captures', 'returns', 'pickups', 'carrier_kills'], sort: 'captures' },
+    MONSTERBALL: { label: 'Monsterball', fields: ['goals', 'goal_assists', 'blunders'], sort: 'goals' }
+};
+// How many pilots an objective board lists.
+export const BOARD_ROWS = 50;
+
+// The objective mode of a match (an OBJECTIVE_MODES key), or null.
+export function objectiveMode(game) {
+    const mode = matchModeOf(game);
+    return OBJECTIVE_MODES[mode] ? mode : null;
+}
+
+// A pilot's objective totals for a board: a career line (matches, wins,
+// losses, ties, kills, deaths, assists) plus every objective field, each 0 to
+// start. addToObjectives() adds one player's ranked match in that mode: the
+// fields are the tracker's per-player counts, missing ones counting 0.
+export const emptyObjectives = () => ({ ...emptyLine(), ...Object.fromEntries(OBJECTIVE_FIELDS.map(f => [f.field, 0])) });
+export function addToObjectives(line, player, outcome) {
+    addToLine(line, player, outcome);
+    for (const { field, player: from } of OBJECTIVE_FIELDS) line[field] += Number(player?.[from]) || 0;
+    return line;
 }

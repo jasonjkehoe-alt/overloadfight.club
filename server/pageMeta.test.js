@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { day, onDay, sample, veteranSoup } from './testFixtures.js';
 import { HOUR_MS, dayStart, netKills } from './lib/gameParse.js';
 
@@ -76,6 +76,25 @@ describe('withPageMeta', () => {
         const tags = tagsFor('/rankings');
         expect(tags.title).toBe('Power rankings | overloadfight.club');
         expect(tags.description).toBe(`Power rankings for ${today}: 1. WD-40 (${Math.round(pilots[0].rating)}).`);
+    });
+
+    it('describes the duel ladder by its listed top three', () => {
+        const { day: today, pilots } = db.getDuelLadder();
+        const listed = pilots.filter(p => p.status === 'listed');
+        // five sample duels each: WD-40 and OKSTER (JFTP has four)
+        expect(listed.map(p => p.name).sort()).toEqual(['OKSTER', 'WD-40']);
+        expect(pilots.filter(p => p.status === 'provisional').map(p => p.name)).toContain('JFTP');
+        const tags = tagsFor('/ladders');
+        expect(tags.title).toBe('Ladders | overloadfight.club');
+        expect(tags.description).toBe(`Duel ladder for ${today}: ${listed.map(p => `${p.rank}. ${p.name} (${Math.round(p.rating)})`).join(', ')}.`);
+        // three of four listed
+        const ladder = vi.spyOn(db, 'getDuelLadder').mockReturnValue({ day: today, listed: 4, pilots: [1, 2, 3, 4].map(rank => ({ rank, name: `P${rank}`, rating: 1500 + rank, status: 'listed' })) });
+        expect(tagsFor('/ladders').description).toBe(`Duel ladder for ${today}: 1. P1 (1501), 2. P2 (1502), 3. P3 (1503).`);
+        ladder.mockRestore();
+        // an objective board is not the duel ladder
+        const ctf = tagsFor('/ladders?board=ctf');
+        expect(ctf.url).toBe('https://overloadfight.club/ladders?board=ctf');
+        expect(ctf.description).toBe('Live Overload servers, match results and pilot stats.');
     });
 
     it('keeps the query string in og:url and leaves the rest of the page alone', () => {

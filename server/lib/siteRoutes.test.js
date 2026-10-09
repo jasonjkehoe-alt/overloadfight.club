@@ -18,6 +18,7 @@ describe('parseRoute and urlFor', () => {
             { view: 'server', param: '143.110.230.67' },
             { view: 'pilots' },
             { view: 'rankings' },
+            { view: 'ladders' },
             { view: 'cold-storage' },
             { view: 'taunts' },
             { view: 'olmod' },
@@ -52,6 +53,7 @@ describe('pageTitle', () => {
         expect(pageTitle({ view: 'dashboard' })).toBe('Live | overloadfight.club');
         expect(pageTitle({ view: 'pilots' })).toBe('Leaderboards | overloadfight.club');
         expect(pageTitle({ view: 'rankings' })).toBe('Power rankings | overloadfight.club');
+        expect(pageTitle({ view: 'ladders' })).toBe('Ladders | overloadfight.club');
         expect(pageTitle({ view: 'pilot', param: 'WD-40' })).toBe('WD-40 | overloadfight.club');
         expect(pageTitle({ view: 'game-detail', param: 72102 })).toBe('Match 72102 | overloadfight.club');
         expect(pageTitle({ view: 'game-detail', param: 72102 }, 'ASCENT')).toBe('Match 72102: ASCENT | overloadfight.club');
@@ -67,6 +69,7 @@ describe('pageTitle', () => {
 describe('navSection', () => {
     it('lights Leaderboards on the power rankings, Live on a server page, and a page\'s own item otherwise', () => {
         expect(navSection('rankings')).toBe('pilots');
+        expect(navSection('ladders')).toBe('pilots');
         expect(navSection('server')).toBe('dashboard');
         expect(navSection('pilots')).toBe('pilots');
         expect(navSection('maps')).toBe('maps');
