@@ -45,7 +45,7 @@ const SpecialistGrid: React.FC = () => {
         body = (
             <>
                 <p className="text-xs text-gray-400 mb-3">
-                    The {data.pilots.length} pilots with the most ranked matches on the {data.maps.length} maps played most. Darker is a higher win rate; a cell with under {SPECIALIST_MIN} matches shows the record alone.
+                    The {data.pilots.length} pilots with the most ranked matches on the {data.maps.length} maps played most. A lighter cell is a higher win rate; a cell with under {SPECIALIST_MIN} matches shows the record alone.
                 </p>
                 <HeatTable
                     caption={`Each pilot's win rate on each map over ranked matches (${RANKED.pilots}+ pilots, ${RANKED.seconds} s or more) with a result.`}

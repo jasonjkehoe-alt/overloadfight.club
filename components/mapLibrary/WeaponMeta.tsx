@@ -38,7 +38,7 @@ const WeaponMeta: React.FC = () => {
             <>
                 <p className="text-xs text-gray-400 mb-3">
                     <span className="text-white font-bold">{top.label}</span> leads with {percent(data.community[top.id] / data.kills)} of {data.kills.toLocaleString()} logged kills.
-                    {' '}The {data.maps.length} map{data.maps.length === 1 ? '' : 's'} with the most logged kills; darker is a larger share of that map's kills.
+                    {' '}The {data.maps.length} map{data.maps.length === 1 ? '' : 's'} with the most logged kills; a lighter cell is a larger share of that map's kills.
                 </p>
                 <HeatTable
                     caption={`Share of each map's logged kills by weapon family. Ranked matches (${RANKED.pilots}+ pilots, ${RANKED.seconds} s or more) with a kill log; kills on opponents only.`}

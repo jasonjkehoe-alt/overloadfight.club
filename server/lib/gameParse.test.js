@@ -855,6 +855,9 @@ describe('weapon meta and ladders (S16)', () => {
             expect(duelMatch({ ...game, settings: { ...game.settings, matchMode: 'CTF' }, teamScore: { BLUE: 1, ORANGE: 0 }, players: game.players.map((p, i) => ({ ...p, team: i ? 'ORANGE' : 'BLUE' })) })).toBeNull();
             expect(duelMatch({ ...game, settings: { ...game.settings, matchMode: 'MONSTERBALL' }, teamScore: { BLUE: 1, ORANGE: 0 }, players: game.players.map((p, i) => ({ ...p, team: i ? 'ORANGE' : 'BLUE' })) })).toBeNull();
             expect(duelMatch({ ...game, players: [...game.players, { name: 'THIRD', kills: 0, deaths: 0, assists: 0 }] })).toBeNull();
+            // a one-a-side team match with a third pilot on no team: two sides of one, but not a 1v1
+            const teamGame = { ...game, teamScore: { BLUE: 3, ORANGE: 5 }, settings: { ...game.settings, matchMode: 'TEAM ANARCHY' }, players: [...game.players.map((p, i) => ({ ...p, team: i ? 'ORANGE' : 'BLUE' })), { name: 'THIRD', kills: 0, deaths: 0, assists: 0 }] };
+            expect(duelMatch(teamGame)).toBeNull();
             expect(duelMatch(byId(72102))).toBeNull();
             expect(duelMatch({ ...game, date: new Date(Date.parse(game.settings.start) + 30000).toISOString() })).toBeNull();
         });
