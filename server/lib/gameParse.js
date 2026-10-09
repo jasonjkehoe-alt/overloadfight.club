@@ -967,10 +967,11 @@ export const OBJECTIVE_FIELDS = [
     { field: 'pickups', player: 'pickups', label: 'Pickups' },
     { field: 'carrier_kills', player: 'carrierKills', label: 'Carrier kills' }
 ];
-// The objective modes: the fields each board shows, in order, and the one it sorts by.
+// The objective modes, in the order the ladders page lists their boards:
+// the fields each board shows, in order, and the one it sorts by.
 export const OBJECTIVE_MODES = {
-    MONSTERBALL: { label: 'Monsterball', fields: ['goals', 'goal_assists', 'blunders'], sort: 'goals' },
-    CTF: { label: 'CTF', fields: ['captures', 'returns', 'pickups', 'carrier_kills'], sort: 'captures' }
+    CTF: { label: 'CTF', fields: ['captures', 'returns', 'pickups', 'carrier_kills'], sort: 'captures' },
+    MONSTERBALL: { label: 'Monsterball', fields: ['goals', 'goal_assists', 'blunders'], sort: 'goals' }
 };
 
 // The objective mode of a match (an OBJECTIVE_MODES key), or null.
