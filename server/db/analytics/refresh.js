@@ -3,7 +3,7 @@ import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
 import { DERIVED_TABLES, derivedColumns } from '../../lib/statsPasses.js';
 import { clearRankings } from './ratings.js';
-import { clearDuelLadder } from './meta.js';
+import { clearDuelLadder, clearWeaponTotals, markDerivedTablesBuilt } from './meta.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
@@ -15,7 +15,7 @@ let refreshing = null;
 const WRITE_CHUNK = 2000;
 // What a derived table's readers keep in memory, cleared once it is written
 // (also after a failed chunk, so the ranks agree with the days written).
-const AFTER_WRITE = { rating_snapshots: clearRankings, duel_snapshots: clearDuelLadder };
+const AFTER_WRITE = { rating_snapshots: clearRankings, duel_snapshots: clearDuelLadder, pilot_duels: clearDuelLadder, map_weapons: clearWeaponTotals };
 // Each derived table's log line: its tag and what its rows are
 const LOG_LINE = {
   rating_snapshots: ['Ratings', 'daily rating snapshots'], pilot_months: ['Career', 'pilot months'], region_months: ['Regions', 'region months'],
@@ -128,17 +128,27 @@ async function refreshCaches() {
       })();
       console.log(`[MapStats] Built map_stats_cache for ${maps.length} maps.`);
     }
+    // each table on its own, so one that fails to write does not stop the rest
+    let built = true;
     for (const table of Object.keys(DERIVED_TABLES)) {
       const changes = derived[table];
-      if (!changes) continue;
+      const [tag, rows] = LOG_LINE[table];
+      if (!changes) {
+        built = false;
+        continue;
+      }
       try {
         await writeChanges(table, changes);
+        console.log(`[${tag}] ${changes.total} ${rows}: ${changes.upserts.length} written, ${changes.deletes.length} removed.`);
+      } catch (err) {
+        built = false;
+        console.error(`[${tag}] Failed to write ${table}:`, err);
       } finally {
         AFTER_WRITE[table]?.();
       }
-      const [tag, rows] = LOG_LINE[table];
-      console.log(`[${tag}] ${changes.total} ${rows}: ${changes.upserts.length} written, ${changes.deletes.length} removed.`);
     }
+    // the startup check reads this: a refresh has filled every derived table
+    if (built) markDerivedTablesBuilt();
     console.log(`[StatsWorker] Full pass finished in ${((performance.now() - started) / 1000).toFixed(2)}s.`);
   } catch (err) {
     console.error("Failed to refresh PPI stats", err);

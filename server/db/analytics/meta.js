@@ -1,7 +1,8 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
-import { DERIVED_TABLES } from '../../lib/statsPasses.js';
+import { DERIVED_TABLES_VERSION } from '../../lib/statsPasses.js';
 import { OBJECTIVE_MODES, WEAPON_FAMILIES, duelLadder, fightNightDay, pilotKey } from '../../lib/gameParse.js';
+import { setAdminSetting } from '../repos/settings.js';
 
 // Weapon meta and ladders (S16), read from the derived tables the stats
 // worker keeps (map_weapons, pilot_weapons, pilot_maps, duel_snapshots,
@@ -19,14 +20,25 @@ const byFamily = rows => {
 };
 const sum = counts => Object.values(counts).reduce((a, b) => a + b, 0);
 
-// True once every derived table has a row: the startup check refreshes
-// until then. A table that stays empty for good (no duel, no Monsterball
-// match ever) keeps the check refreshing on every start, as an all-unranked
-// database did before S16.
-const anyRow = Object.fromEntries(Object.keys(DERIVED_TABLES).map(t => [t, hotDb.prepare(`SELECT 1 FROM ${t} LIMIT 1`)]));
-export const derivedTablesFilled = () => Object.values(anyRow).every(stmt => stmt.get());
+// The built marker: admin_settings holds the list of derived tables a
+// refresh last wrote in full (statsPasses.js DERIVED_TABLES_VERSION). The
+// startup check refreshes while it differs, so a new table, a restored
+// backup (restoreHot clears it) or a refresh that failed to write a table
+// each cost one refresh, and a table that stays empty for good (no
+// Monsterball match ever) costs none.
+export const DERIVED_MARK = 'derived_tables_built';
+// its own statement: pluck() would change the shared getAdminSetting for every caller
+const readMark = hotDb.prepare('SELECT value FROM admin_settings WHERE key = ?').pluck();
+export const derivedTablesBuilt = () => readMark.get(DERIVED_MARK) === DERIVED_TABLES_VERSION;
+export const markDerivedTablesBuilt = () => setAdminSetting.run(DERIVED_MARK, DERIVED_TABLES_VERSION);
+export const clearDerivedTablesBuilt = () => hotDb.prepare('DELETE FROM admin_settings WHERE key = ?').run(DERIVED_MARK);
 
+// The community's kills per family, over every map, kept until a refresh
+// writes map_weapons (clearWeaponTotals): the pilot page reads it on each view.
 const communityWeapons = hotDb.prepare('SELECT family, SUM(kills) AS kills FROM map_weapons GROUP BY family');
+let community = null;
+const communityTotals = () => (community ??= byFamily(communityWeapons.all()));
+export const clearWeaponTotals = () => { community = null; };
 const mapWeapons = hotDb.prepare(`
   SELECT map, family, kills FROM map_weapons
   WHERE map IN (SELECT map FROM map_weapons GROUP BY map ORDER BY SUM(kills) DESC, map LIMIT ?)
@@ -37,7 +49,7 @@ const mapWeapons = hotDb.prepare(`
 // kill log, and the same for the META.maps maps with the most logged kills,
 // most first.
 export function getWeaponMeta() {
-  const community = byFamily(communityWeapons.all());
+  const community = communityTotals();
   const maps = new Map();
   for (const { map, family, kills } of mapWeapons.all(META.maps)) {
     if (!maps.has(map)) maps.set(map, { map, kills: 0, families: byFamily([]) });
@@ -54,31 +66,37 @@ const pilotWeapons = hotDb.prepare('SELECT family, kills FROM pilot_weapons WHER
 // pilot: their logged kills on opponents per family beside everyone's.
 export function getPilotWeaponMix(name) {
   const pilot = byFamily(pilotWeapons.all(pilotKey(name)));
-  const community = byFamily(communityWeapons.all());
+  const community = communityTotals();
   return { pilot, kills: sum(pilot), community, communityKills: sum(community) };
 }
 
+// The pilots with the most ranked matches, and the maps among their rows
+// with the most matches by map_stats_cache (every stored match on the map;
+// pilot_maps rows are pilot appearances, not matches). map_stats_cache's
+// name is NOCASE, so it matches pilot_maps' upper-case key.
 const topGridPilots = hotDb.prepare(`
   SELECT pilot, name, SUM(matches) AS matches FROM pilot_maps GROUP BY pilot ORDER BY matches DESC, pilot LIMIT ?
 `);
-const topGridMaps = hotDb.prepare('SELECT map, SUM(matches) AS matches FROM pilot_maps GROUP BY map ORDER BY matches DESC, map LIMIT ?');
-const gridCells = hotDb.prepare('SELECT pilot, map, matches, wins, losses, ties FROM pilot_maps WHERE pilot = ?');
+const topGridMaps = hotDb.prepare(`
+  SELECT UPPER(map_name) AS map, total_matches AS matches FROM map_stats_cache
+  WHERE map_name IN (SELECT DISTINCT map FROM pilot_maps) ORDER BY total_matches DESC, map_name LIMIT ?
+`);
+const gridCells = hotDb.prepare(`
+  SELECT pilot, map, matches, wins, losses, ties FROM pilot_maps
+  WHERE pilot IN (SELECT pilot FROM pilot_maps GROUP BY pilot ORDER BY SUM(matches) DESC, pilot LIMIT ?)
+    AND map IN (SELECT UPPER(map_name) FROM map_stats_cache WHERE map_name IN (SELECT DISTINCT map FROM pilot_maps) ORDER BY total_matches DESC, map_name LIMIT ?)
+`);
 
 // The specialist grid: the META.gridPilots pilots with the most ranked matches
-// against the META.gridMaps maps with the most, `cells[i][j]` the pilot's
+// against the META.gridMaps maps played most, `cells[i][j]` the pilot's
 // record on the map ({ matches, wins, losses, ties }) or null.
 export function getSpecialists() {
   const pilots = topGridPilots.all(META.gridPilots);
   const maps = topGridMaps.all(META.gridMaps);
+  const row = new Map(pilots.map((p, i) => [p.pilot, i]));
   const column = new Map(maps.map((m, j) => [m.map, j]));
-  const cells = pilots.map(p => {
-    const row = maps.map(() => null);
-    for (const { pilot: _, map, ...record } of gridCells.all(p.pilot)) {
-      const j = column.get(map);
-      if (j !== undefined) row[j] = record;
-    }
-    return row;
-  });
+  const cells = pilots.map(() => maps.map(() => null));
+  for (const { pilot, map, ...record } of gridCells.all(META.gridPilots, META.gridMaps)) cells[row.get(pilot)][column.get(map)] = record;
   return { pilots, maps, cells };
 }
 

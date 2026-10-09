@@ -879,6 +879,12 @@ describe('weapon meta and ladders (S16)', () => {
             expect(record('b2af', 'behemoth')).toMatchObject({ wins: 0, losses: 2, ties: 0 });
             const snapshots = pass.rows();
             expect(new Set(snapshots.map(s => s.pilot))).toEqual(new Set(['jftp', 'xb1', '.', 'wd-40', 'okster', 'b2af', 'behemoth']));
+            // a duel without a date is in neither the snapshots nor the records
+            const undated = duelPass();
+            undated.add({ id: 1, date: null }, { ...byId(72090), date: undefined });
+            undated.add({ id: 2, date: 'not a date' }, byId(72089));
+            expect(undated.rows()).toEqual([]);
+            expect(undated.pairs()).toEqual([]);
             // the duel subset's replay: WD-40's five duels, JFTP's four
             expect(Math.max(...snapshots.filter(s => s.pilot === 'wd-40').map(s => s.matches))).toBe(5);
             expect(Math.max(...snapshots.filter(s => s.pilot === 'jftp').map(s => s.matches))).toBe(4);
@@ -926,6 +932,11 @@ describe('weapon meta and ladders (S16)', () => {
             expect(maps.filter(r => r.map === 'ASCENT').reduce((n, r) => n + r.kills, 0)).toBe(20);
             expect(maps.find(r => r.map === 'POSEIDON' && r.family === 'laser').kills).toBe(1);
             expect(pilots.find(r => r.pilot === 'insaner' && r.family === 'other').kills).toBe(2);
+            // a logged match without a map counts in neither table
+            const noMap = weaponPass();
+            noMap.add({ id: 3 }, { ...teamWithLog, settings: { ...teamWithLog.settings, level: '' } });
+            expect(noMap.maps()).toEqual([]);
+            expect(noMap.pilots()).toEqual([]);
         });
     });
 });

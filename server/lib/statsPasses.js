@@ -316,9 +316,12 @@ export function weaponPass() {
         if (!g) return;
         const kills = weaponKills(g);
         if (kills.length === 0) return;
+        // a logged match without a map counts in neither table, so a pilot's
+        // kills and the community's come from the same matches
         const map = mapKey(g);
+        if (!map) return;
         for (const { attacker, family } of kills) {
-            if (map) count(byMap, `${map}\n${family}`);
+            count(byMap, `${map}\n${family}`);
             count(byPilot, `${pilotKey(attacker)}\n${family}`);
         }
     }
@@ -331,12 +334,15 @@ export function weaponPass() {
 
 // duel_snapshots and pilot_duels rows (S16): every duelMatch() kept as its
 // sides, replayed through ratingSnapshots() once every game has been read, and
-// each pair's record (both directions) with the day of their last duel.
+// each pair's record (both directions) with the date of their last duel. A
+// duel without a date is skipped by both, as ratingSnapshots() skips it, so
+// the records add up to the snapshots' duel counts.
 export function duelPass() {
     const duels = [];
     function add(row, g) {
         const sides = g && duelMatch(g);
-        if (sides) duels.push({ id: row.id, date: row.date || g.date, sides });
+        const date = row.date || g?.date;
+        if (sides && Number.isFinite(Date.parse(date))) duels.push({ id: row.id, date, sides });
     }
     function pairs() {
         const records = new Map();
@@ -377,10 +383,9 @@ export const DERIVED_TABLES = {
 };
 // A derived table's column names, in table order.
 export const derivedColumns = table => DERIVED_TABLES[table].split(', ').map(c => c.split(' ')[0]);
-
-// Kept for the callers that name them.
-export const PILOT_MONTH_COLUMNS = derivedColumns('pilot_months');
-export const RATING_SNAPSHOT_COLUMNS = derivedColumns('rating_snapshots');
+// The value of the built marker (analytics/meta.js DERIVED_MARK) once a
+// refresh has written every table in the list: a new table changes it.
+export const DERIVED_TABLES_VERSION = Object.keys(DERIVED_TABLES).join(',');
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
 // sides and replayed in date order once every game has been read.
@@ -392,8 +397,6 @@ export function ratingPass() {
     }
     return { add, rows: () => ratingSnapshots(matches) };
 }
-
-export const REGION_MONTH_COLUMNS = derivedColumns('region_months');
 
 // region_months rows (S15): every stored match, hot and cold, counted by the
 // region of its server and the month of its fight-night day. The region comes

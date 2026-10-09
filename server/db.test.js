@@ -359,6 +359,15 @@ describe('weapon meta and ladders (S16)', () => {
         expect(table()).toEqual(before);
         expect(db.getWeaponMeta().kills).toBe(1);
     });
+
+    it('marks the derived tables built only when every one wrote, and the marker survives a refresh', async () => {
+        expect(db.derivedTablesBuilt()).toBe(true);
+        const hot = connections.find(c => c.prepare("SELECT 1 FROM sqlite_master WHERE name = 'pilot_duels'").get());
+        hot.prepare("DELETE FROM admin_settings WHERE key = 'derived_tables_built'").run();
+        expect(db.derivedTablesBuilt()).toBe(false);
+        await db.refreshPilotStats();
+        expect(db.derivedTablesBuilt()).toBe(true);
+    });
 });
 
 describe('getPilotStats', () => {
@@ -563,7 +572,7 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         old.close();
         const today = fightNightDay(Date.now());
         expect(db.hasRatingSnapshots()).toBe(true);
-        expect(db.derivedTablesFilled()).toBe(true);
+        expect(db.derivedTablesBuilt()).toBe(true);
         expect(db.getDuelLadder(today).pilots.length).toBeGreaterThan(0);
         expect(db.getPowerRankings(today).total).toBeGreaterThan(0);
         const before = db.countGames(null, null).count;
@@ -582,7 +591,7 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.hasRatingSnapshots()).toBe(false);
         expect(db.hasPilotMonths()).toBe(false);
         expect(db.hasRegionMonths()).toBe(false);
-        expect(db.derivedTablesFilled()).toBe(false);
+        expect(db.derivedTablesBuilt()).toBe(false);
         expect(db.getRegionShare().months).toEqual([]);
         expect(db.getWeaponMeta()).toMatchObject({ kills: 0, maps: [] });
         expect(db.getSpecialists()).toEqual({ pilots: [], maps: [], cells: [] });

@@ -57,11 +57,12 @@ function scheduleMaintenance() {
                 if (maxGameDate && (!maxCacheDate || maxGameDate > maxCacheDate)) {
                     console.log(`[Maintenance] Data is newer than cache on startup (${maxGameDate} > ${maxCacheDate}), refreshing stats...`);
                     await refreshPilotStats();
-                } else if (!db.derivedTablesFilled()) {
+                } else if (!db.derivedTablesBuilt()) {
                     // the first start with a new derived table (ratings S13, career
                     // months S14, region months S15, the weapon, map, duel and
-                    // objective tables S16), or a restored backup from before it
-                    console.log('[Maintenance] A derived table is empty on startup, refreshing stats...');
+                    // objective tables S16), a restored backup, or a refresh that
+                    // failed to write one of them
+                    console.log('[Maintenance] The derived tables have not all been built, refreshing stats...');
                     await refreshPilotStats();
                 } else {
                     console.log('[Maintenance] Cache already warm on startup, skipping blocking sync.');

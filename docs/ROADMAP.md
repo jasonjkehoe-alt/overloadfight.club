@@ -86,8 +86,12 @@ merged.)
 S14 is merged into `main` (PR #15, squash-merged 2026-10-08 18:51 UTC
 as `aa05428`), with no owner commits after it.
 
-S15 is on branch `ofc/s15-server-history`, based on `aa05428`, PR #16
-open against `main` and not merged, 2026-10-08 UTC.
+S15 is merged into `main` (PR #16, squash-merged 2026-10-09 03:47 UTC
+as `2463b20`), with no owner commits after it. (The S16 prompt said it
+was still open; it had merged.)
+
+S16 is on branch `ofc/s16-weapon-meta`, based on `2463b20`, its PR open
+against `main` and not merged, 2026-10-09 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -98,11 +102,11 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 15 of 28 sessions done (S1 to S14 merged, S15 in PR #16).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 4/6. Phase 4: 0/11. The Node 26
+Counts: 16 of 28 sessions done (S1 to S15 merged, S16 in its PR).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 5/6. Phase 4: 0/11. The Node 26
 maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-08 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S14 and Node 26 merged into `main`, `main` at aa05428, S15 on `ofc/s15-server-history`)
+## Validated (as of 2026-10-09 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S15 and Node 26 merged into `main`, `main` at 2463b20, S16 on `ofc/s16-weapon-meta`)
 
 - S15, first move on Node 26.11.1, on `main` at `aa05428` (PR #15
   merged, no owner commits after it): `npx vitest run` passed 14 files,
@@ -3783,6 +3787,147 @@ Not counted in the 28 sessions.
   Unknown takes the weapons' grey. The "night, 02:00" wording is one
   `atClock` in `gameParse.js`, and `monthsTo` there fills the months for
   both the career arc and the region share.
+- 2026-10-08 (S16): The owner's answers at the start of S16. A duel is a
+  ranked, kill-scored match with exactly two pilots on different sides: a
+  1v1 Anarchy match, or a Team Anarchy match with one pilot a side. A CTF
+  or Monsterball 1v1 is not one, so the local 1v1 CTF (0-0, no result)
+  stays out. The ladder is Glicko-2 replayed over the duels alone, listed
+  from 5 duels. The weapon mix is a dumbbell per weapon family, not a
+  radar: the job is one pilot against the community per item, which the
+  dataviz form heuristic gives to a dumbbell, and a radar is not in its
+  table (area and angle mislead, and eight axes do not read). Recorded as
+  the owner's choices.
+- 2026-10-08 (S16): How the weapon meta counts, in `gameParse.js`
+  (`weaponKills`): a ranked match's kill-log entries worth a point by
+  `killPoints`, so a kill on an opponent and nothing else (no suicide, no
+  team kill, no death without an attacker; teams missing from an entry
+  come from the players, as the scoreboard replay reads them), each under
+  `weaponFamily` of its weapon. Matches without a log give nothing, so the
+  meta covers the tracker's logged years, not every match. The map is the
+  level in upper case (`mapKey` in `statsPasses.js`; `map_stats_cache`
+  keys by lower case and shows the first spelling, which the S16 tables do
+  not need). No day rule: the tables are all-time totals. Rejected: the
+  damage log as the source (the pilot page's arsenal already splits damage
+  by weapon; kills are what the plan page asked for and what the momentum
+  chart draws).
+- 2026-10-08 (S16): The duel rule, `duelMatch`: `killScored` (Anarchy,
+  Team Anarchy or no mode), then `ratingSides` giving exactly two sides of
+  one pilot each with no other named pilot in the match (a third pilot on
+  no team in a team game sits out of the rating but makes the match a
+  3-player one, not a duel). The ladder (`DUEL`, `duelLadder`): a pilot
+  with `DUEL.listedAfter` (5) duels or more is listed, by rating then
+  duels then name; below that they are provisional and sit under the
+  listed ones in the same order; no activity window, since duels are rarer
+  than matches (on the 40 local matches four pilots are listed and two
+  provisional; with the rankings' 10 and 28 days, two). The rating is the
+  S13 code on the duel subset: `duelPass` keeps each duel's sides and
+  `ratingSnapshots` replays them, so a duel rating is a second history in
+  its own table, never the main rating. The pair records (`pilot_duels`,
+  both directions) come from the sides' scores: a higher score wins, equal
+  is a tie. Rejected: wins and losses as the order (beating weak opponents
+  would outrank splitting with strong ones), and the rankings' bar and
+  window (the ladder would be empty for weeks).
+- 2026-10-08 (S16): The objective boards' sources: the tracker's
+  per-player fields, not the `goals[]` and `flagStats[]` logs. Monsterball
+  counts `goals`, `goalAssists` and `blunders`; CTF `captures`, `returns`,
+  `pickups` and `carrierKills` (`OBJECTIVE_FIELDS`, `OBJECTIVE_MODES`,
+  `addToObjectives` in `gameParse.js`), over ranked matches in that mode
+  (`objectiveMode`, any case or spacing), with the career line beside them
+  (matches, wins, losses, ties by `outcomeOf`, so by the team score).
+  Each board sorts by its headline count (goals, captures), then matches,
+  then name, 50 rows. The logs were rejected as the source because the
+  local CTF match stores `flagStats: []` while its players carry the
+  counts, and the player fields are what the tracker's own pages show.
+- 2026-10-08 (S16): The pilot × map grid (`pilot_maps`, the specialists
+  section): a pilot's ranked matches per map with the record (`addToLine`
+  in the same `pilotPass` loop as the months, so the matches add up to the
+  career totals for matches that name a map). The grid shows the 20 pilots
+  with the most ranked matches against the 12 maps with the most
+  (`META` in `analytics/meta.js`), coloured by win rate (`winRate`) from 3
+  matches (`SPECIALIST_MIN`); under that the cell shows the record alone,
+  uncoloured. Win rate rather than K/D: the plan page said a win-rate
+  grid, and the pilot page's map table already shows K/D.
+- 2026-10-08 (S16): The derived tables are one list, `DERIVED_TABLES` in
+  `statsPasses.js` (the S14 flag): the table name and its columns with
+  their types, keyed by the first two. `migrations.js` creates each from
+  it (`ensureDerivedTables`, `WITHOUT ROWID`, in `tracker.db` only), the
+  worker builds each one's rows and `tableChanges` for it, `writeChanges`
+  in `refresh.js` applies them in 2,000-row chunks, `restoreHot` creates
+  the ones a backup lacks, and the startup check refreshes while any is
+  empty (`derivedTablesFilled`). The six new tables: `map_weapons(map,
+  family, kills)` and `pilot_weapons(pilot, family, kills)` from
+  `weaponPass`; `pilot_maps(pilot, map, name, matches, wins, losses, ties,
+  kills, deaths)` and `pilot_objectives(pilot, mode, name, matches, wins,
+  losses, ties, kills, deaths, assists, goals, goal_assists, blunders,
+  captures, returns, pickups, carrier_kills)` from `pilotPass`;
+  `duel_snapshots` (the `rating_snapshots` shape) and `pilot_duels(pilot,
+  opponent, wins, losses, ties, last)` from `duelPass`. `name` is the
+  pilot's latest spelling, as `pilot_stats_cache` keeps it, so the boards
+  need no join. First build: created empty at startup; the first refresh
+  fills them (the startup check runs one when a derived table is empty,
+  so the first start of S16 on a warm database refreshes once). A restart
+  needs no repair: every refresh brings each table in line. Rollback:
+  revert, pull the old image, and `DROP TABLE` any of the six on
+  `tracker.db`, or leave them (nothing older reads them). The cost of the
+  one-list check: a table that stays empty for good (no Monsterball match
+  ever, say) keeps the startup check refreshing on every start, as an
+  all-unranked database already did since S13; the refresh runs in the
+  worker. Rejected: a stored marker of which tables a refresh has filled
+  (another row to keep right across restores).
+- 2026-10-08 (S16): Endpoints, none through the route cache (each reads a
+  derived table a refresh keeps, so an answer is never older than its
+  table): `GET /api/stats/weapons` (`{ community, kills, maps }`, the
+  kills per family over every logged match and for the 25 maps with the
+  most, most first); `GET /api/stats/specialists` (`{ pilots, maps,
+  cells }`, `cells[i][j]` a record or null); `GET /api/stats/duels` (`{
+  day, listed, pilots }`, each pilot a duel snapshot with `rank`,
+  `status`, the record and `last`, the fight-night day of their last duel;
+  the ladder is kept per day until the next refresh writes duel snapshots,
+  `clearDuelLadder`, as the rankings are); `GET /api/stats/objectives`
+  (`{ CTF, MONSTERBALL }`, each a board with `rank`); and `GET
+  /api/pilot/:name/weapon-mix` (`{ pilot, kills, community,
+  communityKills }`, zeros for a pilot with no logged kill, not a 404, the
+  S13 rule). The client reads them through `fetchWeaponMeta`,
+  `fetchSpecialists`, `fetchDuelLadder`, `fetchObjectiveBoards` and
+  `fetchPilotWeaponMix` (null on failure) and `useLoad`.
+- 2026-10-08 (S16): The views. `/ladders` is a route in `siteRoutes.js`
+  ("Ladders", under Leaderboards in the nav, like `/rankings`), with a
+  share description in `pageMeta.js` ("Duel ladder for <day>: 1. NAME
+  (rating), ..." from the listed pilots, the site description while none
+  is listed). The board is `?board=duels|ctf|monsterball` through
+  `useQueryParam` (duels left out; anything else reads as duels). The
+  view (`components/Ladders.tsx`, lazy) holds the board buttons; the duel
+  ladder (`ladders/DuelLadder.tsx`: rank, pilot, duel rating, RD, W-L-T,
+  duels, last duel, RD and last duel hidden below 640 px, a divider row
+  before the provisional pilots) and the objective boards
+  (`ladders/ObjectiveBoard.tsx`: rank, pilot, the mode's counts with the
+  sort field in brand, matches, W-L-T) each load their own answer with
+  the shared states. The leaderboard's tab bar links to it beside Power
+  rankings. The maps page gets two sections under its KPI row
+  (`mapLibrary/WeaponMeta.tsx`, `mapLibrary/SpecialistGrid.tsx`), both on
+  a new `components/HeatTable.tsx`: a rows × columns table coloured by
+  `chart.ramp` with each step a fifth of the way to the largest share
+  shown (the hour grids' rule), a header per row and column, the row
+  labels pinned while the table scrolls, each cell's words as its title
+  and as screen-reader text, with a `DetailsTable` behind each. The pilot
+  page gets the weapon mix (`pilotDetail/WeaponMix.tsx`) under the
+  arsenal section, loaded beside the rating and the career so a mode
+  change does not ask again; it is all-time and all modes, like the
+  community it is set against.
+- 2026-10-08 (S16): The dumbbell's colours. The form heuristic says one
+  hue in two shades, but two blues cannot both sit in the validator's
+  lightness band 15 ΔE apart (`#3987e5` with `#256abf`: normal-vision ΔE
+  9.5; with `#6da7ec`: out of the band), so the chart uses the dataviz
+  emphasis form instead: the pilot's dot in `chart.series` and the
+  community's in `chart.label`, the palette's de-emphasis grey that
+  already stands for Other and Unknown. Against `surface-card` the pair
+  passes the lightness band, CVD separation (ΔE 15.9), the normal-vision
+  floor (17.0) and 3:1 contrast; the grey fails the chroma floor by
+  design ("reads gray" is the point of a de-emphasis grey). The legend
+  and the row text name both sides, so colour is never the only cue. The
+  axis runs to the next tenth above the largest share. Hand-drawn HTML
+  (positioned dots on a track), so the pilot page loads no new chart
+  chunk.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -4567,6 +4712,79 @@ Not counted in the 28 sessions.
   tooltips per hour and per month and a table behind a `<details>`, the
   S14 pattern; no crosshair tooltip and no screen reader was tried.
 
+- (S16) Earlier flags that name S16, weapons, maps, duels, head-to-head,
+  CTF, Monsterball or the pilot page, decided:
+  - (S12) CTF and Monsterball get no momentum chart; the goals and
+    `flagStats` logs carry times: still open for the timeline. S16's
+    boards count the per-player fields, not the logs (the local CTF match
+    stores an empty `flagStats`).
+  - (S2) Multi-player head-to-head compares raw kills, teammates
+    included: still open. The duel ladder reads none of it; its records
+    come from two-pilot matches only.
+  - (S5) `getMapStatsAllTime` scans every blob when the cache is empty;
+    (S7) MapLibrary downloads `/api/stats/cold/deep` for one number;
+    (S10) MapLibrary's "BASE GAME (12)" and the map popup's hex values:
+    still open; S16 added two sections to the page and left its own
+    fetches and classes as they were.
+  - (S5) `/api/pilot/:name/games` filters a mode in JS; (S5)
+    `game_players.damage` is unread; (S5) the telemetry's own damage
+    loop beside `playerRows`: still open.
+  - (S8) The rival picked on a pilot page is not in the URL; (S9) the
+    helmet avatar's hex values; (S12) the pilot page's older charts in
+    hex: still open. The weapon mix reads `chart`.
+  - (S13) The rating is never shown on the leaderboard; (S13) the pilot
+    page loads Recharts for the rating chart: unchanged. The weapon mix
+    adds no chunk.
+  - (S14) The calendar counts every match while the arc counts ranked
+    ones: still open; the specialist grid and the boards count ranked
+    matches, like the arc.
+  - (S2) The ranked filter missing from the leaderboard totals: still
+    open.
+- (S16) The plan page's weapon meta also named a meta by year across the
+  archive, and said "arsenal entropy" (hard-coded to 0 in
+  `pilot_stats_cache`) would be replaced. Neither is in the S16 entry.
+  `pilot_weapons` holds what an entropy needs (kills per family per
+  pilot); a year column on `map_weapons` would give the meta by year.
+  Both left for a later session.
+- (S16) The plan page's "duel ladder and matrix": the matrix (each pair's
+  record as a grid) is not on the page. `pilot_duels` holds every pair
+  both ways, so a `/ladders?board=matrix` would be a read and a
+  `HeatTable`.
+- (S16) The weapon meta and the pilot's weapon mix count only matches
+  with a kill log. The audit says the tracker kept logs mainly from
+  2019-07 to 2022-04 and the local data has five of 43, so on the NAS the
+  meta describes those years and a pilot who played after them gets "No
+  logged kills" however much they played. The section's words say so;
+  nothing dates the kills.
+- (S16) The duel ladder's spelling is the latest one the pilot used, as
+  the rankings' is (S13): on the fixtures JFTP lists as "jftp" because
+  the lower-case copy has the later id. The leaderboard shows the latest
+  game's spelling too, so the pages agree; it reads oddly beside the
+  pilot page's URL.
+- (S16) `derivedTablesFilled` refreshes on every start while any derived
+  table is empty. A database with no Monsterball or CTF match, no duel or
+  no kill log anywhere keeps one empty and refreshes on each start (in
+  the worker). The NAS has all four; a fresh dev folder may not.
+- (S16) The map name in `map_weapons` and `pilot_maps` is the level in
+  upper case; `map_stats_cache` keys by lower case and shows the first
+  spelling seen. A map stored in mixed case shows in upper case on the
+  grids and as stored on the map cards.
+- (S16) The specialist grid lists the top 20 pilots by ranked matches and
+  the top 12 maps; a pilot outside the 20 has no row and no way to ask
+  for one. A pilot's own map table on their page shows their top six
+  maps without a win rate.
+- (S16) `HeatTable` scales its colours to the largest share in the table,
+  so a win-rate grid whose best cell is 60% paints that cell as the
+  ramp's last step; the cell text carries the number. A fixed 0 to 100%
+  scale was rejected (on the weapon meta it left every cell in the two
+  darkest steps).
+- (S16) The objective boards show every pilot with a ranked match in the
+  mode, 50 rows at most, with no minimum of matches; a pilot with one
+  capture in one match sits above one with none in twenty.
+- (S16) The headless checks ran against a server whose tracker sync
+  added three matches during the session (40 to 43), so the counts in
+  the Validated entry name the number at that step.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -4585,6 +4803,10 @@ S15 adds `servers`, `server_snapshots`, `server_hours` and
 `region_months` to `tracker.db`. After its revert they can stay (nothing
 older reads them); `DROP TABLE` on the first three throws away the only
 record of the server browser, so keep them if S15 may come back.
+S16 adds `map_weapons`, `pilot_weapons`, `pilot_maps`, `duel_snapshots`,
+`pilot_duels` and `pilot_objectives` to `tracker.db`, all derived: after
+its revert `DROP TABLE` any of them, or leave them. The S15 code's startup
+check does not know them, so it will not refresh for them.
 
 ## Open questions
 
@@ -4594,6 +4816,8 @@ record of the server browser, so keep them if S15 may come back.
 - S15's three (snapshot cadence, retention, the regional share's source)
   and the fight-night thresholds were settled by the owner at its start;
   see the S15 decisions and the S14 thresholds flag.
+- S16's three (what a duel is, how the ladder ranks, radar or not) were
+  settled by the owner at its start; see the S16 decisions.
 
 ## Skills to load
 
@@ -5209,7 +5433,7 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S16: weapon meta and ladders.
+Continue the overloadfight.club roadmap. This session is S17: rivalry network and damage flow.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first, then verify its status line against the repo before building on anything in it.
@@ -5218,54 +5442,54 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S15 is on branch ofc/s15-server-history, PR #16. PRs #1 to #15 are merged.
-  If PR #16 is merged:
-    git checkout -B ofc/s16-weapon-meta origin/main
-  If PR #16 is still open:
-    git checkout -B ofc/s16-weapon-meta origin/ofc/s15-server-history
-    and open the S16 PR against main anyway; say in its description that it sits on PR #16.
-  Check again before opening the PR: if PR #16 merged during the session, rebase onto origin/main first.
+  S16 is on branch ofc/s16-weapon-meta, PR #17. PRs #1 to #16 are merged.
+  If PR #17 is merged:
+    git checkout -B ofc/s17-rivalry-network origin/main
+  If PR #17 is still open:
+    git checkout -B ofc/s17-rivalry-network origin/ofc/s16-weapon-meta
+    and open the S17 PR against main anyway; say in its description that it sits on PR #17.
+  Check again before opening the PR: if PR #17 merged during the session, rebase onto origin/main first.
   `git checkout -B ... origin/...` sets the remote branch as upstream; run `git branch --unset-upstream` so a bare push cannot go to main.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #16 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #17 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 26
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
-If neither origin/main nor origin/ofc/s15-server-history has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s16-weapon-meta has docs/ROADMAP.md, stop and tell me.
 
-Before building, ask me the questions the S16 entry leaves open: what counts as a 1v1 duel for the ladder (two pilots in an FFA match only, or also a 1v1 team match; ranked by the S13 Glicko-2 rules restricted to duels, or by wins and losses) and whether the "weapon mix radar vs community" should be a radar at all (the dataviz skill's form heuristic and anti-patterns apply; a radar would also be a new Recharts chunk on the pilot page). Do not pick silently.
+Before building, ask me the questions the S17 entry leaves open: whether the rivalry network should be a force graph at all (the dataviz skill's form heuristic and anti-patterns apply; the repo has no force-layout library and must not get one, so a force graph means a layout written by hand in SVG, while an adjacency heat table on HeatTable or a ranked list of pairs would reuse what S16 built), whether the damage flow should be a chord diagram (same test; a stacked bar per pilot of damage dealt by target, or a HeatTable of dealer by target, are the plain alternatives), and what "clutch" counts: what a late kill is (the last minute, the last tenth of the match, or a fixed window), what trailing means in FFA (behind the leader, or behind the eventual winner), and whether clutch numbers count only matches with a kill log (they must; say so) and only ranked ones. Do not pick silently.
 
 Read first:
-- docs/ROADMAP.md, the S16 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the match page, the pilot page and the maps page already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S5 decisions (game_players, the stats worker, the hot/cold split), S8 (URL state, siteRoutes, share tags), S9 (tokens, States), S10 (Combat Ratio, Lethality, tables in scroll wrappers, focus and tap rules), S11 (server/db/ and server/routes/ layout, hooks and child folders, apiService), S12 (weapon families in gameParse.js: WEAPON_FAMILIES, weaponFamily; `chart.weapon` and the dataviz validator; kill-log rules), S13 (Glicko-2 rules, rating_snapshots, useLoad, navSection, lazy chart chunks behind their own Suspense), S14 (fight-night days: fightNightDay, dayBounds, localClock; tableChanges/writeChanges for derived tables; pilot_months), S15 (the region pass and region_months, HourGrid, DetailsTable in components/, `chart.region` from `chart.weapon`, monthsTo, atClock, percent in matchResult.js), every "Flagged, not fixed" item that names S16, weapons, maps, duels, head-to-head, CTF, Monsterball or the pilot page (decide for each whether S16 covers it; flag the rest again), and the Postmortems.
-- server/lib/gameParse.js (WEAPON_FAMILIES, weaponFamily, playerRows, killPoints, ratingSides, glicko2), server/lib/statsPasses.js, server/statsWorker.js, server/db/analytics/pilotTelemetry.js, server/db/analytics/pilots.js, server/db/analytics/global.js (the map stats), server/db/migrations.js, components/PilotDetail.tsx and components/pilotDetail/, components/MapLibrary.tsx, components/gameDetail/, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S17 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the pilot page, the match page and the ladders page already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S5 decisions (game_players, the stats worker, the hot/cold split), S8 (URL state, siteRoutes, share tags), S9 (tokens, States), S10 (Combat Ratio, Lethality, tables in scroll wrappers, focus and tap rules), S11 (server/db/ and server/routes/ layout, hooks and child folders, apiService), S12 (the kill-log rules in gameParse.js: killPoints, replayLog's visitor, firstBloodOf, leadChanges, momentumOf; `chart.weapon` and the dataviz validator), S13 (Glicko-2 rules, useLoad, navSection, lazy chart chunks behind their own Suspense), S14 (fight-night days; tableChanges/writeChanges), S15 (HourGrid, DetailsTable), S16 (DERIVED_TABLES as the one list of derived tables and how a new one joins it; weaponKills and the rule that only logged kills count; pilot_duels as a pair table; HeatTable; the dumbbell's emphasis colours and why two shades failed the validator; the ladders view and its ?board= state), every "Flagged, not fixed" item that names S17, rivals, head-to-head, the dominance index, threat centrality, damage, first blood, clutch, the kill log, the pilot page or the match page (decide for each whether S17 covers it; flag the rest again), and the Postmortems.
+- server/lib/gameParse.js (killPoints, replayLog, weaponKills, firstBloodOf, leadChanges, momentumOf, duelMatch), server/lib/statsPasses.js (pilotPass's killGraph and h2h, weaponPass, duelPass, DERIVED_TABLES), server/statsWorker.js, server/db/analytics/meta.js, server/db/analytics/pilotTelemetry.js (getPilotBreakdown's rivals), server/db/migrations.js (ensureDerivedTables), components/PilotDetail.tsx (the rivals and tale-of-the-tape section) and components/pilotDetail/, components/gameDetail/ (MomentumChart, FightCard), components/DamageMatrix.tsx, components/HeatTable.tsx, components/Ladders.tsx and components/ladders/, designTokens.js and the two sample files. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
-- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
+- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js (teamWithLog and ffaWithLog carry the hand-written kill logs). vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
 - gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every stat or chart number ships with a test on fixture data.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
-- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. New tables go in server/db/migrations.js beside `games`, with a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules: weapon families, the kill-log rules, the ranked filter, the rating and the day rule (America/Chicago, 06:00 rollover). Never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
-- server/lib/siteRoutes.js owns page URLs, titles and the nav section; a new view gets its route, title and share description there and in server/pageMeta.js, and App.tsx stays the one writer of document.title (a view hands it a name, as ServerHistory's onName does). Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
-- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js (`chart.weapon` for weapon families, `chart.ramp` for counts) and any new series colour or ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12, S14).
-- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9). A chart's keyboard path is a DetailsTable (components/DetailsTable.tsx).
+- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. A new derived table joins DERIVED_TABLES in server/lib/statsPasses.js (its columns, keyed by the first two) and gets a pass in the worker and a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back); the schema, the restore, the startup check and the write step read that list. New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
+- server/lib/gameParse.js owns the game rules: the kill-log rules, the ranked filter, the rating, the duel rule and the day rule (America/Chicago, 06:00 rollover). Never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request. Kill edges, damage flows and clutch numbers exist only for matches with a kill or damage log; say so on the page.
+- server/lib/siteRoutes.js owns page URLs, titles and the nav section; a new view gets its route, title and share description there and in server/pageMeta.js, and App.tsx stays the one writer of document.title. Internal navigation is components/Link.tsx and URL state goes through useQueryParam/useQueryText/setQueryParams (S8, S10).
+- Dialogs use hooks/useDialog.ts. Colours, radius and small text come from designTokens.js through Tailwind; chart colours read `chart` from designTokens.js (`chart.weapon` for weapon families, `chart.ramp` for counts and shares, `chart.series` with `chart.label` for one series against its context) and any new series colour or ramp passes the dataviz validator against surface-card; the focus ring and tap state are the rules in index.css (S9, S10, S12, S14).
+- Loading, empty and failed states use Loading, EmptyState and ErrorState from components/States.tsx (hooks/useLoad.ts for a fetch with retry); keep both error boundaries (S9). A chart's keyboard path is a DetailsTable (components/DetailsTable.tsx); a rows × columns share is a HeatTable (components/HeatTable.tsx).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, the dashboard's first visit loads no Recharts chunk (S14), and a page that did not load Recharts gets a chart as a lazy chunk behind its own Suspense or as hand-drawn SVG (S13, S14, S15). Record the entry size (S15 left 232.38 KB raw / 74.46 KB gzip), the pilot page's PilotDetail chunk (12.77 KB gzip in S14), the match page's GameDetail chunk and any new view's chunk, before and after.
+- Every view in App.tsx is React.lazy behind one Suspense; one shared server-browser poll lives in hooks/useServerBrowser.ts; AudioEditor mounts only on its tab (S4). Charts stay out of the entry chunk, the dashboard's first visit loads no Recharts chunk (S14), and a page that did not load Recharts gets a chart as a lazy chunk behind its own Suspense or as hand-drawn SVG (S13 to S16). Record the entry size (S16 left 232.87 KB raw / 74.63 KB gzip), the pilot page's PilotDetail chunk (13.41 KB gzip in S16), the match page's GameDetail chunk (39.82 KB gzip) and any new view's chunk, before and after.
 - Keep new components and hooks under 500 lines (S11); put a component's hooks in hooks/ and its children in a folder beside it.
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI).
-- Do not add a router library, state library, ORM or component library. Recharts is already a dependency; prefer it, or hand-drawn SVG and tables, to a new chart library.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (40 local matches, four with kill logs, at the end of S15; the server now also stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the UI in headless Chrome over CDP, as S4 and S7 to S15 did; never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more matches, weapons, maps or duels than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy, not with `git checkout`, which also discards uncommitted work.
+- Do not add a router library, state library, ORM, component library or layout library (no d3). Recharts is already a dependency; prefer it, or hand-drawn SVG and tables, to a new chart library.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (43 local matches, five with kill logs, at the end of S16; the server also stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the UI in headless Chrome over CDP, as S4 and S7 to S16 did (S16's harness was a 120-line CDP client over Node's WebSocket with a Fetch-domain mock list, held requests failed when the mocks change; write your own); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port. Mock answers through CDP's Fetch domain where you need more pilots, pairs or logs than the local data has. Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy, not with `git checkout`, which also discards uncommitted work.
 
 Rules for this session:
-- One PR, scope is the S16 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the owner's answers, any new table and its migration, how each weapon, map and duel number is counted (ranked filter or not, which kills, which day), the duel ladder's rule, the objective leaderboards' sources (Monsterball goals, CTF flagStats), any new view and its URL state, and any new endpoint.
+- One PR, scope is the S17 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the owner's answers, any new table and its migration, how each edge, flow and clutch number is counted (ranked filter or not, which kills, logged matches only), the forms chosen for the network and the flow and why, any new view and its URL state, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description and tracker prose.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S16 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S17 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S17.
+- Before ending: tick S17 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S18 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S18.
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S15 left 17 files, 244 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|PilotDetail|GameDetail|MapLibrary)-.*\.js"` (the Verification table records the entry at 74.46 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S16 Done-when list into the tracker.
-Done when: every item of the S16 Done-when list is true and checked on fixture data and in headless Chrome (every new chart, table and view at 1,280 and 390 px), the dashboard, the server page, leaderboard, rankings, pilot pages, maps and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S16 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history` and `/api/health`, and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S16 left 17 files, 263 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|PilotDetail|GameDetail|MapLibrary|Ladders)-.*\.js"` (the Verification table records the entry at 74.63 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S17 Done-when list into the tracker.
+Done when: every item of the S17 Done-when list is true and checked on fixture data and in headless Chrome (every new chart, table and view at 1,280 and 390 px), the dashboard, the server page, leaderboard, rankings, ladders, pilot pages, maps and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S17 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/specialists`, `/api/stats/duels`, `/api/stats/objectives`, `/api/pilot/:name/weapon-mix` and `/api/health`, and the PR is open with the tracker updated.
 ```

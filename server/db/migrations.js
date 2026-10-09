@@ -256,12 +256,18 @@ export function ensureServerTables() {
 ensureServerTables();
 
 
-// Admin Settings Table
+// Admin Settings Table. A restored backup from before it needs it back
+// (restoreHot clears the derived tables' built marker there).
+export function ensureAdminSettings() {
+  hotDb.exec(`
+    CREATE TABLE IF NOT EXISTS admin_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+  `);
+}
+ensureAdminSettings();
 hotDb.exec(`
-  CREATE TABLE IF NOT EXISTS admin_settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
 `);
 
 // Maps Table (HOT DB)

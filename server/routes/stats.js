@@ -192,7 +192,6 @@ router.get('/stats/active-count', async (req, res) => {
     }
 });
 
-// Get robust map stats
 // S16: the weapon meta, the specialist grid, the duel ladder and the objective
 // boards, each from a derived table the stats refresh keeps; no route cache,
 // so an answer is never older than its table.
@@ -213,6 +212,7 @@ derivedRoute('/stats/duels', () => db.getDuelLadder(), 'Duel ladder');
 // GET /api/stats/objectives - the CTF and Monsterball boards
 derivedRoute('/stats/objectives', () => db.getObjectiveBoards(), 'Objective boards');
 
+// Get robust map stats
 router.get('/stats/maps', async (req, res) => {
     try {
         const source = req.query.source || 'hot';

@@ -5,7 +5,7 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureDerivedTables, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
+import { ensureAdminSettings, ensureDerivedTables, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
@@ -42,7 +42,7 @@ import {
 import { clearRankings, getPilotRating, getPowerRankings, hasRatingSnapshots } from './db/analytics/ratings.js';
 import { getPilotCareer, hasPilotMonths } from './db/analytics/career.js';
 import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShare, hasRegionMonths } from './db/analytics/servers.js';
-import { clearDuelLadder, derivedTablesFilled, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
+import { clearDerivedTablesBuilt, clearDuelLadder, clearWeaponTotals, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
 import { refreshPilotStats, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -69,12 +69,16 @@ const db = {
     ensureGamePlayersTable(hotDb);
     migrateGamePlayers();
     // A backup from before S13 to S16 lacks some of the derived tables; the
-    // next refresh fills them. Nor does it have the server tables, which
+    // next refresh fills them, and the startup check runs one because the
+    // built marker is cleared. Nor does it have the server tables, which
     // start empty again.
     ensureDerivedTables();
     ensureServerTables();
+    ensureAdminSettings();
+    clearDerivedTablesBuilt();
     clearRankings();
     clearDuelLadder();
+    clearWeaponTotals();
     clearServerSummaries();
   },
   migrateGamePlayers,
@@ -208,7 +212,7 @@ const db = {
   hasRegionMonths,
 
   // analytics/meta.js
-  derivedTablesFilled,
+  derivedTablesBuilt,
   getWeaponMeta,
   getPilotWeaponMix,
   getSpecialists,
