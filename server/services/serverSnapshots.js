@@ -5,11 +5,20 @@ import { SNAPSHOT } from '../lib/gameParse.js';
 
 // The tracker's live server browser. /api/browser answers from it and the
 // snapshot timer stores it, through one 15 s cache, so the site asks the
-// tracker at most once per 15 s whoever is asking.
+// tracker at most once per 15 s whoever is asking: callers that miss the cache
+// together share the request out (the refreshPilotStats pattern).
 const CACHE_KEY = 'browser_servers';
 const CACHE_SECONDS = 15;
+let inflight = null;
 
-export async function fetchServerBrowser() {
+export function fetchServerBrowser() {
+    inflight ??= fetchAndCache().finally(() => {
+        inflight = null;
+    });
+    return inflight;
+}
+
+async function fetchAndCache() {
     const cached = await cacheService.get(CACHE_KEY);
     if (cached) return cached;
     const response = await axios.get('https://tracker.otl.gg/api/browser', { timeout: 5000 });
@@ -18,12 +27,16 @@ export async function fetchServerBrowser() {
 }
 
 // One tick: the server browser now, stored (S15). A failed fetch stores
-// nothing, so a tracker outage does not count against any server's uptime.
+// nothing, so a tracker outage does not count against any server's uptime; an
+// empty list is read the same way (a tracker filling up again), since storing
+// it would mark every server offline for that minute.
 export async function takeSnapshot(now = Date.now()) {
     try {
         const servers = await fetchServerBrowser();
+        if (!Array.isArray(servers)) throw new Error(`the answer is not a list (${typeof servers})`);
+        if (servers.length === 0) throw new Error('the answer lists no servers');
         // a fetch still out when shutdown began must not write to a closed database
-        if (Array.isArray(servers) && !stopped) return db.saveServerSnapshot(now, servers);
+        if (!stopped) return db.saveServerSnapshot(now, servers);
     } catch (error) {
         console.error('[Snapshots] Server browser not stored:', error.message);
     }

@@ -48,7 +48,7 @@ const RegionShare: React.FC = () => {
                     <span className="text-white font-bold">{monthLabel(latest.month)}</span>: {shares(latest).join(', ')}.{' '}
                     {total.toLocaleString()} matches from {monthLabel(months[0].month)} on.
                 </p>
-                <div ref={scroller} className="overflow-x-auto" tabIndex={0} aria-label="Matches by region, by month">
+                <div ref={scroller} className="overflow-x-auto" tabIndex={0} role="region" aria-label="Matches by region, by month">
                     <svg width={width} height={H + 16} role="img" className="block"
                         aria-label={`Share of matches by server region per month, ${monthLabel(months[0].month)} to ${monthLabel(months.at(-1)!.month)}. ${monthLabel(latest.month)}: ${shares(latest).join(', ')}.`}>
                         {months.map((m, i) => {
@@ -69,7 +69,8 @@ const RegionShare: React.FC = () => {
                                         return <rect key={r} x={x} y={y} width={W} height={h > GAP + 1 ? h - GAP : h} fill={COLOR[r]} />;
                                     })}
                                     {m.month.endsWith('-01') && (
-                                        <text x={x} y={H + 12} fontSize={10} fill={chart.label}>{m.month.slice(0, 4)}</text>
+                                        // the year under January; when January is the last column, ending at it so the svg does not clip it
+                                        <text x={i === months.length - 1 ? x + W : x} textAnchor={i === months.length - 1 ? 'end' : 'start'} y={H + 12} fontSize={10} fill={chart.label}>{m.month.slice(0, 4)}</text>
                                     )}
                                 </g>
                             );

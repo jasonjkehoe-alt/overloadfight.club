@@ -102,7 +102,7 @@ describe('withPageMeta', () => {
         expect(tagsFor(`/live/${ip}`)).toMatchObject({ title: 'Live: Overloader: Dallas, TX | overloadfight.club', description: `Live Overload match. Join at ${ip}.` });
         expect(tagsFor(`/server/${ip}`)).toMatchObject({
             title: 'Server: Overloader: Dallas, TX | overloadfight.club',
-            description: `Overloader: Dallas, TX (North America Central): online 100.0% of the last 30 days, a match running 50.0% of that time, 6.0 pilots in a match on average. Join at ${ip}.`
+            description: `Overloader: Dallas, TX (North America Central): online 100.0% of the minutes checked in the last 30 days, a match running 50.0% of that time, 6.0 pilots in a match on average. Join at ${ip}.`
         });
         expect(tagsFor('/server/10.0.0.1')).toMatchObject({ title: 'Server: 10.0.0.1 | overloadfight.club', description: 'Live Overload servers, match results and pilot stats.' });
         expect(tagsFor('/live/10.0.0.1').title).toBe('Live: 10.0.0.1 | overloadfight.club');

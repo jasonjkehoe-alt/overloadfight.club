@@ -1,8 +1,10 @@
 // Where a server is (S15). Neither the tracker's server browser nor a stored
 // match says, so the place comes from words in the server's name and notes:
-// the first location whose keyword appears. The dashboard's server map draws
-// its dots at `x`, `y` (a 100x100 box); the server page, the region share and
-// the stats worker use `region`.
+// the first location one of whose keywords appears as a whole word in the
+// name, else in the notes (the name first, so a notes line about another place
+// does not move the server). The dashboard's server map draws its dots at `x`,
+// `y` (a 100x100 box); the server page, the region share and the stats worker
+// use `region`.
 
 // In the order they are drawn and stacked: west to east across North America,
 // then the rest; Unknown last.
@@ -33,19 +35,22 @@ const LOCATIONS = [
     { keys: ['CHICAGO', 'ILLINOIS'], x: 21, y: 30, region: 'na-central' },
     { keys: ['US-MN', 'MINNESOTA', 'MINNEAPOLIS'], x: 19, y: 27, region: 'na-central' },
     { keys: ['ATLANTA', 'GEORGIA'], x: 23, y: 36, region: 'na-east' },
-    { keys: ['NEW YORK', 'BUFFALO', 'PISCATAWAY', 'JERSEY', 'NJ ', 'NY '], x: 27, y: 29, region: 'na-east' },
+    { keys: ['NEW YORK', 'BUFFALO', 'PISCATAWAY', 'JERSEY', 'NJ', 'NY'], x: 27, y: 29, region: 'na-east' },
     { keys: ['TORONTO', 'MONTREAL', 'QUEBEC', 'ONTARIO', 'CANADA'], x: 25, y: 27, region: 'na-east' },
-    { keys: ['LONDON', 'UK ', 'ENGLAND', 'BRITAIN'], x: 46, y: 21, region: 'europe' },
-    { keys: ['AMSTERDAM', 'NETHERLANDS', 'NL '], x: 48, y: 22, region: 'europe' },
+    { keys: ['LONDON', 'UK', 'ENGLAND', 'BRITAIN'], x: 46, y: 21, region: 'europe' },
+    { keys: ['AMSTERDAM', 'NETHERLANDS', 'NL'], x: 48, y: 22, region: 'europe' },
     { keys: ['PARIS', 'FRANCE'], x: 47, y: 25, region: 'europe' },
     { keys: ['MOSCOW', 'RUSSIA'], x: 60, y: 18, region: 'europe' },
-    { keys: ['SINGAPORE', 'SG '], x: 76, y: 55, region: 'asia' },
-    { keys: ['TOKYO', 'JAPAN', 'JP '], x: 88, y: 35, region: 'asia' },
-    { keys: ['SYDNEY', 'AUSTRALIA', 'AU '], x: 91, y: 78, region: 'oceania' },
+    { keys: ['SINGAPORE', 'SG'], x: 76, y: 55, region: 'asia' },
+    { keys: ['TOKYO', 'JAPAN', 'JP'], x: 88, y: 35, region: 'asia' },
+    { keys: ['SYDNEY', 'AUSTRALIA', 'AU'], x: 91, y: 78, region: 'oceania' },
     { keys: ['SEOUL', 'KOREA'], x: 84, y: 33, region: 'asia' },
     { keys: ['BRAZIL', 'SAO PAULO', 'CHILE'], x: 30, y: 65, region: 'south-america' }
 ];
 const NOWHERE = { x: 38, y: 40, region: UNKNOWN_REGION };
+const escape = k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// each location's keywords as whole words: "NY" in "Overload NY 1", not in "ANY"
+const WORDS = LOCATIONS.map(loc => new RegExp(`\\b(?:${loc.keys.map(escape).join('|')})\\b`, 'i'));
 
 /**
  * The location a server's name and notes name, or the middle of the map and
@@ -55,8 +60,12 @@ const NOWHERE = { x: 38, y: 40, region: UNKNOWN_REGION };
  * @returns {{ x: number, y: number, region: string }}
  */
 export function serverLocation(name, notes) {
-    const text = `${name || ''} ${notes || ''}`.toUpperCase();
-    return LOCATIONS.find(loc => loc.keys.some(k => text.includes(k))) || NOWHERE;
+    for (const text of [name, notes]) {
+        if (!text) continue;
+        const i = WORDS.findIndex(re => re.test(text));
+        if (i >= 0) return LOCATIONS[i];
+    }
+    return NOWHERE;
 }
 
 export const regionOf = (name, notes) => serverLocation(name, notes).region;

@@ -124,7 +124,7 @@ maintenance item does not count toward the 28.
   pilots, 255 kills; 2026-10-06 18, 11, 1,102; 2026-10-07 14, 14, 1,069;
   2026-10-08 2, 2, 71. None meets 16 matches plus 14 pilots or 1,600
   kills; the owner chose to leave the thresholds.
-- S15 at the end: `npx vitest run` passes 16 files, 240 tests (220 at
+- S15 at the end: `npx vitest run` passes 17 files, 244 tests (220 at
   the start). New: `server/servers.test.js` (ticks, hours, listings,
   offline ticks for an unlisted server, the window, the prune, the region
   share after a refresh and its repair), `server/lib/serverRegions.test.js`
@@ -135,10 +135,10 @@ maintenance item does not count toward the 28.
   share-tag and route tests cover the new tables, `/server/:ip` and
   `/live/:ip`'s name. `npx tsc --noEmit` exits 0. `npx vite build`: entry
   232.38 KB raw / 74.46 KB gzip (+0.20 gzip: the route row, the two
-  fetchers), `GameList` 41.60 KB / 11.39 KB gzip (the region card in,
+  fetchers), `GameList` 41.68 KB / 11.43 KB gzip (the region card in,
   the heatmap's table out to `HourGrid`), `LiveGameDetail` 11.47 KB /
   2.93 KB gzip (`JoinIp` became a shared chunk), the new `ServerHistory`
-  8.84 KB / 3.50 KB gzip, `HourGrid` 3.9 KB raw. The dashboard's first
+  9.52 KB / 3.76 KB gzip, `HourGrid` 3.9 KB raw. The dashboard's first
   visit requests no Recharts chunk (checked in Chrome).
 - S15 mutation checks (each source edit restored from a copy): uptime over
   online ticks, in use over all ticks, pilots over all ticks, the earliest
@@ -1757,9 +1757,9 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 16 files, 240 tests pass on 26.11.1 (S15; 220 at its start) | 2026-10-08 |
+| `npx vitest run` | all pass | 17 files, 244 tests pass on 26.11.1 (S15; 220 at its start) | 2026-10-08 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.38 KB raw / 74.46 KB gzip, dashboard `GameList` 41.60 KB / 11.39 KB gzip and no Recharts on its first visit, `LiveGameDetail` 11.47 KB / 2.93 KB gzip, server page `ServerHistory` 8.84 KB / 3.50 KB gzip on 26.11.1 (S15; 74.26, 11.42 and 3.17 at its start; pilot page `PilotDetail` 12.77 KB gzip in S14; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 232.38 KB raw / 74.46 KB gzip, dashboard `GameList` 41.68 KB / 11.43 KB gzip and no Recharts on its first visit, `LiveGameDetail` 11.47 KB / 2.93 KB gzip, server page `ServerHistory` 9.52 KB / 3.76 KB gzip on 26.11.1 (S15; 74.26, 11.42 and 3.17 at its start; pilot page `PilotDetail` 12.77 KB gzip in S14; match page `GameDetail` 40.57 KB gzip in S12; one 351.07 KB chunk before S4) | 2026-10-08 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S15) | 2026-10-08 |
 | `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S15 on `/tmp/ofc-data`: `total_games: 40`, `/api/stats/pilots` 24 pilots, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/health`, `/api/stats/heatmap`, `/api/pilot/WD-40/career` all 200 as in S14; new `/api/stats/regions` (one month, 40 matches) and `/api/server/143.110.230.67/history` 200; 21 servers stored per minute | 2026-10-08 |
 | Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
@@ -1789,7 +1789,7 @@ maintenance item does not count toward the 28.
 | S14 `real.mjs`, run by `node`: `pilotPass` months and `ratingPass` on every local match against `pilot_months` and `rating_snapshots`, months against `pilot_stats_cache`, and the new reads' query plans | the same rows; every pilot's months add up; index searches only | 23 of 23 and 32 of 32 rows, 23 of 23 pilots; covering index or primary key for every read (S14) | 2026-10-08 |
 | dataviz `validate_palette.js --ordinal --mode dark --surface "#111111"` on `chart.ramp` | every check passes | passes, darkest step 2.33:1 (S14) | 2026-10-08 |
 | S15 `checks.mjs`: headless Chrome over CDP, `/server/:ip` (a real local server; a mocked year at 30 and 365 days; never seen, failed, held), the dashboard's region card (local, 88 mocked months, failed, empty, held), the history links from the server browser and the live page, then the dashboard, `/history`, leaderboard, rankings, a pilot, a match, fight night and the live page, at 1,280 and 390 px | cards equal the answer, ramp and `chart.region` colours only, URL state across reload, shared states, no Recharts on the dashboard, no wider than the window, no console errors | 100 of 100 (S15) | 2026-10-08 |
-| dataviz `validate_palette.js --mode dark --surface "#111111"` on `chart.region` (7 hues) | every check passes | passes, worst adjacent CVD ΔE 8.4 (S15) | 2026-10-08 |
+| dataviz `validate_palette.js --mode dark --surface "#111111"` on `chart.region` (7 hues) | every check passes | passes, worst adjacent CVD ΔE 8.4 in the stack order; a month missing a region puts two non-neighbours side by side, kept apart by the 2 px gap and the legend (S15) | 2026-10-08 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -3594,7 +3594,11 @@ Not counted in the 28 sessions.
   rows a year, read on every page view).
 - 2026-10-08 (S15): How the server page counts, in `gameParse.js`
   (`serverSummary`), over the hours of the window. Uptime is the ticks
-  the tracker listed the server online over all its ticks. In use is the
+  the tracker listed the server online over all its ticks (a server the
+  list leaves out gets an offline tick for 30 days after it was last
+  listed, the raw window, then none, so over 90 and 365 days an absence
+  longer than that stops counting against it; the card's tooltip says
+  so, review 2026-10-08). In use is the
   ticks with a match being played over the online ticks; a lobby is
   online but not in use. Pilots is the pilots per tick over the ticks
   with a match being played, so idle minutes do not drag it to zero. The
@@ -3665,7 +3669,7 @@ Not counted in the 28 sessions.
 - 2026-10-08 (S15): The page. `/server/:ip` is a route in `siteRoutes.js`
   (view `server`, title `Server: <name>`, the nav lights Live), with a
   share description in `pageMeta.js` ("Overloader: Dallas, TX (North
-  America Central): online 100.0% of the last 30 days, a match running
+  America Central): online 100.0% of the minutes checked in the last 30 days, a match running
   50.0% of that time, 6.0 pilots in a match on average. Join at <ip>.",
   one `percent` in `matchResult.js` for the page and the tags).
   The view hands its stored name up to `App` (`onName`), which stays the
@@ -4445,16 +4449,23 @@ Not counted in the 28 sessions.
   browser, so uptime, use and peak hours fill from the first tick on.
   Until a window's whole days have passed, the page says how long the
   site has stored the server.
-- (S15) The region keywords are substrings of the name and notes, so a
-  word can mislead (a notes line mentioning "Virginia" puts a European
-  server in North America East), and short keys like `AU ` or `NJ ` need
-  the space after them. Servers whose name and notes name no place are
-  Unknown. A per-IP override in `admin_settings` would let the owner fix
-  one without a code change.
+- (S15) The region keywords match whole words, the name before the notes
+  (review fix, 2026-10-08: as substrings "Any mode welcome" read as New
+  York and a notes line mentioning Germany moved a Seattle server to
+  Europe; archive matches may change region on the first refresh after
+  the deploy). `WASHINGTON` still sits on the Seattle row, so a
+  Washington DC server would read as West. Servers whose name and notes
+  name no place are Unknown. A per-IP override in `admin_settings` would
+  let the owner fix one without a code change.
 - (S15) What the tracker means by `online` was not checked. Today's feed
   lists two servers offline whose `lastSeen` is days old; whether a
   server that crashes stays "online" until some timeout is the tracker's
   rule.
+- (S15) An empty server list from the tracker is read as an outage, like a
+  failed fetch: no tick and no offline fill (review, 2026-10-08), since a
+  tracker filling up again would otherwise mark every server offline for
+  that minute. Whether the tracker ever answers with an empty list was
+  not seen.
 - (S15) The raw ticks are pruned only by the 03:00 job. If it fails
   (it runs after the backup and the cold move), the raw table grows by
   about 30,000 rows a night until a night succeeds.
@@ -5178,6 +5189,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify, dataviz.
 
-First move: run `npx vitest run` (S15 left 16 files, 240 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|PilotDetail|GameDetail|MapLibrary)-.*\.js"` (the Verification table records the entry at 74.46 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S16 Done-when list into the tracker.
+First move: run `npx vitest run` (S15 left 17 files, 244 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|PilotDetail|GameDetail|MapLibrary)-.*\.js"` (the Verification table records the entry at 74.46 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S16 Done-when list into the tracker.
 Done when: every item of the S16 Done-when list is true and checked on fixture data and in headless Chrome (every new chart, table and view at 1,280 and 390 px), the dashboard, the server page, leaderboard, rankings, pilot pages, maps and match page still work, `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S16 PR, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history` and `/api/health`, and the PR is open with the tracker updated.
 ```

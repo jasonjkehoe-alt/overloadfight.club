@@ -64,8 +64,11 @@ export const chart = {
 
 // Server regions (S15, the dashboard's region share), keyed by
 // server/lib/serverRegions.js REGIONS ids, which are stacked in that order: the
-// weapons' seven slots in their order, so neighbours are the pairs the validator
-// passed (worst adjacent CVD ΔE 8.4), and Unknown takes the weapons' grey.
+// weapons' seven slots in their order, so in a month with every region the
+// neighbours are the pairs the validator passed (worst adjacent CVD ΔE 8.4). A
+// month missing a region puts two non-neighbours side by side, kept apart by
+// the chart's 2 px gap; the legend tells them apart. Unknown takes the weapons'
+// grey.
 chart.region = Object.fromEntries(REGIONS.map((r, i) => [r.id, Object.values(chart.weapon)[i]]));
 
 // The ramp colour for `count` against the largest count shown: each step

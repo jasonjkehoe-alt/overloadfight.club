@@ -536,6 +536,8 @@ export const fetchPilotCareer = (name: string) => getJson<PilotCareer>(`${API_BA
 // raw ticks of the last 24 hours. `firstSeen` is null for a server never stored.
 export interface ServerTick {
     at: number;
+    // 1 when the tracker listed it online, 0 for an offline tick (listed offline, or left off the list)
+    online: number;
     players: number;
     // gameParse.js SERVER_STATE: 0 idle, 1 lobby, 2 match
     state: number;
@@ -563,7 +565,7 @@ export interface ServerHistory {
     // it, lastDayHours the same hours from server_hours (UTC hour numbers)
     asOf: number;
     lastDay: ServerTick[];
-    lastDayHours: { hour: number; samples: number; match: number; peak: number }[];
+    lastDayHours: { hour: number; samples: number; online: number; match: number; peak: number }[];
 }
 
 export const fetchServerHistory = (ip: string, days: number) =>

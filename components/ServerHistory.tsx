@@ -45,7 +45,7 @@ const WindowStats: React.FC<{ data: History }> = memo(({ data }) => {
     return (
         <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card label="Uptime" value={share(data.uptime)} detail="of checked minutes online" title="The minutes the tracker listed this server online, over every minute the site checked it. A minute it was missing from the list counts as offline." />
+                <Card label="Uptime" value={share(data.uptime)} detail="of checked minutes online" title="The minutes the tracker listed this server online, over every minute the site checked it. A minute it was missing from the list counts as offline, for 30 days after it was last listed; after that the site stops checking it." />
                 <Card label="In use" value={share(data.inUse)} detail="of online minutes in a match" title="The share of the online minutes with a match being played (not a lobby)." />
                 <Card label="Pilots" value={data.avgPilots === null ? '–' : data.avgPilots.toFixed(1)} detail="on average in a match" title="Pilots on the server per minute, over the minutes a match was being played." />
                 <Card label="Peak" value={data.peak ? String(data.peak.pilots) : '–'} detail={data.peak ? atHour(data.peak.at) : 'no pilots'} title="The most pilots in one minute, and the latest hour it happened." />
@@ -64,7 +64,7 @@ const WindowStats: React.FC<{ data: History }> = memo(({ data }) => {
                     valueText={pilots}
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-2xs text-gray-500">
-                    <span>Pilots on the server per minute, idle minutes included. {FIGHT_NIGHT_DAY_TEXT}; the outlined hour is now.</span>
+                    <span>Pilots on the server per minute, idle minutes included; a blank cell had no ticks. {FIGHT_NIGHT_DAY_TEXT}; the outlined hour is now.</span>
                     <RampLegend />
                 </div>
             </section>
@@ -100,17 +100,21 @@ const ServerHistory: React.FC<{ ip: string; onBack: () => void; onName: (name: s
             action={<button onClick={onBack} className={secondaryButtonClass}><ArrowLeft className="w-4 h-4" /> Back</button>} />;
     }
     if (!listing && !live) return <Loading label="Loading server history..." />;
+    const name = listing?.name || live?.server?.name || ip;
     if (listing && !listing.firstSeen) {
+        // never stored: not listed yet, or listed since the last tick (the live list has it)
         return (
             <div className="space-y-6">
-                <div className="flex items-center gap-4">{back}<h1 className="text-2xl font-bold text-white break-all">{ip}</h1></div>
+                <div className="flex items-center gap-4">{back}<h1 className="text-2xl font-bold text-white break-all">{name}</h1></div>
                 <EmptyState card icon={ServerOff} title="No history for this server"
-                    message="The site has not seen it in the tracker's server browser, which it records once a minute." />
+                    message={live
+                        ? 'The tracker lists it now; the site records the list once a minute, so its history starts with the next tick.'
+                        : "The site has not seen it in the tracker's server browser, which it records once a minute."}
+                    action={live && <Link to={urlFor('live-game-detail', ip)} className={secondaryButtonClass}><Radio className="w-4 h-4" /> Live page</Link>} />
             </div>
         );
     }
 
-    const name = listing?.name || live?.server?.name || ip;
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -145,8 +149,8 @@ const ServerHistory: React.FC<{ ip: string; onBack: () => void; onName: (name: s
                     <WindowStats data={data} />
                     <section className="bg-surface-card border border-line rounded-card p-4" aria-labelledby="last-day-title">
                         <h3 id="last-day-title" className="text-gray-500 font-bold text-xs uppercase tracking-widest mb-2">Last 24 hours</h3>
-                        {data.lastDay.length === 0
-                            ? <EmptyState compact icon={ServerOff} title="No ticks in the last 24 hours" />
+                        {!data.lastDay.some(t => t.online)
+                            ? <EmptyState compact icon={ServerOff} title={data.lastDay.length ? 'Offline for the last 24 hours' : 'No ticks in the last 24 hours'} />
                             : <LastDayChart ticks={data.lastDay} hours={data.lastDayHours} now={data.asOf} />}
                     </section>
                 </>

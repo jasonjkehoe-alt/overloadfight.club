@@ -31,6 +31,15 @@ describe('server regions', () => {
         expect(serverLocation('Mystery', '')).toEqual({ x: 38, y: 40, region: 'unknown' });
     });
 
+    it('matches whole words, the name before the notes', () => {
+        expect(regionOf('Any mode welcome', '')).toBe('unknown'); // not NY
+        expect(regionOf('Overload NY 1', '')).toBe('na-east');
+        expect(regionOf('My server', 'Comparison with the old box')).toBe('unknown'); // not PARIS
+        expect(regionOf('Seattle 1', 'moved from Germany')).toBe('na-west');
+        expect(regionOf('Overloader: Atlanta, GA', 'we beat Chicago')).toBe('na-east');
+        expect(regionOf('A-Garage-server', '')).toBe('europe');
+    });
+
     it('takes an IP\'s region from its latest named match, whatever order they are read in', () => {
         const pass = regionPass();
         const at = (date, name) => ({ ...sample[0], date, server: name ? { ...sample[0].server, name, notes: '' } : undefined });

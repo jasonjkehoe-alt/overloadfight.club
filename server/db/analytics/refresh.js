@@ -7,8 +7,8 @@ import { clearRankings } from './ratings.js';
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
 // the run in progress. Never rejects: a failure is logged and the old caches stay,
-// except rating_snapshots and pilot_months, whose chunks already written stay
-// until the next refresh.
+// except rating_snapshots, pilot_months and region_months, whose chunks already
+// written stay until the next refresh.
 let refreshing = null;
 // rating_snapshots, pilot_months and region_months rows written per transaction (see writeChanges)
 const WRITE_CHUNK = 2000;

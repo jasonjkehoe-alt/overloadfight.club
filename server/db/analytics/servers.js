@@ -13,7 +13,7 @@ const serverHours = hotDb.prepare(`
   FROM server_hours WHERE ip = ? AND hour >= ? AND hour < ? ORDER BY hour
 `);
 const serverTicks = hotDb.prepare(`
-  SELECT at, players, state FROM server_snapshots WHERE ip = ? AND at >= ? ORDER BY at
+  SELECT at, online, players, state FROM server_snapshots WHERE ip = ? AND at >= ? ORDER BY at
 `);
 
 // The window's hours all end before today's fight-night day starts, so a

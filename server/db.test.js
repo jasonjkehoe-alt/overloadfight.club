@@ -4,7 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { byId, day, onDay, sample, veteranSoup } from './testFixtures.js';
-import { RATING, dayBounds, fightNightDay, heatmapCells, shiftDay } from './lib/gameParse.js';
+import { HOUR_MS, RATING, dayBounds, dayStart, fightNightDay, heatmapCells, shiftDay } from './lib/gameParse.js';
 
 // Fixture games built from the samples:
 // 90001: game 72102 with the score flipped, an ORANGE win (STITCH, MAESTRO).
@@ -489,6 +489,9 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         const before = db.countGames(null, null).count;
         db.saveGames([{ ...onDay(byId(72099)), id: 99999 }]);
         expect(db.countGames(null, null).count).toBe(before + 1);
+        // a tick inside the window and a summary read, so the restore has a kept summary to drop
+        db.saveServerSnapshot(Date.parse(dayStart(day)) + 14 * HOUR_MS, [{ server: { ip: '143.110.230.67', online: true } }]);
+        expect(db.getServerHistory('143.110.230.67', 30).samples).toBe(1);
 
         await db.restoreHot(copy);
         expect(db.countGames(null, null).count).toBe(before);

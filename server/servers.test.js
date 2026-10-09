@@ -122,9 +122,14 @@ describe('region share (region_months)', () => {
     // the 2019 detail sample has no server and an IP never listed.
     const noServer = { ...onDay(byId(72098)), id: 90100 };
     delete noServer.server;
+    // a server only the servers table knows (listed long ago, no stored match names it), with one match on its IP
+    const TOKYO = '10.15.15.15';
+    const tokyoMatch = { ...onDay(byId(72099)), id: 90101, ip: TOKYO };
+    delete tokyoMatch.server;
 
     beforeAll(async () => {
-        db.saveGames([...sample.map(onDay).filter(g => g.id !== 72098), noServer, detailSample]);
+        hot.prepare('INSERT INTO servers (ip, name, first_seen, last_seen) VALUES (?, ?, ?, ?)').run(TOKYO, 'Tokyo 1', '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z');
+        db.saveGames([...sample.map(onDay).filter(g => g.id !== 72098), noServer, tokyoMatch, detailSample]);
         await db.refreshPilotStats();
     });
 
@@ -136,8 +141,8 @@ describe('region share (region_months)', () => {
 
     it('counts every stored match once, by the region of its server', () => {
         // Amsterdam 1 (8, 72098 by IP), Overloader: Amsterdam (1) and A-Garage (4);
-        // San Francisco 1 (7) and San Jose (1); Dallas (3); Sydney (1); the 2019 sample
-        expect(totals()).toEqual({ europe: 13, 'na-west': 8, 'na-central': 3, oceania: 1, unknown: 1 });
+        // San Francisco 1 (7) and San Jose (1); Dallas (3); Sydney (1); Tokyo by the servers table (1); the 2019 sample
+        expect(totals()).toEqual({ europe: 13, 'na-west': 8, 'na-central': 3, oceania: 1, asia: 1, unknown: 1 });
         const { months } = db.getRegionShare();
         expect(months.reduce((a, m) => a + m.total, 0)).toBe(db.countGames(null, null).count + db.countColdGames(null, null).count);
         // every month from the 2019 sample's to this one

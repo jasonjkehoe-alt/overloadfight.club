@@ -46,14 +46,16 @@ function rankingsMeta() {
     return { description: `Power rankings for ${day}: ${top}.` };
 }
 
-// "Overloader: Dallas, TX (North America Central): online 99.0% of the last 30
-// days, a match running 12.0% of that time, 6.5 pilots in a match on average.
-// Join at 192.227.193.172." The parts with no ticks behind them are left out.
+// "Overloader: Dallas, TX (North America Central): online 99.0% of the minutes
+// checked in the last 30 days, a match running 12.0% of that time, 6.5 pilots
+// in a match on average. Join at 192.227.193.172." The parts with no ticks
+// behind them are left out; "minutes checked" because a server stored for two
+// days has two days of ticks, not 30.
 function serverMeta(ip) {
     const s = db.getServerSummary(ip, SERVER_WINDOW_DEFAULT);
     if (!s.firstSeen) return {};
     const parts = [
-        s.uptime !== null && `online ${percent(s.uptime, 1)} of the last ${s.days} days`,
+        s.uptime !== null && `online ${percent(s.uptime, 1)} of the minutes checked in the last ${s.days} days`,
         s.inUse !== null && `a match running ${percent(s.inUse, 1)} of that time`,
         s.avgPilots !== null && `${s.avgPilots.toFixed(1)} pilots in a match on average`
     ].filter(Boolean);

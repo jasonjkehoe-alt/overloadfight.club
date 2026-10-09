@@ -815,7 +815,9 @@ export function snapshotRow(entry) {
         online: entry.server.online ? 1 : 0,
         players: Math.max(0, Number(game?.currentPlayers) || 0),
         max_players: Number(game?.maxPlayers) || null,
-        state: !game ? SERVER_STATE.idle : game.inLobby ? SERVER_STATE.lobby : SERVER_STATE.match
+        // an offline server is idle whatever game the browser still lists on it, so
+        // a match tick is always an online tick (inUse is match over online)
+        state: !game || !entry.server.online ? SERVER_STATE.idle : game.inLobby ? SERVER_STATE.lobby : SERVER_STATE.match
     };
 }
 
