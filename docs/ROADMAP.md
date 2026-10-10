@@ -8673,7 +8673,7 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   after the share card's node:crypto broke the client build, and the feed
   cache went from hand clears to the data's version. 50 of 50 mutants fail
   a test. Chrome: 104 of 104 at 1,280 and 390 px. PR #23 opened against
-  `main`, not merged.
+  `main`, CI green on both jobs, not merged.
 
 ## Next session prompt
 
