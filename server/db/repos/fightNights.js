@@ -6,6 +6,10 @@ import '../migrations.js';
 const getFightNightRecapsStmt = hotDb.prepare('SELECT date, data, created_at FROM fight_night_recaps ORDER BY date DESC LIMIT ?');
 const getFightNightRecapStmt = hotDb.prepare('SELECT date, data, created_at FROM fight_night_recaps WHERE date = ?');
 
+// Every saved recap, newest first (the .ics feed, S22): LIMIT -1 is no
+// limit in SQLite.
+export const getAllFightNightRecaps = () => getFightNightRecaps(-1);
+
 export const getFightNightRecaps = (limit = 20) => {
   try {
     const rows = getFightNightRecapsStmt.all(limit);

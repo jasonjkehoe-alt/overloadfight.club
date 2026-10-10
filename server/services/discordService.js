@@ -11,14 +11,15 @@ import { renderCard } from './cardService.js';
 // an error or an answer; the admin page switches posting on and off
 // (admin_settings discord_enabled) and sees the URL masked. Each post is a
 // row in discord_posts, so it goes out once: the ping once per fight-night
-// day, a recap once per date.
+// day, a recap once per date, a reminder once per scheduled night (S22).
 
 export const DISCORD_SETTING = 'discord_enabled';
 // A post is one attempt plus one more after a 429 (after Retry-After, capped)
 // or a 5xx or no answer (after waitMs). One that still fails stays pending for
-// the next tick (ping) or detector run (recap), up to `tries` posts; then it is
-// dropped, as it is at once after any other 4xx, and once its day is past
-// (checkPing, expireRecapPosts).
+// the next tick (ping, reminder) or detector run (recap), up to `tries` posts;
+// then it is dropped, as it is at once after any other 4xx, once its day is
+// past (checkPing, expireRecapPosts) or once its night has started
+// (checkReminders).
 export const DISCORD_RETRY = { waitMs: 5000, maxWaitMs: 60000, timeoutMs: 10000, tries: 3 };
 
 let stopped = false;

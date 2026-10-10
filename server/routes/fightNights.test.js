@@ -93,6 +93,11 @@ describe('the events repo', () => {
         const moved = { ...earliest, id: 90001, date: new Date(Date.parse(earliest.date) - 3600000).toISOString(), settings: { ...earliest.settings, start: new Date(Date.parse(first) - 3600000).toISOString() } };
         db.saveColdGamesBatch([moved]);
         expect(db.getDaySpan(day)).toEqual({ start: moved.settings.start, end: last });
+        // a match on a second server that started before every other and ended last: the first
+        // match to end is not the first to start, and the span starts here
+        const parallel = { ...earliest, id: 90002, date: last, settings: { ...earliest.settings, start: new Date(Date.parse(first) - 2 * 3600000).toISOString() } };
+        db.saveColdGamesBatch([parallel]);
+        expect(db.getDaySpan(day)).toEqual({ start: parallel.settings.start, end: last });
         // the 2019 archive game carries a top-level start
         const soupDay = fightNightDay(veteranSoup.date);
         expect(db.getDaySpan(soupDay)).toEqual({ start: veteranSoup.start, end: veteranSoup.date });
@@ -115,16 +120,15 @@ describe('GET /api/fight-nights/schedule', () => {
         const events = await res.json();
         const expected = occurrences(db.listFightNightEvents(), before, before + SCHEDULE.horizonWeeks * 7 * DAY_MS);
         expect(events).toEqual(expected);
-        const body = { events };
-        expect(body.events.map(e => e.title)).toContain('Soon');
-        expect(body.events.map(e => e.title)).not.toContain('Too far');
-        expect(body.events.filter(e => e.title === 'Saturday Night Anarchy')).toHaveLength(SCHEDULE.horizonWeeks);
-        expect(body.events.find(e => e.title === 'Soon')).toMatchObject({ id: soon.id, time: '12:00', endTime: '13:00' });
-        for (let i = 1; i < body.events.length; i++) expect(body.events[i].start >= body.events[i - 1].start).toBe(true);
-        expect(body.events.every(e => Date.parse(e.end) > before)).toBe(true);
-        const running = body.events.find(e => e.title === 'Running');
+        expect(events.map(e => e.title)).toContain('Soon');
+        expect(events.map(e => e.title)).not.toContain('Too far');
+        expect(events.filter(e => e.title === 'Saturday Night Anarchy')).toHaveLength(SCHEDULE.horizonWeeks);
+        expect(events.find(e => e.title === 'Soon')).toMatchObject({ id: soon.id, time: '12:00', endTime: '13:00' });
+        for (let i = 1; i < events.length; i++) expect(events[i].start >= events[i - 1].start).toBe(true);
+        expect(events.every(e => Date.parse(e.end) > before)).toBe(true);
+        const running = events.find(e => e.title === 'Running');
         expect(Date.parse(running.start) <= before).toBe(true);
-        expect(body.events[0]).toBe(running);
+        expect(events[0]).toBe(running);
     });
 
     it('answers with nothing scheduled', async () => {
@@ -201,6 +205,8 @@ describe('the admin endpoints', () => {
         expect(await bad.json()).toEqual({ error: 'time must be HH:MM, 24-hour, Central time' });
         expect((await send('POST', '/api/admin/events', { ...weekly, id: 4242 })).status).toBe(404);
         expect((await send('POST', '/api/admin/events', { ...weekly, id: 'x' })).status).toBe(404);
+        // 0 is a whole number no row has, not a new event
+        expect((await send('POST', '/api/admin/events', { ...weekly, id: 0 })).status).toBe(404);
 
         const added = await send('POST', '/api/admin/events', { ...weekly, minutes: '' });
         expect(added.status).toBe(200);

@@ -26,7 +26,7 @@ export const getFightNightEvent = id => getStmt.get(id) ?? null;
 // or null for an `id` no row has.
 export const saveFightNightEvent = event => {
   const row = { ...event, updated_at: new Date().toISOString() };
-  if (event.id) return updateStmt.run(row).changes === 0 ? null : getFightNightEvent(event.id);
+  if (event.id != null) return updateStmt.run(row).changes === 0 ? null : getFightNightEvent(event.id);
   return getFightNightEvent(insertStmt.run(row).lastInsertRowid);
 };
 

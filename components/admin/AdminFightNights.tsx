@@ -119,7 +119,7 @@ const AdminFightNights: React.FC<AdminFightNightsProps> = ({ events: { events, f
                     </div>
                     <div>
                         <label htmlFor="event-minutes" className={labelClass}>Length in minutes</label>
-                        <input id="event-minutes" type="number" min={SCHEDULE.minMinutes} max={SCHEDULE.maxMinutes} step={15} required value={draft.minutes} onChange={e => set({ minutes: Number(e.target.value) })} className={inputClass} />
+                        <input id="event-minutes" type="number" min={SCHEDULE.minMinutes} max={SCHEDULE.maxMinutes} required value={draft.minutes} onChange={e => set({ minutes: Number(e.target.value) })} className={inputClass} />
                     </div>
                     <div className="sm:col-span-2">
                         <label htmlFor="event-title" className={labelClass}>Title</label>
@@ -128,6 +128,7 @@ const AdminFightNights: React.FC<AdminFightNightsProps> = ({ events: { events, f
                     <div className="sm:col-span-2">
                         <label htmlFor="event-notes" className={labelClass}>Notes</label>
                         <textarea id="event-notes" rows={2} maxLength={SCHEDULE.notesMax} value={draft.notes} onChange={e => set({ notes: e.target.value })} className={inputClass} />
+                        <p className="text-2xs text-gray-500 mt-1">Public: shown with the night on the dashboard, in the calendar feed and in the Discord reminder.</p>
                     </div>
                     <div className="sm:col-span-2 flex flex-wrap gap-3">
                         <button type="submit" disabled={saving} className={`${secondaryButtonClass} disabled:opacity-40`}>{saving ? 'Saving...' : draft.id ? 'Save changes' : 'Add night'}</button>

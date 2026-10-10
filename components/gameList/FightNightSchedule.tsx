@@ -8,7 +8,6 @@ import { FIGHT_NIGHT_DAY, FIGHT_NIGHT_PING, browserPilots, busyServers } from '.
 import { FEED_PATH, SCHEDULE, comingOccurrences, underWay } from '../../server/lib/fightNightSchedule.js';
 import { clockLabel, countdown, dayLabel, eventWhen, itsOnLine } from '../../server/lib/matchResult.js';
 import { urlFor } from '../../server/lib/siteRoutes.js';
-import { ErrorState, Loading } from '../States';
 import Link from '../Link';
 
 // The countdown moves this often; the schedule itself is read once per mount.
@@ -29,21 +28,21 @@ const CopyFeed: React.FC<{ url: string }> = ({ url }) => {
 // The dashboard's "Fight nights" card (S22): "it's on" at the ping's pilot
 // count, "on now" inside a scheduled night, else the countdown to the next
 // one; the next few nights; and the .ics feed to subscribe to. Nothing while
+// the schedule loads or failed (as the iframe widget it replaced), or while
 // nothing is scheduled and nobody is on.
 const FightNightSchedule: React.FC = () => {
     const schedule = useLoad(fetchFightNightSchedule, []);
     const { games } = useServerBrowser();
     const [now, setNow] = useState(() => Date.now());
     // the countdown moves only while a night is coming
-    const hasNext = Boolean(schedule.data?.length);
+    const hasNext = comingOccurrences(schedule.data ?? [], now).length > 0;
     useEffect(() => {
         if (!hasNext) return;
         const timer = setInterval(() => setNow(Date.now()), TICK_MS);
         return () => clearInterval(timer);
     }, [hasNext]);
 
-    if (schedule.failed) return <ErrorState compact title="Could not load the fight-night schedule" onRetry={schedule.retry} />;
-    if (!schedule.data) return <Loading compact label="Loading the schedule..." />;
+    if (!schedule.data) return null;
 
     const timeZone = FIGHT_NIGHT_DAY.label;
     const pilots = games ? browserPilots(games) : 0;
@@ -71,7 +70,8 @@ const FightNightSchedule: React.FC = () => {
                 </div>
             </div>
 
-            <p role="status" className={`font-mono text-xs ${itsOn || live ? 'text-brand font-bold' : 'text-gray-300'}`}>
+            {/* a live region for it's on and on now only: the countdown's text changes every minute */}
+            <p role={itsOn || live ? 'status' : undefined} className={`font-mono text-xs ${itsOn || live ? 'text-brand font-bold' : 'text-gray-300'}`}>
                 {itsOn ? (
                     <>
                         {itsOnLine(pilots)}{live && ` ${next.title} is on now.`}
@@ -94,7 +94,7 @@ const FightNightSchedule: React.FC = () => {
                     ))}
                 </ul>
             )}
-            <p className="text-2xs text-gray-500 font-mono">Times are {timeZone}. The calendar link carries every scheduled night and every recap: <span className="select-all text-gray-400 break-all">{feedUrl}</span></p>
+            <p className="text-2xs text-gray-500 font-mono">Times are {timeZone}. The calendar link carries the next {SCHEDULE.horizonWeeks} weeks of nights and every saved recap: <span className="select-all text-gray-400 break-all">{feedUrl}</span></p>
         </section>
     );
 };

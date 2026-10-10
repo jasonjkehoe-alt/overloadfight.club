@@ -306,7 +306,8 @@ ensureFightNightEvents();
 
 // Discord posts (S18, services/discordService.js): one row per post, so a post
 // goes out once whatever restarts, recap rebuilds or detector runs come after
-// it. `kind` is 'ping' (keyed by fight-night day) or 'recap' (by recap date);
+// it. `kind` is 'ping' (keyed by fight-night day), 'recap' (by recap date) or
+// 'reminder' (by a scheduled night's UTC start and its event's id, S22);
 // `status` 'pending' until Discord takes it, then 'sent', or 'dropped' after
 // the last try. A restored backup from before it gets it back empty.
 export function ensureDiscordPosts() {

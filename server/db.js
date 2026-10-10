@@ -21,7 +21,7 @@ import {
   seedStockMaps, getMaps, countMaps, getMapIntel, getMapById, getMapByName, mapImagePath, upsertMap,
   incrementMapDownloads, updateMapLocalPaths, deleteMap
 } from './db/repos/maps.js';
-import { getFightNightRecaps, getFightNightRecapByDate, saveFightNightRecap, deleteFightNightRecapsSince, fightNightRecapsVersion } from './db/repos/fightNights.js';
+import { getAllFightNightRecaps, getFightNightRecaps, getFightNightRecapByDate, saveFightNightRecap, deleteFightNightRecapsSince, fightNightRecapsVersion } from './db/repos/fightNights.js';
 import { deleteFightNightEvent, fightNightEventsVersion, getFightNightEvent, listFightNightEvents, saveFightNightEvent } from './db/repos/fightNightEvents.js';
 import { saveServerSnapshot, pruneServerSnapshots, getServerListing } from './db/repos/servers.js';
 import {
@@ -160,6 +160,7 @@ const db = {
   deleteMap,
 
   // repos/fightNights.js
+  getAllFightNightRecaps,
   getFightNightRecaps,
   getFightNightRecapByDate,
   saveFightNightRecap,

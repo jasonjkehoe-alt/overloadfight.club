@@ -4,7 +4,7 @@ import {
     reminderKey, scheduleWindow, underWay, validateEvent, wholeNumber
 } from './fightNightSchedule.js';
 import { foldLine, icsFeed, icsText } from './fightNightFeed.js';
-import { DAY_MS, fightNightDay, localInstant } from './gameParse.js';
+import { DAY_MS, fightNightDay, localInstant, shiftDay } from './gameParse.js';
 import { day, onDay, sample } from '../testFixtures.js';
 
 // The schedule rules (S22) on hand-made events over the DST days (clocks go
@@ -68,6 +68,8 @@ describe('validateEvent', () => {
         expect(validateEvent({ ...good, weekday: 'Sat' }).error).toMatch(/weekday/);
         // Number() would read these as Monday
         for (const weekday of [null, '', false, undefined]) expect(validateEvent({ ...good, weekday }).error).toMatch(/weekday/);
+        // and these as a number too
+        for (const weekday of [' ', '1e0', '0x1', [], [3]]) expect(validateEvent({ ...good, weekday }).error).toMatch(/weekday/);
         expect(validateEvent({ ...good, weekday: '0' }).event.weekday).toBe(0);
         expect(validateEvent({ kind: 'once', time: '20:00', title: 'x', date: '2026-02-30' }).error).toMatch(/date/);
         expect(validateEvent({ kind: 'once', time: '20:00', title: 'x', date: '14/10/2026' }).error).toMatch(/date/);
@@ -102,10 +104,11 @@ describe('occurrences', () => {
     });
 
     it('places a one-off on its date, a night after midnight on the evening before, and sorts by start then id', () => {
-        const list = occurrences([weekly({ weekday: 1 }), once(), once({ id: 3, date: '2026-10-14', time: '19:00', minutes: 30 }), weekly({ id: 4, weekday: 5, time: '00:30' })],
+        const list = occurrences([once({ id: 9, date: '2026-10-13', time: '20:00', minutes: 30 }), weekly({ weekday: 1 }), once(), once({ id: 3, date: '2026-10-14', time: '19:00', minutes: 30 }), weekly({ id: 4, weekday: 5, time: '00:30' })],
             at('2026-10-12T00:00:00Z'), at('2026-10-19T00:00:00Z'));
         expect(list.map(o => [o.id, o.date, o.start, o.day])).toEqual([
             [1, '2026-10-13', '2026-10-14T01:00:00.000Z', '2026-10-13'], // Tuesday
+            [9, '2026-10-13', '2026-10-14T01:00:00.000Z', '2026-10-13'], // the same start as the rule, listed after it by id
             [3, '2026-10-14', '2026-10-15T00:00:00.000Z', '2026-10-14'],
             [2, '2026-10-14', '2026-10-15T00:30:00.000Z', '2026-10-14'],
             [4, '2026-10-17', '2026-10-17T05:30:00.000Z', '2026-10-16'] // Saturday 00:30 is Friday's night
@@ -124,6 +127,13 @@ describe('occurrences', () => {
         expect(occurrences([weekly()], start - DAY_MS, start)).toHaveLength(0);
         expect(occurrences([weekly()], start - DAY_MS, start + 1)).toHaveLength(1);
         expect(occurrences([], start, start + 30 * DAY_MS)).toEqual([]);
+    });
+
+    it('reaches a night on the calendar day before the window and one on the day after its end', () => {
+        // Sunday 2026-10-11 00:30 CDT: a Sunday 01:00 rule is due within the hour, on the calendar day after the window's end
+        expect(dueReminders([weekly({ weekday: 6, time: '01:00' })], at('2026-10-11T05:30:00Z')).map(o => o.date)).toEqual(['2026-10-11']);
+        // Sunday 07:00 CDT: a 12-hour Saturday 20:00 night is still on, from the calendar day before the window
+        expect(occurrences([weekly({ minutes: 720 })], at('2026-10-11T12:00:00Z'), at('2026-10-12T12:00:00Z')).map(o => o.date)).toEqual(['2026-10-10']);
     });
 
     it('names the one under way or the next, and the window ahead', () => {
@@ -163,6 +173,7 @@ describe('the .ics feed', () => {
     it('escapes text and folds lines at 75 octets without splitting a character', () => {
         expect(icsText('a, b; c\\d\nnext')).toBe('a\\, b\\; c\\\\d\\nnext');
         expect(icsText(null)).toBe('');
+        expect(icsText('a\rb\r\nc\u0007d')).toBe('a\\nb\\ncd');
         const ascii = foldLine(`SUMMARY:${'x'.repeat(200)}`);
         // each continuation starts with a space inside its 75 octets
         expect(ascii.split('\r\n').map(l => l.length)).toEqual([75, 75, 60]);
@@ -191,12 +202,12 @@ describe('the .ics feed', () => {
             UID: 'fight-night-2-2026-10-14@overloadfight.club',
             DTSTAMP: '20261002T000000Z',
             'DTSTART;TZID=America/Chicago': '20261014T193000',
-            'DTEND;TZID=America/Chicago': '20261014T213000',
+            DTEND: '20261015T023000Z',
             SUMMARY: 'CTF special',
             DESCRIPTION: 'Flags\\; captures\\, and more\\nsecond line\\nLive servers: https://ofc.example/',
             URL: 'https://ofc.example/fight-night'
         });
-        expect(saturday.props).toMatchObject({ UID: 'fight-night-1-2026-10-17@overloadfight.club', 'DTSTART;TZID=America/Chicago': '20261017T200000', 'DTEND;TZID=America/Chicago': '20261017T230000', SUMMARY: 'Saturday\\; Night\\, Anarchy' });
+        expect(saturday.props).toMatchObject({ UID: 'fight-night-1-2026-10-17@overloadfight.club', 'DTSTART;TZID=America/Chicago': '20261017T200000', DTEND: '20261018T040000Z', SUMMARY: 'Saturday\\; Night\\, Anarchy' });
         const stamp = iso => iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '');
         expect(past.props).toEqual({
             UID: `recap-${day}@overloadfight.club`,
@@ -210,19 +221,36 @@ describe('the .ics feed', () => {
         });
     });
 
+    it('ends a night across the autumn change at its real end, in UTC, where a wall-clock end would read an hour early', () => {
+        const late = occurrences([weekly({ time: '23:30' })], at('2026-10-31T00:00:00Z'), at('2026-11-02T00:00:00Z'));
+        const [, night] = parseIcs(icsFeed({ origin: 'https://ofc.example', occurrences: late, recaps: [] })).children;
+        // 01:30 on the wall clock is both 06:30Z (CDT) and 07:30Z (CST); the night ends at the second
+        expect(night.props).toMatchObject({ 'DTSTART;TZID=America/Chicago': '20261031T233000', DTEND: '20261101T073000Z' });
+        expect(Object.keys(night.props).filter(k => k.startsWith('DTEND'))).toEqual(['DTEND']);
+    });
+
     it('leaves out a most-kills line at 0 and starts a recap at its end when the first match has no start', () => {
         const feed = icsFeed({ origin: 'https://ofc.example', occurrences: [], recaps: [{ recap: recap({ topFragger: { name: 'Unknown', kills: 0 }, created_at: undefined }), span: { start: null, end: '2026-10-05T04:00:00.000Z' } }] });
         const [, past] = parseIcs(feed).children;
         expect(past.props).toMatchObject({ DTSTART: '20261005T040000Z', DTEND: '20261005T040000Z', DTSTAMP: '20261005T040000Z', DESCRIPTION: 'Sunday\\, October 4\\, 2026: 18 matches\\, 11 pilots.' });
     });
 
-    it('writes a VTIMEZONE that agrees with localInstant on both sides of each DST change', () => {
-        // the zone's offsets the block names, read back from the instants
-        const offset = (date, time) => (Date.parse(`${date}T${time}:00Z`) - Date.parse(localInstant(date, time))) / 3600000;
-        expect([offset('2026-03-07', '20:00'), offset('2026-03-08', '20:00')]).toEqual([-6, -5]);
-        expect([offset('2026-10-31', '20:00'), offset('2026-11-01', '20:00')]).toEqual([-5, -6]);
-        // the change is at 02:00: 01:59 is still the old offset, 03:00 the new
-        expect([offset('2026-03-08', '01:59'), offset('2026-03-08', '03:00')]).toEqual([-6, -5]);
-        expect([offset('2026-11-01', '00:59'), offset('2026-11-01', '03:00')]).toEqual([-5, -6]);
+    it('writes a VTIMEZONE whose changes agree with localInstant on both sides of each DST change', () => {
+        const [tz] = parseIcs(icsFeed({ origin: 'https://ofc.example', occurrences: [], recaps: [] })).children;
+        expect(tz.type).toBe('VTIMEZONE');
+        expect(tz.children.map(c => [c.type, c.props.DTSTART])).toEqual([['DAYLIGHT', '19700308T020000'], ['STANDARD', '19701101T020000']]);
+        const hours = offset => Number(offset.slice(0, 3)); // '-0600' is -6
+        const offsetAt = (date, time) => (Date.parse(`${date}T${time}:00Z`) - Date.parse(localInstant(date, time))) / 3600000;
+        // the nth Sunday of a month of 2026, as each RRULE names it
+        const sunday = (month, nth) => { const d = new Date(Date.UTC(2026, month - 1, 1)); d.setUTCDate(1 + (7 - d.getUTCDay()) % 7 + 7 * (nth - 1)); return d.toISOString().slice(0, 10); };
+        for (const change of tz.children) {
+            const [, month, nth] = change.props.RRULE.match(/^FREQ=YEARLY;BYMONTH=(\d+);BYDAY=(\d)SU$/);
+            const date = sunday(Number(month), Number(nth));
+            const hour = Number(change.props.DTSTART.slice(9, 11)); // the wall-clock hour the change happens at
+            const before = `${String(hour - 1).padStart(2, '0')}:59`;
+            const after = `${String(hour + 1).padStart(2, '0')}:00`;
+            expect([offsetAt(shiftDay(date, -1), after), offsetAt(date, before), offsetAt(date, after)])
+                .toEqual([hours(change.props.TZOFFSETFROM), hours(change.props.TZOFFSETFROM), hours(change.props.TZOFFSETTO)]);
+        }
     });
 });

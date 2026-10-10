@@ -6,8 +6,9 @@ import { FIGHT_NIGHT_DAY } from './gameParse.js';
 import { SITE_NAME, urlFor } from './siteRoutes.js';
 import { fightNightCard } from './shareCards.js';
 
-// RFC 5545 text: backslashes, semicolons, commas and newlines escaped.
-export const icsText = text => String(text ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+// RFC 5545 text: backslashes, semicolons, commas and line ends (CRLF, CR or
+// LF) escaped, other control characters (TEXT allows none) dropped.
+export const icsText = text => String(text ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '');
 
 const LINE_OCTETS = 75;
 // The UTF-8 size of one character (a code point).
@@ -67,15 +68,17 @@ const VTIMEZONE = [
 
 const vevent = lines => ['BEGIN:VEVENT', ...lines.filter(Boolean), 'END:VEVENT'];
 
-// A coming night: its wall-clock start and end in the zone, the title, the
-// notes with a line pointing at the live list, and the fight-night page.
+// A coming night: its wall-clock start in the zone, its end in UTC (a
+// wall-clock end repeats in the autumn change's hour, and RFC 5545 reads the
+// first pass, an hour early), the title, the notes with a line pointing at
+// the live list, and the fight-night page.
 function scheduledEvent(one, origin) {
     const notes = [one.notes, `Live servers: ${origin}${urlFor('dashboard')}`].filter(Boolean).join('\n');
     return vevent([
         `UID:fight-night-${one.id}-${one.date}@${SITE_NAME}`,
         `DTSTAMP:${utcStamp(one.updated_at)}`,
         `DTSTART;TZID=${FIGHT_NIGHT_DAY.timeZone}:${wallStamp(one.date, one.time)}`,
-        `DTEND;TZID=${FIGHT_NIGHT_DAY.timeZone}:${wallStamp(one.endDate, one.endTime)}`,
+        `DTEND:${utcStamp(one.end)}`,
         `SUMMARY:${icsText(one.title)}`,
         `DESCRIPTION:${icsText(notes)}`,
         `URL:${origin}${urlFor('fight-night')}`

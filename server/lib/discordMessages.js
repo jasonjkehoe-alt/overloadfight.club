@@ -1,5 +1,6 @@
-// The Discord messages (S18): the fight-night recap, the "it's on" ping and the
-// admin's test post, as webhook bodies. Links are built from urlFor and the
+// The Discord messages (S18): the fight-night recap, the "it's on" ping, the
+// reminder before a scheduled night (S22) and the admin's test post, as webhook
+// bodies. Links are built from urlFor and the
 // site's origin; nothing here reads the database or the webhook URL.
 import { SITE_NAME, urlFor } from './siteRoutes.js';
 import { RATING, busyServers } from './gameParse.js';

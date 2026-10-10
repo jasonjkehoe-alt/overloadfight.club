@@ -13,9 +13,10 @@ export const FEED_PATH = '/fight-nights.ics';
 const EVENT_KINDS = ['weekly', 'once'];
 const MINUTE_MS = 60000;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-// A whole number from what a form or a request sends; NaN for null, '', a
-// boolean or anything else Number() would read as a number it is not.
-export const wholeNumber = value => (value === null || value === '' || typeof value === 'boolean' ? NaN : Number(value));
+// A whole number from what a form or a request sends: a number as it is, a
+// string of digits read as one; NaN for anything else (null, '', a boolean,
+// an array, or a string Number() would read as a number: ' ', '1e1', '0x10').
+export const wholeNumber = value => (typeof value === 'number' ? value : typeof value === 'string' && /^-?\d+$/.test(value) ? Number(value) : NaN);
 
 /**
  * Checks an event as the admin sends it: a weekly rule (weekday 0 Monday to
@@ -112,5 +113,8 @@ export function dueReminders(events, now) {
 
 // A reminder's key in discord_posts: the start first, so the keys sort by
 // time and the ISO string of `now` bounds the ones for nights that have
-// started (a night starting this very ms is bounded by the next tick).
+// started (a night starting this very ms is bounded by the next tick). The
+// start is in the key on purpose: a night whose time the admin moves is
+// announced again at its new time (and a deleted and recreated event, with
+// its new id, too); a title or notes edit does not post again.
 export const reminderKey = one => `${one.start} ${one.id}`;

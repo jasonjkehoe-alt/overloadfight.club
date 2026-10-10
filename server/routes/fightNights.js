@@ -19,7 +19,6 @@ const comingNights = now => occurrences(db.listFightNightEvents(), ...scheduleWi
 // as long as the events and the recaps it was built from have not changed
 // (their versions: counts and latest writes). One origin at a time: the
 // feed's links carry the request's origin, as og:url does.
-const FEED_RECAPS = 500;
 const FEED_CACHE_MS = 10 * 60 * 1000;
 let feed = null;
 
@@ -34,7 +33,7 @@ export function fightNightFeed(req, res) {
         const now = Date.now();
         const version = `${origin} ${db.fightNightEventsVersion()} ${db.fightNightRecapsVersion()}`;
         if (!feed || feed.version !== version || feed.until <= now) {
-            const recaps = db.getFightNightRecaps(FEED_RECAPS).map(recap => ({ recap, span: db.getDaySpan(recap.date) }));
+            const recaps = db.getAllFightNightRecaps().map(recap => ({ recap, span: db.getDaySpan(recap.date) }));
             feed = { version, body: icsFeed({ origin, occurrences: comingNights(now), recaps }), until: now + FEED_CACHE_MS };
         }
         res.type('text/calendar; charset=utf-8');

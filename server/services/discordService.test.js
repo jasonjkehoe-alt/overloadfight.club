@@ -612,6 +612,24 @@ describe('the reminder before a scheduled night (S22)', () => {
         expect(discord.discordStatus().posts.map(p => p.kind)).toContain('reminder');
         clearEvents();
     });
+
+    it('reminds again, under a new key, for a night whose time the admin moved after its reminder posted', async () => {
+        switchOn();
+        // a one-off at noon three days on: no Saturday 20:00 reminder is due within the hour of either tick
+        const date = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+        const row = db.saveFightNightEvent({ kind: 'once', weekday: null, date, time: '12:00', minutes: 60, title: 'Moved night', notes: '' });
+        const [first] = occurrences([row], Date.now(), Date.now() + 8 * 86400000);
+        const [post] = discord.checkReminders(Date.parse(first.start) - 30 * MINUTE);
+        expect(await post).toMatchObject({ ok: true });
+        // moved on by an hour: a new start, so a new key and a new reminder at the new time
+        const moved = db.saveFightNightEvent({ ...row, time: '13:00' });
+        const [second] = occurrences([moved], Date.now(), Date.now() + 8 * 86400000);
+        expect(reminderKey(second)).not.toBe(reminderKey(first));
+        const [again] = discord.checkReminders(Date.parse(second.start) - 30 * MINUTE);
+        expect(await again).toMatchObject({ ok: true });
+        expect([first, second].map(one => db.getDiscordPost('reminder', reminderKey(one)).status)).toEqual(['sent', 'sent']);
+        clearEvents();
+    });
 });
 
 describe('shutdown', () => {

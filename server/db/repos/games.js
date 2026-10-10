@@ -453,27 +453,32 @@ export const getGamesForDate = (dateStr) => {
   return bounds ? getGamesInDay.all(...bounds) : [];
 };
 
-// The first match's details and the last match's end on a day, over both
-// files (a cold move during a night splits it), each side on idx_games_date
-// (the .ics feed's recap events, S22).
-const inDayBothFiles = 'SELECT date, details FROM games WHERE date >= @from AND date < @to UNION ALL SELECT date, details FROM cold.games WHERE date >= @from AND date < @to';
-const firstGameInDay = hotDb.prepare(`SELECT details FROM (${inDayBothFiles}) ORDER BY date LIMIT 1`).pluck();
-const lastDateInDay = hotDb.prepare(`SELECT MAX(date) FROM (${inDayBothFiles})`).pluck();
-// { start, end } of the matches on a fight-night day: the first match's
-// start (null when it has none) and the last match's end, as UTC ISO
-// strings; null for a day with no match in either file.
+// The matches on a day (their end and details), over both files (a cold move
+// during a night splits it), each side on idx_games_date (the .ics feed's
+// recap events, S22).
+const gamesInDayBothFiles = hotDb.prepare('SELECT date, details FROM games WHERE date >= @from AND date < @to UNION ALL SELECT date, details FROM cold.games WHERE date >= @from AND date < @to');
+// { start, end } of the matches on a fight-night day: the earliest match
+// start (the first match to end is not the first to start when servers run
+// in parallel; null when none has one) and the last match's end, as UTC ISO
+// strings; null for a day with no match in either file. The rule for a
+// match's start stays matchStart's, so each row's blob is read here.
 export const getDaySpan = (dateStr) => {
   const bounds = dayBounds(dateStr);
   if (!bounds) return null;
   const [from, to] = bounds;
-  const details = firstGameInDay.get({ from, to });
-  if (!details) return null;
+  const rows = gamesInDayBothFiles.all({ from, to });
+  if (rows.length === 0) return null;
   let start = null;
-  try {
-    const at = Date.parse(matchStart(JSON.parse(details)));
-    if (Number.isFinite(at)) start = new Date(at).toISOString();
-  } catch {
-    // a bad blob: the span starts at its end
+  let end = null;
+  for (const row of rows) {
+    const ended = Date.parse(row.date);
+    if (end === null || ended > end) end = ended;
+    try {
+      const at = Date.parse(matchStart(JSON.parse(row.details)));
+      if (Number.isFinite(at) && (start === null || at < start)) start = at;
+    } catch {
+      // a bad blob: no start from this match
+    }
   }
-  return { start, end: new Date(lastDateInDay.get({ from, to })).toISOString() };
+  return { start: start === null ? null : new Date(start).toISOString(), end: new Date(end).toISOString() };
 };

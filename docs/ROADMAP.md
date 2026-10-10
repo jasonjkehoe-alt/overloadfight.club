@@ -2491,8 +2491,9 @@ maintenance item does not count toward the 28.
   is restarted inside that hour (the key survives in `discord_posts`, so
   it should post once).
 - S22: the feed with the NAS's years of recaps. Two recaps locally; the
-  build reads two indexed rows and parses one blob per recap, up to 500,
-  and nobody has timed it or seen the feed's size there.
+  build reads each recap day's rows on the index and parses each blob
+  (a night's worth per recap, every recap), and nobody has timed it or
+  seen the feed's size there.
 - S22: a night scheduled inside the repeated 01:00 hour of the autumn
   change in a calendar app (the server takes the first pass; the app
   decides for itself).
@@ -2860,7 +2861,8 @@ maintenance item does not count toward the 28.
   browser.
 - The PilotsList K/D tooltip text was not looked at in a browser.
 - The calendar iframe being blocked was inferred from headers plus a curl of
-  the Google embed's resource policy, not observed in a browser.
+  the Google embed's resource policy, not observed in a browser. Closed by
+  S22: the widget and `/api/calendar-url` are gone.
 - Mobile overflow at 375 px and nav crowding between 768 and 1,150 px were
   inferred from CSS.
 - Whether the single-thread ffmpeg core still needs COOP/COEP.
@@ -3891,7 +3893,9 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          a migration decision entry.
       3. The `.ics` feed, written by hand (RFC 5545: CRLF, 75-octet folding,
          escaped text, a VTIMEZONE for America/Chicago, `DTSTART;TZID=` for
-         scheduled nights and UTC for recap events; after /simplify in its
+         scheduled nights with their `DTEND` in UTC (amended on the PR review:
+         a wall-clock end repeats in the autumn hour), and UTC for recap
+         events; after /simplify in its
          own server-only `server/lib/fightNightFeed.js`, since the recap
          event's words come from the share card and `shareCards.js` hashes
          with node:crypto, which the page cannot import), at `GET
@@ -3909,9 +3913,10 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          `now`, the zone's words, the horizon and the feed's path, which
          /code-review found nothing reading, and /simplify had the page
          take the feed's path from the shared module). No request walks
-         the stored matches; the feed reads each recap day's first and
-         last match time on `idx_games_date` and the last feed built is
-         kept ten minutes while the events and recaps are unchanged.
+         the stored matches; the feed reads each recap day's rows on
+         `idx_games_date` for their earliest start and last end, and the
+         last feed built is kept ten minutes while the events and recaps
+         are unchanged.
       5. Admin endpoints behind `requireAuth` in a new
          `server/routes/adminEvents.js` mounted by `admin-routes.js`: `GET
          /api/admin/events`, `POST /api/admin/events` (create, or update
@@ -3930,8 +3935,8 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          countdown to the next occurrence ("in 2 days 4 hours", ticking in
          the browser, the wording in `matchResult.js`); the next three
          dates; Subscribe (webcal and https) with the feed URL to copy.
-         Loading and failure use the shared states; with no event and
-         nobody on it renders nothing. `CalendarWidget.tsx`, `GET
+         Loading and failure render nothing (amended on the PR review from
+         the shared states); with no event and nobody on it renders nothing. `CalendarWidget.tsx`, `GET
          /api/calendar-url` and the iframe go (a decision entry for the
          removed public path; the `CALENDAR_EMBED_URL` row stays, unread).
       7. A Discord reminder through S18's service: a `reminder` kind in
@@ -6435,7 +6440,7 @@ Not counted in the 28 sessions.
   it); the schedule is lost with the table. Rejected: a JSON string in
   `admin_settings` (no ids to edit or delete by, and every backup download
   would carry it as a setting).
-- 2026-10-10 (S22): The feed, `icsFeed` in `fightNightSchedule.js`, written
+- 2026-10-10 (S22): The feed, `icsFeed` in `fightNightFeed.js`, written
   by hand (RFC 5545: CRLF line ends, lines folded at 75 octets without
   splitting a character, text escaped) rather than a dependency: it is
   one VCALENDAR (`METHOD:PUBLISH`, `X-WR-CALNAME`, `X-WR-TIMEZONE`,
@@ -6444,14 +6449,19 @@ Not counted in the 28 sessions.
   Sunday of November, at 02:00; a test checks its offsets against
   `localInstant` on the DST days, so a change of zone fails a test instead
   of drifting the feed), one VEVENT per coming occurrence (`DTSTART;TZID=`
-  and `DTEND;TZID=` on the wall clock as the admin typed them, so a
-  subscriber in another zone sees 8 pm Central converted; `UID`
+  on the wall clock as the admin typed it, so a subscriber in another zone
+  sees 8 pm Central converted, and `DTEND` in UTC, since a wall-clock end
+  inside the autumn change's repeated hour is read as its first pass, an
+  hour early, by RFC 5545; changed on the PR review from `DTEND;TZID=`;
+  `UID`
   `fight-night-<id>-<date>@overloadfight.club`, `DTSTAMP` the event's
   `updated_at`, the notes plus a "Live servers" line as `DESCRIPTION`, the
   fight-night page as `URL`), and one per saved recap (`UID`
-  `recap-<date>@`, `DTSTART` and `DTEND` in UTC from the day's first
-  match's start to its last match's end, read on `idx_games_date` by a new
-  `getDaySpan` in `repos/games.js`, hot then cold; `SUMMARY` "Fight Night
+  `recap-<date>@`, `DTSTART` and `DTEND` in UTC from the day's earliest
+  match start to its last match's end, the day's rows read on
+  `idx_games_date` by a new `getDaySpan` in `repos/games.js`, hot and cold
+  (the first match to end is not the first to start when servers run in
+  parallel, found on the PR review); `SUMMARY` "Fight Night
   recap: <day>", the totals and most kills as `DESCRIPTION`, the recap page
   as `URL`; a recap whose day has no stored match is left out). The span
   is read over both files and the earliest start and latest end taken
@@ -6462,7 +6472,8 @@ Not counted in the 28 sessions.
   `fightNightEventsVersion` and `fightNightRecapsVersion`) and the
   request's origin are the ones it was built from, so hourly polls from
   every subscriber do not each read every recap's day and any write shows
-  on the next request (/code-review asked for the cache; /simplify
+  on the next request the server builds (a browser or proxy may hold the
+  feed for the `max-age` of 600 s) (/code-review asked for the cache; /simplify
   replaced the clears the admin routes made by hand, which a new recap
   from the detector and a backup restore did not make, with the version). The
   occurrences are expanded, not written as RRULE, so every parser agrees
@@ -6473,15 +6484,15 @@ Not counted in the 28 sessions.
   (`routes/fightNights.js`) share one handler: `text/calendar;
   charset=utf-8`, `Content-Disposition: inline; filename=`, `Cache-Control:
   public, max-age=600`, the origin from the request as `og:url` takes it.
-  The feed carries the next `SCHEDULE.horizonWeeks` (12) of nights and up
-  to 500 recaps. Checked with ical.js (a real parser) against the local
+  The feed carries the next `SCHEDULE.horizonWeeks` (12) of nights and
+  every saved recap. Checked with ical.js (a real parser) against the local
   server: 15 events, every scheduled one's UTC instant equal to the API's
   through the VTIMEZONE, the November change included.
 - 2026-10-10 (S22): `GET /api/fight-nights/schedule` (in
   `routes/fightNights.js`, before `/fight-nights/:date`, which would read
-  "schedule" as a date) answers `{ now, timeZone, feed, horizonWeeks,
-  events }`: the occurrences from now to the horizon, one under way
-  included, the zone's words ("Central time") and the feed's path. No
+  "schedule" as a date) answers an array: the occurrences from now to the
+  horizon, one under way included (the first draft also sent `now`, the
+  zone's words, the horizon and the feed's path, which nothing read). No
   cache: it reads one small table. The client reads it through
   `fetchFightNightSchedule` (null on failure) and `useLoad`.
 - 2026-10-10 (S22): The admin endpoints, in a new
@@ -6523,9 +6534,12 @@ Not counted in the 28 sessions.
   reminder shares. Under it the next `SCHEDULE.listed` (3) nights (title,
   day, time), a "Subscribe in your calendar" link (`webcal://` on the
   page's host) with a Copy link button on the `https` URL (the `JoinIp`
-  clipboard pattern), and the feed URL to select. Loading and failure use
-  the shared compact states with Retry; with nothing scheduled and nobody
-  on it renders nothing, like the teaser. No Recharts; the dashboard's
+  clipboard pattern), and the feed URL to select. Loading and failure
+  render nothing, as the iframe widget did (changed on the PR review from
+  the shared compact states, which put a spinner on every visit of a site
+  with nothing scheduled and an error card during an outage); with nothing
+  scheduled and nobody on it renders nothing, like the teaser. No Recharts;
+  the dashboard's
   first visit still loads no chart chunk.
 - 2026-10-10 (S22): What replaced the iframe. `components/CalendarWidget.tsx`
   (the Google Calendar iframe, which the CSP's `default-src 'self'` and
@@ -6537,10 +6551,12 @@ Not counted in the 28 sessions.
 - 2026-10-10 (S22): The Discord reminder, through S18's service with no new
   timer or table: a `reminder` kind in `discord_posts`, keyed
   `<start ISO> <event id>` (`reminderKey`), so the keys sort by time and
-  `reminderKeysBefore(now)` (the ISO of now followed by `~`, which sorts
-  after the space and every digit) names every reminder for a night that
-  has started, which `dropStaleDiscordPosts` then drops, as the ping's and
-  the recap's stale rows are. `checkReminders(now)` runs on every S15
+  `dropStaleDiscordPosts('reminder', now's ISO)` drops every pending
+  reminder whose key sorts before it, a night that has started, as the
+  ping's and the recap's stale rows are. The start is in the key on
+  purpose: a night whose time the admin moves is announced again at its
+  new time, and a deleted and recreated event (a new id) too; a title or
+  notes edit does not post again (tested on the PR review). `checkReminders(now)` runs on every S15
   server-browser tick, in the tick's `finally`, so a tracker outage or an
   empty answer does not silence it; it posts, while the switch is on and a
   URL is set, the reminder for each occurrence starting within
@@ -7756,24 +7772,27 @@ Not counted in the 28 sessions.
   on the first Sunday of November) is its first pass (CDT) for the server,
   while a calendar app reading `DTSTART;TZID=` picks whichever it likes;
   a night scheduled inside that hour can differ by an hour between the
-  feed and the dashboard. The skipped spring hour is pinned by a test
-  (after the change, both sides); no night is scheduled at 1 or 2 am.
+  feed and the dashboard. A night's end is written in UTC, so an end inside
+  that hour (a 23:30 night) is never ambiguous; a test pins it. The skipped
+  spring hour is pinned by a test (after the change, both sides); no night
+  is scheduled at 1 or 2 am.
 - (S22) The last feed built is kept ten minutes while the events' and
   recaps' counts and latest writes are unchanged, and a build reads each
-  saved recap's first and last match (two indexed reads per recap, up to
-  500) and parses one blob per recap. Two origins taking turns (apex and
+  saved recap's day on the index (every recap, no cap; the PR review
+  lifted the first draft's 500) and parses each match's blob for its start
+  (a night's worth per recap). Two origins taking turns (apex and
   www) rebuild on each switch. The dashboard's schedule is expanded per
   request (one small table).
 - (S22) Recaps older than hot storage keep their UTC dates (the S14
   decision), so `getDaySpan` reads their day by the Central rule and may
   find fewer matches, or none, in either file; such a recap is left out of
   the feed or spans less than its night. The local data has none.
-- (S22, /code-review, kept) The dashboard card shows the shared Loading
-  and ErrorState (with Retry) while the schedule loads or fails, as the
-  heatmap and region cards beside it do and as the Done-when list asked;
-  the review would have it render nothing in both cases, as the iframe
-  widget did. A site with nothing scheduled shows a brief spinner on each
-  dashboard visit and an error card during an outage.
+- (S22, /code-review, taken on the PR review) The dashboard card renders
+  nothing while the schedule loads or fails, as the iframe widget did; the
+  first draft showed the shared Loading and ErrorState (with Retry), as the
+  heatmap and region cards beside it do, which put a brief spinner on each
+  dashboard visit of a site with nothing scheduled and an error card during
+  an outage.
 - (S22) The reminder rides the minute tick, so a server that is down for
   the whole hour before a night posts no reminder for it, and one that
   restarts inside the hour posts it then. A missed reminder is dropped
