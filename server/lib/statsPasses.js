@@ -494,8 +494,8 @@ export const derivedColumns = table => DERIVED_TABLES[table].columns.map(c => c.
 // Its key columns: the first two, or the first `key`.
 export const derivedKey = table => derivedColumns(table).slice(0, DERIVED_TABLES[table].key ?? 2);
 // The value of the built marker (analytics/meta.js) once a refresh has
-// written every table in the list: a new table or column changes it.
-export const DERIVED_TABLES_VERSION = Object.entries(DERIVED_TABLES).map(([table, { columns }]) => `${table}(${columns.join(',')})`).join(';');
+// written every table in the list: a new table, column or key changes it.
+export const DERIVED_TABLES_VERSION = Object.entries(DERIVED_TABLES).map(([table, { columns, key }]) => `${table}(${columns.join(',')}${key ? `;key ${key}` : ''})`).join(';');
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
 // sides and replayed in date order once every game has been read.

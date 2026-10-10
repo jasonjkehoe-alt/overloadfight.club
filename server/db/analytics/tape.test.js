@@ -105,11 +105,12 @@ describe('getTape', () => {
         expect(stitch.career.matches).toBe(8);
     });
 
-    it('gives the duel record under every mode and a kill-scored one, and none under an objective mode', () => {
+    it('gives the duel record under every mode only, since pilot_duels keeps no mode', () => {
         expect(db.getTape('WD-40', 'OKSTER').record).toEqual({ matches: 9, wins: 3, losses: 5, ties: 1 });
         expect(db.getTape('WD-40', 'OKSTER').duels).toMatchObject({ wins: 1, losses: 3, ties: 1 });
-        expect(db.getTape('OKSTER', 'WD-40', 'ANARCHY').duels).toMatchObject({ wins: 3, losses: 1, ties: 1 });
+        expect(db.getTape('OKSTER', 'WD-40').duels).toMatchObject({ wins: 3, losses: 1, ties: 1 });
         expect(db.getTape('JFTP', '.').duels).toMatchObject({ wins: 2, losses: 0, ties: 1 });
+        expect(db.getTape('WD-40', 'OKSTER', 'ANARCHY').duels).toBeNull();
         expect(db.getTape('WD-40', 'OKSTER', 'MONSTERBALL').duels).toBeNull();
     });
 
@@ -205,6 +206,10 @@ describe('pilot_bouts', () => {
             await db.refreshPilotStats();
             expect(db.getTape('STITCH', 'PHOENIX').record.matches).toBe(6);
             expect(file.prepare("SELECT COUNT(*) AS n FROM pilot_bouts WHERE mode = 'CTF'").get().n).toBe(0);
+            // opponents tied on matches order by their total kills exchanged, not one row's
+            file.prepare("INSERT INTO pilot_bouts VALUES ('zz', 'a', 'ANARCHY', 'M1', 1, 1, 0, 0, 0, 0, 0, 0, 0), ('zz', 'a', 'ANARCHY', 'M2', 1, 1, 0, 0, 1, 10, 10, 0, 0), ('zz', 'b', 'ANARCHY', 'M1', 2, 2, 0, 0, 1, 1, 1, 0, 0)").run();
+            expect(db.getPilotOpponents('zz').map(o => o.opponent)).toEqual(['a', 'b']);
+            await db.refreshPilotStats();
         } finally {
             file.close();
         }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { chart, colors, rampColor, rampStep } from '../designTokens.js';
-import { CellLink } from './Link';
+import Link from './Link';
 
 export interface HeatCell {
     // 0 to 1, the share that picks the chart.ramp colour; null leaves the cell uncoloured
@@ -51,10 +51,10 @@ const HeatTable: React.FC<HeatTableProps> = ({ caption, corner, columns, rows })
                             <td
                                 key={columns[j].key}
                                 title={cell?.title}
-                                className="h-6 min-w-[2.5rem] text-center rounded-[2px] p-0"
+                                className={`h-6 min-w-[2.5rem] text-center rounded-[2px] p-0${cell?.to ? ' h-px' : ''}`}
                                 style={{ backgroundColor: cell?.share == null ? 'transparent' : rampColor(cell.share, max), color: dark ? colors.surface.page : chart.ink }}
                             >
-                                {cell?.to ? <CellLink to={cell.to} className="h-full content-center hover:underline"><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></CellLink>
+                                {cell?.to ? <Link to={cell.to} className="block h-full content-center hover:underline"><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></Link>
                                     : cell ? <><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></> : <span className="sr-only">none</span>}
                             </td>
                             );

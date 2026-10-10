@@ -220,10 +220,9 @@ export const mapKey = game => String(game?.settings?.level ?? '').trim().toUpper
 
 // True when the match's score is its kills, so the kill log replays the
 // score. CTF and Monsterball score captures and goals, and Race laps.
-// killScoredMode() reads a matchModeOf() value.
-export const killScoredMode = mode => !mode || KILL_SCORED_MODES.has(mode);
 export function killScored(game) {
-    return killScoredMode(matchModeOf(game));
+    const mode = matchModeOf(game);
+    return !mode || KILL_SCORED_MODES.has(mode);
 }
 
 // What one kill-log entry does to the score. `scorer` (the attacker's name)
@@ -1189,4 +1188,4 @@ export const TAPE_MODES = [
 ];
 // A ?mode= value as a TAPE_MODES id, or null (every mode) for anything else.
 export const tapeMode = value => TAPE_MODES.find(m => m.id === String(value ?? '').toUpperCase())?.id ?? null;
-export const TAPE_HINT = `Head-to-head: ranked matches (${RATED_MATCH_TEXT}) the two played on different sides, each a win, loss or tie by their sides' scores. Kills and damage come only from those with a kill or damage log.`;
+export const TAPE_HINT = `Head-to-head: ranked matches (${RATED_MATCH_TEXT}) the two played on different sides, each a win, loss or tie by their sides' scores. Kills and damage come only from ranked matches with a kill or damage log, a result or not, as on the kill-log rivals card.`;

@@ -1,6 +1,6 @@
 import { hotDb } from '../connection.js';
 import '../migrations.js';
-import { killScoredMode, pilotKey } from '../../lib/gameParse.js';
+import { pilotKey } from '../../lib/gameParse.js';
 import { getPilotPPI, getPilotSummary } from './pilots.js';
 import { getPilotRating } from './ratings.js';
 
@@ -31,20 +31,22 @@ const pairModes = hotDb.prepare(`
 `);
 const pairDuels = hotDb.prepare('SELECT wins, losses, ties, last FROM pilot_duels WHERE pilot = ? AND opponent = ?');
 
-// A corner of the tape: the pilot's stored name (as the pilot card names
-// them) and career numbers, or null for a pilot with no stored match. The
+// A corner of the tape: the pilot's stored name and career numbers, or null
+// for a pilot with no stored match. The name is pilot_stats_cache's (the
+// latest spelling), or for a pilot with no ranked match the leaderboard
+// row's, so the totals over every match run only then. The
 // career is the pilot page's: ranked matches, record, win rate, Combat Ratio
 // (shown as 0 when negative, as the profile does) and Lethality from
 // pilot_stats_cache, null before the pilot's first ranked match; the rating,
 // its RD and standing from getPilotRating.
 function corner(name) {
-  const summary = getPilotSummary(name);
-  if (!summary) return null;
-  const cached = getPilotPPI(summary.name);
-  const { rating, rd, matches, status, rank } = getPilotRating(summary.name);
+  const cached = getPilotPPI(String(name).trim());
+  const stored = cached?.name ?? getPilotSummary(name)?.name;
+  if (!stored) return null;
+  const { rating, rd, matches, status, rank } = getPilotRating(stored);
   return {
-    key: pilotKey(summary.name),
-    name: summary.name,
+    key: pilotKey(stored),
+    name: stored,
     career: cached ? {
       matches: cached.games, wins: cached.wins, losses: cached.losses, ties: cached.ties,
       win_rate: cached.win_rate, combat_ratio: Math.max(0, cached.kda), lethality: cached.kpm
@@ -59,7 +61,8 @@ function corner(name) {
 // losses, ties), `logged` the bouts' matches with a log and the kills and
 // damage each way in them, `maps` the record per map named, `modes` the
 // matches in each mode (for the switch, whatever `mode` is), `duels` their
-// pilot_duels record or null (none, or a mode a duel cannot be in). Gives
+// pilot_duels record or null (none, or any mode set: pilot_duels keeps no
+// mode, so a mode's tape cannot split it). Gives
 // { missing: [names] } when a pilot has no stored match and { same: name }
 // for one pilot twice.
 export function getTape(a, b, mode = null) {
@@ -77,7 +80,7 @@ export function getTape(a, b, mode = null) {
     record: { matches, wins, losses, ties },
     logged: { matches: logged.logged, kills: logged.kills, deaths: logged.deaths, damage_dealt: logged.damage_dealt, damage_taken: logged.damage_taken },
     maps: pairMaps.all(keys),
-    duels: killScoredMode(mode) ? pairDuels.get(red.key, blue.key) ?? null : null
+    duels: mode ? null : pairDuels.get(red.key, blue.key) ?? null
   };
 }
 
@@ -89,7 +92,7 @@ const pilotOpponents = hotDb.prepare(`
   SELECT opponent, SUM(matches) AS matches, SUM(wins) AS wins, SUM(losses) AS losses, SUM(ties) AS ties,
     SUM(logged) AS logged, SUM(kills) AS kills, SUM(deaths) AS deaths
   FROM pilot_bouts WHERE pilot = ? GROUP BY opponent HAVING SUM(matches) > 0
-  ORDER BY matches DESC, kills + deaths DESC, opponent LIMIT ?
+  ORDER BY SUM(matches) DESC, SUM(kills) + SUM(deaths) DESC, opponent LIMIT ?
 `);
 export const getPilotOpponents = name => pilotOpponents.all(pilotKey(name), PILOT_OPPONENTS)
   .map(o => ({ ...o, name: getPilotPPI(o.opponent)?.name ?? o.opponent }));

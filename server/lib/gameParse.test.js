@@ -12,7 +12,7 @@ import { FIGHT_NIGHT_PING, browserPilots } from './gameParse.js';
 import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
 import { CLUTCH, clutchOf, damageFlows, damageGrid, opponentsOf } from './gameParse.js';
 import { duelPass, rivalPass, weaponPass } from './statsPasses.js';
-import { OPPOSITE_OUTCOME, TAPE_MODES, boutsOf, killScoredMode, tapeMode } from './gameParse.js';
+import { OPPOSITE_OUTCOME, TAPE_MODES, boutsOf, tapeMode } from './gameParse.js';
 import { byId, detailSample, ffaWithDamage, ffaWithLog, sample, teamWithDamage, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -1224,9 +1224,6 @@ describe('the Tale of the Tape (S20)', () => {
         expect(tapeMode('team anarchy')).toBe('TEAM ANARCHY');
         expect(tapeMode('RACE')).toBeNull();
         expect(tapeMode(undefined)).toBeNull();
-        expect(killScoredMode(null)).toBe(true);
-        expect(killScoredMode('TEAM ANARCHY')).toBe(true);
-        expect(killScoredMode('CTF')).toBe(false);
     });
 
     describe('rivalPass bouts', () => {

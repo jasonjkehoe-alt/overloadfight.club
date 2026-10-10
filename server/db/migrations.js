@@ -211,10 +211,11 @@ migrateGamePlayers();
 export function ensureDerivedTables() {
   for (const [table, { columns }] of Object.entries(DERIVED_TABLES)) {
     const names = derivedColumns(table);
-    // a table whose columns differ from the list (one added or renamed since
-    // the database was built) is dropped; the next refresh fills it again
-    const existing = hotDb.pragma(`table_info(${table})`).map(c => c.name);
-    if (existing.length > 0 && existing.join(',') !== names.join(',')) hotDb.exec(`DROP TABLE ${table};`);
+    // a table whose columns or key differ from the list (one added or renamed
+    // since the database was built) is dropped; the next refresh fills it again
+    const info = hotDb.pragma(`table_info(${table})`);
+    const key = info.filter(c => c.pk > 0).sort((x, y) => x.pk - y.pk).map(c => c.name);
+    if (info.length > 0 && (info.map(c => c.name).join(',') !== names.join(',') || key.join(',') !== derivedKey(table).join(','))) hotDb.exec(`DROP TABLE ${table};`);
     hotDb.exec(`CREATE TABLE IF NOT EXISTS ${table} (${columns.map(c => `${c} NOT NULL`).join(', ')}, PRIMARY KEY (${derivedKey(table).join(', ')})) WITHOUT ROWID;`);
   }
 }

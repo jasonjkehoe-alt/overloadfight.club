@@ -9,10 +9,9 @@ import { useQueryParam } from '../hooks/useLocation';
 import { useLoad } from '../hooks/useLoad';
 import { fetchTape } from '../services/apiService';
 import { urlFor } from '../server/lib/siteRoutes.js';
-import { TAPE_MODES } from '../server/lib/gameParse.js';
+import { TAPE_MODES, tapeMode } from '../server/lib/gameParse.js';
 
 const ALL = 'ALL';
-const MODE_IDS = [ALL, ...TAPE_MODES.map(m => m.id)];
 const CORNER_NAMES = ['Red corner', 'Blue corner'];
 const leaderboardLink = <Link to={urlFor('pilots')} className="text-xs text-brand underline hover:text-brand-hover font-bold">Open the leaderboard</Link>;
 
@@ -21,7 +20,9 @@ const leaderboardLink = <Link to={urlFor('pilots')} className="text-xs text-bran
 // URL gives. ?mode= (all modes left out of the URL) filters the head-to-head;
 // the careers stay all-mode.
 const Tape: React.FC<{ a: string; b: string; onBack?: () => void }> = ({ a, b, onBack }) => {
-    const [mode, setMode] = useQueryParam('mode', ALL, MODE_IDS);
+    // read as the server reads it (tapeMode), so ?mode=ctf shows what its preview shows
+    const [raw, setMode] = useQueryParam('mode', ALL);
+    const mode = tapeMode(raw) ?? ALL;
     const { data, failed, retry } = useLoad(() => fetchTape(a, b, mode === ALL ? null : mode), [a, b, mode]);
 
     let body: React.ReactNode;

@@ -31,7 +31,7 @@ const TapeHeadToHead: React.FC<{ tape: Tape }> = ({ tape }) => {
 
             <div className="border-t border-line pt-4 space-y-4">
                 <h3 className="text-xs uppercase tracking-wider text-gray-500 font-bold">
-                    From the logs <span className="normal-case tracking-normal font-normal">({plural(logged.matches, 'logged match', 'logged matches')} of the {record.matches.toLocaleString()})</span>
+                    From the logs <span className="normal-case tracking-normal font-normal">({plural(logged.matches, 'logged match', 'logged matches')})</span>
                 </h3>
                 {logged.matches > 0 ? (
                     <>
