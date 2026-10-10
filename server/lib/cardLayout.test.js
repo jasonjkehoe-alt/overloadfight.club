@@ -30,7 +30,9 @@ describe('cardTree', () => {
         expect(texts(tiles[0])).toEqual(['L1', '1']);
         const small = parseFloat(fontSize['2xs'][0]) * 16 * 2.5;
         expect(walk(cardTree(card)).find(n => n.props?.children === 'Pilot').props.style).toMatchObject({ color: colors.brand.DEFAULT });
-        expect(tiles[0].props.children[0].props.style).toMatchObject({ fontSize: small * 0.9, color: chart.label });
+        // four tiles keep the S19 sizes
+        const four = walk(cardTree({ ...card, stats: card.stats.slice(0, 4) })).filter(n => n.props?.style?.background === colors.surface.card);
+        expect(four[0].props.children[0].props.style).toMatchObject({ fontSize: small * 0.9, color: chart.label, letterSpacing: 1 });
     });
 
     it('sets long titles and values smaller and cuts what still overflows', () => {
