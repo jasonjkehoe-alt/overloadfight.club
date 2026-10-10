@@ -26,6 +26,9 @@ interface HeatTableProps {
 // shown, as the hour grids scale: a header per row and column, each cell's
 // words as its title and as screen-reader text. Wide tables scroll inside
 // the box.
+// a cell with a page opens it from anywhere in the cell
+const wrap = (cell: HeatCell, words: React.ReactNode) => (cell.to ? <Link to={cell.to} className="block h-full content-center hover:underline">{words}</Link> : words);
+
 const HeatTable: React.FC<HeatTableProps> = ({ caption, corner, columns, rows }) => {
     const max = Math.max(0, ...rows.flatMap(r => r.cells.map(c => c?.share ?? 0)));
     return (
@@ -54,8 +57,7 @@ const HeatTable: React.FC<HeatTableProps> = ({ caption, corner, columns, rows })
                                 className={`h-6 min-w-[2.5rem] text-center rounded-[2px] p-0${cell?.to ? ' h-px' : ''}`}
                                 style={{ backgroundColor: cell?.share == null ? 'transparent' : rampColor(cell.share, max), color: dark ? colors.surface.page : chart.ink }}
                             >
-                                {cell?.to ? <Link to={cell.to} className="block h-full content-center hover:underline"><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></Link>
-                                    : cell ? <><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></> : <span className="sr-only">none</span>}
+                                {cell ? wrap(cell, <><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></>) : <span className="sr-only">none</span>}
                             </td>
                             );
                         })}

@@ -1,6 +1,6 @@
 // The wording for a winnerOf() result (gameParse.js), shared by the match page
 // (utils/matchResult.ts) and the match's share preview (server/pageMeta.js).
-import { RATING } from './gameParse.js';
+import { MATCH_MODES, RATING } from './gameParse.js';
 
 // m:ss for a number of seconds, 0:00 for anything below zero
 export const clock = seconds => {
@@ -68,6 +68,16 @@ export function ratingStanding({ status, rank, matches }) {
     if (status === 'inactive' || rank === null) return `Not ranked: no rated match in the last ${RATING.activeDays} days`;
     return `#${rank} in the power rankings`;
 }
+
+// "CTF" for a MATCH_MODES id, undefined for every mode (S20).
+export const modeLabel = mode => MATCH_MODES.find(m => m.id === mode)?.label;
+// "ranked CTF match(es)", or "ranked match(es)" for every mode, after `n`.
+export const rankedMatches = (n, mode) => {
+    const ranked = `ranked ${modeLabel(mode) ? `${modeLabel(mode)} ` : ''}`;
+    return plural(n, `${ranked}match`, `${ranked}matches`);
+};
+// "No ranked CTF match between them yet", without the capital for a sentence's middle.
+export const noBouts = (mode, start = 'No') => `${start} ${rankedMatches(1, mode).replace(/^1 /, '')} between them yet`;
 
 // "5–3–1": a record of wins, losses and ties (S20).
 export const recordText = ({ wins, losses, ties }) => `${wins}–${losses}–${ties}`;

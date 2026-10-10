@@ -19,8 +19,8 @@ router.get('/card/*', async (req, res) => {
     if (hit) return sendPng(res, hit, 0);
     let card;
     try {
-        // the one query a card reads: a tape's mode
-        card = pageCard(req.path.slice('/card'.length), new URLSearchParams(typeof req.query.mode === 'string' ? { mode: req.query.mode } : {}));
+        // the page's query as withPageMeta reads it (a tape's ?mode=)
+        card = pageCard(req.path.slice('/card'.length), new URLSearchParams(req.url.split('?')[1]));
     } catch (e) {
         console.error('[Card] Lookup failed:', e.message);
         return res.status(500).json({ error: 'Failed to read the card' });

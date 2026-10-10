@@ -712,7 +712,7 @@ export interface TapeCorner {
 }
 export interface Tape {
     pilots: [TapeCorner, TapeCorner];
-    // a gameParse.js TAPE_MODES id, null for every mode
+    // a gameParse.js MATCH_MODES id, null for every mode
     mode: string | null;
     // the matches in each mode they met in, whatever `mode` is
     modes: { mode: string; matches: number }[];

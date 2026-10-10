@@ -370,10 +370,9 @@ export function duelPass() {
 // so the reads need no join (pilot_stats_cache keeps the latest of all).
 // pilot_bouts rows (S20) come from the same matches and every other rated one:
 // per pair, both directions, mode and map, the bouts (boutsOf) with the
-// record, and the logged matches, kills and damage above split the same way,
-// so a pair's rows add up to its pilot_rivals row.
+// record, and the logged matches, kills and damage above split the same way;
+// a pair's pilot_rivals row is its bout rows added up.
 export function rivalPass() {
-    const pairs = new Map();
     const clutch = new Map();
     const bouts = new Map();
     // pilotKey -> { name, date }: the spelling of the latest match
@@ -383,11 +382,6 @@ export function rivalPass() {
         const seen = names.get(key);
         if (key && (!seen || date > seen.date)) names.set(key, { name: String(name).trim(), date });
         return key;
-    };
-    const pair = (pilot, opponent) => {
-        const key = `${pilot}\n${opponent}`;
-        if (!pairs.has(key)) pairs.set(key, { pilot, opponent, matches: 0, kills: 0, deaths: 0, damage_dealt: 0, damage_taken: 0 });
-        return pairs.get(key);
     };
     const bout = (pilot, opponent, mode, map) => {
         const key = `${pilot}\n${opponent}\n${mode}\n${map}`;
@@ -420,8 +414,6 @@ export function rivalPass() {
         const date = row.date || g.date || '';
         const listed = new Set(g.players.map(p => spell(p?.name, date)).filter(Boolean));
         for (const [a, b] of met) {
-            pair(a, b).matches++;
-            pair(b, a).matches++;
             bout(a, b, mode, map).logged++;
             bout(b, a, mode, map).logged++;
         }
@@ -430,15 +422,11 @@ export function rivalPass() {
         for (const k of kills) {
             const [a, b] = [key(k.attacker), key(k.defender)];
             if (!b) continue;
-            pair(a, b).kills++;
-            pair(b, a).deaths++;
             bout(a, b, mode, map).kills++;
             bout(b, a, mode, map).deaths++;
         }
         for (const f of flows) {
             const [a, b] = [key(f.attacker), key(f.defender)];
-            pair(a, b).damage_dealt += f.damage;
-            pair(b, a).damage_taken += f.damage;
             bout(a, b, mode, map).damage_dealt += f.damage;
             bout(b, a, mode, map).damage_taken += f.damage;
         }
@@ -455,11 +443,27 @@ export function rivalPass() {
         }
     }
     const nameOf = key => names.get(key)?.name ?? key;
+    // a pair met in a logged match or traded a kill or damage: its bout rows
+    // over every mode and map, damage rounded per pair
+    function pairs() {
+        const sums = new Map();
+        for (const b of bouts.values()) {
+            if (!(b.logged || b.kills || b.deaths || b.damage_dealt || b.damage_taken)) continue;
+            const key = `${b.pilot}\n${b.opponent}`;
+            const p = sums.get(key) ?? sums.set(key, { pilot: b.pilot, opponent: b.opponent, matches: 0, kills: 0, deaths: 0, damage_dealt: 0, damage_taken: 0 }).get(key);
+            p.matches += b.logged;
+            p.kills += b.kills;
+            p.deaths += b.deaths;
+            p.damage_dealt += b.damage_dealt;
+            p.damage_taken += b.damage_taken;
+        }
+        return [...sums.values()].map(p => ({
+            ...p, name: nameOf(p.pilot), opponent_name: nameOf(p.opponent), damage_dealt: Math.round(p.damage_dealt), damage_taken: Math.round(p.damage_taken)
+        }));
+    }
     return {
         add,
-        pairs: () => [...pairs.values()].map(p => ({
-            ...p, name: nameOf(p.pilot), opponent_name: nameOf(p.opponent), damage_dealt: Math.round(p.damage_dealt), damage_taken: Math.round(p.damage_taken)
-        })),
+        pairs,
         clutch: () => [...clutch.values()].map(c => ({ ...c, name: nameOf(c.pilot) })),
         // damage unrounded, so a pair's rows add up to the damage pilot_rivals rounds
         bouts: () => [...bouts.values()]
@@ -495,7 +499,7 @@ export const derivedColumns = table => DERIVED_TABLES[table].columns.map(c => c.
 export const derivedKey = table => derivedColumns(table).slice(0, DERIVED_TABLES[table].key ?? 2);
 // The value of the built marker (analytics/meta.js) once a refresh has
 // written every table in the list: a new table, column or key changes it.
-export const DERIVED_TABLES_VERSION = Object.entries(DERIVED_TABLES).map(([table, { columns, key }]) => `${table}(${columns.join(',')}${key ? `;key ${key}` : ''})`).join(';');
+export const DERIVED_TABLES_VERSION = Object.keys(DERIVED_TABLES).map(table => `${table}(${DERIVED_TABLES[table].columns.join(',')};key ${derivedKey(table).join(',')})`).join(';');
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
 // sides and replayed in date order once every game has been read.

@@ -1178,14 +1178,14 @@ export function boutsOf(game) {
 // The other pilot's outcome of a bout.
 export const OPPOSITE_OUTCOME = { win: 'loss', loss: 'win', tie: 'tie' };
 
-// The tape's mode switch: the modes the pilot page filters by (all modes is
-// the default and is left out of the URL).
-export const TAPE_MODES = [
+// The modes a page filters by: the pilot page's filter and the tape's switch
+// (each with an all-modes default of its own).
+export const MATCH_MODES = [
     { id: 'ANARCHY', label: 'Anarchy' },
     { id: 'TEAM ANARCHY', label: 'Team Anarchy' },
     { id: 'CTF', label: 'CTF' },
     { id: 'MONSTERBALL', label: 'Monsterball' }
 ];
-// A ?mode= value as a TAPE_MODES id, or null (every mode) for anything else.
-export const tapeMode = value => TAPE_MODES.find(m => m.id === String(value ?? '').toUpperCase())?.id ?? null;
+// A tape's ?mode= value as a MATCH_MODES id, or null (every mode) for anything else.
+export const tapeMode = value => MATCH_MODES.find(m => m.id === String(value ?? '').toUpperCase())?.id ?? null;
 export const TAPE_HINT = `Head-to-head: ranked matches (${RATED_MATCH_TEXT}) the two played on different sides, each a win, loss or tie by their sides' scores. Kills and damage come only from ranked matches with a kill or damage log, a result or not, as on the kill-log rivals card.`;

@@ -9,7 +9,7 @@ import { useQueryParam } from '../hooks/useLocation';
 import { useLoad } from '../hooks/useLoad';
 import { fetchTape } from '../services/apiService';
 import { urlFor } from '../server/lib/siteRoutes.js';
-import { TAPE_MODES, tapeMode } from '../server/lib/gameParse.js';
+import { MATCH_MODES, tapeMode } from '../server/lib/gameParse.js';
 
 const ALL = 'ALL';
 const CORNER_NAMES = ['Red corner', 'Blue corner'];
@@ -37,7 +37,7 @@ const Tape: React.FC<{ a: string; b: string; onBack?: () => void }> = ({ a, b, o
         body = <EmptyState card icon={Swords} title="Pick two different pilots" message={`A tape sets one pilot against another, and both of these are ${data.same}.`} action={<Link to={urlFor('pilot', data.same)} className="text-xs text-brand underline hover:text-brand-hover font-bold">Open {data.same}'s page</Link>} />;
     } else {
         // the modes they met in, and the one in the URL even when they did not
-        const shown = TAPE_MODES.filter(m => m.id === mode || data.modes.some(x => x.mode === m.id));
+        const shown = MATCH_MODES.filter(m => m.id === mode || data.modes.some(x => x.mode === m.id));
         const matchesIn = (id: string) => data.modes.find(x => x.mode === id)?.matches ?? 0;
         body = (
             <>

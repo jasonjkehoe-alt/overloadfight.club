@@ -9,7 +9,7 @@ type Row = { label: string; hint: string; value: (p: TapeCorner) => number | nul
 // The career rows, as the pilot page's cards show them: every ranked match in
 // every mode, whatever the head-to-head's mode.
 const ROWS: Row[] = [
-    { label: 'Rating', hint: RATING_HINT, value: p => (p.rating.matches > 0 ? p.rating.rating : null), format: n => String(Math.round(n)) },
+    { label: 'Rating', hint: RATING_HINT, value: p => p.rating.rating, format: n => String(Math.round(n)) },
     { label: 'Ranked matches', hint: 'Ranked matches played, every mode.', value: p => p.career?.matches ?? null, format: n => n.toLocaleString() },
     { label: 'Win rate', hint: WIN_RATE_HINT, value: p => p.career?.win_rate ?? null, format: n => `${n.toFixed(1)}%` },
     { label: 'Combat Ratio', hint: COMBAT_RATIO_HINT, value: p => p.career?.combat_ratio ?? null, format: n => n.toFixed(2) },

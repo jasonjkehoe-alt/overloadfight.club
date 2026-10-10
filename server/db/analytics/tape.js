@@ -56,7 +56,7 @@ function corner(name) {
 }
 
 // The tape for pilots `a` and `b`, read from a's side, in `mode` (a
-// gameParse.js TAPE_MODES id) or every mode (null): { pilots: [a, b], mode,
+// gameParse.js MATCH_MODES id) or every mode (null): { pilots: [a, b], mode,
 // modes, record, logged, maps, duels }. `record` is the bouts (matches, wins,
 // losses, ties), `logged` the bouts' matches with a log and the kills and
 // damage each way in them, `maps` the record per map named, `modes` the
@@ -72,27 +72,39 @@ export function getTape(a, b, mode = null) {
   const [red, blue] = pilots;
   if (red.key === blue.key) return { same: red.name };
   const keys = { a: red.key, b: blue.key, mode };
-  const { matches, wins, losses, ties, ...logged } = pairTotals.get(keys);
+  const { matches, wins, losses, ties, logged, ...exchanged } = pairTotals.get(keys);
   return {
     pilots,
     mode,
     modes: pairModes.all(red.key, blue.key),
     record: { matches, wins, losses, ties },
-    logged: { matches: logged.logged, kills: logged.kills, deaths: logged.deaths, damage_dealt: logged.damage_dealt, damage_taken: logged.damage_taken },
+    logged: { matches: logged, ...exchanged },
     maps: pairMaps.all(keys),
     duels: mode ? null : pairDuels.get(red.key, blue.key) ?? null
   };
 }
 
 // The opponents a pilot met in the most rated matches, for the pilot page:
-// each opponent's key and name (pilot_stats_cache's, the latest spelling,
-// read through getPilotPPI because the cache is built by the first refresh),
-// the record from the pilot's side and the logged kills each way.
+// each opponent's key and name (pilot_stats_cache's, the latest spelling, in
+// one read, prepared on first use because the first refresh creates the
+// cache), the record from the pilot's side and the logged kills each way.
 const pilotOpponents = hotDb.prepare(`
   SELECT opponent, SUM(matches) AS matches, SUM(wins) AS wins, SUM(losses) AS losses, SUM(ties) AS ties,
     SUM(logged) AS logged, SUM(kills) AS kills, SUM(deaths) AS deaths
   FROM pilot_bouts WHERE pilot = ? GROUP BY opponent HAVING SUM(matches) > 0
   ORDER BY SUM(matches) DESC, SUM(kills) + SUM(deaths) DESC, opponent LIMIT ?
 `);
-export const getPilotOpponents = name => pilotOpponents.all(pilotKey(name), PILOT_OPPONENTS)
-  .map(o => ({ ...o, name: getPilotPPI(o.opponent)?.name ?? o.opponent }));
+let cachedNames = null;
+function storedNames(keys) {
+  try {
+    cachedNames ??= hotDb.prepare('SELECT name FROM pilot_stats_cache WHERE name COLLATE NOCASE IN (SELECT value FROM json_each(?))');
+    return new Map(cachedNames.all(JSON.stringify(keys)).map(r => [pilotKey(r.name), r.name]));
+  } catch {
+    return new Map();
+  }
+}
+export function getPilotOpponents(name) {
+  const rows = pilotOpponents.all(pilotKey(name), PILOT_OPPONENTS);
+  const names = storedNames(rows.map(o => o.opponent));
+  return rows.map(o => ({ ...o, name: names.get(o.opponent) ?? o.opponent }));
+}

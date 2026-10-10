@@ -162,7 +162,10 @@ describe('the tape\'s routes', () => {
         const all = await get('/api/card/tape/STITCH/PHOENIX');
         expect(all).toMatchObject({ status: 200, type: 'image/png' });
         expect([all.body.readUInt32BE(16), all.body.readUInt32BE(20)]).toEqual([1200, 630]);
-        expect((await get('/api/card/tape/STITCH/PHOENIX?mode=CTF')).status).toBe(200);
+        const ctf = await get('/api/card/tape/STITCH/PHOENIX?mode=CTF');
+        expect(ctf.status).toBe(200);
+        // the card route reads the mode: a CTF card is another picture
+        expect(Buffer.compare(ctf.body, all.body)).not.toBe(0);
         expect((await get('/api/card/tape/NOBODY/PHOENIX')).status).toBe(404);
         expect((await get('/api/card/tape/WD-40/WD-40')).status).toBe(404);
     }, 30000);
@@ -207,11 +210,30 @@ describe('pilot_bouts', () => {
             expect(db.getTape('STITCH', 'PHOENIX').record.matches).toBe(6);
             expect(file.prepare("SELECT COUNT(*) AS n FROM pilot_bouts WHERE mode = 'CTF'").get().n).toBe(0);
             // opponents tied on matches order by their total kills exchanged, not one row's
-            file.prepare("INSERT INTO pilot_bouts VALUES ('zz', 'a', 'ANARCHY', 'M1', 1, 1, 0, 0, 0, 0, 0, 0, 0), ('zz', 'a', 'ANARCHY', 'M2', 1, 1, 0, 0, 1, 10, 10, 0, 0), ('zz', 'b', 'ANARCHY', 'M1', 2, 2, 0, 0, 1, 1, 1, 0, 0)").run();
+            file.prepare("INSERT INTO pilot_bouts VALUES ('zz', 'a', 'ANARCHY', 'M1', 1, 1, 0, 0, 0, 0, 0, 0, 0), ('zz', 'a', 'ANARCHY', 'M2', 1, 1, 0, 0, 1, 0, 10, 0, 0), ('zz', 'b', 'ANARCHY', 'M1', 2, 2, 0, 0, 1, 1, 0, 0, 0)").run();
             expect(db.getPilotOpponents('zz').map(o => o.opponent)).toEqual(['a', 'b']);
+            // a match that names no map counts in the record and not in the splits
+            file.prepare("INSERT INTO pilot_bouts VALUES ('stitch', 'phoenix', 'ANARCHY', '', 1, 1, 0, 0, 0, 0, 0, 0, 0)").run();
+            expect(db.getTape('STITCH', 'PHOENIX').record.matches).toBe(7);
+            expect(db.getTape('STITCH', 'PHOENIX').maps.map(m => m.map)).not.toContain('');
             await db.refreshPilotStats();
         } finally {
             file.close();
         }
+    });
+
+    it('is rebuilt when its key changes though its columns do not', async () => {
+        const { ensureDerivedTables } = await import('../migrations.js');
+        const file = new Database(path.join(dataDir, 'tracker.db'));
+        try {
+            const columns = file.pragma('table_info(pilot_bouts)').map(c => `${c.name} ${c.type}`).join(', ');
+            file.exec(`DROP TABLE pilot_bouts; CREATE TABLE pilot_bouts (${columns}, PRIMARY KEY (pilot, opponent)) WITHOUT ROWID;`);
+            ensureDerivedTables();
+            expect(file.pragma('table_info(pilot_bouts)').filter(c => c.pk > 0).map(c => c.name).sort()).toEqual(['map', 'mode', 'opponent', 'pilot']);
+        } finally {
+            file.close();
+        }
+        await db.refreshPilotStats();
+        expect(db.getTape('STITCH', 'PHOENIX').record.matches).toBe(6);
     });
 });

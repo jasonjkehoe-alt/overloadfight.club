@@ -12,7 +12,7 @@ import { FIGHT_NIGHT_PING, browserPilots } from './gameParse.js';
 import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
 import { CLUTCH, clutchOf, damageFlows, damageGrid, opponentsOf } from './gameParse.js';
 import { duelPass, rivalPass, weaponPass } from './statsPasses.js';
-import { OPPOSITE_OUTCOME, TAPE_MODES, boutsOf, tapeMode } from './gameParse.js';
+import { OPPOSITE_OUTCOME, MATCH_MODES, boutsOf, tapeMode } from './gameParse.js';
 import { byId, detailSample, ffaWithDamage, ffaWithLog, sample, teamWithDamage, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -1218,8 +1218,8 @@ describe('the Tale of the Tape (S20)', () => {
         });
     });
 
-    it('reads a mode switch value as a TAPE_MODES id, anything else as every mode', () => {
-        expect(TAPE_MODES.map(m => m.id)).toEqual(['ANARCHY', 'TEAM ANARCHY', 'CTF', 'MONSTERBALL']);
+    it('reads a mode switch value as a MATCH_MODES id, anything else as every mode', () => {
+        expect(MATCH_MODES.map(m => m.id)).toEqual(['ANARCHY', 'TEAM ANARCHY', 'CTF', 'MONSTERBALL']);
         expect(tapeMode('CTF')).toBe('CTF');
         expect(tapeMode('team anarchy')).toBe('TEAM ANARCHY');
         expect(tapeMode('RACE')).toBeNull();
@@ -1269,6 +1269,10 @@ describe('the Tale of the Tape (S20)', () => {
                     damage_dealt: Math.round(sum(p.pilot, p.opponent, 'damage_dealt')), damage_taken: Math.round(sum(p.pilot, p.opponent, 'damage_taken'))
                 }).toEqual({ matches: p.matches, kills: p.kills, deaths: p.deaths, damage_dealt: p.damage_dealt, damage_taken: p.damage_taken });
             }
+            // a pilot named only in a log trades kills without a match: a pair all the same
+            const ghost = rivalPass();
+            ghost.add({ id: 1, date: ffaWithLog.date }, { ...ffaWithLog, kills: [...ffaWithLog.kills, { time: 200, attacker: 'GHOST', defender: 'JFTP', weapon: 'Flak' }] });
+            expect(ghost.pairs().find(p => p.pilot === 'ghost' && p.opponent === 'jftp')).toMatchObject({ matches: 0, kills: 1, deaths: 0 });
             // "." took 180.5 from JFTP: kept unrounded until it is summed
             expect(sum('jftp', '.', 'damage_dealt')).toBe(210);
             expect(sum('.', 'jftp', 'damage_dealt')).toBe(180.5);

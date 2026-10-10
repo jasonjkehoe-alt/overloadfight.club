@@ -14,7 +14,7 @@ import { Loading, EmptyState, ErrorState } from './States';
 import { LinkCell } from './Link';
 import { useQueryParam } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
-import { combatRatio, fightNightDay, COMBAT_RATIO_HINT, LETHALITY_HINT } from '../server/lib/gameParse.js';
+import { combatRatio, fightNightDay, COMBAT_RATIO_HINT, LETHALITY_HINT, MATCH_MODES } from '../server/lib/gameParse.js';
 import { dayLabel } from '../server/lib/matchResult.js';
 
 interface PilotStats {
@@ -190,13 +190,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                     <span className="text-gray-500 font-bold px-2 flex items-center gap-1">
                         <Filter size={11} className="text-brand" /> MODE:
                     </span>
-                    {[
-                        { id: 'ALL', label: 'All Modes' },
-                        { id: 'ANARCHY', label: 'Anarchy' },
-                        { id: 'TEAM ANARCHY', label: 'Team Anarchy' },
-                        { id: 'CTF', label: 'CTF' },
-                        { id: 'MONSTERBALL', label: 'Monsterball' }
-                    ].map(m => (
+                    {[{ id: 'ALL', label: 'All Modes' }, ...MATCH_MODES].map(m => (
                         <button
                             key={m.id}
                             onClick={() => setSelectedMode(m.id)}

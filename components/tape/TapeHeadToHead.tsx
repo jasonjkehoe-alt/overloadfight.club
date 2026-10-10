@@ -2,11 +2,9 @@ import React from 'react';
 import { Swords } from 'lucide-react';
 import { EmptyState } from '../States';
 import SplitBar, { CORNER } from './SplitBar';
-import { TAPE_HINT, TAPE_MODES, fightNightDay } from '../../server/lib/gameParse.js';
-import { boutLead, plural, recordText } from '../../server/lib/matchResult.js';
+import { TAPE_HINT, fightNightDay } from '../../server/lib/gameParse.js';
+import { boutLead, modeLabel, noBouts, plural, rankedMatches, recordText } from '../../server/lib/matchResult.js';
 import { Tape } from '../../services/apiService';
-
-const modeLabel = (mode: string | null) => TAPE_MODES.find(m => m.id === mode)?.label;
 
 // The tape's head-to-head in its mode (S20): who leads and the record as a
 // split bar, the kills and damage each way in the logged matches, the 1v1
@@ -15,15 +13,14 @@ const modeLabel = (mode: string | null) => TAPE_MODES.find(m => m.id === mode)?.
 const TapeHeadToHead: React.FC<{ tape: Tape }> = ({ tape }) => {
     const { pilots: [a, b], record, logged, duels, maps } = tape;
     const label = modeLabel(tape.mode);
-    const ranked = `ranked ${label ? `${label} ` : ''}`;
     const lead = boutLead([a.name, b.name], record);
     if (!lead) {
-        return <EmptyState compact icon={Swords} title={`No ${ranked}match between them yet`} message={TAPE_HINT} />;
+        return <EmptyState compact icon={Swords} title={noBouts(tape.mode)} message={TAPE_HINT} />;
     }
     return (
         <div className="space-y-5">
             <p className="text-center text-lg sm:text-xl font-bold text-white [overflow-wrap:anywhere]">
-                {lead} <span className="text-gray-400 font-normal text-sm">in {plural(record.matches, `${ranked}match`, `${ranked}matches`)}</span>
+                {lead} <span className="text-gray-400 font-normal text-sm">in {rankedMatches(record.matches, tape.mode)}</span>
             </p>
             <SplitBar label="Wins" a={record.wins} b={record.losses}
                 words={`${a.name} won ${record.wins}, ${b.name} won ${record.losses}, ${plural(record.ties, 'tie', 'ties')}.`} />
@@ -60,7 +57,7 @@ const TapeHeadToHead: React.FC<{ tape: Tape }> = ({ tape }) => {
                     <h3 className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-2">By map</h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm font-mono">
-                            <caption className="sr-only">Their {ranked}matches on each map: {a.name}'s wins, the ties and {b.name}'s wins</caption>
+                            <caption className="sr-only">Their ranked {label ? `${label} ` : ''}matches on each map: {a.name}'s wins, the ties and {b.name}'s wins</caption>
                             <thead className="text-gray-500 text-xs uppercase">
                                 <tr>
                                     <th className="py-1.5 pr-2">Map</th>

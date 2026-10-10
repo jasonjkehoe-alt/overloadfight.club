@@ -21,7 +21,8 @@ const ROUTES = [
     { view: 'pilots', path: '/pilots', title: 'Leaderboards' },
     { view: 'rankings', path: '/rankings', title: 'Power rankings', section: 'pilots' },
     { view: 'ladders', path: '/ladders', title: 'Ladders', section: 'pilots' },
-    { view: 'rivals', path: '/rivals', title: 'Rivalries', section: 'pilots' },
+    // /tape without its two pilots opens the rivalries
+    { view: 'rivals', path: '/rivals', aliases: ['/tape'], title: 'Rivalries', section: 'pilots' },
     { view: 'pilot-manager', path: '/pilot', title: 'Pilot settings' },
     // detail pages: always a parameter; without one they fall back to `bare`
     { view: 'pilot', path: '/pilot', param: true, bare: 'pilot-manager' },
@@ -51,8 +52,7 @@ export function parseRoute(pathname) {
     const base = first ? `/${first}` : '/';
     // a detail row first, so /pilot/:name is the pilot and /pilot alone the settings page
     const route = (second && ROUTES.find(r => r.bare && r.path === base))
-        || ROUTES.find(r => !r.bare && (r.path === base || r.aliases?.includes(base)))
-        || ROUTES.find(r => r.pair && r.path === base);
+        || ROUTES.find(r => !r.bare && (r.path === base || r.aliases?.includes(base)));
     if (!route) return { view: 'dashboard' };
     if (route.view === 'game-detail') {
         const id = parseInt(second, 10);
