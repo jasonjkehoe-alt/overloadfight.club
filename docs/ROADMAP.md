@@ -225,6 +225,8 @@ maintenance item does not count toward the 28.
   read for the card, fetching the tape once for every mode, passing
   `ratingSides` between passes, `recordText` on the older ladders, and a
   shared Back button.
+- S20, CI on PR #21 at `d5ce7f6`: `check` (tsc, vite build, vitest)
+  passed in 1m02s and `build` (the Docker image) in 1m14s.
 - S20, sizes on Node 26.11.1 at the end: entry 234.10 KB raw / 75.04 KB
   gzip (233.36 / 74.78 before: the route, the shared mode list and
   wording), `Tape` 10.74 KB / 3.56 KB gzip (new), `PilotDetail` 52.02 KB
@@ -2250,7 +2252,6 @@ maintenance item does not count toward the 28.
   screen-reader sentence each and the map splits a caption.
 - S20: the tape was not checked in Safari or on a phone, only in
   headless Chrome at 390 px.
-- S20: CI on PR #21 (see the session log for the run once it reports).
 
 - No link was pasted into Discord, X, Slack or anything else: the site is
   not public from this machine. Whether Discord shows the card large,
@@ -7580,7 +7581,8 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   could not reach, a lower-case `?mode=` reading differently on the page
   than in its preview); /simplify made `pilot_rivals` a sum of the bout
   rows. 27 of 28 mutants fail a test. Chrome: 164 of 168, the failures
-  the known map-image 404s. PR #21 opened against `main`, not merged.
+  the known map-image 404s. PR #21 opened against `main`, CI green on
+  both jobs, not merged.
 
 ## Next session prompt
 
