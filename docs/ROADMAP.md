@@ -6264,6 +6264,168 @@ Not counted in the 28 sessions.
   `discordService.js` reads `getBeltChanges(date)` after the stats refresh
   the recap already waits for, so `discordMessages.js` still reads no
   database. No new post kind and no `discord_posts` change.
+- 2026-10-10 (S22): The owner's answers at the start of S22, each the
+  recommended option but the last. A scheduled fight night is a weekly rule
+  (a weekday, a start time in Central, a length) or a one-off (a date, a
+  time, a length), kept in a new table and edited on the admin page; the
+  Google Calendar the iframe embedded is not a source. The `.ics` feed
+  expands the next 12 weeks into one event each, in America/Chicago with a
+  VTIMEZONE, and carries every saved recap as a past event linking its
+  page; it lives at `/fight-nights.ics`. The dashboard card says "It's on"
+  at the S18 ping's 6 pilots, "On now" inside a scheduled night, else counts
+  down to the next one, lists the next three dates and links the feed, and
+  sits under the live list above the S7 teaser; the iframe,
+  `CalendarWidget` and `/api/calendar-url` go. Discord gets a reminder post
+  an hour before each night (the owner's choice over no change, or a ping
+  that names the night). Rejected: one rule in `admin_settings`, one-offs
+  alone, the environment as the editor, an RRULE feed, the card at the
+  bottom where the iframe sat, keeping `/api/calendar-url` answering.
+- 2026-10-10 (S22): What an event is, in a new `server/lib/fightNightSchedule.js`
+  (the day rules stay in `gameParse.js`, which gained `localInstant(day,
+  time)`, the UTC instant of a wall-clock time on a calendar date in
+  `FIGHT_NIGHT_DAY.timeZone`; `dayStart` reads it now, so the two cannot
+  drift, and `matchStart(game)`, the start a match records, which
+  `measuredDurationOf` and the feed's day span both read). `validateEvent`
+  takes what the admin sends: `kind` weekly or once, a `weekday` 0 (Monday)
+  to 6 for a rule or a calendar `date` for a one-off, `time` 'HH:MM' in
+  Central, `minutes` 15 to 1,440 (180 when left out), a `title` up to 80
+  characters and `notes` up to 500, trimmed; the first fault comes back as
+  a sentence the admin page shows. `occurrences(events, from, to)` expands
+  the rules day by day over the window's calendar dates and keeps every
+  occurrence that overlaps `[from, to)`, so a night under way at `from` is
+  in; each occurrence has its UTC `start` and `end`, its `date` and `time`
+  on the wall clock, and its fight-night `day` (a night that starts after
+  midnight belongs to the evening before, as a match would). A DST change
+  moves the UTC time and never the wall clock (tested on 2026-03-07/08
+  and 2026-10-31/11-01). `nextOccurrence` is the one under way or the next
+  to start; `underWay` whether it has started and not ended. The limits
+  are `SCHEDULE` (12 weeks, 180 minutes, 3 listed, 60 reminder minutes).
+- 2026-10-10 (S22): `fight_night_events(id, kind, weekday, date, time,
+  minutes, title, notes, updated_at)` in `tracker.db`, `id` an
+  autoincrement, read and written by `server/db/repos/fightNightEvents.js`
+  (`db` keys `listFightNightEvents`, `getFightNightEvent`,
+  `saveFightNightEvent`, `deleteFightNightEvent`; the list puts weekly rules
+  before one-offs). Primary data like the S15 server tables: nothing
+  rebuilds it and the nightly backup carries it. First build:
+  `ensureFightNightEvents` in `migrations.js` creates it empty at startup,
+  and the admin fills it. A restart needs no repair. `restoreHot` creates it
+  for a backup from before S22, empty, and a later backup brings its own
+  rows (a restore replaces the schedule with the backup's, as it replaces
+  the recaps). Rollback: revert, pull the old image, and `DROP TABLE
+  fight_night_events;` on `tracker.db`, or leave it (nothing older reads
+  it); the schedule is lost with the table. Rejected: a JSON string in
+  `admin_settings` (no ids to edit or delete by, and every backup download
+  would carry it as a setting).
+- 2026-10-10 (S22): The feed, `icsFeed` in `fightNightSchedule.js`, written
+  by hand (RFC 5545: CRLF line ends, lines folded at 75 octets without
+  splitting a character, text escaped) rather than a dependency: it is
+  one VCALENDAR (`METHOD:PUBLISH`, `X-WR-CALNAME`, `X-WR-TIMEZONE`,
+  `REFRESH-INTERVAL` an hour), a VTIMEZONE for America/Chicago (the US rule
+  since 2007: forward on the second Sunday of March, back on the first
+  Sunday of November, at 02:00; a test checks its offsets against
+  `localInstant` on the DST days, so a change of zone fails a test instead
+  of drifting the feed), one VEVENT per coming occurrence (`DTSTART;TZID=`
+  and `DTEND;TZID=` on the wall clock as the admin typed them, so a
+  subscriber in another zone sees 8 pm Central converted; `UID`
+  `fight-night-<id>-<date>@overloadfight.club`, `DTSTAMP` the event's
+  `updated_at`, the notes plus a "Live servers" line as `DESCRIPTION`, the
+  fight-night page as `URL`), and one per saved recap (`UID`
+  `recap-<date>@`, `DTSTART` and `DTEND` in UTC from the day's first
+  match's start to its last match's end, read on `idx_games_date` by a new
+  `getDaySpan` in `repos/games.js`, hot then cold; `SUMMARY` "Fight Night
+  recap: <day>", the totals and most kills as `DESCRIPTION`, the recap page
+  as `URL`; a recap whose day has no stored match is left out). The
+  occurrences are expanded, not written as RRULE, so every parser agrees
+  on the dates and each night is its own event. `GET /fight-nights.ics`
+  (mounted at the root by `index.js`, like `robots.txt`, so a
+  `webcal://overloadfight.club/fight-nights.ics` link reads well and
+  `robots.txt` does not disallow it) and `GET /api/fight-nights.ics`
+  (`routes/fightNights.js`) share one handler: `text/calendar;
+  charset=utf-8`, `Content-Disposition: inline; filename=`, `Cache-Control:
+  public, max-age=600`, the origin from the request as `og:url` takes it.
+  The feed carries the next `SCHEDULE.horizonWeeks` (12) of nights and up
+  to 500 recaps. Checked with ical.js (a real parser) against the local
+  server: 15 events, every scheduled one's UTC instant equal to the API's
+  through the VTIMEZONE, the November change included.
+- 2026-10-10 (S22): `GET /api/fight-nights/schedule` (in
+  `routes/fightNights.js`, before `/fight-nights/:date`, which would read
+  "schedule" as a date) answers `{ now, timeZone, feed, horizonWeeks,
+  events }`: the occurrences from now to the horizon, one under way
+  included, the zone's words ("Central time") and the feed's path. No
+  cache: it reads one small table. The client reads it through
+  `fetchFightNightSchedule` (null on failure) and `useLoad`.
+- 2026-10-10 (S22): The admin endpoints, in a new
+  `server/routes/adminEvents.js` that `admin-routes.js` mounts after
+  `requireAuth` (so `admin-routes.js` stays under 500 lines): `GET
+  /api/admin/events` (the rows), `POST /api/admin/events` (a new event, or
+  the one with `id` changed; the row as stored, 400 with `validateEvent`'s
+  sentence, 404 for an unknown id) and `DELETE /api/admin/events/:id` (404
+  for an unknown id). The client's `adminRequest` learned DELETE;
+  `fetchAdminEvents`, `saveAdminEvent` and `deleteAdminEvent` sit beside
+  the other admin helpers. `components/admin/AdminFightNights.tsx` with
+  `hooks/useAdminEvents.ts` sits between Dashboard Config and the Discord
+  card: the stored events ("Every Saturday, 8:00 pm, 180 minutes", a
+  one-off's date), Edit and Delete per row (Delete asks for a second press
+  rather than a `confirm()` dialog), and one form for a new or changed
+  event (repeats, weekday or date, start, length, title, notes) with the
+  server's sentence shown on a refusal; the shared states for loading,
+  failure and nothing scheduled.
+- 2026-10-10 (S22): The dashboard's card,
+  `components/gameList/FightNightSchedule.tsx`, imported by `GameList` (so
+  it lands in `GameList`'s chunk; a lazy component suspending inside the
+  lazy `GameList` would blank the page under the one `Suspense`, the S7
+  reason the teaser is static) and rendered on the servers tab between
+  the live list and `afterLive`, so the order under the live list is the
+  next night, then the last one's recap (the S7 teaser), then the S14
+  heatmap. One request for the schedule per mount and the shared
+  server-browser poll; `now` ticks every 30 s in the browser, so the
+  countdown moves without a request. The status line, in this order:
+  "It's on: N pilots in the server browser." when `browserPilots` of the
+  poll reaches `FIGHT_NIGHT_PING.pilots` (the S18 rule, read from
+  `gameParse.js`; `itsOnLine` in `matchResult.js` is now the ping's own
+  words too), with the night's title when one is under way and a "Watch
+  live" link to the server with the most pilots; else "On now: <title>,
+  until <end> Central time." inside an occurrence's window; else "Next
+  fight night: <title>, <eventWhen>, <countdown>." The words are
+  `eventWhen` ("Sat, Oct 17, 2026, 8:00 pm Central time"), `clockLabel`
+  and `countdown` ("in 2 days 4 hours", "in 3 hours 12 minutes", "in 12
+  minutes", "in under a minute") in `matchResult.js`, which the Discord
+  reminder shares. Under it the next `SCHEDULE.listed` (3) nights (title,
+  day, time), a "Subscribe in your calendar" link (`webcal://` on the
+  page's host) with a Copy link button on the `https` URL (the `JoinIp`
+  clipboard pattern), and the feed URL to select. Loading and failure use
+  the shared compact states with Retry; with nothing scheduled and nobody
+  on it renders nothing, like the teaser. No Recharts; the dashboard's
+  first visit still loads no chart chunk.
+- 2026-10-10 (S22): What replaced the iframe. `components/CalendarWidget.tsx`
+  (the Google Calendar iframe, which the CSP's `default-src 'self'` and
+  COEP `require-corp` blocked twice over, audit item) is deleted, and `GET
+  /api/calendar-url` with it: a public API path removed, hence this entry.
+  It answered the `CALENDAR_EMBED_URL` setting, which nothing read but the
+  widget; the row stays in `admin_settings` where one exists, unread. The
+  CSP is unchanged (no `frame-src`; nothing frames anything now).
+- 2026-10-10 (S22): The Discord reminder, through S18's service with no new
+  timer or table: a `reminder` kind in `discord_posts`, keyed
+  `<start ISO> <event id>` (`reminderKey`), so the keys sort by time and
+  `reminderKeysBefore(now)` (the ISO of now followed by `~`, which sorts
+  after the space and every digit) names every reminder for a night that
+  has started, which `dropStaleDiscordPosts` then drops, as the ping's and
+  the recap's stale rows are. `checkReminders(now)` runs on every S15
+  server-browser tick, in the tick's `finally`, so a tracker outage or an
+  empty answer does not silence it; it posts, while the switch is on and a
+  URL is set, the reminder for each occurrence starting within
+  `SCHEDULE.reminderMinutes` (60, the hour inclusive) and not yet started,
+  once per occurrence; a failed post stays pending and the next tick tries
+  again, up to the S18 three. The message (`reminderMessage` in
+  `discordMessages.js`, no database read): "Fight night in 60 minutes:
+  <title>, <eventWhen>." with an embed titled by the night, linking the
+  dashboard, the notes as its description, and "Starts" and "Calendar"
+  (the feed under `SITE_URL`) fields; markdown escaped, no mentions. The
+  admin card's caption names it and its posts list labels the kind
+  "Reminder"; the test post's sentence names it. A server down for the
+  whole hour before a night posts no reminder for it, and one that comes
+  up inside the hour posts it then. No share card: the schedule has no
+  page of its own.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.

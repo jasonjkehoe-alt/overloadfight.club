@@ -17,6 +17,10 @@ import { cachedCard } from './cardService.js';
 // answer may hold.
 const SECRET = 'tok3n-s18-never-logged';
 
+// the tracker's server browser, down: the snapshot tick stores nothing, and
+// the reminder check must ride the tick all the same (S22)
+vi.mock('axios', () => ({ default: { get: vi.fn().mockRejectedValue(new Error('tracker down')) } }));
+
 // satori, failing on a marker title, so a night's card can fail to draw.
 vi.mock('satori', async importOriginal => {
     const real = (await importOriginal()).default;
@@ -573,6 +577,19 @@ describe('the reminder before a scheduled night (S22)', () => {
         for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
         expect(discord.checkReminders(start() - 30 * MINUTE)).toEqual([]);
         expect(received).toHaveLength(0);
+    });
+
+    it('rides the snapshot tick, a failed server-browser fetch included', async () => {
+        switchOn();
+        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        const snapshots = await import('./serverSnapshots.js');
+        db.saveFightNightEvent({ kind: 'once', weekday: null, date: saturday.date, time: saturday.time, minutes: 60, title: 'Ticked', notes: '' });
+        const [one] = occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000).filter(o => o.title === 'Ticked');
+        expect(await snapshots.takeSnapshot(start() - 40 * MINUTE)).toBe(0);
+        await discord.postsSettled();
+        expect(received.map(r => r.body.content)).toEqual([`Fight night in 60 minutes: Ticked, ${eventWhen(one)}.`]);
+        expect(db.getDiscordPost('reminder', reminderKey(one))).toMatchObject({ status: 'sent', tries: 1 });
+        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
     });
 
     it('tries a failed reminder again on the next tick, and the admin status lists it by kind', async () => {
