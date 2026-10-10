@@ -34,6 +34,12 @@ export default defineConfig(({ mode }) => {
           target: 'http://localhost:3000',
           changeOrigin: true,
           secure: false,
+        },
+        // the fight-night calendar (S22) is served at the root
+        '/fight-nights.ics': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
         }
       }
     },

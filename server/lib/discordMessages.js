@@ -1,9 +1,11 @@
-// The Discord messages (S18): the fight-night recap, the "it's on" ping and the
-// admin's test post, as webhook bodies. Links are built from urlFor and the
+// The Discord messages (S18): the fight-night recap, the "it's on" ping, the
+// reminder before a scheduled night (S22) and the admin's test post, as webhook
+// bodies. Links are built from urlFor and the
 // site's origin; nothing here reads the database or the webhook URL.
 import { SITE_NAME, urlFor } from './siteRoutes.js';
-import { RATING, onlineServers } from './gameParse.js';
-import { beltChange, count, plural } from './matchResult.js';
+import { RATING, busyServers } from './gameParse.js';
+import { beltChange, count, countdown, eventWhen, itsOnLine, plural } from './matchResult.js';
+import { FEED_PATH } from './fightNightSchedule.js';
 import { cardUrl, fightNightCard } from './shareCards.js';
 
 // Discord's limits on an embed (characters; `total` over the title,
@@ -103,9 +105,7 @@ export function recapMessage(recap, rankings, origin, { image = true, belts = []
  * @param {string} origin
  */
 export function pingMessage(servers, origin) {
-    const busy = onlineServers(servers)
-        .filter(({ row }) => row.players > 0)
-        .sort((a, b) => b.row.players - a.row.players);
+    const busy = busyServers(servers);
     const pilots = busy.reduce((sum, { row }) => sum + row.players, 0);
     const fields = busy.slice(0, PING_SERVERS).map(({ entry, row }) => {
         const { mapName, mode, inLobby } = entry.game;
@@ -116,7 +116,7 @@ export function pingMessage(servers, origin) {
     const more = busy.length - fields.length;
     return {
         allowed_mentions: NO_MENTIONS,
-        content: `It's on: ${plural(pilots, 'pilot', 'pilots')} in the server browser.`,
+        content: itsOnLine(pilots),
         embeds: [fit({
             title: 'Live servers',
             url: `${origin}${urlFor('dashboard')}`,
@@ -126,8 +126,33 @@ export function pingMessage(servers, origin) {
     };
 }
 
+/**
+ * The reminder (S22) before a scheduled night: how long until it starts
+ * (the hour the check runs ahead, or less after a restart or a late switch),
+ * its title, when it starts, its notes, and links to the live list and the feed.
+ * @param {object} one an occurrence (fightNightSchedule.js)
+ * @param {string} origin
+ * @param {number} now ms
+ */
+export function reminderMessage(one, origin, now = Date.now()) {
+    const when = eventWhen(one);
+    return {
+        allowed_mentions: NO_MENTIONS,
+        content: `Fight night ${countdown(Date.parse(one.start) - now)}: ${plain(one.title, NAME_MAX)}, ${when}.`,
+        embeds: [fit({
+            title: plain(one.title, EMBED_LIMITS.title),
+            url: `${origin}${urlFor('dashboard')}`,
+            description: one.notes ? plain(one.notes) : `Starts ${when}.`,
+            fields: [
+                { name: 'Starts', value: when, inline: true },
+                { name: 'Calendar', value: `${origin}${FEED_PATH}`, inline: true }
+            ]
+        })]
+    };
+}
+
 // The admin's test post.
 export const testMessage = () => ({
     allowed_mentions: NO_MENTIONS,
-    content: `Test post from ${SITE_NAME}. Fight-night recaps and the "it's on" ping will post to this channel.`
+    content: `Test post from ${SITE_NAME}. Fight-night recaps, the "it's on" ping and the reminder before a scheduled night will post to this channel.`
 });

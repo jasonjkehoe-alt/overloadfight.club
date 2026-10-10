@@ -609,9 +609,11 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         old.exec('DROP TABLE rating_snapshots; DROP TABLE pilot_months; DROP TABLE region_months; DROP TABLE servers; DROP TABLE server_snapshots; DROP TABLE server_hours');
         old.exec('DROP TABLE map_weapons; DROP TABLE pilot_weapons; DROP TABLE pilot_maps; DROP TABLE duel_snapshots; DROP TABLE pilot_duels; DROP TABLE pilot_objectives');
         old.exec('DROP TABLE pilot_rivals; DROP TABLE pilot_clutch');
-        // and from before S18
-        old.exec('DROP TABLE discord_posts');
+        // and from before S18 and S22
+        old.exec('DROP TABLE discord_posts; DROP TABLE fight_night_events');
         old.close();
+        db.saveFightNightEvent({ kind: 'weekly', weekday: 5, date: null, time: '20:00', minutes: 180, title: 'Saturday', notes: '' });
+        expect(db.listFightNightEvents()).toHaveLength(1);
         db.putDiscordPost({ kind: 'ping', key: day, status: 'sent', tries: 1 });
         expect(db.getDiscordPost('ping', day)).toMatchObject({ status: 'sent' });
         const today = fightNightDay(Date.now());
@@ -658,6 +660,8 @@ describe('backup and restore (backupHot, restoreHot)', () => {
         expect(db.getPowerRankings(today).total).toBe(0);
         // the Discord posts made before the restore outlive it, so none goes out twice
         expect(db.getRecentDiscordPosts(10)).toEqual([expect.objectContaining({ kind: 'ping', key: day, status: 'sent', tries: 1 })]);
+        // the schedule is the backup's: empty for one from before S22
+        expect(db.listFightNightEvents()).toEqual([]);
         db.putDiscordPost({ kind: 'recap', key: day, status: 'pending', tries: 0 });
         expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'pending', tries: 0 });
     });

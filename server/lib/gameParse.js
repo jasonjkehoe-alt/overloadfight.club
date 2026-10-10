@@ -63,12 +63,16 @@ function plausibleSeconds(value) {
     return n > 0 && n < MAX_DURATION_SEC ? n : 0;
 }
 
+// When the match started, as the game records it: archive games carry
+// start/end, live-era games only settings.start (the StartGame event) and
+// date (when the tracker closed it). Null when neither is there.
+export const matchStart = game => game?.start || game?.settings?.start || null;
+
 // How long the match actually ran, in seconds, or 0 when the game does not
-// record it. Archive games carry start/end. Live-era games carry only
-// settings.start (the StartGame event) and date (when the tracker closed it).
+// record it.
 export function measuredDurationOf(game) {
     if (!game) return 0;
-    const fromTimestamps = secondsBetween(game.start || game.settings?.start, game.end || game.date);
+    const fromTimestamps = secondsBetween(matchStart(game), game.end || game.date);
     if (fromTimestamps) return fromTimestamps;
     for (const field of [game.timeElapsed, game.elapsed, game.duration]) {
         const n = plausibleSeconds(field);
@@ -480,13 +484,33 @@ export function localClock(date) {
 // The fight-night day (YYYY-MM-DD) a date falls on, or null.
 export const fightNightDay = date => localClock(date)?.day ?? null;
 
-// When a fight-night day ('YYYY-MM-DD') starts, as a UTC ISO string: the wall
-// time FIGHT_NIGHT_DAY.startHour that day, read as UTC, less the offset there
-// (DST changes at 02:00, never at the start hour).
-export function dayStart(day) {
-    const wall = Date.parse(`${day}T${clockHour(FIGHT_NIGHT_DAY.startHour)}:00Z`);
-    return new Date(wall - wallClock(wall - wallClock(wall).offset).offset).toISOString();
+// The UTC instant of the wall-clock `time` ('HH:MM') on the calendar date
+// `day` ('YYYY-MM-DD') in FIGHT_NIGHT_DAY.timeZone, as an ISO string: the
+// wall time read as UTC, less the offset there (read twice, so a time just
+// past a DST change takes the new offset). The schedule's events (S22) and
+// the day's start both come from it.
+export function localInstant(day, time) {
+    const wall = Date.parse(`${day}T${time}:00Z`);
+    const first = wall - wallClock(wall).offset;
+    const second = wall - wallClock(first).offset;
+    // a time the spring change skips (02:30 on its Sunday) has no instant of
+    // its own: the second pass lands an hour early, so the first (after the
+    // change, as calendars read it) stands
+    return new Date(second + wallClock(second).offset === wall ? second : first).toISOString();
 }
+
+// The wall clock of a UTC instant in FIGHT_NIGHT_DAY.timeZone, as
+// { date: 'YYYY-MM-DD', time: 'HH:MM' } (the schedule's ends, S22).
+export function localWall(iso) {
+    const ms = typeof iso === 'number' ? iso : Date.parse(iso);
+    const wall = new Date(ms + wallClock(ms).offset).toISOString();
+    return { date: wall.slice(0, 10), time: wall.slice(11, 16) };
+}
+
+// When a fight-night day ('YYYY-MM-DD') starts, as a UTC ISO string: the wall
+// time FIGHT_NIGHT_DAY.startHour that day (DST changes at 02:00, never at the
+// start hour).
+export const dayStart = day => localInstant(day, clockHour(FIGHT_NIGHT_DAY.startHour));
 
 // [start, end) of a fight-night day as UTC ISO strings, for
 // `date >= ? AND date < ?` on the stored dates (which can use
@@ -869,6 +893,9 @@ export function browserRows(servers) {
 
 // The online servers in one server-browser answer (browserRows).
 export const onlineServers = servers => browserRows(servers).filter(({ row }) => row.online);
+// The online servers with pilots on them, most first (the ping's list and
+// the dashboard's live link, S22).
+export const busyServers = servers => onlineServers(servers).filter(({ row }) => row.players > 0).sort((a, b) => b.row.players - a.row.players);
 
 // The pilots in one server-browser answer: the online servers' players.
 export const browserPilots = servers => onlineServers(servers).reduce((sum, { row }) => sum + row.players, 0);

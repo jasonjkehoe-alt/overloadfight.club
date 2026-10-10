@@ -6,7 +6,7 @@ import { fetchArchivedGames, getGlobalStats } from '../services/apiService';
 import { getMapImage } from '../services/mapService';
 import MatchTimer from './MatchTimer';
 import LiveMatchCard from './LiveMatchCard';
-import CalendarWidget from './CalendarWidget';
+import FightNightSchedule from './gameList/FightNightSchedule';
 import ActivityHeatmap from './gameList/ActivityHeatmap';
 import RegionShare from './gameList/RegionShare';
 import { Database, Copy, Check, Server, Search, History } from 'lucide-react';
@@ -564,6 +564,9 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                         )}
                     </div>
 
+                    {/* the next scheduled night (S22), then the last one's recap */}
+                    <FightNightSchedule />
+
                     {afterLive}
 
                     <ActivityHeatmap />
@@ -604,9 +607,6 @@ const GameList: React.FC<GameListProps> = ({ activeGames, archivedGames: initial
                             </div>
                         </div>
                     )}
-
-                    {/* Upcoming Events Calendar */}
-                    <CalendarWidget />
                 </section>
             )}
 

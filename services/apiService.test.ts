@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+    deleteAdminEvent,
     fetchAdminAuthStatus,
     fetchAdminDiscord,
     fetchAdminExtendedStats,
     fetchVersionInfo,
     postAdminBackfillJobAction,
+    saveAdminEvent,
     sendAdminDiscordTest,
     submitAdminLogin,
     syncAdminMaps
@@ -94,5 +96,19 @@ describe('admin panel requests', () => {
         expect(mock.mock.calls[1][0]).toBe('/api/admin/discord/test');
         expect(mock.mock.calls[1][1].method).toBe('POST');
         expect(failed.response).toEqual({ status: 502, data: { ok: false, status: 500, error: 'Discord answered 500.' } });
+    });
+
+    it('saves a fight-night event as JSON and deletes one with DELETE and no body (S22)', async () => {
+        const mock = stubFetch(async () => new Response('{"id":3}', { status: 200 }));
+        await expect(saveAdminEvent({ id: 3, kind: 'weekly', weekday: 5, time: '20:00', minutes: 180, title: 'Saturday' })).resolves.toEqual({ id: 3 });
+        expect(mock.mock.calls[0][0]).toBe('/api/admin/events');
+        expect(mock.mock.calls[0][1].method).toBe('POST');
+        expect(JSON.parse(mock.mock.calls[0][1].body as string)).toMatchObject({ id: 3, title: 'Saturday' });
+        await deleteAdminEvent(3);
+        const [url, init] = mock.mock.calls[1];
+        expect(url).toBe('/api/admin/events/3');
+        expect(init.method).toBe('DELETE');
+        expect(init.body).toBeUndefined();
+        expect(init.headers).toEqual({ Accept: 'application/json, text/plain, */*' });
     });
 });

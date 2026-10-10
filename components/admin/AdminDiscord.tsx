@@ -2,8 +2,18 @@ import React from 'react';
 import { MessageSquare, RefreshCw, Send } from 'lucide-react';
 import { EmptyState, ErrorState, Loading, secondaryButtonClass } from '../States';
 import type { DiscordPost, useAdminDiscord } from '../../hooks/useAdminDiscord';
+import { localWall } from '../../server/lib/gameParse.js';
+import { SCHEDULE } from '../../server/lib/fightNightSchedule.js';
+import { clockLabel, dayLabel } from '../../server/lib/matchResult.js';
 
-const KIND_LABEL: Record<DiscordPost['kind'], string> = { ping: 'It\'s on', recap: 'Recap' };
+const KIND_LABEL: Record<DiscordPost['kind'], string> = { ping: 'It\'s on', recap: 'Recap', reminder: 'Reminder' };
+// A ping's key is its fight-night day and a recap's its date; a reminder's is
+// its night's UTC start and the event's id, shown on the clock in the zone.
+const keyLabel = (post: DiscordPost) => {
+    if (post.kind !== 'reminder') return post.key;
+    const wall = localWall(post.key.split(' ')[0]);
+    return `${dayLabel(wall.date)}, ${clockLabel(wall.time)}`;
+};
 const STATUS: Record<DiscordPost['status'], { label: string; className: string }> = {
     sent: { label: 'Sent', className: 'text-green-400' },
     pending: { label: 'Waiting to retry', className: 'text-yellow-400' },
@@ -13,7 +23,7 @@ const STATUS: Record<DiscordPost['status'], { label: string; className: string }
 // The line under the switch.
 const switchCaption = ({ configured, enabled }: { configured: boolean; enabled: boolean }) => {
     if (!configured) return enabled ? 'On, but nothing posts until a webhook URL is set.' : 'Set the webhook URL first.';
-    return enabled ? 'On: recaps and the ping post to the channel.' : 'Off: nothing posts.';
+    return enabled ? 'On: recaps, the ping and reminders post to the channel.' : 'Off: nothing posts.';
 };
 
 interface AdminDiscordProps {
@@ -31,7 +41,7 @@ const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
                 <MessageSquare className="text-brand" aria-hidden /> Discord
             </h3>
             <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-                Posts each fight night's recap after the 06:15 check, and an "it's on" message once a fight-night day when the server browser shows {status?.pingPilots ?? 6} or more pilots.
+                Posts each fight night's recap after the 06:15 check, an "it's on" message once a fight-night day when the server browser shows {status?.pingPilots ?? 6} or more pilots, and a reminder {SCHEDULE.reminderMinutes} minutes before each scheduled night.
             </p>
 
             {failed ? (
@@ -88,12 +98,12 @@ const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
                             </button>
                         </div>
                         {status.posts.length === 0 ? (
-                            <EmptyState compact title="No posts yet" message="A recap or an &quot;it's on&quot; message shows up here once one has been tried." />
+                            <EmptyState compact title="No posts yet" message="A recap, an &quot;it's on&quot; message or a reminder shows up here once one has been tried." />
                         ) : (
                             <ul className="divide-y divide-line border border-line rounded-control text-xs">
                                 {status.posts.map(post => (
                                     <li key={`${post.kind} ${post.key}`} className="flex flex-wrap justify-between gap-x-4 gap-y-1 px-3 py-2">
-                                        <span className="text-gray-200">{KIND_LABEL[post.kind]} <span className="font-mono text-gray-400">{post.key}</span></span>
+                                        <span className="text-gray-200">{KIND_LABEL[post.kind]} <span className="font-mono text-gray-400">{keyLabel(post)}</span></span>
                                         <span>
                                             <span className={STATUS[post.status].className}>{STATUS[post.status].label}</span>
                                             <span className="text-gray-500"> · {post.tries} {post.tries === 1 ? 'try' : 'tries'} · {new Date(post.updated_at).toLocaleString()}</span>

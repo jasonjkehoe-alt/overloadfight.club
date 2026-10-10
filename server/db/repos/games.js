@@ -1,6 +1,6 @@
 import { hotDb, coldDb } from '../connection.js';
 import { GAME_PLAYERS_COLUMNS, writeHotPlayers, writeColdPlayers } from '../migrations.js';
-import { dayBounds } from '../../lib/gameParse.js';
+import { dayBounds, matchStart } from '../../lib/gameParse.js';
 
 // The games table in both files: lists, search, single games, the writers that keep
 // game_players in step, the cold move, and the hydration and fight-night day reads.
@@ -451,4 +451,34 @@ export const getSummaryGames = {
 export const getGamesForDate = (dateStr) => {
   const bounds = dayBounds(dateStr);
   return bounds ? getGamesInDay.all(...bounds) : [];
+};
+
+// The matches on a day (their end and details), over both files (a cold move
+// during a night splits it), each side on idx_games_date (the .ics feed's
+// recap events, S22).
+const gamesInDayBothFiles = hotDb.prepare('SELECT date, details FROM games WHERE date >= @from AND date < @to UNION ALL SELECT date, details FROM cold.games WHERE date >= @from AND date < @to');
+// { start, end } of the matches on a fight-night day: the earliest match
+// start (the first match to end is not the first to start when servers run
+// in parallel; null when none has one) and the last match's end, as UTC ISO
+// strings; null for a day with no match in either file. The rule for a
+// match's start stays matchStart's, so each row's blob is read here.
+export const getDaySpan = (dateStr) => {
+  const bounds = dayBounds(dateStr);
+  if (!bounds) return null;
+  const [from, to] = bounds;
+  const rows = gamesInDayBothFiles.all({ from, to });
+  if (rows.length === 0) return null;
+  let start = null;
+  let end = null;
+  for (const row of rows) {
+    const ended = Date.parse(row.date);
+    if (end === null || ended > end) end = ended;
+    try {
+      const at = Date.parse(matchStart(JSON.parse(row.details)));
+      if (Number.isFinite(at) && (start === null || at < start)) start = at;
+    } catch {
+      // a bad blob: no start from this match
+    }
+  }
+  return { start: start === null ? null : new Date(start).toISOString(), end: new Date(end).toISOString() };
 };

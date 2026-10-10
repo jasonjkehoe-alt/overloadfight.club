@@ -1,7 +1,7 @@
 import axios from 'axios';
 import cacheService from './cacheService.js';
 import db from '../db.js';
-import { checkPing } from './discordService.js';
+import { checkPing, checkReminders } from './discordService.js';
 import { SNAPSHOT } from '../lib/gameParse.js';
 
 // The tracker's live server browser. /api/browser answers from it and the
@@ -44,6 +44,10 @@ export async function takeSnapshot(now = Date.now()) {
         }
     } catch (error) {
         console.error('[Snapshots] Server browser not stored:', error.message);
+    } finally {
+        // the reminder before a scheduled night (S22) rides the tick too, and
+        // a tracker outage must not silence it
+        if (!stopped) checkReminders(now);
     }
     return 0;
 }

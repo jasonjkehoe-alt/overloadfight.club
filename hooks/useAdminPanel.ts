@@ -5,6 +5,7 @@ import { useAdminSettings } from './useAdminSettings';
 import { useAdminMaps } from './useAdminMaps';
 import { useAdminArchiveSync } from './useAdminArchiveSync';
 import { useAdminDiscord } from './useAdminDiscord';
+import { useAdminEvents } from './useAdminEvents';
 
 // The admin page's state, grouped by section. On mount it checks the session
 // and loads the build version; once authenticated it loads every section and
@@ -16,6 +17,7 @@ export function useAdminPanel() {
     const maps = useAdminMaps();
     const archive = useAdminArchiveSync();
     const discord = useAdminDiscord();
+    const schedule = useAdminEvents();
 
     const { isAuthenticated, checkAuth } = auth;
     const { fetchVersion, fetchStats } = overview;
@@ -23,6 +25,7 @@ export function useAdminPanel() {
     const { fetchMapCount } = maps;
     const { fetchArchiveStatus } = archive;
     const { fetchDiscord } = discord;
+    const { fetchEvents } = schedule;
 
     useEffect(() => {
         checkAuth();
@@ -36,6 +39,7 @@ export function useAdminPanel() {
             fetchMapCount();
             fetchArchiveStatus();
             fetchDiscord();
+            fetchEvents();
             const interval = setInterval(() => {
                 fetchStats();
                 fetchArchiveStatus();
@@ -44,5 +48,5 @@ export function useAdminPanel() {
         }
     }, [isAuthenticated]);
 
-    return { auth, overview, settings, maps, archive, discord };
+    return { auth, overview, settings, maps, archive, discord, schedule };
 }

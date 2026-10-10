@@ -9,11 +9,12 @@ import AdminCoverageChart from './admin/AdminCoverageChart';
 import AdminBackfillPanel from './admin/AdminBackfillPanel';
 import AdminDashboardConfig from './admin/AdminDashboardConfig';
 import AdminDiscord from './admin/AdminDiscord';
+import AdminFightNights from './admin/AdminFightNights';
 import AdminArchiveIngest from './admin/AdminArchiveIngest';
 import AdminMapManagement from './admin/AdminMapManagement';
 
 const AdminPanel: React.FC = () => {
-    const { auth, overview, settings, maps, archive, discord } = useAdminPanel();
+    const { auth, overview, settings, maps, archive, discord, schedule } = useAdminPanel();
     const { isAuthenticated, setIsAuthenticated, password, setPassword, error, handleLogin } = auth;
     const { stats, loading, setLoading, version, fetchStats } = overview;
     const { showColdStorage, setShowColdStorage, saveSetting } = settings;
@@ -78,6 +79,8 @@ const AdminPanel: React.FC = () => {
                 setShowColdStorage={setShowColdStorage}
                 saveSetting={saveSetting}
             />
+
+            <AdminFightNights events={schedule} />
 
             <AdminDiscord discord={discord} />
 

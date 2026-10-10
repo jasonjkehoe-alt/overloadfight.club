@@ -16,6 +16,8 @@ import maintenance from './maintenance.js';
 import mapSyncService from './services/mapSyncService.js';
 import db from './db.js';
 import { withPageMeta } from './pageMeta.js';
+import { fightNightFeed } from './routes/fightNights.js';
+import { FEED_PATH } from './lib/fightNightSchedule.js';
 
 import bridgeRoutes from './bridge-routes.js';
 import { warmupEngine } from './services/audioImportService.js';
@@ -112,6 +114,9 @@ app.use('/api/admin', adminRoutes);
 // In production (or if dist exists), serve compiled static files with optimal caching
 const isProduction = process.env.NODE_ENV === 'production';
 const distPath = path.join(__dirname, '../dist');
+
+// The fight-night calendar (S22), at the root so a webcal:// link reads well
+app.get(FEED_PATH, fightNightFeed);
 
 // Favicon & Robots handlers (guarantees proper MIME type, never returns SPA HTML)
 app.get('/robots.txt', (req, res) => {

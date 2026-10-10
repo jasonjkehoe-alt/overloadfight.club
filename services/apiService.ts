@@ -465,6 +465,24 @@ const getJson = async <T,>(url: string): Promise<T | null> => {
 
 export const fetchPilotRating = (name: string) => getJson<PilotRating>(`${API_BASE}/pilot/${encodeURIComponent(name)}/rating`);
 
+// /api/fight-nights/schedule (S22): the coming scheduled nights, one under
+// way included (server/lib/fightNightSchedule.js occurrences); `date`,
+// `time`, `endDate` and `endTime` on the wall clock in Central, `start` and
+// `end` the UTC instants, `day` the fight-night day.
+export interface FightNightOccurrence {
+    id: number;
+    title: string;
+    notes: string;
+    date: string;
+    time: string;
+    endDate: string;
+    endTime: string;
+    start: string;
+    end: string;
+    day: string;
+}
+export const fetchFightNightSchedule = () => getJson<FightNightOccurrence[]>(`${API_BASE}/fight-nights/schedule`);
+
 export const fetchPowerRankings = () => getJson<PowerRankings>(`${API_BASE}/stats/rankings`);
 
 // /api/stats/heatmap (S14): matches per weekday and clock hour, `cells[0]`
@@ -789,7 +807,7 @@ class AdminRequestError extends Error {
     }
 }
 
-const adminRequest = async (url: string, method: 'GET' | 'POST' = 'GET', body?: unknown): Promise<any> => {
+const adminRequest = async (url: string, method: 'GET' | 'POST' | 'DELETE' = 'GET', body?: unknown): Promise<any> => {
     const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     let response: Response;
@@ -839,6 +857,27 @@ export const fetchAdminDiscord = (): Promise<any> =>
 
 export const sendAdminDiscordTest = (): Promise<any> =>
     adminRequest(`${API_BASE}/admin/discord/test`, 'POST');
+
+// The scheduled fight nights (S22): the rows, a new or changed one, a deletion.
+export interface FightNightEvent {
+    id: number;
+    kind: 'weekly' | 'once';
+    weekday: number | null;
+    date: string | null;
+    time: string;
+    minutes: number;
+    title: string;
+    notes: string;
+    updated_at: string;
+}
+export const fetchAdminEvents = (): Promise<FightNightEvent[]> =>
+    adminRequest(`${API_BASE}/admin/events`);
+
+export const saveAdminEvent = (event: Partial<FightNightEvent>): Promise<FightNightEvent> =>
+    adminRequest(`${API_BASE}/admin/events`, 'POST', event);
+
+export const deleteAdminEvent = (id: number): Promise<any> =>
+    adminRequest(`${API_BASE}/admin/events/${id}`, 'DELETE');
 
 export const fetchAdminMapCount = (): Promise<any> =>
     adminRequest(`${API_BASE}/maps?limit=1`);

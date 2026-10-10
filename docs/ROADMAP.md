@@ -107,8 +107,12 @@ S20 is merged into `main` (PR #21, squash-merged 2026-10-10 12:31 UTC
 as `f4d55fd`), with no owner commits after it. (The S21 prompt allowed
 for it still being open; it had merged.)
 
-S21 is on branch `ofc/s21-belts-and-achievements`, based on `f4d55fd`,
-its PR (#22) open against `main` and not merged, 2026-10-10 UTC.
+S21 is merged into `main` (PR #22, squash-merged 2026-10-10 UTC as
+`a8056b6`), with no owner commits after it. (The S22 prompt and this
+section said the PR was open; it had merged.)
+
+S22 is on branch `ofc/s22-fight-night-schedule`, based on `a8056b6`,
+its PR (#23) open against `main` and not merged, 2026-10-10 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -119,11 +123,85 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 21 of 28 sessions done (S1 to S20 merged, S21 in its PR).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 4/11. The Node 26
+Counts: 22 of 28 sessions done (S1 to S21 merged, S22 in its PR).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 5/11. The Node 26
 maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-10 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S20 and Node 26 merged into `main`, `main` at f4d55fd, S21 on `ofc/s21-belts-and-achievements`)
+## Validated (as of 2026-10-10 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S21 and Node 26 merged into `main`, `main` at a8056b6, S22 on `ofc/s22-fight-night-schedule`)
+
+- S22, first move on Node 26.11.1, on `main` at `a8056b6` (PR #22 merged,
+  no owner commits after it; `10223be` is not an object here, so the
+  pre-rewrite check fails as it should): `npx vitest run` passed 24 files,
+  427 tests; `npx vite build` wrote the entry at 234.57 KB raw / 75.21 KB
+  gzip, `GameList` 41.75 KB / 11.47 KB and `AdminPanel` 35.18 KB / 9.32 KB;
+  `npx tsc --noEmit` exited 0. All match the S21 records.
+- S22, the schedule rules on fixture dates: `fightNightSchedule.test.js`
+  and `gameParse.test.js` pin a weekly rule across the spring change
+  (2026-03-07/08: the UTC start moves an hour, the wall clock does not; a
+  night from 23:30 ends at 03:30 CDT, 08:30Z), across the autumn change
+  (2026-10-31/11-01: a night from 23:30 ends at 01:30 CST, 07:30Z, its end
+  on the wall clock read back from the instant), a skipped 02:30 landing
+  at 03:30 CDT and a repeated 01:30 taking its first pass, a night that
+  starts after midnight belonging to the evening before, the window's
+  ends, the sort, `validateEvent`'s every fault (a null, empty or boolean
+  weekday among them), the reminder due at exactly an hour and not once
+  started, the feed's folding at 75 octets with a wide character, its
+  escaping, the VTIMEZONE, a recap's event from its span and a recap
+  without one left out.
+- S22, the routes on a temp database of the fixtures: `fightNights.test.js`
+  reads the schedule answer (an array, one night under way first), the
+  feed on both paths with the fixture recap, a recap day's span over both
+  files (a copy of the first match moved to cold storage an hour earlier
+  moves the start), the kept feed (a second request reads no span; a row
+  written behind the routes' back and a new recap each show at once), and
+  the admin endpoints (401 without a session, 400 with the fault's
+  sentence, 404 for an unknown id on save and delete).
+- S22, the reminder against the S18 stub: `discordService.test.js` posts
+  once per occurrence from an hour before its start with the time left
+  (50 minutes when the check runs late), the title, the time and the two
+  links; posts nothing once the night has started, while switched off or
+  with nothing scheduled; drops a pending one on the tick after its
+  start; and posts on the snapshot tick when the server-browser fetch
+  fails (axios rejected).
+- S22, the feed read back by a parser: `parsefeed.mjs` (ical.js 2.1.0)
+  against the local server on `/fight-nights.ics` and
+  `/api/fight-nights.ics`: 15 events, every one of the 13 scheduled nights'
+  start and end through the VTIMEZONE equal to the API's UTC instants,
+  including the Saturdays either side of 2026-11-01 (01:00Z then 02:00Z),
+  the 2 recaps in UTC from the first match's start to the last match's
+  end with the recap page as URL.
+- S22, curl against the local server (76 matches): the 18 paths the
+  Verification row lists all 200; `/api/fight-nights/schedule` 200 (an
+  array); the feed 200 `text/calendar; charset=utf-8`, `Content-Disposition:
+  inline`, `Cache-Control: public, max-age=600`; `/api/calendar-url` 404;
+  `/api/admin/events` 401 without a session; the six card kinds (`pilot`,
+  `tape`, `belts`, `game`, `fight-night`, `maps`) 200 `image/png`; the share
+  tags of `/pilot/WD-40`, `/game/78810`, `/fight-night/2026-10-09` and
+  `/belts` unchanged.
+- S22, headless Chrome (154 checks in `checks.mjs`) at 1,280 and 390 px:
+  the dashboard card on local data seeded through the admin API (the
+  countdown's words equal `countdown` on the API's next start, the three
+  dates, the copy button says Copied, the webcal link) and with
+  Fetch-domain mocks for held (Loading), failed (ErrorState and Retry),
+  empty (nothing rendered), on now (until the end's wall clock), it's on
+  with 6 pilots (the live link to the busiest server) and long titles; the
+  admin card with a real login (list, add, edit, a 400's sentence, the
+  two-press delete, the Discord card's caption and Reminder label, held,
+  failed, empty); then the dashboard, fight night, leaderboard, rankings,
+  ladders, rivalries, belts, a tape, a pilot, maps, a match, a server and
+  the admin page: 104 of 104 pass, no console errors but the S1 401, the
+  map-image 404s (151, 424, 516, 640, 62) reported and not failed.
+- S22, `mutate.py`: 50 edits to the schedule rules, the feed, the span
+  read, the routes, the reminder, the words and `localInstant`, each
+  restored from a copy named by its absolute path, five test files run:
+  50 of 50 fail a test; `git status` clean of mutants after.
+- S22, after the review fixes and /simplify: `npx vitest run` 26 files,
+  457 tests; `npx tsc --noEmit` 0; `npx vite build` entry 234.85 KB raw /
+  75.30 KB gzip (234.57 / 75.21 before), `GameList` 44.29 KB / 12.17 KB,
+  `AdminPanel` 41.44 KB / 10.85 KB, new `fightNightSchedule` 0.79 KB /
+  0.43 KB and `useCopy` 0.34 KB / 0.24 KB, no new Recharts chunk; every new
+  module under 150 lines (`AdminFightNights.tsx` 144, `fightNightFeed.js`
+  125, `fightNightSchedule.js` 116).
 
 - S21, first move on Node 26.11.1, on `main` at `f4d55fd` (PR #21 merged,
   no owner commits after it; `git diff origin/ofc/s20-tale-of-the-tape
@@ -2402,6 +2480,25 @@ maintenance item does not count toward the 28.
 
 ## NOT validated, do not claim these work
 
+- S22: a real calendar app subscribed to the feed. Only ical.js parsed it;
+  Google Calendar, Apple Calendar and Outlook have not opened the
+  `webcal://` or https link, shown a night in the subscriber's own zone,
+  or refreshed after an admin change (Google refreshes a subscribed URL on
+  its own schedule, hours to a day).
+- S22: the reminder on a real Discord webhook at a real hour. The tests
+  set the clock against the S18 stub; nobody has seen the post land an
+  hour before a Saturday night on the NAS, or what happens when the NAS
+  is restarted inside that hour (the key survives in `discord_posts`, so
+  it should post once).
+- S22: the feed with the NAS's years of recaps. Two recaps locally; the
+  build reads each recap day's rows on the index and parses each blob
+  (a night's worth per recap, every recap), and nobody has timed it or
+  seen the feed's size there.
+- S22: a night scheduled inside the repeated 01:00 hour of the autumn
+  change in a calendar app (the server takes the first pass; the app
+  decides for itself).
+- S22: the admin card's date and time inputs on a phone (native pickers);
+  the checks drove them by value.
 - S21: the belts and achievements on the NAS's 75,000 or so matches. On
   76 local matches, all from October 2026, there are 5 reigns and no
   defense past 2; nobody has seen how many reigns the history since 2019
@@ -2764,7 +2861,8 @@ maintenance item does not count toward the 28.
   browser.
 - The PilotsList K/D tooltip text was not looked at in a browser.
 - The calendar iframe being blocked was inferred from headers plus a curl of
-  the Google embed's resource policy, not observed in a browser.
+  the Google embed's resource policy, not observed in a browser. Closed by
+  S22: the widget and `/api/calendar-url` are gone.
 - Mobile overflow at 375 px and nav crowding between 768 and 1,150 px were
   inferred from CSS.
 - Whether the single-thread ffmpeg core still needs COOP/COEP.
@@ -2849,12 +2947,12 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 24 files, 427 tests pass on 26.11.1 (S21; 387 at its start) | 2026-10-10 |
+| `npx vitest run` | all pass | 26 files, 457 tests pass on 26.11.1 (S22; 427 at its start) | 2026-10-10 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 234.57 KB raw / 75.21 KB gzip (S21; 234.10 / 75.04 at its start), new `Belts` 7.53 KB / 2.29 KB and `BeltMark` 0.58 KB / 0.39 KB, `PilotDetail` 55.64 KB / 14.33 KB, `PilotsList` 18.42 KB / 5.26 KB, `PowerRankings` 4.33 KB / 1.58 KB, `Ladders` 8.32 KB / 2.59 KB, `Tape` 11.02 KB / 3.67 KB, `Rivals` 7.36 KB / 2.50 KB, dashboard `GameList` 41.75 KB / 11.46 KB gzip and no Recharts on its first visit, on 26.11.1. Unchanged since S20: `GameDetail` 124.19 KB / 40.12 KB; since S19: `AdminPanel` 35.18 KB / 9.32 KB, `FightNightSection` 14.13 KB / 3.05 KB, `MapLibrary` 34.26 KB / 8.93 KB (one 351.07 KB chunk before S4) | 2026-10-10 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S21) | 2026-10-10 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S21 on `/tmp/ofc-data`: `total_games: 76`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/WD-40/rivalry`, `/api/pilot/:a/tape/:b`, `/api/pilot/WD-40/opponents`, `/api/card/pilot/WD-40`, `/api/card/tape/:a/:b` and `/api/health` all 200; new `/api/stats/belts` and `/api/pilot/:name/achievements` 200 (zeros for an unknown pilot), `/api/card/belts` 200 `image/png` | 2026-10-10 |
-| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep -E 'og:\|twitter:'` (and a match, a fight night and a map) | the page's own `og:title`, `og:description`, `og:url`; since S19 `og:image` on the request's origin, its size and alt, `twitter:card` | "WD-40: 23 matches, 380 kills, last match 2026-10-07." with its `og:image` (S21, unchanged); `/belts`: "Champions: Anarchy BOOGEYMAN (since 2026-10-06, 0 defenses), Team Anarchy KAUMRAPSEL (since 2026-10-05, 0 defenses)." with `og:image` `/api/card/belts?v=...`; a champion's pilot description ends with their belt; the S19 and S20 cards' `og:image` all 200 `image/png` (S21) | 2026-10-10 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 234.85 KB raw / 75.30 KB gzip (S22; 234.57 / 75.21 at its start), `GameList` 44.29 KB / 12.17 KB and `AdminPanel` 41.44 KB / 10.85 KB (41.75 / 11.47 and 35.18 / 9.32 at its start), new `fightNightSchedule` 0.79 KB / 0.43 KB and `useCopy` 0.34 KB / 0.24 KB; S21: new `Belts` 7.53 KB / 2.29 KB and `BeltMark` 0.58 KB / 0.39 KB, `PilotDetail` 55.64 KB / 14.33 KB, `PilotsList` 18.42 KB / 5.26 KB, `PowerRankings` 4.33 KB / 1.58 KB, `Ladders` 8.32 KB / 2.59 KB, `Tape` 11.02 KB / 3.67 KB, `Rivals` 7.36 KB / 2.50 KB, dashboard `GameList` 41.75 KB / 11.46 KB gzip and no Recharts on its first visit, on 26.11.1. Unchanged since S20: `GameDetail` 124.19 KB / 40.12 KB; since S19: `AdminPanel` 35.18 KB / 9.32 KB, `FightNightSection` 14.13 KB / 3.05 KB, `MapLibrary` 34.26 KB / 8.93 KB (one 351.07 KB chunk before S4) | 2026-10-10 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S22) | 2026-10-10 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S21 on `/tmp/ofc-data`: `total_games: 76`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/WD-40/rivalry`, `/api/pilot/:a/tape/:b`, `/api/pilot/WD-40/opponents`, `/api/card/pilot/WD-40`, `/api/card/tape/:a/:b` and `/api/health` all 200; new `/api/stats/belts` and `/api/pilot/:name/achievements` 200 (zeros for an unknown pilot), `/api/card/belts` 200 `image/png`; S22: all of those 200 again, `/api/fight-nights/schedule` 200 (an array), `/fight-nights.ics` and `/api/fight-nights.ics` 200 `text/calendar; charset=utf-8` with `Cache-Control: public, max-age=600`, `/api/calendar-url` 404, `/api/admin/events` 401 without a session, the six card kinds (`pilot`, `tape`, `belts`, `game`, `fight-night`, `maps`) 200 `image/png` | 2026-10-10 |
+| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep -E 'og:\|twitter:'` (and a match, a fight night and a map) | the page's own `og:title`, `og:description`, `og:url`; since S19 `og:image` on the request's origin, its size and alt, `twitter:card` | "WD-40: 23 matches, 380 kills, last match 2026-10-07." with its `og:image` (S21, unchanged); `/belts`: "Champions: Anarchy BOOGEYMAN (since 2026-10-06, 0 defenses), Team Anarchy KAUMRAPSEL (since 2026-10-05, 0 defenses)." with `og:image` `/api/card/belts?v=...`; a champion's pilot description ends with their belt; the S19 and S20 cards' `og:image` all 200 `image/png` (S21); unchanged in S22 (`/pilot/WD-40`, `/game/78810`, `/fight-night/2026-10-09`, `/belts`) | 2026-10-10 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine` (cached locally), arm64: healthy, uid 1000, resvg's `linux-arm64-musl` prebuild with no object file, a card drawn in the container, 619 MB (S19) | 2026-10-09 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
 | `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
@@ -2905,6 +3003,11 @@ maintenance item does not count toward the 28.
 | S21 `real.mjs`, run by `node` on a copy of `/tmp/ofc-data`: `achievementPass` over every stored match against `belt_reigns` and `pilot_achievements`, the milestones against `pilot_stats_cache`, the kill-log feats against `pilot_clutch`, the reign chain, the reads' query plans | the same rows; equal counts; no chain break | 5 of 5 reigns, 249 of 249 rows, 38 of 38 and 20 of 20 pilots, 0 breaks, 76 matches (S21) | 2026-10-10 |
 | S21 `checks.mjs`: headless Chrome over CDP, `/belts` (local; held, failed and Retry, all vacant, a full mocked answer), the pilot page's card (a champion, a former champion; held, failed and Retry, nothing earned), the belt marks on the leaderboard, the tape, the rankings and both ladder boards (mocked champion; a failed answer), the leaderboard's link, then the dashboard, fight night, leaderboard, rankings, ladders, rivalries, a tape, a pilot, maps, history, a match and admin, at 1,280 and 390 px | numbers equal the API, the shared states, one belts request per page, no Recharts on `/belts` or the dashboard, no wider than the window, no console errors but the S1 401 | 134 of 140; the 6 failures are map-image 404s on `/`, `/history` and `/maps` from overloadmaps.com (S21) | 2026-10-10 |
 | S21 `mutate.py`: 33 edits to the S21 rules, pass, reads, builders, layout and Discord, each restored from a copy, five test files run | every edit fails a test | 33 of 33 after /simplify (28 of 31 on the first run; the 3 got tests or their dead guard removed) (S21) | 2026-10-10 |
+| S22 `server/lib/fightNightSchedule.test.js`, `server/lib/gameParse.test.js` (`localInstant`, `localWall`) and `server/routes/fightNights.test.js` (a temp database of the fixtures, the routes and the admin router on a session stub) | the DST days of 2026 on the wall clock and in UTC, the feed's syntax, a recap day's span over both files, the kept feed, the admin endpoints' answers | 23 tests pass (S22) | 2026-10-10 |
+| S22 `server/services/discordService.test.js`, the reminder block | once per occurrence from an hour before, the time left, nothing once started or off, dropped past its start, posted on a failed tick | 4 of 4 (S22) | 2026-10-10 |
+| S22 `parsefeed.mjs`, run by `node` with ical.js 2.1.0 against the local server on both feed paths | every scheduled event's start and end through the VTIMEZONE equal the API's UTC instants; the recaps in UTC with their pages | 13 of 13 scheduled, 2 recaps, 15 events (S22) | 2026-10-10 |
+| S22 `checks.mjs`: headless Chrome over CDP, the dashboard card (local data seeded through the admin API; held, failed and Retry, empty, on now, it's on at 6 pilots, long titles mocked), the admin card with a real login (list, add, edit, 400, delete, the Discord caption; held, failed, empty), then the dashboard, fight night, leaderboard, rankings, ladders, rivalries, belts, a tape, a pilot, maps, a match, a server and the admin page, at 1,280 and 390 px | the card's words equal the API and `countdown`, the shared states, no wider than the window, no console errors but the S1 401 | 104 of 104; map-image 404s (151, 424, 516, 640, 62) reported, not failed (S22) | 2026-10-10 |
+| S22 `mutate.py`: 50 edits to the schedule rules, the feed, the span read, the routes, the reminder, the words and `localInstant`, each restored from a copy named by its absolute path, five test files run | every edit fails a test | 50 of 50 (S22) | 2026-10-10 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -3753,8 +3856,109 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          leaderboard, rankings, ladders, rivalries, a tape, pilot pages,
          maps, match page and admin page still work, and the S19 and S20
          cards still draw.
-- [ ] **S22 Fight-night schedule and iCal** (S). Events table, `.ics` feed,
-      dashboard countdown; remove the calendar iframe.
+- [x] **S22 Fight-night schedule and iCal** (S). Events table, `.ics` feed,
+      dashboard countdown; remove the calendar iframe. The owner decided at
+      the start of S22: a scheduled fight night is a weekly rule (weekday,
+      start time in Central, length) or a one-off (date, time, length), kept
+      in a new `fight_night_events` table and edited on the admin page; the
+      Google Calendar is not a source. The feed expands the next 12 weeks
+      into one event each, in America/Chicago with a VTIMEZONE, and adds
+      every saved recap as a past event linking its page; it lives at
+      `/fight-nights.ics`. The dashboard card shows "It's on" at the S18
+      ping's 6 pilots, "on now" inside an event's window, else a countdown
+      to the next night, with the next three dates and a subscribe link, and
+      sits above the S7 teaser; the iframe, `CalendarWidget` and
+      `/api/calendar-url` go. Discord gets a reminder post an hour before
+      each night. Done when (written at the start of S22):
+      1. `server/lib/gameParse.js` gains `localInstant(day, time)` (the UTC
+         instant of a wall-clock time on a calendar date in
+         `FIGHT_NIGHT_DAY.timeZone`; `dayStart` reads it) and a new
+         `server/lib/fightNightSchedule.js` owns the schedule rules on it,
+         each tested on fixture data with the DST days (2026-03-07/08 and
+         2026-10-31/11-01): what an event is (`validateEvent`: a weekly rule
+         with a weekday, a start time and a length in minutes, or a one-off
+         on a date; a title; notes), the occurrences of a set of events over
+         a window (`occurrences`: rules expanded day by day, each occurrence
+         with its UTC start and end and its fight-night day by
+         `fightNightDay`, sorted by start; a DST change moves the UTC time
+         and not the wall clock), the one under way and the next
+         (`nextOccurrence`), and the reminder's window. Constants in
+         `SCHEDULE` (12 weeks, 180 minutes, 3 listed, the reminder's 60
+         minutes).
+      2. A `fight_night_events(id, kind, weekday, date, time, minutes,
+         title, notes, updated_at)` table in `tracker.db`, primary data like
+         the S15 server tables (created empty by `migrations.js`, carried by
+         the backup, created for an older backup by `restoreHot`), read and
+         written by `server/db/repos/fightNightEvents.js` with `db` keys;
+         a migration decision entry.
+      3. The `.ics` feed, written by hand (RFC 5545: CRLF, 75-octet folding,
+         escaped text, a VTIMEZONE for America/Chicago, `DTSTART;TZID=` for
+         scheduled nights with their `DTEND` in UTC (amended on the PR review:
+         a wall-clock end repeats in the autumn hour), and UTC for recap
+         events; after /simplify in its
+         own server-only `server/lib/fightNightFeed.js`, since the recap
+         event's words come from the share card and `shareCards.js` hashes
+         with node:crypto, which the page cannot import), at `GET
+         /fight-nights.ics` and `GET /api/fight-nights.ics`
+         (`text/calendar`), carrying every occurrence of the next 12 weeks
+         (one VEVENT each with the site's URL) and every saved recap as a
+         past event on its fight-night day, from its first match to its
+         last, whose URL is the recap page and whose description is the
+         recap's totals; tested by parsing it back, and opened by a calendar
+         parser against the local server.
+      4. `GET /api/fight-nights/schedule` (public, in
+         `routes/fightNights.js`, read through `apiService`, null on
+         failure): the occurrences from now to 12 weeks on (one under way
+         included), as an array (amended twice: the first draft also sent
+         `now`, the zone's words, the horizon and the feed's path, which
+         /code-review found nothing reading, and /simplify had the page
+         take the feed's path from the shared module). No request walks
+         the stored matches; the feed reads each recap day's rows on
+         `idx_games_date` for their earliest start and last end, and the
+         last feed built is kept ten minutes while the events and recaps
+         are unchanged.
+      5. Admin endpoints behind `requireAuth` in a new
+         `server/routes/adminEvents.js` mounted by `admin-routes.js`: `GET
+         /api/admin/events`, `POST /api/admin/events` (create, or update
+         with an id; 400 with a message for a bad event) and `DELETE
+         /api/admin/events/:id`; a non-admin gets 401 from each. An admin
+         card (`components/admin/AdminFightNights.tsx`, its hook in
+         `hooks/`, requests through `apiService`'s admin helpers, which
+         learn DELETE) lists the events and adds, edits and deletes them,
+         with the shared states, at 1,280 and 390 px.
+      6. The dashboard's "Fight nights" card
+         (`components/gameList/FightNightSchedule.tsx`, in `GameList`'s
+         chunk, on the servers tab above the S7 teaser and the S14
+         heatmap): "It's on: N pilots in the server browser" when the shared
+         poll shows `FIGHT_NIGHT_PING.pilots` (`browserPilots`, the S18
+         rule), else "on now" inside an occurrence's window, else the
+         countdown to the next occurrence ("in 2 days 4 hours", ticking in
+         the browser, the wording in `matchResult.js`); the next three
+         dates; Subscribe (webcal and https) with the feed URL to copy.
+         Loading and failure render nothing (amended on the PR review from
+         the shared states); with no event and nobody on it renders nothing. `CalendarWidget.tsx`, `GET
+         /api/calendar-url` and the iframe go (a decision entry for the
+         removed public path; the `CALENDAR_EMBED_URL` row stays, unread).
+      7. A Discord reminder through S18's service: a `reminder` kind in
+         `discord_posts` keyed by the occurrence's start, checked on the S15
+         minute tick (no new timer, checked whether or not the tick's fetch
+         succeeded), posted once per occurrence 60 minutes before its start
+         while the switch is on, with the title, the time in Central and a
+         link; a pending one past its start is dropped; the message in
+         `discordMessages.js` reads no database; the admin card names the
+         kind. Tested against the S18 stub.
+      8. No new view, share card or Recharts chunk; the entry (234.57 KB
+         raw / 75.21 KB gzip), `GameList` and `AdminPanel` are recorded
+         before and after; every new module is under 500 lines.
+      9. Checked with curl against the local server (the feed on both
+         paths, parsed; the schedule answer; the admin endpoints) and in
+         headless Chrome at 1,280 and 390 px: the dashboard card on local
+         data (events made through the admin API) plus Fetch-domain mocks
+         for held, failed, empty, on now, it's on and long titles; the
+         admin card with a real login (add, edit, delete); the dashboard,
+         fight night, leaderboard, rankings, ladders, rivalries, belts, a
+         tape, pilot pages, maps, match page and admin page still work, and
+         the S19 to S21 cards still draw.
 - [ ] **S23 Maps and hosts** (S). Map of the week, `/author/:name`, nightly
       map sync, host pages.
 - [ ] **S24 Loadout share codes** (M).
@@ -6173,6 +6377,235 @@ Not counted in the 28 sessions.
   `discordService.js` reads `getBeltChanges(date)` after the stats refresh
   the recap already waits for, so `discordMessages.js` still reads no
   database. No new post kind and no `discord_posts` change.
+- 2026-10-10 (S22): The owner's answers at the start of S22, each the
+  recommended option but the last. A scheduled fight night is a weekly rule
+  (a weekday, a start time in Central, a length) or a one-off (a date, a
+  time, a length), kept in a new table and edited on the admin page; the
+  Google Calendar the iframe embedded is not a source. The `.ics` feed
+  expands the next 12 weeks into one event each, in America/Chicago with a
+  VTIMEZONE, and carries every saved recap as a past event linking its
+  page; it lives at `/fight-nights.ics`. The dashboard card says "It's on"
+  at the S18 ping's 6 pilots, "On now" inside a scheduled night, else counts
+  down to the next one, lists the next three dates and links the feed, and
+  sits under the live list above the S7 teaser; the iframe,
+  `CalendarWidget` and `/api/calendar-url` go. Discord gets a reminder post
+  an hour before each night (the owner's choice over no change, or a ping
+  that names the night). Rejected: one rule in `admin_settings`, one-offs
+  alone, the environment as the editor, an RRULE feed, the card at the
+  bottom where the iframe sat, keeping `/api/calendar-url` answering.
+- 2026-10-10 (S22): What an event is, in a new `server/lib/fightNightSchedule.js`
+  (the day rules stay in `gameParse.js`, which gained `localInstant(day,
+  time)`, the UTC instant of a wall-clock time on a calendar date in
+  `FIGHT_NIGHT_DAY.timeZone` (a time the spring change skips, 02:30 on its
+  Sunday, lands after the change, 03:30 CDT, as calendar apps read a
+  skipped wall time; a time the autumn change repeats takes its first
+  pass; from /code-review, whose first draft landed the skipped time an
+  hour early); `dayStart` reads it now, so the two cannot drift;
+  `localWall(iso)`, the wall clock of an instant, which the feed's and the
+  dashboard's "until" read, so a night across the autumn change ends when
+  `underWay` says it does (/code-review: the first draft added the length
+  on the wall clock and said 02:00 where the night ended at 01:00 CST);
+  and `matchStart(game)`, the start a match records, which
+  `measuredDurationOf` and the feed's day span both read). `validateEvent`
+  takes what the admin sends: `kind` weekly or once, a `weekday` 0 (Monday)
+  to 6 for a rule or a calendar `date` for a one-off, `time` 'HH:MM' in
+  Central, `minutes` 15 to 1,440 (180 when left out), a `title` up to 80
+  characters and `notes` up to 500, trimmed; the first fault comes back as
+  a sentence the admin page shows. A `weekday` of null, '' or a boolean is
+  a fault, not Monday (/code-review: `Number()` reads them as 0), and the
+  calendar-day check is `dayBounds`' own, not a second copy.
+  `occurrences(events, from, to)` expands
+  the rules day by day over the window's calendar dates and keeps every
+  occurrence that overlaps `[from, to)`, so a night under way at `from` is
+  in; each occurrence has its UTC `start` and `end`, its `date` and `time`
+  on the wall clock, and its fight-night `day` (a night that starts after
+  midnight belongs to the evening before, as a match would). A DST change
+  moves the UTC time and never the wall clock (tested on 2026-03-07/08
+  and 2026-10-31/11-01). `nextOccurrence` is the one under way or the next
+  to start; `underWay` whether it has started and not ended. The limits
+  are `SCHEDULE` (12 weeks, 180 minutes, 3 listed, 60 reminder minutes).
+- 2026-10-10 (S22): `fight_night_events(id, kind, weekday, date, time,
+  minutes, title, notes, updated_at)` in `tracker.db`, `id` an
+  autoincrement, read and written by `server/db/repos/fightNightEvents.js`
+  (`db` keys `listFightNightEvents`, `getFightNightEvent`,
+  `saveFightNightEvent`, `deleteFightNightEvent`; the list puts weekly rules
+  before one-offs). Primary data like the S15 server tables: nothing
+  rebuilds it and the nightly backup carries it. First build:
+  `ensureFightNightEvents` in `migrations.js` creates it empty at startup,
+  and the admin fills it. A restart needs no repair. `restoreHot` creates it
+  for a backup from before S22, empty, and a later backup brings its own
+  rows (a restore replaces the schedule with the backup's, as it replaces
+  the recaps). Rollback: revert, pull the old image, and `DROP TABLE
+  fight_night_events;` on `tracker.db`, or leave it (nothing older reads
+  it); the schedule is lost with the table. Rejected: a JSON string in
+  `admin_settings` (no ids to edit or delete by, and every backup download
+  would carry it as a setting).
+- 2026-10-10 (S22): The feed, `icsFeed` in `fightNightFeed.js`, written
+  by hand (RFC 5545: CRLF line ends, lines folded at 75 octets without
+  splitting a character, text escaped) rather than a dependency: it is
+  one VCALENDAR (`METHOD:PUBLISH`, `X-WR-CALNAME`, `X-WR-TIMEZONE`,
+  `REFRESH-INTERVAL` an hour), a VTIMEZONE for America/Chicago (the US rule
+  since 2007: forward on the second Sunday of March, back on the first
+  Sunday of November, at 02:00; a test checks its offsets against
+  `localInstant` on the DST days, so a change of zone fails a test instead
+  of drifting the feed), one VEVENT per coming occurrence (`DTSTART;TZID=`
+  on the wall clock as the admin typed it, so a subscriber in another zone
+  sees 8 pm Central converted, and `DTEND` in UTC, since a wall-clock end
+  inside the autumn change's repeated hour is read as its first pass, an
+  hour early, by RFC 5545; changed on the PR review from `DTEND;TZID=`;
+  `UID`
+  `fight-night-<id>-<date>@overloadfight.club`, `DTSTAMP` the event's
+  `updated_at`, the notes plus a "Live servers" line as `DESCRIPTION`, the
+  fight-night page as `URL`), and one per saved recap (`UID`
+  `recap-<date>@`, `DTSTART` and `DTEND` in UTC from the day's earliest
+  match start to its last match's end, the day's rows read on
+  `idx_games_date` by a new `getDaySpan` in `repos/games.js`, hot and cold
+  (the first match to end is not the first to start when servers run in
+  parallel, found on the PR review); `SUMMARY` "Fight Night
+  recap: <day>", the totals and most kills as `DESCRIPTION`, the recap page
+  as `URL`; a recap whose day has no stored match is left out). The span
+  is read over both files and the earliest start and latest end taken
+  (/code-review: a cold move during a night splits it, and the first
+  draft stopped at the hot file). The last feed built is kept for
+  `FEED_CACHE_MS` (10 minutes, the `max-age`) while the events' and the
+  recaps' versions (count and latest write, two new `db` keys
+  `fightNightEventsVersion` and `fightNightRecapsVersion`) and the
+  request's origin are the ones it was built from, so hourly polls from
+  every subscriber do not each read every recap's day and any write shows
+  on the next request the server builds (a browser or proxy may hold the
+  feed for the `max-age` of 600 s) (/code-review asked for the cache; /simplify
+  replaced the clears the admin routes made by hand, which a new recap
+  from the detector and a backup restore did not make, with the version). The
+  occurrences are expanded, not written as RRULE, so every parser agrees
+  on the dates and each night is its own event. `GET /fight-nights.ics`
+  (mounted at the root by `index.js`, like `robots.txt`, so a
+  `webcal://overloadfight.club/fight-nights.ics` link reads well and
+  `robots.txt` does not disallow it) and `GET /api/fight-nights.ics`
+  (`routes/fightNights.js`) share one handler: `text/calendar;
+  charset=utf-8`, `Content-Disposition: inline; filename=`, `Cache-Control:
+  public, max-age=600`, the origin from the request as `og:url` takes it.
+  The feed carries the next `SCHEDULE.horizonWeeks` (12) of nights and
+  every saved recap. Checked with ical.js (a real parser) against the local
+  server: 15 events, every scheduled one's UTC instant equal to the API's
+  through the VTIMEZONE, the November change included.
+- 2026-10-10 (S22): `GET /api/fight-nights/schedule` (in
+  `routes/fightNights.js`, before `/fight-nights/:date`, which would read
+  "schedule" as a date) answers an array: the occurrences from now to the
+  horizon, one under way included (the first draft also sent `now`, the
+  zone's words, the horizon and the feed's path, which nothing read). No
+  cache: it reads one small table. The client reads it through
+  `fetchFightNightSchedule` (null on failure) and `useLoad`.
+- 2026-10-10 (S22): The admin endpoints, in a new
+  `server/routes/adminEvents.js` that `admin-routes.js` mounts after
+  `requireAuth` (so `admin-routes.js` stays under 500 lines): `GET
+  /api/admin/events` (the rows), `POST /api/admin/events` (a new event, or
+  the one with `id` changed; the row as stored, 400 with `validateEvent`'s
+  sentence, 404 for an unknown id) and `DELETE /api/admin/events/:id` (404
+  for an unknown id). The client's `adminRequest` learned DELETE;
+  `fetchAdminEvents`, `saveAdminEvent` and `deleteAdminEvent` sit beside
+  the other admin helpers. `components/admin/AdminFightNights.tsx` with
+  `hooks/useAdminEvents.ts` sits between Dashboard Config and the Discord
+  card: the stored events ("Every Saturday, 8:00 pm, 180 minutes", a
+  one-off's date), Edit and Delete per row (Delete asks for a second press
+  rather than a `confirm()` dialog), and one form for a new or changed
+  event (repeats, weekday or date, start, length, title, notes) with the
+  server's sentence shown on a refusal; the shared states for loading,
+  failure and nothing scheduled.
+- 2026-10-10 (S22): The dashboard's card,
+  `components/gameList/FightNightSchedule.tsx`, imported by `GameList` (so
+  it lands in `GameList`'s chunk; a lazy component suspending inside the
+  lazy `GameList` would blank the page under the one `Suspense`, the S7
+  reason the teaser is static) and rendered on the servers tab between
+  the live list and `afterLive`, so the order under the live list is the
+  next night, then the last one's recap (the S7 teaser), then the S14
+  heatmap. One request for the schedule per mount and the shared
+  server-browser poll; `now` ticks every 30 s in the browser, so the
+  countdown moves without a request. The status line, in this order:
+  "It's on: N pilots in the server browser." when `browserPilots` of the
+  poll reaches `FIGHT_NIGHT_PING.pilots` (the S18 rule, read from
+  `gameParse.js`; `itsOnLine` in `matchResult.js` is now the ping's own
+  words too), with the night's title when one is under way and a "Watch
+  live" link to the server with the most pilots; else "On now: <title>,
+  until <end> Central time." inside an occurrence's window; else "Next
+  fight night: <title>, <eventWhen>, <countdown>." The words are
+  `eventWhen` ("Sat, Oct 17, 2026, 8:00 pm Central time"), `clockLabel`
+  and `countdown` ("in 2 days 4 hours", "in 3 hours 12 minutes", "in 12
+  minutes", "in under a minute") in `matchResult.js`, which the Discord
+  reminder shares. Under it the next `SCHEDULE.listed` (3) nights (title,
+  day, time), a "Subscribe in your calendar" link (`webcal://` on the
+  page's host) with a Copy link button on the `https` URL (the `JoinIp`
+  clipboard pattern), and the feed URL to select. Loading and failure
+  render nothing, as the iframe widget did (changed on the PR review from
+  the shared compact states, which put a spinner on every visit of a site
+  with nothing scheduled and an error card during an outage); with nothing
+  scheduled and nobody on it renders nothing, like the teaser. No Recharts;
+  the dashboard's
+  first visit still loads no chart chunk.
+- 2026-10-10 (S22): What replaced the iframe. `components/CalendarWidget.tsx`
+  (the Google Calendar iframe, which the CSP's `default-src 'self'` and
+  COEP `require-corp` blocked twice over, audit item) is deleted, and `GET
+  /api/calendar-url` with it: a public API path removed, hence this entry.
+  It answered the `CALENDAR_EMBED_URL` setting, which nothing read but the
+  widget; the row stays in `admin_settings` where one exists, unread. The
+  CSP is unchanged (no `frame-src`; nothing frames anything now).
+- 2026-10-10 (S22): The Discord reminder, through S18's service with no new
+  timer or table: a `reminder` kind in `discord_posts`, keyed
+  `<start ISO> <event id>` (`reminderKey`), so the keys sort by time and
+  `dropStaleDiscordPosts('reminder', now's ISO)` drops every pending
+  reminder whose key sorts before it, a night that has started, as the
+  ping's and the recap's stale rows are. The start is in the key on
+  purpose: a night whose time the admin moves is announced again at its
+  new time, and a deleted and recreated event (a new id) too; a title or
+  notes edit does not post again (tested on the PR review). `checkReminders(now)` runs on every S15
+  server-browser tick, in the tick's `finally`, so a tracker outage or an
+  empty answer does not silence it; it posts, while the switch is on and a
+  URL is set, the reminder for each occurrence starting within
+  `SCHEDULE.reminderMinutes` (60, the hour inclusive) and not yet started,
+  once per occurrence; a failed post stays pending and the next tick tries
+  again, up to the S18 three. The message (`reminderMessage` in
+  `discordMessages.js`, no database read): "Fight night in 50 minutes:
+  <title>, <eventWhen>." with the time left by `countdown` (/code-review:
+  the first draft always said 60, though a restart or a late switch posts
+  nearer the start) and an embed titled by the night, linking the
+  dashboard, the notes as its description, and "Starts" and "Calendar"
+  (the feed under `SITE_URL`) fields; markdown escaped, no mentions. The
+  admin card's caption names it and its posts list labels the kind
+  "Reminder"; the test post's sentence names it. A server down for the
+  whole hour before a night posts no reminder for it, and one that comes
+  up inside the hour posts it then. No share card: the schedule has no
+  page of its own.
+- 2026-10-10 (S22): What /simplify changed. Its four agents (reuse,
+  simplification, efficiency, altitude) gave some forty findings; applied:
+  the feed moved into its own server-only `server/lib/fightNightFeed.js`
+  (the recap event's words now come from `fightNightCard` in
+  `shareCards.js`, the third place that described a night, and that module
+  hashes with node:crypto, which broke the client build the moment the
+  schedule module imported it; the page imports `fightNightSchedule.js`
+  and never the feed); a `hooks/useCopy.ts` hook shared by `JoinIp` and
+  the card's copy button; `busyServers` in `gameParse.js` beside
+  `onlineServers`, read by the ping's list and the card's live link; each
+  occurrence carries its end on the wall clock (`endDate`, `endTime`) and
+  no longer `kind`, `minutes` or a `wallEnd` helper; `comingOccurrences`
+  in the schedule module, `nextOccurrence` its first; `foldLine` counts
+  octets by code point instead of encoding the growing line per character
+  (the efficiency agent's bench: 65 ms to 1.7 ms for a 170 KB feed); the
+  card is `memo`'d like its neighbours and ticks only while a night is
+  coming; `wholeNumber` is the one reader behind `weekday`, `minutes` and
+  the admin routes' ids; `saveFightNightEvent` answers null for an id no
+  row has and the route sends 404 on that, with no read before the write;
+  the schedule answer is the array alone and the page takes `FEED_PATH`
+  from the module; `getDaySpan` is one statement per value over `games`
+  UNION ALL `cold.games`; the admin card's `open` helper and the hook's one
+  `mutate` path; the reminder's stale bound is the plain ISO of `now`
+  (a night starting this very millisecond is dropped on the next tick).
+  Kept against the findings: the reminder rides the snapshot tick (item 7
+  of the Done-when list, so a tracker outage does not silence it) rather
+  than a timer of its own; the feed stays mounted at the root and under
+  `/api` (item 3); a recap's span is read from the matches, not stored in
+  the recap JSON (older recaps would need a backfill); `matchStart`'s rule
+  stays in `gameParse.js` rather than a `json_extract` in SQL; the admin
+  list is refetched after a write rather than patched from the answer
+  (one small list, admin only).
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -7309,6 +7742,84 @@ Not counted in the 28 sessions.
   is over 10 minutes old, so a page left open shows the champions of up
   to 10 minutes before its last navigation.
 
+- (S22) Earlier flags that name S22, the schedule, iCal, the calendar, the
+  countdown, the teaser, fight nights or the Discord ping, decided:
+  - (audit, S1) The calendar iframe blocked by the CSP and COEP: closed.
+    The widget and `/api/calendar-url` are gone; the schedule is the
+    site's own.
+  - (S7) The teaser waits for the first poll and the `GameList` chunk, and
+    a recap made while the tab stays open shows after a reload: still
+    open, and the schedule card behaves the same way (one request per
+    mount; an event the admin adds shows on the next visit). The countdown
+    itself moves every 30 s without a request.
+  - (S14, S15) The fight-night thresholds tuned on UTC days, which no local
+    night passed until 2026-10-09 (33 matches, 21 pilots) did: still the
+    owner's call. The schedule does not read them: a scheduled night that
+    falls short of them gets no recap and so no past event in the feed.
+  - (S18) The Monday power-rankings post: still not built; the reminder is
+    a post per scheduled night, not a weekly one.
+  - (S18) The ping counts players in lobbies, and the card's "It's on" line
+    reads the same count, so six pilots idling in a lobby light it.
+  - (S18) The ping's rising edge lives in memory: unchanged. The reminder
+    keeps no memory; its row in `discord_posts` is the only state.
+  - (S21) A belt that changes hands on a night below the thresholds is
+    never announced: unchanged.
+- (S22) The VTIMEZONE block hard-codes the US rule for America/Chicago. A
+  change of `FIGHT_NIGHT_DAY.timeZone` fails the test that checks the
+  block's offsets against `localInstant`, which is the reminder to rewrite
+  the block, not a fix.
+- (S22) A time that happens twice on the autumn DST day (01:00 to 01:59
+  on the first Sunday of November) is its first pass (CDT) for the server,
+  while a calendar app reading `DTSTART;TZID=` picks whichever it likes;
+  a night scheduled inside that hour can differ by an hour between the
+  feed and the dashboard. A night's end is written in UTC, so an end inside
+  that hour (a 23:30 night) is never ambiguous; a test pins it. The skipped
+  spring hour is pinned by a test (after the change, both sides); no night
+  is scheduled at 1 or 2 am.
+- (S22) The last feed built is kept ten minutes while the events' and
+  recaps' counts and latest writes are unchanged, and a build reads each
+  saved recap's day on the index (every recap, no cap; the PR review
+  lifted the first draft's 500) and parses each match's blob for its start
+  (a night's worth per recap). Two origins taking turns (apex and
+  www) rebuild on each switch. The dashboard's schedule is expanded per
+  request (one small table).
+- (S22) Recaps older than hot storage keep their UTC dates (the S14
+  decision), so `getDaySpan` reads their day by the Central rule and may
+  find fewer matches, or none, in either file; such a recap is left out of
+  the feed or spans less than its night. The local data has none.
+- (S22, /code-review, taken on the PR review) The dashboard card renders
+  nothing while the schedule loads or fails, as the iframe widget did; the
+  first draft showed the shared Loading and ErrorState (with Retry), as the
+  heatmap and region cards beside it do, which put a brief spinner on each
+  dashboard visit of a site with nothing scheduled and an error card during
+  an outage.
+- (S22) The reminder rides the minute tick, so a server that is down for
+  the whole hour before a night posts no reminder for it, and one that
+  restarts inside the hour posts it then. A missed reminder is dropped
+  once the night starts and never posted late.
+- (S22) The admin card's posts list is the latest 5 rows of every kind, so
+  a week of reminders can push the recap and the ping off it; the Refresh
+  button and the database still have them.
+- (S22) The fight-night page has no subscribe link; only the dashboard
+  card carries the feed. A link on `/fight-night` would be one line.
+- (S22) The admin form's own validation (`required`, `min`, `max`, the
+  `time` and `date` inputs) stops most bad input before the server sees
+  it, so `validateEvent`'s sentences reach the page only through the API
+  or a browser without the checks; the Chrome check forced one with a
+  mocked 400.
+- (S22) The dashboard card and the admin card each format a night with
+  `clockLabel` and `dayLabel`; the feed's `DESCRIPTION` of a coming night
+  carries the notes and a link but not the time (the DTSTART is the time).
+- (S22) With mobile emulation on, headless Chrome reports a layout
+  viewport wider than 390 px on `/rivals` (849), `/ladders` (446), `/maps`
+  and `/maps/BLIZZARD` (898), where the body stays 390 px and each wide
+  table scrolls inside its wrapper. S17 to S21 measured the body; S22's
+  harness does too, with emulation off. Whether a real phone zooms those
+  pages out was not checked. Not an S22 change.
+- (S22) The map-image 404s overloadmaps.com answers (maps 62, 151, 424, 516
+  and 640) still log on `/`, `/history`, `/maps` and `/maps/BLIZZARD`;
+  reported by the harness, not an S22 change.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -7355,6 +7866,12 @@ older reads them). The S20 code's built marker names its own list, so the
 first start after the revert refreshes once. Every share card's `?v=`
 changes back with `CARD_LAYOUT`, so previews fetch the old layout again;
 `/belts` links open the dashboard.
+S22 adds `fight_night_events` to `tracker.db`, primary data: after its
+revert `DROP TABLE fight_night_events;` or leave it (nothing older reads
+it; dropping it loses the schedule). The `reminder` rows in `discord_posts`
+can stay. `/fight-nights.ics` answers the dashboard page after the revert,
+so a calendar subscribed to it sees no events; the iframe widget and
+`/api/calendar-url` come back with the revert, blocked by the CSP as before.
 
 ## Open questions
 
@@ -7389,6 +7906,11 @@ changes back with `CARD_LAYOUT`, so previews fetch the old layout again;
   were settled by the owner at its start; see the S21 decisions. During
   the session /code-review moved the CTF and Monsterball belts to the
   most captures or goals (see the belt rule decision).
+- S22's seven (what an event is and where it lives, who edits it, what
+  the feed carries, its URL, the countdown and the live states, where the
+  card sits and what replaces the iframe, Discord) were settled by the
+  owner at its start; see the S22 decisions. Every answer was the
+  recommended one but Discord, where the owner chose the reminder post.
 
 ## Skills to load
 
@@ -8152,13 +8674,32 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   sizing rule by tile count. 33 of 33 mutants fail a test. Chrome: 134 of
   140, the failures map-image 404s from overloadmaps.com, now including
   SWAT. PR #22 opened against `main`, CI green on both jobs, not merged.
+- 2026-10-10, S22 (Claude Fable 5.1): fight-night schedule and iCal.
+  PR #22 had merged as `a8056b6` (the prompt said open), so the branch
+  came from there. The owner chose a `fight_night_events` table edited on
+  the admin page, a feed of the next 12 weeks plus every saved recap at
+  `/fight-nights.ics`, a card that says it's on at 6 pilots, on now inside
+  a night and otherwise counts down, the iframe gone, and a Discord
+  reminder an hour before each night (the one answer off the recommended
+  option). The rules went into `fightNightSchedule.js` on a new
+  `localInstant` in `gameParse.js`; the feed is written by hand and was
+  read back by ical.js against the local server, 13 of 13 scheduled
+  nights matching the API's UTC across the November change. /code-review
+  found 10 issues, 9 fixed (the worst: a night across the autumn change
+  ending an hour late in the feed, a skipped spring time landing an hour
+  early, a null weekday read as Monday). /simplify's four agents gave some
+  forty findings, most applied; the feed moved into a server-only module
+  after the share card's node:crypto broke the client build, and the feed
+  cache went from hand clears to the data's version. 50 of 50 mutants fail
+  a test. Chrome: 104 of 104 at 1,280 and 390 px. PR #23 opened against
+  `main`, CI green on both jobs, not merged.
 
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S22: Fight-night schedule and iCal.
+Continue the overloadfight.club roadmap. This session is S23: Maps and hosts.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first (a hook blocks reads over 350 lines, so read it in sections), then verify its status line against the repo before building on anything in it.
@@ -8167,53 +8708,53 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S21 is on branch ofc/s21-belts-and-achievements, PR #22. PRs #1 to #21 are merged.
-  If PR #22 is merged:
-    git checkout -B ofc/s22-fight-night-schedule origin/main
-  If PR #22 is still open:
-    git checkout -B ofc/s22-fight-night-schedule origin/ofc/s21-belts-and-achievements
-    and open the S22 PR against main anyway; say in its description that it sits on PR #22.
-  Check again before opening the PR: if PR #22 merged during the session, rebase onto origin/main first.
+  S22 is on branch ofc/s22-fight-night-schedule, PR #23. PRs #1 to #22 are merged.
+  If PR #23 is merged:
+    git checkout -B ofc/s23-maps-and-hosts origin/main
+  If PR #23 is still open:
+    git checkout -B ofc/s23-maps-and-hosts origin/ofc/s22-fight-night-schedule
+    and open the S23 PR against main anyway; say in its description that it sits on PR #23.
+  Check again before opening the PR: if PR #23 merged during the session, rebase onto origin/main first.
   `git checkout -B ... origin/...` sets the remote branch as upstream; run `git branch --unset-upstream` so a bare push cannot go to main.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #22 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #23 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 26
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
-If neither origin/main nor origin/ofc/s21-belts-and-achievements has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s22-fight-night-schedule has docs/ROADMAP.md, stop and tell me.
 
-Before building, ask me the questions the S22 entry leaves open: what a scheduled fight night is (a recurring rule such as every Saturday at 20:00 Central, one-off events the admin enters, or both; whether events come from the Google Calendar the dashboard's iframe embeds today) and where they are kept (a new events table, admin settings, the environment); who creates and edits them (the admin page, nobody but a deploy); what the .ics feed carries (scheduled nights only, past recaps too, the URL, the time zone, how long an event runs, the S14 fight-night day) and whether each event links to its recap; what the dashboard countdown shows (the next event, a "live now" state when the S18 ping's 6 pilots are on, nothing when no event is set) and where it sits beside the S7 teaser and the S14 heatmap; what replaces the calendar iframe; and whether the schedule touches the S18 ping or the recap (a reminder post, the detector's window). Do not pick silently.
+Before building, ask me the questions the S23 entry leaves open: what Map of the Week is (the map with the most matches over the last fight-night week, the most over a rolling 7 days, one the admin picks, one drawn at random from the catalog) and where it shows (the dashboard beside the S22 schedule card, the maps page, the Discord recap or its own weekly post); what `/author/:name` shows (the author's maps with plays, kills, a trend and the top pilots on them, as the plan page says; whether a "being played right now" badge reads the shared server-browser poll; whether an author with one map gets a page) and where it is linked from (the map popup, the maps page, the match page); what the nightly map sync does (the admin's "Sync Catalog" on the 03:00 job or its own timer, what it does when overloadmaps.com is down or answers fewer maps than stored, whether it downloads images or leaves that to the image route) and whether the admin page shows when it last ran; what a host page is now that `/server/:ip` (S15) shows uptime, peak hours, the last 24 hours and the olmod version from `servers.version` (nothing more, a hosts list, a link from the maps an author's maps are played on) and whether a "host" is a server or the person who runs it; and whether any of it gets a share card (an author page in S19's layout) or a Discord post. Do not pick silently.
 
 Read first:
-- docs/ROADMAP.md, the S22 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the fight-night service, the S14 day rule, the S15 server browser tick, the S18 Discord service and the admin page already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S7 decisions (the dashboard order, the teaser), S8 (URLs, share tags), S9 (tokens, shared states), S14 (the fight-night day, the detector, the recap rebuild), S15 (the minute tick), S18 (the Discord service, discord_posts, the ping), S19 (share cards, CARD_VIEWS), S21 (belt_reigns, the recap's New champion field), and every "Flagged, not fixed" item that names S22, the schedule, iCal, the calendar, the countdown, the teaser, fight nights or the Discord ping.
-- components/CalendarWidget.tsx, server/routes/config.js (/calendar-url), components/GameList.tsx, components/FightNightTeaser.tsx, server/services/fightNightService.js, server/services/discordService.js, server/lib/discordMessages.js, server/db/repos/settings.js, server/admin-routes.js, components/admin/, server/lib/gameParse.js (FIGHT_NIGHT_DAY, dayBounds, localClock), server/lib/siteRoutes.js and server/pageMeta.js. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S23 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the map library, the map sync, the S15 server page, the S19 cards and the admin page already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S7 decisions (the dashboard order), S8 (URLs, share tags), S9 (tokens, shared states), S14 (the fight-night day), S15 (the server page, `servers`, the minute tick), S16 (the maps page's grids, `map_weapons`, `mapKey`), S19 (share cards, CARD_VIEWS, the map card and its image), S22 (the schedule card's place on the dashboard, the feed, the reminder), and every "Flagged, not fixed" item that names S23, maps, the map sync, authors, hosts, servers, the map popup or overloadmaps.com (the map-image 404s among them).
+- components/MapLibrary.tsx, components/mapLibrary/, services/mapService.ts, server/services/mapSyncService.js, server/routes/maps.js, server/db/repos/maps.js (`getMapIntel`, `mapImagePath`), server/seed/, components/ServerHistory.tsx, server/db/repos/servers.js, server/db/analytics/servers.js, components/admin/AdminMapManagement.tsx, hooks/useAdminMaps.ts, server/maintenance.js (the 03:00 job), server/lib/shareCards.js (`mapCard`), server/lib/siteRoutes.js and server/pageMeta.js. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js (`onDay`, `movedTo`). vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
-- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every schedule rule ships with a test on fixture data, the DST days included.
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every map and author rule ships with a test on fixture data.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
 - Secrets come from the environment or admin-only storage, never from tracked files, logs, error messages, API answers to non-admins or share tags.
 - server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. A new table or cache on disk gets a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/ (admin ones behind requireAuth). Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game and day rules (FIGHT_NIGHT_DAY: America/Chicago, 06:00 rollover); server/lib/matchResult.js the shared wording; server/lib/siteRoutes.js the page URLs (`urlFor`, `parseRoute`, `pageTitle`); server/lib/shareCards.js what a share card says. A page reads the same numbers the pages beside it show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request. A page's not-found state comes from a 200 answer, so the browser logs no error (S15, S17, S20, S21).
-- A new view is React.lazy in App.tsx behind the one Suspense, with its route, title and nav section in siteRoutes.js and its share description in pageMeta.js; the dashboard's first visit loads no Recharts chunk. Record the entry size (S21 left 234.57 KB raw / 75.21 KB gzip) and `GameList`'s and any new chunk before and after.
-- Colours, radius and small text come from designTokens.js; chart colours from `chart` there, checked with the dataviz validator for any new pair. Shared states (Loading, EmptyState, ErrorState) for loading, nothing and failure; 390 px wide at 390 px.
+- server/lib/gameParse.js owns the game and day rules (FIGHT_NIGHT_DAY: America/Chicago, 06:00 rollover; `mapKey`); server/lib/matchResult.js the shared wording; server/lib/siteRoutes.js the page URLs (`urlFor`, `parseRoute`, `pageTitle`); server/lib/shareCards.js what a share card says; server/lib/fightNightSchedule.js the schedule. A page reads the same numbers the pages beside it show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request. A page's not-found state comes from a 200 answer, so the browser logs no error (S15, S17, S20, S21).
+- A new view is React.lazy in App.tsx behind the one Suspense, with its route, title and nav section in siteRoutes.js and its share description in pageMeta.js; the dashboard's first visit loads no Recharts chunk. Record the entry size (S22 left 234.85 KB raw), `GameList`'s, `MapLibrary`'s and any new chunk before and after.
+- Colours, radius and small text come from designTokens.js; chart colours from `chart` there, checked with the dataviz validator for any new pair. Shared states (Loading, EmptyState, ErrorState) for loading, nothing and failure; 390 px wide at 390 px (measure `document.body.scrollWidth` with mobile emulation off, as S22 did; see its flag on `/rivals`, `/ladders` and `/maps`).
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Keep new components and modules under 500 lines (S11).
-- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI). A new dependency (an iCal library, say) gets a decision entry; writing the few lines of RFC 5545 by hand needs none.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (76 local matches at the end of S21; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the pages' tags and any feed with curl, and the pages in headless Chrome over CDP, as S4 and S7 to S21 did (S21's harness was a CDP client over Node's WebSocket on port 9341 with its own profile and a Fetch-domain mock list that fulfils, fails or holds; write your own; read text with textContent, since innerText applies the uppercase CSS, and wrap a DOM node in `!!` before reading it by value); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/`, `/history` and `/maps` also log 404s for map images overloadmaps.com lacks (maps 151, 424, 516 and 640; S18 to S21 flags); report them, do not filter them.
+- Keep new components and modules under 500 lines (S11). `MapLibrary.tsx` is 860 lines already: put new map-page pieces in components/mapLibrary/.
+- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI). A new dependency gets a decision entry.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (76 local matches at the end of S22; the server stores the tracker's server browser every minute and now checks the schedule's reminders on each tick, so a running local server makes network calls to tracker.otl.gg; a map sync calls overloadmaps.com). Check the pages' tags with curl, and the pages in headless Chrome over CDP, as S4 and S7 to S22 did (S22's harness was a CDP client over Node's WebSocket on port 9341 with its own profile and a Fetch-domain mock list that fulfils, fails or holds; write your own; read text with textContent, since innerText applies the uppercase CSS, and wrap a DOM node in `!!` before reading it by value, since CDP returns a node as undefined); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/`, `/history`, `/maps` and `/maps/BLIZZARD` also log 404s for map images overloadmaps.com lacks (maps 62, 151, 424, 516 and 640; S18 to S22 flags); report them, do not filter them. The local schedule holds a weekly Saturday rule and a one-off from S22's checks; the admin page can delete them.
 - Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy kept in the scratch folder, named by absolute path, not with `git checkout`, which also discards uncommitted work. Run `git status` after every mutation run.
 
 Rules for this session:
-- One PR, scope is the S22 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the owner's answers, what an event is and where it lives, the feed's format and URL, the countdown, what replaces the iframe, any Discord change, any share card, any new table, setting or cache and its migration, and any new endpoint.
+- One PR, scope is the S23 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the owner's answers, what Map of the Week is and where it shows, the author page and its URL, the nightly sync and its failure rule, what a host page adds, any share card, any Discord change, any new table, setting or cache and its migration, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description, the tracker prose and the page's words.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S22 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S23 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S23.
+- Before ending: tick S23 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S24 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S24.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S21 left 24 files, 427 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|AdminPanel|FightNightSection)-.*\.js"` (the Verification table records the entry at 75.21 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S22 Done-when list into the tracker.
-Done when: every item of the S22 Done-when list is true and checked on fixture data (the DST days included) and in headless Chrome at 1,280 and 390 px (the dashboard and any new view on local data plus Fetch-domain mocks for their states), with curl against the local server for the feed and any share tags, and the feed opened by a calendar parser; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, belts, a tape, pilot pages, maps, match page and the admin page still work, and the S19 to S21 cards still draw; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S22 PR; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/stats/belts`, `/api/pilot/:name/rivalry`, `/api/pilot/:name/tape/:opponent`, `/api/pilot/:name/opponents`, `/api/pilot/:name/achievements`, `/api/card/pilot/:name`, `/api/card/belts` and `/api/health`; and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S22 left 26 files, 457 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|MapLibrary|AdminPanel)-.*\.js"` (the Verification table records the entry at 234.85 KB raw / 75.30 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S23 Done-when list into the tracker.
+Done when: every item of the S23 Done-when list is true and checked on fixture data and in headless Chrome at 1,280 and 390 px (any new view and the maps page on local data plus Fetch-domain mocks for their states), with curl against the local server for any share tags; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, belts, a tape, pilot pages, maps, the server page, match page and the admin page still work, the S19 to S21 cards still draw and the S22 feed still parses; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S23 PR; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/stats/belts`, `/api/pilot/:name/rivalry`, `/api/pilot/:name/tape/:opponent`, `/api/pilot/:name/opponents`, `/api/pilot/:name/achievements`, `/api/fight-nights/schedule`, `/fight-nights.ics`, `/api/card/pilot/:name`, `/api/card/belts` and `/api/health`; and the PR is open with the tracker updated.
 ```

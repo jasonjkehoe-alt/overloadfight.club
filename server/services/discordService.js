@@ -1,6 +1,7 @@
 import db from '../db.js';
 import { FIGHT_NIGHT_PING, browserPilots, fightNightDay, shiftDay } from '../lib/gameParse.js';
-import { pingMessage, recapMessage, testMessage } from '../lib/discordMessages.js';
+import { pingMessage, recapMessage, reminderMessage, testMessage } from '../lib/discordMessages.js';
+import { dueReminders, reminderKey } from '../lib/fightNightSchedule.js';
 import { SITE_NAME } from '../lib/siteRoutes.js';
 import { fightNightCard } from '../lib/shareCards.js';
 import { renderCard } from './cardService.js';
@@ -10,14 +11,15 @@ import { renderCard } from './cardService.js';
 // an error or an answer; the admin page switches posting on and off
 // (admin_settings discord_enabled) and sees the URL masked. Each post is a
 // row in discord_posts, so it goes out once: the ping once per fight-night
-// day, a recap once per date.
+// day, a recap once per date, a reminder once per scheduled night (S22).
 
 export const DISCORD_SETTING = 'discord_enabled';
 // A post is one attempt plus one more after a 429 (after Retry-After, capped)
 // or a 5xx or no answer (after waitMs). One that still fails stays pending for
-// the next tick (ping) or detector run (recap), up to `tries` posts; then it is
-// dropped, as it is at once after any other 4xx, and once its day is past
-// (checkPing, expireRecapPosts).
+// the next tick (ping, reminder) or detector run (recap), up to `tries` posts;
+// then it is dropped, as it is at once after any other 4xx, once its day is
+// past (checkPing, expireRecapPosts) or once its night has started
+// (checkReminders).
 export const DISCORD_RETRY = { waitMs: 5000, maxWaitMs: 60000, timeoutMs: 10000, tries: 3 };
 
 let stopped = false;
@@ -137,6 +139,25 @@ export function checkPing(servers, now = Date.now()) {
     } catch (error) {
         console.error('[Discord] Ping check failed:', error.message);
         return null;
+    }
+}
+
+/**
+ * Each server-browser tick, whether or not its fetch succeeded: the reminder
+ * for each scheduled night starting within SCHEDULE.reminderMinutes (S22),
+ * once per occurrence. A reminder still pending once its night has started
+ * is past trying. Returns the posts under way; the tick does not wait.
+ */
+export function checkReminders(now = Date.now()) {
+    try {
+        if (!posting()) return [];
+        db.dropStaleDiscordPosts('reminder', new Date(now).toISOString());
+        return dueReminders(db.listFightNightEvents(), now)
+            .map(one => deliver('reminder', reminderKey(one), () => reminderMessage(one, siteOrigin(), now)))
+            .filter(Boolean);
+    } catch (error) {
+        console.error('[Discord] Reminder check failed:', error.message);
+        return [];
     }
 }
 

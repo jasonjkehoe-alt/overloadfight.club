@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { RATING, winnerOf } from './gameParse.js';
-import { boutLead, clock, ratingStanding, recordText, resultLine, shortCount } from './matchResult.js';
+import { boutLead, clock, clockLabel, countdown, eventWhen, itsOnLine, ratingStanding, recordText, resultLine, shortCount } from './matchResult.js';
 import { byId, detailSample } from '../testFixtures.js';
 
 // The match page's result line, built from winnerOf() on the fixture games.
@@ -74,5 +74,28 @@ describe('boutLead and recordText (S20)', () => {
         expect(boutLead(['A', 'B'], { matches: 4, wins: 1, losses: 1, ties: 2 })).toBe('Level at 1–1, 2 ties');
         expect(boutLead(['A', 'B'], { matches: 0, wins: 0, losses: 0, ties: 0 })).toBeNull();
         expect(recordText({ wins: 3, losses: 5, ties: 1 })).toBe('3–5–1');
+    });
+});
+
+describe('the schedule\'s words (S22)', () => {
+    it('counts down in days and hours, hours and minutes, or minutes', () => {
+        expect(countdown(0)).toBe('in under a minute');
+        expect(countdown(-5000)).toBe('in under a minute');
+        expect(countdown(59 * 1000)).toBe('in under a minute');
+        expect(countdown(60 * 1000)).toBe('in 1 minute');
+        expect(countdown(12 * 60000)).toBe('in 12 minutes');
+        expect(countdown(60 * 60000)).toBe('in 1 hour');
+        expect(countdown(61 * 60000)).toBe('in 1 hour 1 minute');
+        expect(countdown((3 * 60 + 12) * 60000)).toBe('in 3 hours 12 minutes');
+        expect(countdown(2 * 86400000)).toBe('in 2 days');
+        expect(countdown((2 * 24 + 4) * 3600000 + 59 * 60000)).toBe('in 2 days 4 hours');
+        expect(countdown(86400000 + 59 * 60000)).toBe('in 1 day');
+    });
+
+    it('names a wall-clock time and when a night starts, and the ping\'s line', () => {
+        expect([clockLabel('00:05'), clockLabel('12:00'), clockLabel('20:00'), clockLabel('11:59')]).toEqual(['12:05 am', '12:00 pm', '8:00 pm', '11:59 am']);
+        expect(eventWhen({ date: '2026-10-17', time: '20:00' })).toBe('Sat, Oct 17, 2026, 8:00 pm Central time');
+        expect(itsOnLine(1)).toBe('It\'s on: 1 pilot in the server browser.');
+        expect(itsOnLine(7)).toBe('It\'s on: 7 pilots in the server browser.');
     });
 });
