@@ -63,12 +63,16 @@ function plausibleSeconds(value) {
     return n > 0 && n < MAX_DURATION_SEC ? n : 0;
 }
 
+// When the match started, as the game records it: archive games carry
+// start/end, live-era games only settings.start (the StartGame event) and
+// date (when the tracker closed it). Null when neither is there.
+export const matchStart = game => game?.start || game?.settings?.start || null;
+
 // How long the match actually ran, in seconds, or 0 when the game does not
-// record it. Archive games carry start/end. Live-era games carry only
-// settings.start (the StartGame event) and date (when the tracker closed it).
+// record it.
 export function measuredDurationOf(game) {
     if (!game) return 0;
-    const fromTimestamps = secondsBetween(game.start || game.settings?.start, game.end || game.date);
+    const fromTimestamps = secondsBetween(matchStart(game), game.end || game.date);
     if (fromTimestamps) return fromTimestamps;
     for (const field of [game.timeElapsed, game.elapsed, game.duration]) {
         const n = plausibleSeconds(field);
@@ -480,13 +484,20 @@ export function localClock(date) {
 // The fight-night day (YYYY-MM-DD) a date falls on, or null.
 export const fightNightDay = date => localClock(date)?.day ?? null;
 
-// When a fight-night day ('YYYY-MM-DD') starts, as a UTC ISO string: the wall
-// time FIGHT_NIGHT_DAY.startHour that day, read as UTC, less the offset there
-// (DST changes at 02:00, never at the start hour).
-export function dayStart(day) {
-    const wall = Date.parse(`${day}T${clockHour(FIGHT_NIGHT_DAY.startHour)}:00Z`);
+// The UTC instant of the wall-clock `time` ('HH:MM') on the calendar date
+// `day` ('YYYY-MM-DD') in FIGHT_NIGHT_DAY.timeZone, as an ISO string: the
+// wall time read as UTC, less the offset there (read twice, so a time just
+// past a DST change takes the new offset). The schedule's events (S22) and
+// the day's start both come from it.
+export function localInstant(day, time) {
+    const wall = Date.parse(`${day}T${time}:00Z`);
     return new Date(wall - wallClock(wall - wallClock(wall).offset).offset).toISOString();
 }
+
+// When a fight-night day ('YYYY-MM-DD') starts, as a UTC ISO string: the wall
+// time FIGHT_NIGHT_DAY.startHour that day (DST changes at 02:00, never at the
+// start hour).
+export const dayStart = day => localInstant(day, clockHour(FIGHT_NIGHT_DAY.startHour));
 
 // [start, end) of a fight-night day as UTC ISO strings, for
 // `date >= ? AND date < ?` on the stored dates (which can use

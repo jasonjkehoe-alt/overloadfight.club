@@ -5,11 +5,11 @@
 // The `db` object below keeps the keys it had when all of that was one file.
 import Database from 'better-sqlite3';
 import { hotDb, coldDb, dbPath, backupHot, backupCold, mapsDir, mapImagesDir } from './db/connection.js';
-import { ensureAdminSettings, ensureDerivedTables, ensureDiscordPosts, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
+import { ensureAdminSettings, ensureDerivedTables, ensureDiscordPosts, ensureFightNightEvents, ensureGamePlayersTable, ensureServerTables, migrateGamePlayers } from './db/migrations.js';
 import {
   getGames, countGames, getColdGames, countColdGames, countColdGamesInMonth, getGameById,
   getGameGaps, getLatestGameId, insertGame, saveGames, saveColdGamesBatch, updateGameDetails,
-  moveGamesToColdStorage, getMaxGameDate, getSummaryGames, getGamesForDate, hotCutoff
+  moveGamesToColdStorage, getMaxGameDate, getSummaryGames, getGamesForDate, getDaySpan, hotCutoff
 } from './db/repos/games.js';
 import {
   getBackfillJob, getActiveBackfillJob, createBackfillJob, updateBackfillJob, deleteBackfillJob,
@@ -22,6 +22,7 @@ import {
   incrementMapDownloads, updateMapLocalPaths, deleteMap
 } from './db/repos/maps.js';
 import { getFightNightRecaps, getFightNightRecapByDate, saveFightNightRecap, deleteFightNightRecapsSince } from './db/repos/fightNights.js';
+import { deleteFightNightEvent, getFightNightEvent, listFightNightEvents, saveFightNightEvent } from './db/repos/fightNightEvents.js';
 import { saveServerSnapshot, pruneServerSnapshots, getServerListing } from './db/repos/servers.js';
 import {
   getDatabaseStats, getColdDatabaseStats, getGlobalMapStats, getGlobalModeStats, getGlobalActivityStats,
@@ -86,6 +87,8 @@ const db = {
     ensureServerTables();
     ensureAdminSettings();
     ensureDiscordPosts();
+    // a backup from before S22 has no schedule; the admin enters it again
+    ensureFightNightEvents();
     restoreDiscordPosts(posts);
     clearDerivedTablesBuilt();
     clearDerivedCaches();
@@ -121,6 +124,7 @@ const db = {
   getMaxGameDate,
   getSummaryGames,
   getGamesForDate,
+  getDaySpan,
   hotCutoff,
 
   // repos/jobs.js
@@ -160,6 +164,12 @@ const db = {
   getFightNightRecapByDate,
   saveFightNightRecap,
   deleteFightNightRecapsSince,
+
+  // repos/fightNightEvents.js
+  listFightNightEvents,
+  getFightNightEvent,
+  saveFightNightEvent,
+  deleteFightNightEvent,
 
   // repos/servers.js
   saveServerSnapshot,

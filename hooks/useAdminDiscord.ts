@@ -3,7 +3,7 @@ import { fetchAdminDiscord, saveAdminSetting, sendAdminDiscordTest } from '../se
 
 // GET /api/admin/discord (server/services/discordService.js discordStatus).
 export interface DiscordPost {
-    kind: 'ping' | 'recap';
+    kind: 'ping' | 'recap' | 'reminder';
     key: string;
     status: 'pending' | 'sent' | 'dropped';
     tries: number;

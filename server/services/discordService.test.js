@@ -7,6 +7,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { day, onDay, sample, veteranSoup } from '../testFixtures.js';
 import { FIGHT_NIGHT_PING, dayStart, fightNightDay, netKills, pilotKey, shiftDay } from '../lib/gameParse.js';
 import { EMBED_LIMITS, PING_SERVERS, RECAP_RANKINGS, movement, pingMessage, plain, recapMessage } from '../lib/discordMessages.js';
+import { SCHEDULE, occurrences, reminderKey } from '../lib/fightNightSchedule.js';
+import { eventWhen } from '../lib/matchResult.js';
 import { cardKey, fightNightCard } from '../lib/shareCards.js';
 import { cachedCard } from './cardService.js';
 
@@ -457,7 +459,7 @@ describe('admin endpoints and secrecy', () => {
         const ok = await post(`${adminUrl}/discord/test`);
         expect(ok.status).toBe(200);
         expect(await ok.json()).toEqual({ ok: true, status: 204 });
-        expect(received[0].body.content).toBe('Test post from overloadfight.club. Fight-night recaps and the "it\'s on" ping will post to this channel.');
+        expect(received[0].body.content).toBe('Test post from overloadfight.club. Fight-night recaps, the "it\'s on" ping and the reminder before a scheduled night will post to this channel.');
 
         answer(reply(500));
         const failed = await post(`${adminUrl}/discord/test`);
@@ -509,6 +511,84 @@ describe('admin endpoints and secrecy', () => {
     it('wrote no log line holding the URL or its token', () => {
         expect(logs.some(line => line.startsWith('[Discord]'))).toBe(true);
         expect(logs.filter(line => line.includes(SECRET))).toEqual([]);
+    });
+});
+
+describe('the reminder before a scheduled night (S22)', () => {
+    const MINUTE = 60000;
+    // the next Saturday 20:00 Central from the stored rule, and its reminder key
+    let saturday;
+    let key;
+    beforeAll(() => {
+        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        db.saveFightNightEvent({ kind: 'weekly', weekday: 5, date: null, time: '20:00', minutes: 180, title: 'Saturday Night Anarchy', notes: 'Bring a flag; or two' });
+        [saturday] = occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000);
+        key = reminderKey(saturday);
+    });
+    const start = () => Date.parse(saturday.start);
+
+    it('posts once per occurrence, from an hour before its start, with the title, the time and the links', async () => {
+        switchOn();
+        expect(discord.checkReminders(start() - (SCHEDULE.reminderMinutes + 1) * MINUTE)).toEqual([]);
+        expect(received).toHaveLength(0);
+        const [post] = discord.checkReminders(start() - 50 * MINUTE);
+        expect(await post).toMatchObject({ ok: true, status: 204 });
+        expect(received).toHaveLength(1);
+        const { body } = received[0];
+        expect(body.allowed_mentions).toEqual({ parse: [] });
+        expect(body.content).toBe(`Fight night in 60 minutes: Saturday Night Anarchy, ${eventWhen(saturday)}.`);
+        expect(body.embeds[0]).toEqual({
+            title: 'Saturday Night Anarchy',
+            url: `${ORIGIN}/`,
+            description: 'Bring a flag\; or two',
+            fields: [
+                { name: 'Starts', value: eventWhen(saturday), inline: true },
+                { name: 'Calendar', value: `${ORIGIN}/fight-nights.ics`, inline: true }
+            ]
+        });
+        expect(eventWhen(saturday)).toMatch(/^Sat, \w{3} \d{1,2}, \d{4}, 8:00 pm Central time$/);
+        expect(rows('reminder')).toEqual([expect.objectContaining({ key, status: 'sent', tries: 1 })]);
+        // the next ticks before the start post nothing more
+        expect(discord.checkReminders(start() - 49 * MINUTE)).toEqual([]);
+        expect(discord.checkReminders(start() - MINUTE)).toEqual([]);
+        expect(received).toHaveLength(1);
+    });
+
+    it('posts nothing once the night has started, while switched off, or with nothing scheduled, and drops a pending one past its start', async () => {
+        switchOn();
+        db.putDiscordPost({ kind: 'reminder', key, status: 'pending', tries: 1 });
+        expect(discord.checkReminders(start())).toEqual([]);
+        expect(db.getDiscordPost('reminder', key).status).toBe('dropped');
+        expect(received).toHaveLength(0);
+        // a pending reminder for a night that started a week ago is dropped by any later tick
+        db.putDiscordPost({ kind: 'reminder', key: `${new Date(start() - 7 * 86400000).toISOString()} 1`, status: 'pending', tries: 2 });
+        expect(discord.checkReminders(start() - 30 * MINUTE)).toEqual([]); // this night's is dropped already
+        expect(rows('reminder').map(r => r.status)).toEqual(['dropped', 'dropped']);
+        switchOn(false);
+        db.putDiscordPost({ kind: 'reminder', key, status: 'pending', tries: 0 });
+        expect(discord.checkReminders(start() - 30 * MINUTE)).toEqual([]);
+        expect(received).toHaveLength(0);
+        expect(db.getDiscordPost('reminder', key).status).toBe('pending');
+        switchOn();
+        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        expect(discord.checkReminders(start() - 30 * MINUTE)).toEqual([]);
+        expect(received).toHaveLength(0);
+    });
+
+    it('tries a failed reminder again on the next tick, and the admin status lists it by kind', async () => {
+        switchOn();
+        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        db.saveFightNightEvent({ kind: 'once', weekday: null, date: saturday.date, time: saturday.time, minutes: 60, title: 'Once', notes: '' });
+        const [one] = occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000);
+        answer(reply(500), reply(500));
+        await discord.checkReminders(start() - 20 * MINUTE)[0];
+        expect(received).toHaveLength(2);
+        expect(db.getDiscordPost('reminder', reminderKey(one))).toMatchObject({ status: 'pending', tries: 1 });
+        await discord.checkReminders(start() - 19 * MINUTE)[0];
+        expect(received).toHaveLength(3);
+        expect(db.getDiscordPost('reminder', reminderKey(one))).toMatchObject({ status: 'sent', tries: 2 });
+        expect(discord.discordStatus().posts.map(p => p.kind)).toContain('reminder');
+        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
     });
 });
 

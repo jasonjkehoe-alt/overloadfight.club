@@ -1,6 +1,7 @@
 import db from '../db.js';
 import { FIGHT_NIGHT_PING, browserPilots, fightNightDay, shiftDay } from '../lib/gameParse.js';
-import { pingMessage, recapMessage, testMessage } from '../lib/discordMessages.js';
+import { pingMessage, recapMessage, reminderMessage, testMessage } from '../lib/discordMessages.js';
+import { dueReminders, reminderKey, reminderKeysBefore } from '../lib/fightNightSchedule.js';
 import { SITE_NAME } from '../lib/siteRoutes.js';
 import { fightNightCard } from '../lib/shareCards.js';
 import { renderCard } from './cardService.js';
@@ -137,6 +138,25 @@ export function checkPing(servers, now = Date.now()) {
     } catch (error) {
         console.error('[Discord] Ping check failed:', error.message);
         return null;
+    }
+}
+
+/**
+ * Each server-browser tick, whether or not its fetch succeeded: the reminder
+ * for each scheduled night starting within SCHEDULE.reminderMinutes (S22),
+ * once per occurrence. A reminder still pending once its night has started
+ * is past trying. Returns the posts under way; the tick does not wait.
+ */
+export function checkReminders(now = Date.now()) {
+    try {
+        if (!posting()) return [];
+        db.dropStaleDiscordPosts('reminder', reminderKeysBefore(now));
+        return dueReminders(db.listFightNightEvents(), now)
+            .map(one => deliver('reminder', reminderKey(one), () => reminderMessage(one, siteOrigin())))
+            .filter(Boolean);
+    } catch (error) {
+        console.error('[Discord] Reminder check failed:', error.message);
+        return [];
     }
 }
 

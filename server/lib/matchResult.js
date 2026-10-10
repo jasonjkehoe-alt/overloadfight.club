@@ -1,6 +1,6 @@
 // The wording for a winnerOf() result (gameParse.js), shared by the match page
 // (utils/matchResult.ts) and the match's share preview (server/pageMeta.js).
-import { MATCH_MODES, RATING } from './gameParse.js';
+import { FIGHT_NIGHT_DAY, MATCH_MODES, RATING } from './gameParse.js';
 
 // m:ss for a number of seconds, 0:00 for anything below zero
 export const clock = seconds => {
@@ -103,3 +103,30 @@ export const championLine = ({ label, since, defenses }) => `${label} champion s
 // How a belt changed hands (the recap's "New champion"): "Anarchy: WD-40
 // took the belt from OKSTER", or "Anarchy: WD-40, the first champion".
 export const beltChange = ({ label, name, from }) => (from ? `${label}: ${name} took the belt from ${from.name}` : `${label}: ${name}, the first champion`);
+
+// "8:00 pm" for a wall-clock time 'HH:MM'
+export const clockLabel = time => {
+    const [h, m] = time.split(':').map(Number);
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+};
+
+// "Sat, Oct 17, 2026, 8:00 pm Central time": when a scheduled night starts
+// (S22), the same words on the dashboard, in the feed's page and in the
+// Discord reminder.
+export const eventWhen = ({ date, time }) => `${dayLabel(date)}, ${clockLabel(time)} ${FIGHT_NIGHT_DAY.label}`;
+
+// "in 2 days 4 hours", "in 3 hours 12 minutes", "in 12 minutes", "in under
+// a minute": how long until a start `ms` away (nothing in the past).
+export function countdown(ms) {
+    const minutes = Math.floor(Math.max(0, ms) / 60000);
+    if (minutes < 1) return 'in under a minute';
+    const days = Math.floor(minutes / 1440);
+    const hours = Math.floor((minutes % 1440) / 60);
+    if (days > 0) return `in ${plural(days, 'day', 'days')}${hours > 0 ? ` ${plural(hours, 'hour', 'hours')}` : ''}`;
+    if (hours > 0) return `in ${plural(hours, 'hour', 'hours')}${minutes % 60 > 0 ? ` ${plural(minutes % 60, 'minute', 'minutes')}` : ''}`;
+    return `in ${plural(minutes, 'minute', 'minutes')}`;
+}
+
+// "It's on: 7 pilots in the server browser." (the S18 ping's line, which the
+// dashboard's schedule card says too)
+export const itsOnLine = pilots => `It's on: ${plural(pilots, 'pilot', 'pilots')} in the server browser.`;

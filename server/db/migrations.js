@@ -282,6 +282,28 @@ export function ensureAdminSettings() {
 }
 ensureAdminSettings();
 
+// Fight-night events (S22, lib/fightNightSchedule.js): what the admin
+// schedules, a weekly rule (`weekday`, 0 Monday to 6 Sunday) or a one-off
+// (`date`), with its start `time` ('HH:MM' in Central), length and title.
+// Primary data like the server tables: nothing rebuilds it, the backup
+// carries it, and a restored backup from before it gets it back empty.
+export function ensureFightNightEvents() {
+  hotDb.exec(`
+    CREATE TABLE IF NOT EXISTS fight_night_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      weekday INTEGER,
+      date TEXT,
+      time TEXT NOT NULL,
+      minutes INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      notes TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    );
+  `);
+}
+ensureFightNightEvents();
+
 // Discord posts (S18, services/discordService.js): one row per post, so a post
 // goes out once whatever restarts, recap rebuilds or detector runs come after
 // it. `kind` is 'ping' (keyed by fight-night day) or 'recap' (by recap date);

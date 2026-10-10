@@ -1,18 +1,9 @@
 import express from 'express';
 import db from '../db.js';
 
-// Public settings read from admin_settings.
+// Public settings read from admin_settings. (/calendar-url, the Google
+// Calendar iframe's URL, went with the iframe in S22.)
 const router = express.Router();
-
-// Get Calendar URL
-router.get('/calendar-url', (req, res) => {
-    try {
-        const setting = db.getAdminSetting.get('CALENDAR_EMBED_URL');
-        res.json({ url: setting ? setting.value : null });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch calendar url' });
-    }
-});
 
 // GET /api/config - Public configuration
 router.get('/config', (req, res) => {

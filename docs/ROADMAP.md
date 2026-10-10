@@ -3754,7 +3754,98 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          maps, match page and admin page still work, and the S19 and S20
          cards still draw.
 - [ ] **S22 Fight-night schedule and iCal** (S). Events table, `.ics` feed,
-      dashboard countdown; remove the calendar iframe.
+      dashboard countdown; remove the calendar iframe. The owner decided at
+      the start of S22: a scheduled fight night is a weekly rule (weekday,
+      start time in Central, length) or a one-off (date, time, length), kept
+      in a new `fight_night_events` table and edited on the admin page; the
+      Google Calendar is not a source. The feed expands the next 12 weeks
+      into one event each, in America/Chicago with a VTIMEZONE, and adds
+      every saved recap as a past event linking its page; it lives at
+      `/fight-nights.ics`. The dashboard card shows "It's on" at the S18
+      ping's 6 pilots, "on now" inside an event's window, else a countdown
+      to the next night, with the next three dates and a subscribe link, and
+      sits above the S7 teaser; the iframe, `CalendarWidget` and
+      `/api/calendar-url` go. Discord gets a reminder post an hour before
+      each night. Done when (written at the start of S22):
+      1. `server/lib/gameParse.js` gains `localInstant(day, time)` (the UTC
+         instant of a wall-clock time on a calendar date in
+         `FIGHT_NIGHT_DAY.timeZone`; `dayStart` reads it) and a new
+         `server/lib/fightNightSchedule.js` owns the schedule rules on it,
+         each tested on fixture data with the DST days (2026-03-07/08 and
+         2026-10-31/11-01): what an event is (`validateEvent`: a weekly rule
+         with a weekday, a start time and a length in minutes, or a one-off
+         on a date; a title; notes), the occurrences of a set of events over
+         a window (`occurrences`: rules expanded day by day, each occurrence
+         with its UTC start and end and its fight-night day by
+         `fightNightDay`, sorted by start; a DST change moves the UTC time
+         and not the wall clock), the one under way and the next
+         (`nextOccurrence`), and the reminder's window. Constants in
+         `SCHEDULE` (12 weeks, 180 minutes, 3 listed, the reminder's 60
+         minutes).
+      2. A `fight_night_events(id, kind, weekday, date, time, minutes,
+         title, notes, updated_at)` table in `tracker.db`, primary data like
+         the S15 server tables (created empty by `migrations.js`, carried by
+         the backup, created for an older backup by `restoreHot`), read and
+         written by `server/db/repos/fightNightEvents.js` with `db` keys;
+         a migration decision entry.
+      3. The `.ics` feed, written by hand (RFC 5545: CRLF, 75-octet folding,
+         escaped text, a VTIMEZONE for America/Chicago, `DTSTART;TZID=` for
+         scheduled nights and UTC for recap events), at `GET
+         /fight-nights.ics` and `GET /api/fight-nights.ics`
+         (`text/calendar`), carrying every occurrence of the next 12 weeks
+         (one VEVENT each with the site's URL) and every saved recap as a
+         past event on its fight-night day, from its first match to its
+         last, whose URL is the recap page and whose description is the
+         recap's totals; tested by parsing it back, and opened by a calendar
+         parser against the local server.
+      4. `GET /api/fight-nights/schedule` (public, in
+         `routes/fightNights.js`, read through `apiService`, null on
+         failure): the occurrences from now to 12 weeks on (one under way
+         included), the time zone's words and the feed's path. No request
+         walks the stored matches; the feed reads each recap day's first and
+         last match time on `idx_games_date`.
+      5. Admin endpoints behind `requireAuth` in a new
+         `server/routes/adminEvents.js` mounted by `admin-routes.js`: `GET
+         /api/admin/events`, `POST /api/admin/events` (create, or update
+         with an id; 400 with a message for a bad event) and `DELETE
+         /api/admin/events/:id`; a non-admin gets 401 from each. An admin
+         card (`components/admin/AdminFightNights.tsx`, its hook in
+         `hooks/`, requests through `apiService`'s admin helpers, which
+         learn DELETE) lists the events and adds, edits and deletes them,
+         with the shared states, at 1,280 and 390 px.
+      6. The dashboard's "Fight nights" card
+         (`components/gameList/FightNightSchedule.tsx`, in `GameList`'s
+         chunk, on the servers tab above the S7 teaser and the S14
+         heatmap): "It's on: N pilots in the server browser" when the shared
+         poll shows `FIGHT_NIGHT_PING.pilots` (`browserPilots`, the S18
+         rule), else "on now" inside an occurrence's window, else the
+         countdown to the next occurrence ("in 2 days 4 hours", ticking in
+         the browser, the wording in `matchResult.js`); the next three
+         dates; Subscribe (webcal and https) with the feed URL to copy.
+         Loading and failure use the shared states; with no event and
+         nobody on it renders nothing. `CalendarWidget.tsx`, `GET
+         /api/calendar-url` and the iframe go (a decision entry for the
+         removed public path; the `CALENDAR_EMBED_URL` row stays, unread).
+      7. A Discord reminder through S18's service: a `reminder` kind in
+         `discord_posts` keyed by the occurrence's start, checked on the S15
+         minute tick (no new timer, checked whether or not the tick's fetch
+         succeeded), posted once per occurrence 60 minutes before its start
+         while the switch is on, with the title, the time in Central and a
+         link; a pending one past its start is dropped; the message in
+         `discordMessages.js` reads no database; the admin card names the
+         kind. Tested against the S18 stub.
+      8. No new view, share card or Recharts chunk; the entry (234.57 KB
+         raw / 75.21 KB gzip), `GameList` and `AdminPanel` are recorded
+         before and after; every new module is under 500 lines.
+      9. Checked with curl against the local server (the feed on both
+         paths, parsed; the schedule answer; the admin endpoints) and in
+         headless Chrome at 1,280 and 390 px: the dashboard card on local
+         data (events made through the admin API) plus Fetch-domain mocks
+         for held, failed, empty, on now, it's on and long titles; the
+         admin card with a real login (add, edit, delete); the dashboard,
+         fight night, leaderboard, rankings, ladders, rivalries, belts, a
+         tape, pilot pages, maps, match page and admin page still work, and
+         the S19 to S21 cards still draw.
 - [ ] **S23 Maps and hosts** (S). Map of the week, `/author/:name`, nightly
       map sync, host pages.
 - [ ] **S24 Loadout share codes** (M).

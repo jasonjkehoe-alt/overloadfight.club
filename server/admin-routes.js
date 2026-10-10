@@ -10,6 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import { requireAuth, login, logout, checkAuth, loginRateLimit } from './auth.js';
+import adminEvents from './routes/adminEvents.js';
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
@@ -21,6 +22,8 @@ router.get('/auth-status', checkAuth);
 
 // Protected admin routes
 router.use(requireAuth);
+// the scheduled fight nights (S22)
+router.use(adminEvents);
 
 // GET /api/admin/backup - Download a consistent copy of the database
 router.get('/backup', async (req, res) => {

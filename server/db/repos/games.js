@@ -1,6 +1,6 @@
 import { hotDb, coldDb } from '../connection.js';
 import { GAME_PLAYERS_COLUMNS, writeHotPlayers, writeColdPlayers } from '../migrations.js';
-import { dayBounds } from '../../lib/gameParse.js';
+import { dayBounds, matchStart } from '../../lib/gameParse.js';
 
 // The games table in both files: lists, search, single games, the writers that keep
 // game_players in step, the cold move, and the hydration and fight-night day reads.
@@ -451,4 +451,30 @@ export const getSummaryGames = {
 export const getGamesForDate = (dateStr) => {
   const bounds = dayBounds(dateStr);
   return bounds ? getGamesInDay.all(...bounds) : [];
+};
+
+// The first match's details and the last match's end on a day, from either
+// file, each on idx_games_date (the .ics feed's recap events, S22).
+const firstGameInDay = conn => conn.prepare('SELECT details FROM games WHERE date >= ? AND date < ? ORDER BY date LIMIT 1').pluck();
+const lastDateInDay = conn => conn.prepare('SELECT MAX(date) FROM games WHERE date >= ? AND date < ?').pluck();
+const daySpanStmts = [[firstGameInDay(hotDb), lastDateInDay(hotDb)], [firstGameInDay(coldDb), lastDateInDay(coldDb)]];
+// { start, end } of the matches on a fight-night day: the first match's
+// start (null when it has none) and the last match's end, as UTC ISO
+// strings; null for a day with no match in either file.
+export const getDaySpan = (dateStr) => {
+  const bounds = dayBounds(dateStr);
+  if (!bounds) return null;
+  for (const [first, last] of daySpanStmts) {
+    const details = first.get(...bounds);
+    if (!details) continue;
+    let start = null;
+    try {
+      const at = Date.parse(matchStart(JSON.parse(details)));
+      if (Number.isFinite(at)) start = new Date(at).toISOString();
+    } catch {
+      // a bad blob: the span starts at its end
+    }
+    return { start, end: new Date(last.get(...bounds)).toISOString() };
+  }
+  return null;
 };

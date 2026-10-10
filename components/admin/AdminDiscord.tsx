@@ -3,7 +3,7 @@ import { MessageSquare, RefreshCw, Send } from 'lucide-react';
 import { EmptyState, ErrorState, Loading, secondaryButtonClass } from '../States';
 import type { DiscordPost, useAdminDiscord } from '../../hooks/useAdminDiscord';
 
-const KIND_LABEL: Record<DiscordPost['kind'], string> = { ping: 'It\'s on', recap: 'Recap' };
+const KIND_LABEL: Record<DiscordPost['kind'], string> = { ping: 'It\'s on', recap: 'Recap', reminder: 'Reminder' };
 const STATUS: Record<DiscordPost['status'], { label: string; className: string }> = {
     sent: { label: 'Sent', className: 'text-green-400' },
     pending: { label: 'Waiting to retry', className: 'text-yellow-400' },
@@ -31,7 +31,7 @@ const AdminDiscord: React.FC<AdminDiscordProps> = ({ discord }) => {
                 <MessageSquare className="text-brand" aria-hidden /> Discord
             </h3>
             <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-                Posts each fight night's recap after the 06:15 check, and an "it's on" message once a fight-night day when the server browser shows {status?.pingPilots ?? 6} or more pilots.
+                Posts each fight night's recap after the 06:15 check, an "it's on" message once a fight-night day when the server browser shows {status?.pingPilots ?? 6} or more pilots, and a reminder an hour before each scheduled night.
             </p>
 
             {failed ? (

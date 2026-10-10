@@ -3,7 +3,8 @@
 // site's origin; nothing here reads the database or the webhook URL.
 import { SITE_NAME, urlFor } from './siteRoutes.js';
 import { RATING, onlineServers } from './gameParse.js';
-import { beltChange, count, plural } from './matchResult.js';
+import { beltChange, count, eventWhen, itsOnLine, plural } from './matchResult.js';
+import { FEED_PATH, SCHEDULE } from './fightNightSchedule.js';
 import { cardUrl, fightNightCard } from './shareCards.js';
 
 // Discord's limits on an embed (characters; `total` over the title,
@@ -116,7 +117,7 @@ export function pingMessage(servers, origin) {
     const more = busy.length - fields.length;
     return {
         allowed_mentions: NO_MENTIONS,
-        content: `It's on: ${plural(pilots, 'pilot', 'pilots')} in the server browser.`,
+        content: itsOnLine(pilots),
         embeds: [fit({
             title: 'Live servers',
             url: `${origin}${urlFor('dashboard')}`,
@@ -126,8 +127,31 @@ export function pingMessage(servers, origin) {
     };
 }
 
+/**
+ * The reminder (S22) SCHEDULE.reminderMinutes before a scheduled night: its
+ * title, when it starts, its notes, and links to the live list and the feed.
+ * @param {object} one an occurrence (fightNightSchedule.js)
+ * @param {string} origin
+ */
+export function reminderMessage(one, origin) {
+    const when = eventWhen(one);
+    return {
+        allowed_mentions: NO_MENTIONS,
+        content: `Fight night in ${plural(SCHEDULE.reminderMinutes, 'minute', 'minutes')}: ${plain(one.title, NAME_MAX)}, ${when}.`,
+        embeds: [fit({
+            title: plain(one.title, EMBED_LIMITS.title),
+            url: `${origin}${urlFor('dashboard')}`,
+            description: one.notes ? plain(one.notes) : `Starts ${when}.`,
+            fields: [
+                { name: 'Starts', value: when, inline: true },
+                { name: 'Calendar', value: `${origin}${FEED_PATH}`, inline: true }
+            ]
+        })]
+    };
+}
+
 // The admin's test post.
 export const testMessage = () => ({
     allowed_mentions: NO_MENTIONS,
-    content: `Test post from ${SITE_NAME}. Fight-night recaps and the "it's on" ping will post to this channel.`
+    content: `Test post from ${SITE_NAME}. Fight-night recaps, the "it's on" ping and the reminder before a scheduled night will post to this channel.`
 });
