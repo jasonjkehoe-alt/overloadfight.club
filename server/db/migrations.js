@@ -1,6 +1,6 @@
 import { hotDb, coldDb } from './connection.js';
 import { playerRows } from '../lib/gameParse.js';
-import { DERIVED_TABLES, derivedColumns } from '../lib/statsPasses.js';
+import { DERIVED_TABLES, derivedColumns, derivedKey } from '../lib/statsPasses.js';
 
 // Schema for both files, in the order the server has always created it. Runs once,
 // when db.js is first imported; every repo and analytics module imports this file
@@ -204,8 +204,10 @@ migrateGamePlayers();
 // per objective mode with the tracker's goal and flag counts. pilot_rivals
 // (S17): each pair of opponents' logged matches, kills and damage, both
 // directions. pilot_clutch (S17): a pilot's first bloods, late kills and kills
-// while trailing per kind of match (ffa, team). Each is keyed by its first two
-// columns.
+// while trailing per kind of match (ffa, team). pilot_bouts (S20): each pair
+// of opponents' rated matches with the record, and their logged matches,
+// kills and damage, per mode and map, both directions. Each is keyed by its
+// first two columns, or by the first `key` (derivedKey).
 export function ensureDerivedTables() {
   for (const [table, { columns }] of Object.entries(DERIVED_TABLES)) {
     const names = derivedColumns(table);
@@ -213,8 +215,7 @@ export function ensureDerivedTables() {
     // the database was built) is dropped; the next refresh fills it again
     const existing = hotDb.pragma(`table_info(${table})`).map(c => c.name);
     if (existing.length > 0 && existing.join(',') !== names.join(',')) hotDb.exec(`DROP TABLE ${table};`);
-    const [a, b] = names;
-    hotDb.exec(`CREATE TABLE IF NOT EXISTS ${table} (${columns.map(c => `${c} NOT NULL`).join(', ')}, PRIMARY KEY (${a}, ${b})) WITHOUT ROWID;`);
+    hotDb.exec(`CREATE TABLE IF NOT EXISTS ${table} (${columns.map(c => `${c} NOT NULL`).join(', ')}, PRIMARY KEY (${derivedKey(table).join(', ')})) WITHOUT ROWID;`);
   }
 }
 ensureDerivedTables();

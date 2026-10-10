@@ -695,6 +695,46 @@ export interface PilotRivalry {
 }
 export const fetchPilotRivalry = (name: string) => getJson<PilotRivalry>(`${API_BASE}/pilot/${encodeURIComponent(name)}/rivalry`);
 
+// S20: the Tale of the Tape, read from the first pilot's side. A record of
+// rated matches as opponents; `logged` counts only those with a log.
+export interface BoutRecord {
+    matches: number;
+    wins: number;
+    losses: number;
+    ties: number;
+}
+export interface TapeCorner {
+    key: string;
+    name: string;
+    // pilot_stats_cache's career numbers, null before a ranked match
+    career: { matches: number; wins: number; losses: number; ties: number; win_rate: number; combat_ratio: number; lethality: number } | null;
+    rating: Pick<PilotRating, 'rating' | 'rd' | 'matches' | 'status' | 'rank'>;
+}
+export interface Tape {
+    pilots: [TapeCorner, TapeCorner];
+    // a gameParse.js TAPE_MODES id, null for every mode
+    mode: string | null;
+    // the matches in each mode they met in, whatever `mode` is
+    modes: { mode: string; matches: number }[];
+    record: BoutRecord;
+    logged: { matches: number; kills: number; deaths: number; damage_dealt: number; damage_taken: number };
+    maps: (BoutRecord & { map: string })[];
+    duels: { wins: number; losses: number; ties: number; last: string } | null;
+}
+// The answer for an unknown pilot or one pilot twice.
+export type TapeMissing = { missing: string[] } | { same: string };
+export const fetchTape = (a: string, b: string, mode: string | null) =>
+    getJson<Tape | TapeMissing>(`${API_BASE}/pilot/${encodeURIComponent(a)}/tape/${encodeURIComponent(b)}${mode ? `?mode=${encodeURIComponent(mode)}` : ''}`);
+
+export interface PilotOpponent extends BoutRecord {
+    opponent: string;
+    name: string;
+    logged: number;
+    kills: number;
+    deaths: number;
+}
+export const fetchPilotOpponents = (name: string) => getJson<PilotOpponent[]>(`${API_BASE}/pilot/${encodeURIComponent(name)}/opponents`);
+
 // Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.

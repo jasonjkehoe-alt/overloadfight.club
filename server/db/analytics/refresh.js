@@ -1,7 +1,7 @@
 import { Worker } from 'worker_threads';
 import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
-import { DERIVED_TABLES, derivedColumns } from '../../lib/statsPasses.js';
+import { DERIVED_TABLES, derivedColumns, derivedKey } from '../../lib/statsPasses.js';
 import { clearDerivedCaches, clearDerivedTablesBuilt, markDerivedTablesBuilt } from './meta.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
@@ -42,8 +42,8 @@ const runStatsWorker = () => new Promise((resolve, reject) => {
   });
 });
 
-// Applies the worker's changes to a derived table keyed by its first two
-// columns: only the rows that differ (a match added in the past moves every
+// Applies the worker's changes to a derived table keyed by its key columns
+// (derivedKey): only the rows that differ (a match added in the past moves every
 // day or month after it). In chunks, letting requests run between them: the
 // first refresh, or one after an older match arrives, moves most rows, which
 // is too long to hold the event loop on the NAS. A read between chunks sees
@@ -54,8 +54,8 @@ async function writeChanges(table, { upserts, deletes }) {
     INSERT OR REPLACE INTO ${table} (${columns.join(', ')})
     VALUES (${columns.map(c => `@${c}`).join(', ')})
   `);
-  const deleteStmt = hotDb.prepare(`DELETE FROM ${table} WHERE ${columns[0]} = ? AND ${columns[1]} = ?`);
-  // a delete is a key pair, an upsert a row
+  const deleteStmt = hotDb.prepare(`DELETE FROM ${table} WHERE ${derivedKey(table).map(c => `${c} = ?`).join(' AND ')}`);
+  // a delete is the key's values, an upsert a row
   const apply = hotDb.transaction(ops => {
     for (const op of ops) Array.isArray(op) ? deleteStmt.run(...op) : upsertStmt.run(op);
   });

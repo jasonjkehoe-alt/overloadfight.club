@@ -220,9 +220,10 @@ export const mapKey = game => String(game?.settings?.level ?? '').trim().toUpper
 
 // True when the match's score is its kills, so the kill log replays the
 // score. CTF and Monsterball score captures and goals, and Race laps.
+// killScoredMode() reads a matchModeOf() value.
+export const killScoredMode = mode => !mode || KILL_SCORED_MODES.has(mode);
 export function killScored(game) {
-    const mode = matchModeOf(game);
-    return !mode || KILL_SCORED_MODES.has(mode);
+    return killScoredMode(matchModeOf(game));
 }
 
 // What one kill-log entry does to the score. `scorer` (the attacker's name)
@@ -1154,3 +1155,38 @@ export function clutchOf(game) {
     // the first kill worth a point is firstBloodOf()'s
     return { team, firstBlood: kills[0]?.attacker ?? null, kills };
 }
+
+// The head-to-head bouts of a rated match (S20, the Tale of the Tape): every
+// pair of named pilots on different sides by ratingSides() (ranked, a result,
+// a team-game pilot without a team sitting out, a pilot listed twice once), so
+// a bout is a game of the rating's, each as { a, b, outcome }, a and b
+// pilotKey()s and `outcome` a's by the two sides' scores (equal scores a tie),
+// with the match's mode (matchModeOf) and map (mapKey, '' for none). Null when
+// the match is not rated.
+export function boutsOf(game) {
+    const sides = ratingSides(game);
+    if (!sides) return null;
+    const pairs = [];
+    for (let i = 0; i < sides.length; i++) {
+        for (let j = i + 1; j < sides.length; j++) {
+            const [x, y] = [sides[i], sides[j]];
+            const outcome = x.score > y.score ? 'win' : x.score < y.score ? 'loss' : 'tie';
+            for (const a of x.pilots) for (const b of y.pilots) pairs.push({ a: a.key, b: b.key, outcome });
+        }
+    }
+    return { mode: matchModeOf(game), map: mapKey(game) ?? '', pairs };
+}
+// The other pilot's outcome of a bout.
+export const OPPOSITE_OUTCOME = { win: 'loss', loss: 'win', tie: 'tie' };
+
+// The tape's mode switch: the modes the pilot page filters by (all modes is
+// the default and is left out of the URL).
+export const TAPE_MODES = [
+    { id: 'ANARCHY', label: 'Anarchy' },
+    { id: 'TEAM ANARCHY', label: 'Team Anarchy' },
+    { id: 'CTF', label: 'CTF' },
+    { id: 'MONSTERBALL', label: 'Monsterball' }
+];
+// A ?mode= value as a TAPE_MODES id, or null (every mode) for anything else.
+export const tapeMode = value => TAPE_MODES.find(m => m.id === String(value ?? '').toUpperCase())?.id ?? null;
+export const TAPE_HINT = `Head-to-head: ranked matches (${RATED_MATCH_TEXT}) the two played on different sides, each a win, loss or tie by their sides' scores. Kills and damage come only from those with a kill or damage log.`;

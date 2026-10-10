@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { GameData } from '../types';
-import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Swords, ExternalLink, Zap, Clock, Flame, Filter } from 'lucide-react';
+import { Trophy, Crosshair, Map as MapIcon, Shield, Skull, Zap, Clock, Flame, Filter } from 'lucide-react';
 import PilotPerformanceCard from './PilotPerformanceCard';
 import RatingCard from './pilotDetail/RatingCard';
 import CareerCard from './pilotDetail/CareerCard';
 import WeaponMix from './pilotDetail/WeaponMix';
 import KillLogRivalry from './pilotDetail/KillLogRivalry';
+import TapeOpponents from './pilotDetail/TapeOpponents';
 import { useLoad } from '../hooks/useLoad';
-import { fetchPilotCareer, fetchPilotRating, fetchPilotRivalry, fetchPilotWeaponMix } from '../services/apiService';
+import { fetchPilotCareer, fetchPilotOpponents, fetchPilotRating, fetchPilotRivalry, fetchPilotWeaponMix } from '../services/apiService';
 import { colors } from '../designTokens.js';
 import { Loading, EmptyState, ErrorState } from './States';
-import Link, { LinkCell } from './Link';
+import { LinkCell } from './Link';
 import { useQueryParam } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
 import { combatRatio, fightNightDay, COMBAT_RATIO_HINT, LETHALITY_HINT } from '../server/lib/gameParse.js';
@@ -96,28 +97,9 @@ interface MapStat {
     kd: number;
 }
 
-interface RivalStat {
-    name: string;
-    encounters: number;
-    your_kills?: number;
-    their_kills?: number;
-    your_wins?: number;
-    their_wins?: number;
-    ties?: number;
-    h2h_kd?: number;
-    their_kd?: number;
-    their_deaths?: number;
-    kd?: number;
-    kda?: number;
-    win_rate?: number;
-    flight_hours?: number;
-    threat_centrality?: number;
-    dominance_index?: number;
-}
-
+// /api/pilot/:name/breakdown also answers `rivals`, which the page no longer reads (S20)
 interface PilotBreakdown {
     mapStats: MapStat[];
-    rivals: RivalStat[];
 }
 
 interface PilotDetailProps {
@@ -127,10 +109,8 @@ interface PilotDetailProps {
 
 const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     const [stats, setStats] = useState<PilotStats | null>(null);
-    const [breakdown, setBreakdown] = useState<PilotBreakdown>({ mapStats: [], rivals: [] });
+    const [breakdown, setBreakdown] = useState<PilotBreakdown>({ mapStats: [] });
     const [games, setGames] = useState<GameData[]>([]);
-    const [pilotPpi, setPilotPpi] = useState<any>(null);
-    const [selectedRivalName, setSelectedRivalName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [failed, setFailed] = useState(false);
     const [retries, setRetries] = useState(0);
@@ -143,6 +123,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     // all-time and all modes, like the community it is set against
     const weaponMix = useLoad(() => fetchPilotWeaponMix(pilotName), [pilotName]);
     const rivalry = useLoad(() => fetchPilotRivalry(pilotName), [pilotName]);
+    const opponents = useLoad(() => fetchPilotOpponents(pilotName), [pilotName]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -150,11 +131,10 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
             setFailed(false);
             try {
                 const modeQuery = selectedMode !== 'ALL' ? `?mode=${encodeURIComponent(selectedMode)}` : '';
-                const [statsRes, gamesRes, breakdownRes, ppiRes] = await Promise.all([
+                const [statsRes, gamesRes, breakdownRes] = await Promise.all([
                     fetch(`/api/pilot/${encodeURIComponent(pilotName)}/stats${modeQuery}`),
                     fetch(`/api/pilot/${encodeURIComponent(pilotName)}/games${modeQuery}`),
-                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/breakdown`),
-                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/ppi`)
+                    fetch(`/api/pilot/${encodeURIComponent(pilotName)}/breakdown`)
                 ]);
 
                 if (statsRes.ok) {
@@ -166,15 +146,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                 }
                 // without stats or the match list the page has nothing true to show
                 if (!statsRes.ok || !gamesRes.ok) setFailed(true);
-                if (ppiRes.ok) {
-                    setPilotPpi(await ppiRes.json());
-                }
                 if (breakdownRes.ok) {
-                    const bData = await breakdownRes.json();
-                    setBreakdown(bData);
-                    if (bData.rivals && bData.rivals.length > 0) {
-                        setSelectedRivalName(prev => prev || bData.rivals[0].name);
-                    }
+                    setBreakdown(await breakdownRes.json());
                 }
             } catch (err) {
                 console.error("Failed to load pilot detail", err);
@@ -532,195 +505,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                 </div>
                             </div>
 
-                            {/* Frequent Adversaries & Combat Rivalries */}
-                            {breakdown.rivals && breakdown.rivals.length > 0 && (() => {
-                                const activeRival = breakdown.rivals.find(r => r.name === selectedRivalName) || breakdown.rivals[0];
-
-                                const renderTapeRow = (label: string, valA: number, valB: number, format: (v: number) => string = (v) => v.toFixed(2)) => {
-                                    const isTie = Math.abs(valA - valB) < 0.001;
-                                    const aWins = valA > valB;
-                                    const bWins = valB > valA;
-                                    const maxVal = Math.max(valA, valB, 0.001);
-                                    const pctA = Math.min(100, Math.round((valA / maxVal) * 100));
-                                    const pctB = Math.min(100, Math.round((valB / maxVal) * 100));
-
-                                    return (
-                                        <div className="bg-black/60 border border-line/80 px-3 py-2 rounded-control grid grid-cols-11 items-center gap-2 font-mono">
-                                            <div className={`col-span-3 text-left font-bold ${aWins && !isTie ? 'text-brand' : 'text-gray-300'}`}>
-                                                {format(valA)}
-                                                {aWins && !isTie && <span className="ml-1 text-2xs text-brand">◀</span>}
-                                            </div>
-
-                                            <div className="col-span-5 text-center">
-                                                <div className="text-2xs uppercase font-bold tracking-wider text-gray-400 mb-1">{label}</div>
-                                                <div className="flex h-1.5 w-full bg-gray-900 rounded-control overflow-hidden">
-                                                    <div className="flex-1 flex justify-end">
-                                                        <div style={{ width: `${pctA}%` }} className={`h-full ${aWins && !isTie ? 'bg-brand' : 'bg-gray-700'}`} />
-                                                    </div>
-                                                    <div className="w-0.5 bg-black" />
-                                                    <div className="flex-1 flex justify-start">
-                                                        <div style={{ width: `${pctB}%` }} className={`h-full ${bWins && !isTie ? 'bg-cyan-500' : 'bg-gray-700'}`} />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className={`col-span-3 text-right font-bold ${bWins && !isTie ? 'text-cyan-400' : 'text-gray-300'}`}>
-                                                {bWins && !isTie && <span className="mr-1 text-2xs text-cyan-400">▶</span>}
-                                                {format(valB)}
-                                            </div>
-                                        </div>
-                                    );
-                                };
-
-                                return (
-                                    <div>
-                                        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-4 border-b border-line pb-2 flex items-center justify-between">
-                                            <span className="flex items-center gap-2">
-                                                <Swords size={16} className="text-brand" />
-                                                Frequent Adversaries & Combat Rivalries
-                                            </span>
-                                            <span className="text-2xs text-gray-600 font-normal">PAST ENCOUNTERS</span>
-                                        </h3>
-
-                                        {/* Tale of the Tape Boxing Card */}
-                                        {activeRival && (
-                                            <div className="bg-gradient-to-b from-surface-card via-surface-card to-black border-2 border-brand/40 rounded-card p-4 sm:p-5 mb-5 shadow-2xl relative overflow-hidden font-mono">
-                                                <div className="flex items-center justify-between border-b border-line pb-3 mb-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xl">🥊</span>
-                                                        <div>
-                                                            <h4 className="text-sm font-black text-white uppercase tracking-widest brand-font">
-                                                                TALE OF THE TAPE
-                                                            </h4>
-                                                            <p className="text-2xs text-gray-400 uppercase tracking-wider">
-                                                                Boxing Card Head-to-Head Comparison
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <span className="text-xs bg-black text-brand border border-brand/40 px-2.5 py-1 rounded-control font-bold uppercase tracking-wider">
-                                                        {activeRival.encounters} {activeRival.encounters === 1 ? 'Match' : 'Matches'} Logged
-                                                    </span>
-                                                </div>
-
-                                                {/* Fighter Corners */}
-                                                <div className="grid grid-cols-11 items-center gap-2 mb-4 text-center">
-                                                    <div className="col-span-5 bg-gradient-to-r from-red-950/60 to-black/80 border border-red-900/60 p-2.5 rounded-control text-left">
-                                                        <div className="text-2xs text-red-400 font-bold uppercase tracking-wider">HOME CORNER</div>
-                                                        <div className="text-sm sm:text-base font-black text-white truncate" title={pilotName}>{pilotName}</div>
-                                                    </div>
-
-                                                    <div className="col-span-1 text-xs font-black text-gray-600 uppercase">VS</div>
-
-                                                    <div className="col-span-5 bg-gradient-to-l from-cyan-950/60 to-black/80 border border-cyan-900/60 p-2.5 rounded-control text-right">
-                                                        <div className="text-2xs text-cyan-400 font-bold uppercase tracking-wider">RIVAL CORNER</div>
-                                                        <Link
-                                                            to={urlFor('pilot', activeRival.name)}
-                                                            className="text-sm sm:text-base font-black text-white hover:text-cyan-300 transition-colors truncate block ml-auto"
-                                                            title={`View ${activeRival.name}'s dossier`}
-                                                        >
-                                                            {activeRival.name}
-                                                        </Link>
-                                                    </div>
-                                                </div>
-
-                                                {/* Metric Rows */}
-                                                <div className="space-y-2 mb-4">
-                                                    {renderTapeRow('Kill / Death (KD)', careerKd, activeRival.kd ?? activeRival.their_kd ?? 1.0)}
-                                                    {renderTapeRow('Combat Ratio', careerKda, activeRival.kda ?? activeRival.kd ?? 1.0)}
-                                                    {renderTapeRow('Win Rate', stats?.career_win_rate ?? stats?.win_rate ?? 0, activeRival.win_rate ?? 0, (v) => `${v.toFixed(1)}%`)}
-                                                    {renderTapeRow('Flight Hours', stats?.career_flight_hours ?? stats?.flight_hours ?? 0, activeRival.flight_hours ?? 0, (v) => `${v.toFixed(1)}h`)}
-                                                    {renderTapeRow('Threat Centrality', pilotPpi?.threat_centrality ?? 0, activeRival.threat_centrality ?? 0, (v) => v.toFixed(0))}
-                                                    {renderTapeRow('Dominance Index', pilotPpi?.dominance_index ?? 0, activeRival.dominance_index ?? 0, (v) => v.toFixed(0))}
-                                                </div>
-
-                                                {/* Direct Bout Scoreboard */}
-                                                <div className="bg-surface-card border border-line rounded-card p-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-                                                    <span className="text-gray-400">
-                                                        Direct Match Series:{' '}
-                                                        <strong className="text-white">
-                                                            {activeRival.your_wins ?? 0}W - {activeRival.their_wins ?? 0}L{activeRival.ties ? ` (${activeRival.ties}T)` : ''}
-                                                        </strong>
-                                                    </span>
-                                                    <span className="text-gray-400">
-                                                        Direct Kills Exchanged:{' '}
-                                                        <strong className={(activeRival.your_kills ?? 0) >= (activeRival.their_kills ?? 0) ? 'text-brand' : 'text-gray-300'}>
-                                                            {activeRival.your_kills ?? 0} K
-                                                        </strong>{' '}
-                                                        /{' '}
-                                                        <strong className="text-gray-300">
-                                                            {activeRival.their_kills ?? 0} D
-                                                        </strong>{' '}
-                                                        <span className="text-gray-500 font-mono">
-                                                            (H2H: {(activeRival.h2h_kd ?? 1).toFixed(2)})
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Rivals Selector Grid */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            {breakdown.rivals.map((rival) => {
-                                                const isSelected = rival.name === activeRival?.name;
-                                                return (
-                                                    <div
-                                                        key={rival.name}
-                                                        className={`bg-surface-card border p-4 rounded-card transition-all group relative overflow-hidden ${
-                                                            isSelected
-                                                                ? 'border-brand ring-1 ring-brand/50 bg-brand/5'
-                                                                : 'border-line hover:border-gray-700'
-                                                        }`}
-                                                    >
-                                                        <div className="flex justify-between items-start mb-2">
-                                                            <div className="flex items-center gap-1.5 truncate max-w-[160px]">
-                                                                <button
-                                                                    onClick={() => setSelectedRivalName(rival.name)}
-                                                                    aria-pressed={isSelected}
-                                                                    className="stretched-link font-bold text-white group-hover:text-brand transition-colors truncate"
-                                                                >
-                                                                    {rival.name}
-                                                                </button>
-                                                                <Link
-                                                                    to={urlFor('pilot', rival.name)}
-                                                                    title={`View ${rival.name}'s dossier`}
-                                                                    aria-label={`Open ${rival.name}'s page`}
-                                                                    className="relative z-10 text-gray-500 hover:text-white shrink-0"
-                                                                >
-                                                                    <ExternalLink size={12} aria-hidden />
-                                                                </Link>
-                                                            </div>
-                                                            <span className={`text-2xs font-mono px-2 py-0.5 rounded-control border ${
-                                                                isSelected
-                                                                    ? 'bg-brand text-black font-bold border-brand'
-                                                                    : 'bg-black text-gray-400 border-line'
-                                                            }`}>
-                                                                {rival.encounters} {rival.encounters === 1 ? 'Match' : 'Matches'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="space-y-1.5 mt-3 pt-2 border-t border-line text-xs font-mono">
-                                                            <div className="flex justify-between items-center text-gray-400">
-                                                                <span className="text-gray-500">Match Record:</span>
-                                                                <span className="font-bold text-white">
-                                                                    {rival.your_wins ?? 0}W - {rival.their_wins ?? 0}L{rival.ties ? ` (${rival.ties}T)` : ''}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between items-center">
-                                                                <span className="text-gray-500">Direct H2H:</span>
-                                                                <span className={`font-bold ${(rival.your_kills ?? 0) >= (rival.their_kills ?? 0) ? 'text-brand' : 'text-gray-400'}`}>
-                                                                    {rival.your_kills ?? 0} K / {rival.their_kills ?? 0} D
-                                                                    <span className="text-2xs text-gray-500 ml-1">
-                                                                        ({(rival.h2h_kd ?? ((rival.your_kills ?? 0) / Math.max(1, rival.their_kills ?? 0))).toFixed(2)})
-                                                                    </span>
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
+                            <TapeOpponents name={pilotName} load={opponents} />
 
                             <KillLogRivalry name={pilotName} load={rivalry} />
 

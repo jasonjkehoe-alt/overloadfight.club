@@ -4,8 +4,8 @@
 // returns null when there is nothing to show; the rules are gameParse.js's and
 // the words matchResult.js's. cardLayout.js draws the object.
 import { createHash } from 'node:crypto';
-import { VERDICT_LABEL, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
-import { clock, count, dayLabel, plural, ratingStanding, resultLine } from './matchResult.js';
+import { TAPE_MODES, VERDICT_LABEL, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
+import { boutLead, clock, count, dayLabel, plural, ratingStanding, recordText, resultLine } from './matchResult.js';
 import { urlFor } from './siteRoutes.js';
 import { CARD_LAYOUT } from './cardLayout.js';
 
@@ -130,10 +130,50 @@ export function mapCard(intel, image) {
     };
 }
 
+/**
+ * The Tale of the Tape (S20): the two pilots, the record from the first's side
+ * with who leads, the logged kills each way, the duel record and the ratings,
+ * each tile "a–b"; for two pilots who never met (in the mode), their ratings
+ * and careers side by side.
+ * @param {object} tape db.getTape, with both pilots found
+ * @returns {Card}
+ */
+export function tapeCard({ pilots: [a, b], mode, record, logged, duels }) {
+    const label = TAPE_MODES.find(m => m.id === mode)?.label;
+    const pair = (pick, format = String) => [a, b].map(p => (pick(p) == null ? '—' : format(pick(p)))).join('–');
+    const rating = { label: 'Rating', value: pair(p => (p.rating.matches > 0 ? p.rating.rating : null), Math.round) };
+    const lead = boutLead([a.name, b.name], record);
+    const ranked = `ranked ${label ? `${label} ` : ''}`;
+    const scope = plural(record.matches, `${ranked}match`, `${ranked}matches`);
+    const kills = logged.matches > 0 ? `kills ${logged.kills}–${logged.deaths} in ${plural(logged.matches, 'logged match', 'logged matches')}` : '';
+    const stats = lead ? [
+        { label: 'Record', value: recordText(record), note: 'Wins, losses, ties' },
+        kills && { label: 'Kills', value: `${count(logged.kills)}–${count(logged.deaths)}`, note: `In ${plural(logged.matches, 'logged match', 'logged matches')}` },
+        duels && { label: '1v1 duels', value: recordText(duels), note: 'Wins, losses, ties' },
+        rating
+    ] : [
+        rating,
+        { label: 'Ranked matches', value: pair(p => p.career?.matches, count) },
+        { label: 'Combat Ratio', value: pair(p => p.career?.combat_ratio, n => n.toFixed(2)) },
+        { label: 'Win rate', value: pair(p => p.career?.win_rate, n => `${n}%`) }
+    ];
+    const none = `${ranked}match between them yet`;
+    return {
+        // the stored names, so every spelling of the pair shares one card
+        path: `${urlFor('tape', a.name, b.name)}${mode ? `?mode=${encodeURIComponent(mode)}` : ''}`,
+        kind: label ? `Tale of the Tape, ${label}` : 'Tale of the Tape',
+        title: `${a.name} vs ${b.name}`,
+        line: lead ? `${lead} in ${scope}.` : `No ${none}.`,
+        stats: stats.filter(Boolean),
+        description: `${a.name} vs ${b.name}: ${lead ? `${lead} in ${scope}${kills ? `, ${kills}` : ''}` : `no ${none}`}.`
+    };
+}
+
 // A short hash of everything the card shows and the layout's version, so its
 // URL and its place in the cache change when, and only when, its words, its
 // numbers or its look do.
 export const cardKey = card => createHash('sha1').update(JSON.stringify([CARD_LAYOUT, card])).digest('hex').slice(0, 12);
 
-// "/api/card/pilot/WD-40?v=3f2a9c1b04de": the card's PNG for the page at card.path.
-export const cardUrl = (card, key = cardKey(card)) => `/api/card${card.path}?v=${key}`;
+// "/api/card/pilot/WD-40?v=3f2a9c1b04de": the card's PNG for the page at
+// card.path (whose query, a tape's ?mode=, the card route reads too).
+export const cardUrl = (card, key = cardKey(card)) => `/api/card${card.path}${card.path.includes('?') ? '&' : '?'}v=${key}`;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { RATING, winnerOf } from './gameParse.js';
-import { clock, ratingStanding, resultLine, shortCount } from './matchResult.js';
+import { boutLead, clock, ratingStanding, recordText, resultLine, shortCount } from './matchResult.js';
 import { byId, detailSample } from '../testFixtures.js';
 
 // The match page's result line, built from winnerOf() on the fixture games.
@@ -64,5 +64,15 @@ describe('ratingStanding', () => {
         expect(ratingStanding({ status: 'provisional', rank: null, matches: 4 })).toBe(`Provisional: 4 of ${RATING.rankedAfter} rated matches`);
         expect(ratingStanding({ status: 'inactive', rank: null, matches: 40 })).toBe(`Not ranked: no rated match in the last ${RATING.activeDays} days`);
         expect(ratingStanding({ status: 'ranked', rank: null, matches: 40 })).toBe(`Not ranked: no rated match in the last ${RATING.activeDays} days`);
+    });
+});
+
+describe('boutLead and recordText (S20)', () => {
+    it('names who leads a record read from the first pilot\'s side, or calls it level', () => {
+        expect(boutLead(['WD-40', 'OKSTER'], { matches: 9, wins: 3, losses: 5, ties: 1 })).toBe('OKSTER leads 5–3, 1 tie');
+        expect(boutLead(['STITCH', 'PHOENIX'], { matches: 2, wins: 2, losses: 0, ties: 0 })).toBe('STITCH leads 2–0');
+        expect(boutLead(['A', 'B'], { matches: 4, wins: 1, losses: 1, ties: 2 })).toBe('Level at 1–1, 2 ties');
+        expect(boutLead(['A', 'B'], { matches: 0, wins: 0, losses: 0, ties: 0 })).toBeNull();
+        expect(recordText({ wins: 3, losses: 5, ties: 1 })).toBe('3–5–1');
     });
 });

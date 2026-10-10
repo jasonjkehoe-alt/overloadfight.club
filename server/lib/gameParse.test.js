@@ -12,6 +12,7 @@ import { FIGHT_NIGHT_PING, browserPilots } from './gameParse.js';
 import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
 import { CLUTCH, clutchOf, damageFlows, damageGrid, opponentsOf } from './gameParse.js';
 import { duelPass, rivalPass, weaponPass } from './statsPasses.js';
+import { OPPOSITE_OUTCOME, TAPE_MODES, boutsOf, killScoredMode, tapeMode } from './gameParse.js';
 import { byId, detailSample, ffaWithDamage, ffaWithLog, sample, teamWithDamage, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -1155,6 +1156,125 @@ describe('rivalries, damage flow and clutch (S17)', () => {
             expect(line('jftp', 'ffa')).toMatchObject({ name: 'jftp', matches: 2, first_bloods: 2, kills: 4, trailing_kills: 2 });
             expect(clutch.reduce((n, c) => n + c.kills, 0)).toBe(games.flatMap(g => clutchOf(g).kills).length);
             expect(clutch.reduce((n, c) => n + c.matches, 0)).toBe(4 + 2 + 2);
+        });
+    });
+});
+
+describe('the Tale of the Tape (S20)', () => {
+    const bout = (game, a, b) => boutsOf(game).pairs.find(p => (p.a === a && p.b === b) || (p.a === b && p.b === a));
+    const outcomeFor = (game, a, b) => {
+        const p = bout(game, a, b);
+        return p.a === a ? p.outcome : OPPOSITE_OUTCOME[p.outcome];
+    };
+
+    describe('boutsOf', () => {
+        it('pairs every pilot of an FFA match, each a win or loss by in-game score', () => {
+            // 72105: JFTP 24, XB1 20, STITCH 22, LORD JOHN WARFIN 2, WD-40 2
+            const game = byId(72105);
+            expect(boutsOf(game)).toMatchObject({ mode: 'ANARCHY', map: 'ANCIENT' });
+            expect(boutsOf(game).pairs).toHaveLength(10);
+            expect(outcomeFor(game, 'jftp', 'stitch')).toBe('win');
+            expect(outcomeFor(game, 'xb1', 'stitch')).toBe('loss');
+            expect(outcomeFor(game, 'lord john warfin', 'wd-40')).toBe('tie');
+        });
+
+        it('pairs a team match across the teams only, each pilot taking the team\'s result', () => {
+            // 72099: BLUE (PHOENIX, INSANER) 6, ORANGE (STITCH, MAESTRO) 4
+            const game = byId(72099);
+            const pairs = boutsOf(game).pairs.map(p => [p.a, p.b].sort().join('-')).sort();
+            expect(pairs).toEqual(['insaner-maestro', 'insaner-stitch', 'maestro-phoenix', 'phoenix-stitch']);
+            expect(outcomeFor(game, 'stitch', 'phoenix')).toBe('loss');
+            expect(outcomeFor(game, 'insaner', 'maestro')).toBe('win');
+            expect(bout(game, 'insaner', 'phoenix')).toBeUndefined();
+        });
+
+        it('calls equal scores a tie, as the rating does', () => {
+            expect(boutsOf(byId(72098)).pairs).toEqual([{ a: 'jftp', b: '.', outcome: 'tie' }]);
+            const level = { ...byId(72099), teamScore: { BLUE: 5, ORANGE: 5 } };
+            expect(boutsOf(level).pairs.every(p => p.outcome === 'tie')).toBe(true);
+        });
+
+        it('follows ratingSides: a pilot without a team sits out, a pilot listed twice counts once, no result or a short match gives null', () => {
+            const game = { ...byId(72099), players: [...byId(72099).players, { name: 'LONER', kills: 0, deaths: 0 }, { ...byId(72099).players[0], name: 'stitch ' }] };
+            expect(boutsOf(game).pairs).toEqual(boutsOf(byId(72099)).pairs);
+            expect(boutsOf({ ...byId(72099), teamScore: {} })).toBeNull();
+            expect(boutsOf(byId(72087))).not.toBeNull(); // 84 s still counts
+            expect(boutsOf({ ...byId(72087), date: new Date(Date.parse(byId(72087).settings.start) + 30000).toISOString() })).toBeNull();
+            expect(boutsOf(detailSample)).toBe(ratingSides(detailSample));
+        });
+
+        it('gives exactly the rating\'s games: a pair for every two sides\' pilots', () => {
+            for (const game of sample) {
+                const sides = ratingSides(game);
+                const games = sides ? sides.reduce((n, s, i) => n + s.pilots.length * sides.slice(i + 1).reduce((m, t) => m + t.pilots.length, 0), 0) : 0;
+                expect(boutsOf(game)?.pairs.length ?? 0).toBe(games);
+            }
+        });
+
+        it('names no map as an empty string', () => {
+            const game = byId(72105);
+            game.settings = { ...game.settings, level: '  ' };
+            expect(boutsOf(game).map).toBe('');
+        });
+    });
+
+    it('reads a mode switch value as a TAPE_MODES id, anything else as every mode', () => {
+        expect(TAPE_MODES.map(m => m.id)).toEqual(['ANARCHY', 'TEAM ANARCHY', 'CTF', 'MONSTERBALL']);
+        expect(tapeMode('CTF')).toBe('CTF');
+        expect(tapeMode('team anarchy')).toBe('TEAM ANARCHY');
+        expect(tapeMode('RACE')).toBeNull();
+        expect(tapeMode(undefined)).toBeNull();
+        expect(killScoredMode(null)).toBe(true);
+        expect(killScoredMode('TEAM ANARCHY')).toBe(true);
+        expect(killScoredMode('CTF')).toBe(false);
+    });
+
+    describe('rivalPass bouts', () => {
+        // the sample with 72099 and 72098 carrying their logs
+        const games = sample.map(g => (g.id === 72099 ? teamWithDamage : g.id === 72098 ? ffaWithDamage : g));
+        const pass = rivalPass();
+        games.forEach(g => pass.add({ id: g.id, date: g.date }, g));
+        pass.add({ id: 9, date: null }, null);
+        const rows = pass.bouts();
+        const sum = (pilot, opponent, field, where = () => true) => rows.filter(r => r.pilot === pilot && r.opponent === opponent && where(r)).reduce((n, r) => n + r[field], 0);
+
+        it('writes each row both ways, one side\'s wins the other\'s losses', () => {
+            for (const r of rows) {
+                const back = rows.find(o => o.pilot === r.opponent && o.opponent === r.pilot && o.mode === r.mode && o.map === r.map);
+                expect(back).toMatchObject({ matches: r.matches, wins: r.losses, losses: r.wins, ties: r.ties, logged: r.logged, kills: r.deaths, deaths: r.kills, damage_dealt: r.damage_taken, damage_taken: r.damage_dealt });
+                expect(r.wins + r.losses + r.ties).toBe(r.matches);
+            }
+        });
+
+        it('counts STITCH against PHOENIX by mode and map from the fixtures', () => {
+            // FFA 72104 and 72103 STITCH ahead; team 72102, 72099, 72097, 72096 PHOENIX's BLUE ahead
+            expect(['matches', 'wins', 'losses', 'ties'].map(f => sum('stitch', 'phoenix', f))).toEqual([6, 2, 4, 0]);
+            expect(['matches', 'wins', 'losses'].map(f => sum('stitch', 'phoenix', f, r => r.mode === 'ANARCHY'))).toEqual([2, 2, 0]);
+            expect(['matches', 'wins', 'losses'].map(f => sum('stitch', 'phoenix', f, r => r.mode === 'TEAM ANARCHY'))).toEqual([4, 0, 4]);
+            expect(rows.find(r => r.pilot === 'stitch' && r.opponent === 'phoenix' && r.map === 'ASCENT')).toMatchObject({ matches: 2, losses: 2, logged: 1, kills: 2, deaths: 1, damage_dealt: 250, damage_taken: 60 });
+        });
+
+        it('adds up to the rating\'s games for every pilot', () => {
+            const games2 = {};
+            for (const game of games) {
+                for (const { a, b } of boutsOf(game)?.pairs ?? []) for (const k of [a, b]) games2[k] = (games2[k] || 0) + 1;
+            }
+            const byPilot = rows.reduce((c, r) => ({ ...c, [r.pilot]: (c[r.pilot] || 0) + r.matches }), {});
+            expect(byPilot).toEqual(games2);
+        });
+
+        it('adds up, over modes and maps, to each pair\'s pilot_rivals row', () => {
+            const pairs = pass.pairs();
+            expect(pairs.length).toBeGreaterThan(0);
+            for (const p of pairs) {
+                expect({
+                    matches: sum(p.pilot, p.opponent, 'logged'), kills: sum(p.pilot, p.opponent, 'kills'), deaths: sum(p.pilot, p.opponent, 'deaths'),
+                    damage_dealt: Math.round(sum(p.pilot, p.opponent, 'damage_dealt')), damage_taken: Math.round(sum(p.pilot, p.opponent, 'damage_taken'))
+                }).toEqual({ matches: p.matches, kills: p.kills, deaths: p.deaths, damage_dealt: p.damage_dealt, damage_taken: p.damage_taken });
+            }
+            // "." took 180.5 from JFTP: kept unrounded until it is summed
+            expect(sum('jftp', '.', 'damage_dealt')).toBe(210);
+            expect(sum('.', 'jftp', 'damage_dealt')).toBe(180.5);
         });
     });
 });

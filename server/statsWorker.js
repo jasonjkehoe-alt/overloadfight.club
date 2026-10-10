@@ -7,7 +7,7 @@
 import fs from 'fs';
 import { parentPort, workerData } from 'worker_threads';
 import Database from 'better-sqlite3';
-import { DERIVED_TABLES, archivePass, derivedColumns, duelPass, mapPass, pilotPass, ratingPass, regionPass, rivalPass, weaponPass } from './lib/statsPasses.js';
+import { DERIVED_TABLES, archivePass, derivedColumns, derivedKey, duelPass, mapPass, pilotPass, ratingPass, regionPass, rivalPass, weaponPass } from './lib/statsPasses.js';
 import { regionOf } from './lib/serverRegions.js';
 
 const PAGE_SIZE = 500;
@@ -69,19 +69,20 @@ for (const file of [hotPath, coldPath]) {
 }
 
 // What the main thread must write to bring a derived table in line with the
-// rows its pass built: the rows that are new or differ, and the keys (the
-// first two columns) the pass no longer has. Most refreshes change only the
-// latest days or months, so this keeps a rewrite of every row off the main
-// thread.
+// rows its pass built: the rows that are new or differ, and the keys (its
+// key columns, derivedKey) the pass no longer has. Most refreshes change only
+// the latest days or months, so this keeps a rewrite of every row off the
+// main thread.
 function tableChanges(conn, table, rows) {
     const columns = derivedColumns(table);
-    const [a, b] = columns;
-    const fresh = new Map(rows.map(r => [`${r[a]}\n${r[b]}`, r]));
+    const keyOf = derivedKey(table);
+    const values = r => keyOf.map(c => r[c]);
+    const fresh = new Map(rows.map(r => [values(r).join('\n'), r]));
     const deletes = [];
     for (const old of conn.prepare(`SELECT * FROM ${table}`).iterate()) {
-        const key = `${old[a]}\n${old[b]}`;
+        const key = values(old).join('\n');
         const row = fresh.get(key);
-        if (!row) deletes.push([old[a], old[b]]);
+        if (!row) deletes.push(values(old));
         else if (columns.every(c => row[c] === old[c])) fresh.delete(key);
     }
     return { total: rows.length, upserts: [...fresh.values()], deletes };

@@ -3216,7 +3216,105 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          1,280 and 390 px; the dashboard, fight night, leaderboard,
          rankings, ladders, rivalries, pilot pages, maps, match page and
          the admin page still work.
-- [ ] **S20 Tale of the Tape permalinks** (M). `/tape/:a/:b`.
+- [ ] **S20 Tale of the Tape permalinks** (M). `/tape/:a/:b`. The owner
+      decided at the start of S20: the tape sets the two pilots' head-to-head
+      (ranked matches as opponents with W-L-T, kills and damage each way from
+      the logs, the 1v1 duel record, map splits) beside their career numbers
+      (rating and standing, ranked matches, win rate, Combat Ratio,
+      Lethality); Threat Centrality and Dominance Index go. Ranked matches
+      only, all time, with a `?mode=` switch that filters the head-to-head
+      and leaves the career rows all-mode. The URL keeps the order given (A
+      the red corner). An unknown pilot gets a not-found state and no card,
+      the same pilot twice a prompt with a link to that pilot, two pilots who
+      never met their career rows and a line saying so. "Frequent
+      Adversaries" and the tape inside it go; a list of the pilot's
+      opponents linking to their tapes takes their place. The tape gets a
+      card in S19's layout. The tape is linked from `/rivals`' pairs, the
+      kill-log rivals, the duel ladder and the match page's damage grid.
+      Done when (written at the start of S20):
+      1. `server/lib/gameParse.js` owns the head-to-head rule, tested on
+         fixture games: `boutsOf` gives every pair of named pilots on
+         different sides of a rated match (`ratingSides`: ranked, a result,
+         a team-game pilot without a team sitting out, a pilot listed twice
+         once), each with the first pilot's outcome by the two sides'
+         scores (equal scores a tie), the match's mode (`matchModeOf`) and
+         map (`mapKey`). `TAPE_MODES` lists the mode switch (Anarchy, Team
+         Anarchy, CTF, Monsterball, the pilot page's four).
+      2. The stats worker builds `pilot_bouts(pilot, opponent, mode, map,
+         matches, wins, losses, ties, logged, kills, deaths, damage_dealt,
+         damage_taken)` in the same scan, both directions, keyed by its first
+         four columns (the derived-table list learns a key size, used by the
+         schema, the worker's comparison and the write step), joined to
+         `DERIVED_TABLES` with a migration decision entry. The record comes
+         from `boutsOf`; `logged`, kills and damage from `opponentsOf`,
+         `weaponKills` and `damageFlows`, so no S17 rule is copied. Tested
+         on fixture data: every row mirrors its other direction; wins,
+         losses and ties add up to matches; a pair's matches equal the
+         rated matches the two played apart; over modes and maps a pair's
+         logged matches, kills, deaths and damage equal its `pilot_rivals`
+         row.
+      3. New endpoints in `routes/pilots.js`, reads in a new
+         `server/db/analytics/tape.js` with `db` keys, read through
+         `apiService` (null on failure) and `useLoad`, no route cache:
+         `GET /api/pilot/:name/tape/:opponent?mode=` (both pilots' stored
+         names and career numbers: rating, RD and standing from
+         `getPilotRating`, ranked matches, win rate, Combat Ratio and
+         Lethality from `pilot_stats_cache` as the pilot page's career
+         cards; from A's side in the mode the record, the logged matches,
+         kills and damage each way and the map splits; the modes the two
+         met in with their counts; the duel record from `pilot_duels`),
+         and, answered 200 like an unknown server's history so the page's
+         states log no error, `{ missing }` naming an unknown pilot and
+         `{ same }` for the same pilot twice (amended during S20: the first
+         draft said 404 and 400, which Chrome logs as errors); and
+         `GET /api/pilot/:name/opponents` (the opponents with the most
+         ranked matches against the pilot, each with the record and logged
+         kills each way). The existing endpoints answer as before and no
+         request walks the stored matches.
+      4. A `/tape/:a/:b` view: a two-part route in `siteRoutes.js`
+         (`parseRoute`, `urlFor('tape', a, b)`, `pageTitle` "A vs B", the
+         pilots nav section), a share description in `pageMeta.js`, lazy in
+         `App.tsx`. A in the red corner, B in the blue (`chart.team`'s
+         ORANGE and BLUE, the pair S12 validated), each linked to their
+         page; the career rows side by side with the better side marked;
+         the head-to-head in the mode (`?mode=`, all modes left out of the
+         URL): record, kills and damage each way with words that say only
+         logged matches count, the duel record, the map splits as a table.
+         Loading, failure, an unknown pilot, the same pilot twice, two
+         pilots who never met and a mode they never met in each get the
+         shared states or a line. 390 px wide at 390 px. No Recharts.
+      5. The pilot page: "Frequent Adversaries" and the tape inside it go
+         (the picked rival with them, closing the S8 flag); "Tale of the
+         Tape" lists the pilot's opponents from `/opponents` (matches,
+         W-L-T, logged kills each way), each a link to
+         `/tape/<pilot>/<opponent>`, with the shared states. "Rivals from
+         the kill log" rows link to the tape too.
+         `/api/pilot/:name/breakdown` answers as before.
+      6. Links to the tape: each pair on `/rivals` (leader first), each
+         duel-ladder row from the second down (against the pilot one row
+         above), and each cell between two pilots in the match page's
+         damage grid (dealer first).
+      7. The share card: `tapeCard` in `shareCards.js`, tested on fixture
+         data, builds the card and the page's `og:description` from one
+         object (the record, kills each way and logged matches, or the
+         ratings for two pilots who never met), drawn in S19's layout (kind
+         "Tale of the Tape", title "A vs B", tiles "a–b" from A's side) at
+         `/api/card/tape/A/B` (with `?mode=` when set); the tape is in
+         `CARD_VIEWS`; an unknown pilot or the same pilot twice gets no
+         card and the site description.
+      8. Charts stay out of the entry chunk and the dashboard's first visit
+         loads no Recharts chunk; the entry, `PilotDetail`, `Rivals`,
+         `Ladders`, `GameDetail` and the new view's chunk are recorded
+         before and after.
+      9. Checked with curl against the local server (the tape's share tags
+         and its card, looked at) and in headless Chrome at 1,280 and
+         390 px: the tape on local data (a pair that met, a mode, two
+         pilots who never met, an unknown pilot, the same pilot twice) and
+         Fetch-domain mocks for loading, failure and full tables; the pilot
+         page's list; the links from `/rivals`, the ladder and the damage
+         grid; the dashboard, fight night, leaderboard, rankings, ladders,
+         rivalries, pilot pages, maps, match page and admin page still
+         work, and the S19 cards still draw.
 - [ ] **S21 Belts and achievements** (M).
 - [ ] **S22 Fight-night schedule and iCal** (S). Events table, `.ics` feed,
       dashboard countdown; remove the calendar iframe.

@@ -1,5 +1,6 @@
 import React from 'react';
 import { chart, colors, rampColor, rampStep } from '../designTokens.js';
+import { CellLink } from './Link';
 
 export interface HeatCell {
     // 0 to 1, the share that picks the chart.ramp colour; null leaves the cell uncoloured
@@ -8,6 +9,8 @@ export interface HeatCell {
     text: string;
     // the cell in words, for its title and for a screen reader
     title: string;
+    // a page the cell opens (the match page's damage grid opens the pair's tape)
+    to?: string;
 }
 
 interface HeatTableProps {
@@ -51,7 +54,8 @@ const HeatTable: React.FC<HeatTableProps> = ({ caption, corner, columns, rows })
                                 className="h-6 min-w-[2.5rem] text-center rounded-[2px] p-0"
                                 style={{ backgroundColor: cell?.share == null ? 'transparent' : rampColor(cell.share, max), color: dark ? colors.surface.page : chart.ink }}
                             >
-                                {cell ? <><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></> : <span className="sr-only">none</span>}
+                                {cell?.to ? <CellLink to={cell.to} className="h-full content-center hover:underline"><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></CellLink>
+                                    : cell ? <><span aria-hidden>{cell.text}</span><span className="sr-only">{cell.title}</span></> : <span className="sr-only">none</span>}
                             </td>
                             );
                         })}
