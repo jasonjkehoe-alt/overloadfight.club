@@ -210,6 +210,14 @@ describe('achievementPass', () => {
         expect(counts(pass, '.').duel_streak).toBeUndefined();
         // OKSTER: 72086 won, 72087 drawn, 72088 lost, 72089 and 72090 won
         expect(counts(pass, 'okster').duel_streak.value).toBe(2);
+        // a tie ends a run: JFTP wins 72100, draws a copy, wins 72101, so two runs of one
+        const tie = at(72100, '2025-11-24T20:28:00.000Z', { JFTP: 6, '.': 6 }, { id: 99004 });
+        const jftp = [72098, 72100, 72101].map(id => (id === 72098 ? ffaWithLog : byId(id)));
+        expect(counts(run([...jftp, tie]), 'jftp').win_streak.value).toBe(1);
+        expect(counts(run(jftp), 'jftp').win_streak.value).toBe(2);
+        // a pilot listed twice in a win runs their streak once
+        const twice = { ...byId(72100), players: [...byId(72100).players, byId(72100).players.find(p => p.name === 'JFTP')] };
+        expect(counts(run([twice]), 'jftp').win_streak.value).toBe(1);
         // a match with no result leaves a streak where it was
         const noResult = { ...at(72100, '2025-11-24T20:28:00.000Z', {}, { id: 99002 }), teamScore: {}, players: byId(72100).players.map(p => ({ ...p, team: 'BLUE' })) };
         expect(counts(run([...games, noResult]), 'jftp').win_streak.value).toBe(counts(pass, 'jftp').win_streak.value);
