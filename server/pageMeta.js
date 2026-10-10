@@ -1,19 +1,29 @@
-// The <title> and share-preview tags (og:title, og:description, og:url) for a
-// page URL. index.js fills them into index.html for every page it serves, so a
-// link pasted into Discord previews the pilot, match or fight night it opens.
+// The <title> and share-preview tags (og:title, og:description, og:url and,
+// for a page with a share card, og:image) for a page URL. index.js fills them
+// into index.html for every page it serves, so a link pasted into Discord
+// previews the pilot, match, fight night or map it opens.
+import fs from 'fs';
 import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
-import { SERVER_WINDOW_DEFAULT, fightNightDay, winnerOf, measuredDurationOf } from './lib/gameParse.js';
+import { SERVER_WINDOW_DEFAULT } from './lib/gameParse.js';
 import { regionLabel } from './lib/serverRegions.js';
-import { clock, count, percent, resultLine } from './lib/matchResult.js';
+import { count, percent } from './lib/matchResult.js';
+import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard } from './lib/shareCards.js';
+import { CARD_SIZE } from './lib/cardLayout.js';
+import { cardFailed } from './services/cardService.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
+// The pilot, match, fight-night and map pages describe themselves with their
+// share card's own sentence (shareCards.js), so the preview's text and its
+// image read the same numbers.
+const withCard = (card, extra = {}) => (card ? { ...extra, card, description: card.description } : {});
+
 // "WD-40: 20 matches, 325 kills, last match 2026-10-07." (a fight-night day)
 function pilotMeta(name) {
-    const pilot = db.getPilotSummary(name);
-    if (!pilot) return {};
-    return { description: `${pilot.name}: ${count(pilot.games)} matches, ${count(pilot.kills)} kills, last match ${fightNightDay(pilot.lastSeen)}.` };
+    const summary = db.getPilotSummary(name);
+    if (!summary) return {};
+    return withCard(pilotCard(summary, db.getPilotRating(summary.name), db.getPilotPPI(summary.name)));
 }
 
 // "BLUE wins 42–35. TEAM ANARCHY on Vault, 15:10." The name is the map, for the title.
@@ -21,19 +31,25 @@ function matchMeta(id) {
     const row = db.getGameById.get(id);
     if (!row) return {};
     const game = JSON.parse(row.details);
-    const { matchMode, level } = game.settings || {};
-    const seconds = measuredDurationOf(game);
-    const where = [matchMode, level && `on ${level}`].filter(Boolean).join(' ');
-    const detail = where ? `${where}${seconds ? `, ${clock(seconds)}` : ''}.` : '';
-    return { name: level, description: [resultLine(winnerOf(game)), detail].filter(Boolean).join(' ') };
+    return withCard(matchCard(id, game), { name: game.settings?.level });
 }
 
 // The card for the date, or the latest card on /fight-night.
 function fightNightMeta(date) {
-    const recap = date ? db.getFightNightRecapByDate(date) : db.getFightNightRecaps(1)[0];
-    if (!recap) return {};
-    const top = recap.topFragger?.name ? `, most kills ${recap.topFragger.name} (${count(recap.topFragger.kills)})` : '';
-    return { description: `${recap.formattedDate}: ${count(recap.totalMatches)} matches, ${count(recap.totalPilots)} pilots${top}.` };
+    return withCard(fightNightCard(date ? db.getFightNightRecapByDate(date) : db.getFightNightRecaps(1)[0]));
+}
+
+// "BLIZZARD by Revival Productions: 40 matches, 1,200 kills, top pilot WD-40."
+// The image is drawn on the card when the image route has cached it on disk;
+// its time is part of the card, so a replaced image makes a new card.
+function mapMeta(name) {
+    const intel = db.getMapIntel(name);
+    if (!intel) return {};
+    const map = intel.id ? db.getMapById(intel.id) : null;
+    const file = map && db.mapImagePath(map);
+    // undefined until the image route has downloaded it
+    const stat = file && fs.statSync(file, { throwIfNoEntry: false });
+    return withCard(mapCard(intel, stat ? { file, mtime: stat.mtimeMs } : null));
 }
 
 // "Power rankings for 2026-10-08: 1. WD-40 (1612), 2. OKSTER (1580), 3. RAZOR (1555)."
@@ -86,6 +102,7 @@ function routeMeta({ view, param }, query) {
         case 'pilot': return pilotMeta(param);
         case 'game-detail': return matchMeta(param);
         case 'fight-night': return fightNightMeta(param);
+        case 'maps': return param ? mapMeta(param) : {};
         case 'rankings': return rankingsMeta();
         case 'ladders': return laddersMeta(query.get('board'));
         case 'rivals': return rivalsMeta();
@@ -96,6 +113,19 @@ function routeMeta({ view, param }, query) {
 }
 
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+
+// The views with a share card.
+const CARD_VIEWS = new Set(['pilot', 'game-detail', 'fight-night', 'maps']);
+
+/**
+ * The share card of the page at `pathname`, or null for a page without one
+ * (server/routes/cards.js). Throws when the lookup does.
+ * @param {string} pathname
+ */
+export function pageCard(pathname) {
+    const route = parseRoute(pathname);
+    return CARD_VIEWS.has(route.view) ? routeMeta(route, new URLSearchParams()).card ?? null : null;
+}
 
 /**
  * index.html with the page's title and share tags in place of its <title>.
@@ -119,7 +149,18 @@ export function withPageMeta(html, origin, url) {
         `<meta property="og:title" content="${title}" />`,
         `<meta property="og:description" content="${escapeHtml(meta.description || SITE_DESCRIPTION)}" />`,
         `<meta property="og:url" content="${escapeHtml(origin + url)}" />`
-    ].join('\n    ');
+    ];
+    // a card that failed to draw is left out rather than shown broken
+    const key = meta.card && cardKey(meta.card);
+    if (key && !cardFailed(key)) {
+        tags.push(
+            `<meta property="og:image" content="${escapeHtml(origin + cardUrl(meta.card, key))}" />`,
+            `<meta property="og:image:width" content="${CARD_SIZE.width}" />`,
+            `<meta property="og:image:height" content="${CARD_SIZE.height}" />`,
+            `<meta property="og:image:alt" content="${escapeHtml(meta.card.description)}" />`,
+            '<meta name="twitter:card" content="summary_large_image" />'
+        );
+    }
     // a function, so a "$" in a pilot name is not read as a replacement pattern
-    return html.replace(/<title>[\s\S]*?<\/title>/, () => tags);
+    return html.replace(/<title>[\s\S]*?<\/title>/, () => tags.join('\n    '));
 }

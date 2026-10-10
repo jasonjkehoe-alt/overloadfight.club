@@ -7,11 +7,22 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { day, onDay, sample, veteranSoup } from '../testFixtures.js';
 import { FIGHT_NIGHT_PING, dayStart, fightNightDay, netKills, pilotKey, shiftDay } from '../lib/gameParse.js';
 import { EMBED_LIMITS, PING_SERVERS, RECAP_RANKINGS, movement, pingMessage, plain, recapMessage } from '../lib/discordMessages.js';
+import { cardKey, fightNightCard } from '../lib/shareCards.js';
+import { cachedCard } from './cardService.js';
 
 // The Discord webhook (S18) against a local stub server that records what it
 // receives. The URL's token is a made-up secret that no log line, error or
 // answer may hold.
 const SECRET = 'tok3n-s18-never-logged';
+
+// satori, failing on a marker title, so a night's card can fail to draw.
+vi.mock('satori', async importOriginal => {
+    const real = (await importOriginal()).default;
+    return { default: async (tree, options) => {
+        if (JSON.stringify(tree).includes('THROW ME')) throw new Error('satori failed');
+        return real(tree, options);
+    } };
+});
 const ORIGIN = 'https://ofc.example';
 
 // The fixture games on `day` plus a second night's worth of the same games a
@@ -163,6 +174,16 @@ describe('the recap embed on fixture data', () => {
         expect(embed.fields).toHaveLength(10);
     });
 
+    it('shows the night\'s share card under SITE_URL, with the numbers the embed gives', () => {
+        const [embed] = message.embeds;
+        const card = fightNightCard(recap);
+        expect(embed.image).toEqual({ url: `${ORIGIN}/api/card/fight-night/${day}?v=${cardKey(card)}` });
+        expect(embed.url).toBe(`${ORIGIN}${card.path}`);
+        expect(card.stats.find(s => s.label === 'Most kills').value).toBe(recap.topFragger.name);
+        // a card that failed to draw is left out
+        expect(recapMessage(recap, rankings, ORIGIN, { image: false }).embeds[0]).not.toHaveProperty('image');
+    });
+
     it('shows each kind of movement and the top 5 only', () => {
         expect([3, -1, 0, null].map(movement)).toEqual(['▲3', '▼1', '–', 'NEW']);
         const pilots = Array.from({ length: 8 }, (_, i) => ({ rank: i + 1, name: `P_${i}`, rating: 1700.4 - i * 10, change: [2, -3, 0, null][i % 4] }));
@@ -302,6 +323,10 @@ describe('the recap post from the detector', () => {
         // the detector saves the next day's (new) and finds `day`'s already saved
         await detectAt(morning);
         expect(recapPosts().map(r => r.body.embeds[0].url)).toEqual([`${ORIGIN}/fight-night/${shiftDay(day, 1)}`]);
+        // its share card was drawn before the post, so Discord's fetch finds it cached
+        const card = fightNightCard(db.getFightNightRecapByDate(shiftDay(day, 1)));
+        expect(recapPosts()[0].body.embeds[0].image).toEqual({ url: `${ORIGIN}/api/card${card.path}?v=${cardKey(card)}` });
+        expect(cachedCard(cardKey(card))).toBeDefined();
         // the rankings on the morning after that night
         expect(recapPosts()[0].body.embeds[0].fields.at(-1).name).toBe(`Power rankings on ${shiftDay(day, 2)} (▲▼ over 7 days)`);
         expect(db.getDiscordPost('recap', day)).toBeNull();
@@ -336,6 +361,22 @@ describe('the recap post from the detector', () => {
         expect(received).toHaveLength(3);
         expect(received[2].body.embeds[0].url).toBe(`${ORIGIN}/fight-night/${day}`);
         expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'sent', tries: 2 });
+    });
+
+    it('posts the recap without its card when the card cannot be drawn', async () => {
+        switchOn();
+        await fightNights.generateRecapForDate(day, true);
+        const saved = db.getFightNightRecapByDate(day);
+        const read = vi.spyOn(db, 'getFightNightRecapByDate').mockReturnValue({ ...saved, formattedDate: 'THROW ME' });
+        const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+        db.putDiscordPost({ kind: 'recap', key: day, status: 'pending', tries: 0 });
+        await discord.postRecap(day);
+        read.mockRestore();
+        log.mockRestore();
+        expect(recapPosts()).toHaveLength(1);
+        expect(recapPosts()[0].body.embeds[0].title).toBe('Fight Night: THROW ME');
+        expect(recapPosts()[0].body.embeds[0]).not.toHaveProperty('image');
+        expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'sent', tries: 1 });
     });
 
     it('counts a recap that cannot be built as a failed try', async () => {

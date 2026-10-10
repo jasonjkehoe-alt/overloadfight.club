@@ -2,6 +2,8 @@ import db from '../db.js';
 import { FIGHT_NIGHT_PING, browserPilots, fightNightDay, shiftDay } from '../lib/gameParse.js';
 import { pingMessage, recapMessage, testMessage } from '../lib/discordMessages.js';
 import { SITE_NAME } from '../lib/siteRoutes.js';
+import { fightNightCard } from '../lib/shareCards.js';
+import { renderCard } from './cardService.js';
 
 // Posts to the fight-night channel's Discord webhook (S18) with Node's fetch.
 // The URL comes from DISCORD_WEBHOOK_URL only and never goes into a log line,
@@ -164,7 +166,15 @@ export function postRecap(date, saved = false) {
         const row = db.getDiscordPost('recap', date);
         if (saved && !row) db.putDiscordPost({ kind: 'recap', key: date, status: 'pending', tries: 0 });
         else if (row?.status !== 'pending') return null;
-        return deliver('recap', date, async () => recapMessage(db.getFightNightRecapByDate(date), await rankingsAfter(date), siteOrigin()));
+        return deliver('recap', date, async () => {
+            const recap = db.getFightNightRecapByDate(date);
+            const rankings = await rankingsAfter(date);
+            // drawn first, so Discord's fetch of the image finds it cached, and
+            // a card that cannot be drawn is left out of the embed
+            const card = fightNightCard(recap);
+            const drawn = card ? await renderCard(card).then(() => true, () => false) : false;
+            return recapMessage(recap, rankings, siteOrigin(), { image: drawn });
+        });
     } catch (error) {
         console.error(`[Discord] Recap ${date} not queued:`, error.message);
         return null;

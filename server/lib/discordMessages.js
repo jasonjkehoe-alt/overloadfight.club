@@ -4,6 +4,7 @@
 import { SITE_NAME, urlFor } from './siteRoutes.js';
 import { RATING, onlineServers } from './gameParse.js';
 import { count, plural } from './matchResult.js';
+import { cardUrl, fightNightCard } from './shareCards.js';
 
 // Discord's limits on an embed (characters; `total` over the title,
 // description and every field's name and value).
@@ -50,13 +51,14 @@ const RECAP_LINES = [
 export const movement = change => (change === null ? 'NEW' : change > 0 ? `▲${change}` : change < 0 ? `▼${-change}` : '–');
 
 /**
- * The recap of one fight night: its totals, top pilots and saved lines, and
- * the power rankings after it.
+ * The recap of one fight night: its totals, top pilots and saved lines, the
+ * power rankings after it, and the night's share card as the embed's image.
  * @param {object} recap a saved recap (fightNightService.generateRecapForDate)
  * @param {{ day: string, pilots: object[] }} rankings db.getPowerRankings()
  * @param {string} origin "https://overloadfight.club"
+ * @param {{ image?: boolean }} [options] image: false leaves the card out (it failed to draw)
  */
-export function recapMessage(recap, rankings, origin) {
+export function recapMessage(recap, rankings, origin, { image = true } = {}) {
     const fields = [];
     const { topFragger, mostActivePilot } = recap;
     if (topFragger?.kills > 0) fields.push({ name: 'Most kills', value: `${plain(topFragger.name, NAME_MAX)}, ${count(topFragger.kills)}`, inline: true });
@@ -71,13 +73,16 @@ export function recapMessage(recap, rankings, origin) {
             value: top.map(p => `${p.rank}. ${plain(p.name, NAME_MAX)} ${Math.round(p.rating)} ${movement(p.change)}`).join('\n')
         });
     }
+    // the night's share card: its page, its sentence of totals and its image
+    const card = fightNightCard(recap);
     return {
         allowed_mentions: NO_MENTIONS,
         embeds: [fit({
             title: plain(`Fight Night: ${recap.formattedDate}`, EMBED_LIMITS.title),
-            url: `${origin}${urlFor('fight-night', recap.date)}`,
-            description: `${plural(recap.totalMatches, 'match', 'matches')}, ${plural(recap.totalPilots, 'pilot', 'pilots')}, ${plural(recap.totalFrags, 'kill', 'kills')}.`,
-            fields
+            url: `${origin}${card.path}`,
+            description: card.line,
+            fields,
+            ...(image ? { image: { url: `${origin}${cardUrl(card)}` } } : {})
         })]
     };
 }

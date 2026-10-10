@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { day, onDay, sample, veteranSoup } from './testFixtures.js';
 import { HOUR_MS, dayStart, netKills } from './lib/gameParse.js';
+import { plural } from './lib/matchResult.js';
 
 const template = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8');
 const origin = 'https://overloadfight.club';
@@ -52,11 +53,13 @@ describe('withPageMeta', () => {
         const kills = zergling.reduce((sum, p) => sum + netKills(p), 0);
         const tags = tagsFor('/pilot/zergling');
         expect(tags.title).toBe('zergling | overloadfight.club');
-        expect(tags.description).toBe(`ZERGLING: ${zergling.length} matches, ${kills} kills, last match ${day}.`);
+        // one match: "1 match", not "1 matches" (S19)
+        expect(zergling).toHaveLength(1);
+        expect(tags.description).toBe(`ZERGLING: 1 match, ${kills} kills, last match ${day}.`);
         // Soup's 2019 game sits in cold storage; the name is the spelling from the latest game
         const soup = [...sample.flatMap(g => g.players), ...veteranSoup.players].filter(p => p.name.toLowerCase() === 'soup');
         const soupKills = soup.reduce((sum, p) => sum + netKills(p), 0);
-        expect(tagsFor('/pilot/Soup').description).toBe(`SOUP: ${soup.length} matches, ${soupKills} kills, last match ${day}.`);
+        expect(tagsFor('/pilot/Soup').description).toBe(`SOUP: ${plural(soup.length, 'match', 'matches')}, ${soupKills} kills, last match ${day}.`);
         expect(tagsFor('/pilot/NOBODY').description).toBe('Live Overload servers, match results and pilot stats.');
     });
 

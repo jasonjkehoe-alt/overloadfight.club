@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { winnerOf } from './gameParse.js';
-import { clock, resultLine, shortCount } from './matchResult.js';
+import { RATING, winnerOf } from './gameParse.js';
+import { clock, ratingStanding, resultLine, shortCount } from './matchResult.js';
 import { byId, detailSample } from '../testFixtures.js';
 
 // The match page's result line, built from winnerOf() on the fixture games.
@@ -53,5 +53,16 @@ describe('shortCount', () => {
         expect(shortCount(9999)).toBe((9999).toLocaleString());
         expect(shortCount(10000)).toBe('10k');
         expect(shortCount(12345)).toBe('12k');
+    });
+});
+
+// The rating card's standing, which the pilot's share card repeats.
+describe('ratingStanding', () => {
+    it('gives the rank, or why the pilot has none', () => {
+        expect(ratingStanding({ status: 'ranked', rank: 3, matches: 40 })).toBe('#3 in the power rankings');
+        expect(ratingStanding({ status: 'ranked', rank: 40, matches: 40 })).toBe('#40 in the power rankings');
+        expect(ratingStanding({ status: 'provisional', rank: null, matches: 4 })).toBe(`Provisional: 4 of ${RATING.rankedAfter} rated matches`);
+        expect(ratingStanding({ status: 'inactive', rank: null, matches: 40 })).toBe(`Not ranked: no rated match in the last ${RATING.activeDays} days`);
+        expect(ratingStanding({ status: 'ranked', rank: null, matches: 40 })).toBe(`Not ranked: no rated match in the last ${RATING.activeDays} days`);
     });
 });

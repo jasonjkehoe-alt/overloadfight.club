@@ -97,8 +97,11 @@ for it still being open; it had merged.)
 S17 is merged into `main` (PR #18, squash-merged 2026-10-09 20:01 UTC
 as `726e536`), with no owner commits after it.
 
-S18 is on branch `ofc/s18-discord-webhook`, based on `726e536`, its PR
-open against `main` and not merged, 2026-10-09 UTC.
+S18 is merged into `main` (PR #19, squash-merged 2026-10-09 21:25 UTC
+as `6e7ed6d`), with no owner commits after it.
+
+S19 is on branch `ofc/s19-og-share-cards`, based on `6e7ed6d`, its PR
+(#20) open against `main` and not merged, 2026-10-09 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -109,11 +112,162 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 18 of 28 sessions done (S1 to S17 merged, S18 in its PR).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 1/11. The Node 26
+Counts: 19 of 28 sessions done (S1 to S18 merged, S19 in its PR).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 2/11. The Node 26
 maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-09 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S17 and Node 26 merged into `main`, `main` at 726e536, S18 on `ofc/s18-discord-webhook`)
+## Validated (as of 2026-10-09 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S18 and Node 26 merged into `main`, `main` at 6e7ed6d, S19 on `ofc/s19-og-share-cards`)
+
+- S19, first move on Node 26.11.1, on `main` at `6e7ed6d` (PR #19
+  merged, no owner commits after it; `git diff
+  origin/ofc/s18-discord-webhook origin/main` is empty; `10223be` is not
+  an object here, so the pre-rewrite check fails as it should): `npx
+  vitest run` passed 18 files, 313 tests. `npx vite build` wrote the entry
+  at 233.36 KB raw / 74.80 KB gzip, `AdminPanel` 35.18 KB / 9.32 KB gzip,
+  `GameList` 41.67 KB / 11.42 KB gzip and `FightNightSection` 14.13 KB /
+  3.05 KB gzip. `npx tsc --noEmit` exited 0. All match the S18 records.
+  `wc -l` before building: `pageMeta.js` 125, `index.js` 598,
+  `siteRoutes.js` 98, `routes/maps.js` 241, `matchResult.js` 57,
+  `discordMessages.js` 119, `designTokens.js` 88, `tailwind.config.js`
+  16, `index.html` 14, `Dockerfile` 46, `package.json` 53.
+- S19, the owner's seven answers at the start (see the decisions).
+- S19, a prototype run by plain `node` before building: satori 3 ms and
+  resvg 218 ms a card, 2.2 s for the first, with resvg's system fonts
+  loaded; 9 ms sync and 1.5 ms through `renderAsync` without them (no
+  event-loop tick missed during the async render).
+- S19, tests: `npx vitest run` passes 21 files, 352 tests (313 at the
+  start). New: `server/lib/shareCards.test.js` (14) builds each card on
+  fixture games or hand-made rows: 72102's map, result, mode, 15:10,
+  Decision and day, word for word S8's description; 72108 KO, 72098 Draw;
+  a match known only by its time limit (no length, as the description); a
+  match at 03:00 UTC dated to the Chicago evening; an unparseable date
+  leaving the day out; the pilot's four tiles, every standing, a negative
+  cached ratio as 0.00, "1 match, 1 kill"; the night's tiles and no most
+  kills at 0; the map's tiles, an Unknown author left out, an image and its
+  time in the key, an all-digit name by id; the key stable and moving with
+  a number, a name with `/` and `?` in its own path segment.
+  `server/lib/cardLayout.test.js` (4): 1200 × 630, the tokens at 2.5
+  times, four tiles at most, title and value sizes by length, the image
+  only when given. `server/services/cardService.test.js` (19) on a temp
+  database of the fixtures: ZERGLING's matches, kills and ranked Combat
+  Ratio counted again from the fixture games (the ratio by `combatRatio`
+  over his ranked matches equals the card's), his rating and standing as
+  `getPilotRating` gives them, WD-40 "#1 in the power rankings"; the
+  night's matches, pilots, kills and most kills counted from the fixtures
+  on `day` (14 of the 25, the rest past 06:00); ASCENT's matches, kills,
+  last 30 days and top pilot counted from the fixtures; no card for other
+  pages; a 1200 × 630 PNG drawn once and then cached, five requests drawn
+  one at a time with a shared draw, a new card when a number moves, the
+  200-card and byte caps dropping the least recently used, a map image
+  drawn behind the card (a PNG the test drew itself) and a missing or
+  non-image file left out, 20 waiting draws and three turned away with
+  `CardBusy` and not marked failed (and none turned away with no limit),
+  Cyrillic, Greek and Vietnamese names drawn, a failed card remembered;
+  the five tags on the four pages on the request's origin, none for other
+  pages or a failed card; the route's PNG, `Server-Timing`, a cached card
+  by `?v=` with no database read, 404s, 500s, a 503 with `Retry-After`
+  past the wait limit. `pageMeta.test.js`: "ZERGLING: 1 match" (S8's test
+  expected "1 matches"). `discordService.test.js`: the embed's image under
+  `SITE_URL`, its link and sentence the card's, no image when told the
+  draw failed, and the posted recap's card cached before the post.
+  `matchResult.test.js`: `ratingStanding`.
+- S19, mutations (`mutate.py` in the scratch folder: each edit on a source
+  file, six test files run, the file restored from a copy named by its
+  absolute path; `git status` the same after every run): 26 of 26 fail a
+  test. Three had survived the first run (a match length from the time
+  limit, the UTC day for Played, a cache hit not counted as recent use)
+  and one the run after /simplify (the recap posting without drawing its
+  card); each got a test.
+- S19, real data from scripts run by plain `node` (so the ES-module
+  imports are checked outside vitest) on a copy of `/tmp/ofc-data`: the
+  four kinds of card drawn and looked at (WD-40: 23 matches, 380 kills,
+  1439 "#2 in the power rankings", 0.76; 78764 STRONGHOLD "BLUE wins
+  87–80.", TEAM ANARCHY, 15:11, Split decision; 2026-10-06: 18 matches, 11
+  pilots, 1,102 kills, WD-40 237; Blizzard with its image: 2 matches, 257
+  kills, FUTZPIMMEL 54), then a worst case (a 56-character title, a 32-W
+  value, long notes) and Cyrillic, Greek and Vietnamese names. The looks
+  caught "BADASS" running out of its tile at 46 px and a standing cut at
+  two lines; both fixed.
+- S19, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` on the built `dist/`
+  (49 matches by the end): "Startup sync complete." logged; `curl` of
+  `/pilot/WD-40`, `/pilot/LORD%20JOHN%20WARFIN`, `/game/78764`,
+  `/game/78758`, `/fight-night`, `/fight-night/2026-10-06`,
+  `/maps/BLIZZARD` and `/maps/ASCENT` gives each page's `og:image` on
+  `http://localhost:3100`, its size, alt text and `twitter:card`; each
+  image URL answers 200 `image/png`, 1200 × 630, `render;dur=98` for the
+  first card after the start, 19 to 21 for the others, 76 and 80 for the
+  maps with images, 0 the second time. `/pilots`, `/rankings`, `/ladders`,
+  `/rivals`, `/`, `/history` and `/server/143.110.230.67` have no
+  `og:image`; `/api/card` for an unknown pilot, `/pilots`, `/game/1`, an
+  unknown map and `/rankings` answers 404. `/maps/BLIZZARD` describes
+  itself: "Blizzard by Revival Productions: 2 matches, 257 kills, top
+  pilot FUTZPIMMEL." The thirteen API paths in the prompt answer 200
+  (`total_games: 49`). `robots.txt` lists `Allow: /api/card/`. SIGTERM
+  logged `[Shutdown] Done.`
+- S19, headless Chrome 154 over CDP (`checks.mjs`, my own 144-line client
+  over Node's WebSocket on port 9227 with its own profile; another
+  session's headless Chrome on a random port was left alone), 172 checks
+  at 1,280 and 390 px, 166 pass on the final build: `/`, `/history`, both
+  fight-night pages, `/pilots`, `/rankings`, `/ladders`, `/rivals`, two
+  pilots, `/maps`, `/maps/BLIZZARD`, `/game/78764`,
+  `/server/143.110.230.67` and `/admin` each have their title, content, no
+  ErrorState, no overflow; the six card pages carry `og:image` on the
+  page's origin with `summary_large_image` and the card loads in the page
+  as a 1200 × 630 image; the others carry none; the pilot page's standing
+  links to the rankings; the dashboard's first visit loads no Recharts
+  chunk; `/admin` logs in with the dev password and shows the Discord card
+  with no console error. The six failures are `/history`, `/maps` and
+  `/maps/BLIZZARD` at both widths logging 404s for map images
+  overloadmaps.com lacks: the S18 four plus JUNEBUG (map 62) on `/maps`
+  at 1,280 px (flagged; no S19 change). The first run passed 165 of 172:
+  the same six and the harness asking the 390 px login form for 200
+  characters of text.
+- S19 /code-review found 9 issues: Cyrillic and CJK names drawn blank,
+  `dayLabel(null)` throwing on an unparseable date, an unbounded draw
+  queue, a replaced map image keeping its old card, an all-digit map name
+  read as an id, the full rating history read for the tags, the key
+  hashed twice per page, the map page's `existsSync` and second read, and
+  the recap embedding a card that failed. Fixed: the fonts (Roboto Mono's
+  scripts under their own names, since satori falls back only across
+  names; CJK flagged), the date, a wait limit, the image's time in the
+  key, the all-digit path, the key hashed once, the recap drawing first.
+  Kept: the map's second read (the intel answer lacks the file name and
+  adding it changes a public answer). The history read went, then came
+  back after /simplify. /simplify (four agents): the embed reading the
+  card's `line` and `path`, the wait limit moved to the route (in the
+  service it could have turned away the recap's own draw), a cached card
+  served by `?v=` before any read, satori loaded on the first draw, a
+  20 MB cap, `getPilotRating` again instead of a new standing read, the
+  lookup only for the four views, three dead null checks, a flatter
+  `mapMeta`, shared test helpers and `afterEach` restores. Skipped:
+  `getMapIntel` reading names before ids (it changes a public API's
+  lookup), dropping the failure memory (the owner's rule: no `og:image`
+  for a failed card), `local_image` in the intel answer, one `careerKda`
+  for the page and the card (they differ only before the first refresh),
+  no redraw of a failed card (a passing failure should recover), the
+  recap drawing beside the rankings (90 ms once a night).
+- S19, sizes on Node 26.11.1 at the end, against a build of `origin/main`
+  in a scratch worktree: entry `index-*.js` 233.36 KB raw both, 74.80 to
+  74.78 KB gzip (hash names of the chunks it imports); `matchResult`
+  4.54 to 4.82 KB raw, 2.30 to 2.45 KB gzip (`ratingStanding`);
+  `PilotDetail` 57.10 to 56.91 KB raw, 14.65 to 14.57 KB gzip;
+  `GameList` 41.67 to 41.71 KB raw, 11.42 to 11.43 KB gzip;
+  `GlobalActivityChart` 15.41 to 15.44 KB; `AdminPanel` and
+  `FightNightSection` unchanged. No new Recharts chunk. `npx tsc --noEmit`
+  exits 0. `wc -l`: `shareCards.js` 138, `cardLayout.js` 68,
+  `cardService.js` 141, `routes/cards.js` 38, `pageMeta.js` 166,
+  `discordMessages.js` 124, `discordService.js` 223, `matchResult.js` 70,
+  `repos/maps.js` 433, `db.js` 249; no new file is over 500.
+- S19, the Docker image: `docker build` on the cached `node:26-alpine`
+  (arm64) installed `@resvg/resvg-js-linux-arm64-musl` from its prebuilt
+  package with no `.o` file anywhere under it; the container ran as uid
+  1000, reported healthy, drew WD-40's card (200, 1200 × 630, 132 ms) and
+  logged `[Shutdown] Done.` on `docker stop`. The image is 619 MB (599 MB
+  in the Node 26 record).
+- S19, CI on PR #20 (`9a8ad59`): `check` passed in 1 min 0 s (tsc, the
+  vite build, vitest 21 files and 352 tests on Node 26); docker-publish's
+  `build` passed in 1 min 54 s, building linux/amd64 with `push: false`,
+  so the amd64 image installed resvg's `linux-x64-musl` package and built.
 
 - S18, first move on Node 26.11.1, on `main` at `726e536` (PR #18
   merged, no owner commits after it; `git diff
@@ -1970,6 +2124,27 @@ maintenance item does not count toward the 28.
 
 ## NOT validated, do not claim these work
 
+- No link was pasted into Discord, X, Slack or anything else: the site is
+  not public from this machine. Whether Discord shows the card large,
+  which needs `twitter:card` and a fetch of `/api/card/...`, is unknown,
+  and so is how a real crawler's timeout compares with the first draw on
+  the NAS.
+- No recap posted to a real channel with its image (the S18 [HUMAN] task
+  is still open); the stub webhook received the embed with the image URL.
+- The cards were drawn on this Mac and in the arm64 image only. The NAS's
+  amd64 image installs `resvg-js-linux-x64-musl`, which CI's Docker job
+  builds but nobody has run; the draw time on the DS1515+'s Atom is
+  unknown.
+- Memory under load: the cache's 20 MB cap was tested with a lowered cap
+  on stub cards; nobody has watched the process's memory with 200 real
+  cards or a crawler walking the pilot pages.
+- CJK and emoji names draw blank characters (flagged); right-to-left
+  scripts were not tried.
+- Headless Chrome 154 on macOS only, at 1,280 and 390 px; the cards were
+  looked at as PNG files, not inside a chat client's preview.
+- The amd64 image CI built for PR #20 was not run, so no card was drawn
+  with `resvg-js-linux-x64-musl`.
+
 - Nothing has posted to a real Discord channel: the [HUMAN] webhook task
   is open, so every post went to a local stub. Whether Discord renders
   the embed as planned (the escaped names, the ▲▼ field name, the inline
@@ -2361,13 +2536,13 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 18 files, 313 tests pass on 26.11.1 (S18; 293 at its start) | 2026-10-09 |
+| `npx vitest run` | all pass | 21 files, 352 tests pass on 26.11.1 (S19; 313 at its start) | 2026-10-09 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 233.36 KB raw / 74.80 KB gzip, admin page `AdminPanel` 35.18 KB / 9.32 KB gzip, dashboard `GameList` 41.67 KB / 11.42 KB gzip and no Recharts on its first visit, `FightNightSection` 14.13 KB / 3.05 KB gzip, on 26.11.1 (S18; 74.78 and 7.65 at its start). S17's other chunks unchanged: `PilotDetail` 56.92 KB / 14.61 KB, `GameDetail` 123.94 KB / 40.03 KB, `MapLibrary` 34.22 KB / 8.92 KB, `Ladders` 7.54 KB / 2.38 KB, `Rivals` 7.00 KB / 2.38 KB gzip (one 351.07 KB chunk before S4) | 2026-10-09 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S18) | 2026-10-09 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S18 on `/tmp/ofc-data` with `DISCORD_WEBHOOK_URL` at a local stub: `total_games: 48`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries` (12 pilots, 25 pairs, 731 kills), `/api/pilot/WD-40/rivalry` and `/api/health` all 200; new `/api/admin/discord` and `/api/admin/discord/test` 401 without a session, the URL masked and a test post 200 or 502 with one; the token in no log line | 2026-10-09 |
-| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep og:` (and a match and a fight-night URL) | the page's own `og:title`, `og:description`, `og:url` | "WD-40: 20 matches, 325 kills, last match 2026-10-07."; match and fight night likewise (S8) | 2026-10-07 |
-| `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine` (cached locally), arm64: healthy, uid 1000, with `DISCORD_WEBHOOK_URL` set and none of it logged (S18; Docker Hub's 429 stopped CI's build job) | 2026-10-09 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 233.36 KB raw / 74.78 KB gzip (S19; 74.80 at its start, the same raw size), admin page `AdminPanel` 35.18 KB / 9.32 KB gzip, dashboard `GameList` 41.71 KB / 11.43 KB gzip and no Recharts on its first visit, `FightNightSection` 14.13 KB / 3.05 KB gzip, `PilotDetail` 56.91 KB / 14.57 KB gzip, `matchResult` 4.82 KB / 2.45 KB gzip, on 26.11.1. S17's other chunks unchanged: `GameDetail` 123.94 KB / 40.03 KB, `MapLibrary` 34.22 KB / 8.92 KB, `Ladders` 7.54 KB / 2.38 KB, `Rivals` 7.00 KB / 2.38 KB gzip (one 351.07 KB chunk before S4) | 2026-10-09 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S19) | 2026-10-09 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S19 on `/tmp/ofc-data`: `total_games: 49`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/WD-40/rivalry` and `/api/health` all 200; new `/api/card/<page>` 200 `image/png` 1200 × 630 for the four kinds of page, 404 for others | 2026-10-09 |
+| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep -E 'og:\|twitter:'` (and a match, a fight night and a map) | the page's own `og:title`, `og:description`, `og:url`; since S19 `og:image` on the request's origin, its size and alt, `twitter:card` | "WD-40: 23 matches, 380 kills, last match 2026-10-07.", `og:image` `http://localhost:3100/api/card/pilot/WD-40?v=36686f7e352a`; match, fight night and map likewise, none on list pages (S19) | 2026-10-09 |
+| `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine` (cached locally), arm64: healthy, uid 1000, resvg's `linux-arm64-musl` prebuild with no object file, a card drawn in the container, 619 MB (S19) | 2026-10-09 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
 | `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
 | Same server, `curl -w "%{time_total}" "localhost:3100/api/games?page=1"` more than 30 s after the last sync | answers from the DB, sync logged after | 200 in 0.0019 s, `[Sync] Fetching page 1` logged after it (S4) | 2026-10-06 |
@@ -2405,6 +2580,9 @@ maintenance item does not count toward the 28.
 | S18 `real.mjs`, run by `node` on a copy of `/tmp/ofc-data` against the stub: a real server-browser answer with players added, then the detector with the thresholds lowered, twice | one ping, one recap per night, nothing on the second run | 1 ping and 2 recaps, 10 fields each, nothing more (S18) | 2026-10-09 |
 | S18 `checks.mjs`: headless Chrome over CDP, the admin Discord card (real login against the stub; mocked: no URL, on with no URL, every post status, failed save, failed test, failed load and Retry, held), then the dashboard, history, both fight-night pages, leaderboard, rankings, ladders, rivals, a pilot, maps, a match and a server page, at 1,280 and 390 px | the card's states, no token in the page, no wider than the window, no console errors but the S1 401 | 62 of 66; the 4 failures are map-image 404s on `/history` and `/maps` from overloadmaps.com (S18) | 2026-10-09 |
 | S18 `mutate.py`: 33 edits to the S18 rules, each restored from a copy, four test files run | every edit fails a test | 32 of 33; the wait for a refresh under way survives (S18) | 2026-10-09 |
+| S19 `server/services/cardService.test.js`: a temp database of the fixtures, satori counted through a mock that delegates to it, the card router on a local server | the cards' numbers counted from the fixtures, one draw per card, caps, wait limit, fonts, failures, tags, route answers | 19 of 19 (S19) | 2026-10-09 |
+| S19 `checks.mjs`: headless Chrome over CDP, every main page plus `/admin` with a real login at 1,280 and 390 px; on the card pages `og:image` read from the DOM and loaded as an image | titles, content, no overflow, `og:image` on the card pages only, the card 1200 × 630, no console errors but the S1 401 | 166 of 172; the 6 failures are map-image 404s on `/history` and `/maps` from overloadmaps.com (S19) | 2026-10-09 |
+| S19 `mutate.py`: 26 edits to the S19 rules, each restored from a copy, six test files run | every edit fails a test | 26 of 26 (S19) | 2026-10-09 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -2978,8 +3156,66 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          webhook with the local server; the dashboard, fight night,
          leaderboard, rankings, ladders, rivalries, pilot pages, maps and
          match page still work.
-- [ ] **S19 OG share cards** (M). PNG cards for pilot, match, fight night, map
-      and tape URLs via satori + resvg.
+- [x] **S19 OG share cards** (M). PR #20. PNG cards for pilot, match, fight night, map
+      and tape URLs via satori + resvg. The owner decided at the start of
+      S19: cards for the pilot, match, fight-night and map pages now, the
+      tape left to S20; one shared layout, each card showing its own page's
+      numbers; Orbitron and Roboto Mono from the Fontsource packages;
+      rendered on request, one at a time, and kept in an in-memory cache
+      whose key changes when the card's numbers change; `og:image` on the
+      request's origin, as `og:url`; the S18 recap embed gets the
+      fight-night card as its image; `@resvg/resvg-js` for the PNG. Done
+      when (written at the start of S19):
+      1. The card's words and numbers are pure functions in
+         `server/lib/shareCards.js`, each tested on fixture data, that read
+         what the page and its `og:description` already read and reuse the
+         rules in `gameParse.js` and the wording in `matchResult.js`: the
+         pilot card (name, matches and kills from `getPilotSummary`, the
+         rating and its rank or standing from `getPilotRating`, Combat Ratio
+         from `pilot_stats_cache`, the last match's fight-night day), the
+         match card (map, `resultLine(winnerOf)`, mode, `clock` of
+         `measuredDurationOf`, `VERDICT_LABEL[verdictOf]`, the fight-night
+         day), the fight-night card (the saved recap's date, matches,
+         pilots, kills and most kills) and the map card (name, author,
+         matches, kills, matches in the last 30 days and the top pilot from
+         `getMapIntel`, and its cached image when one is on disk). The
+         page's `og:description` is built from the same object, so the two
+         cannot disagree. The map page gets an `og:description` it lacked.
+      2. One layout in `server/lib/cardLayout.js`: 1200 × 630, colours,
+         radius and the small text size from `designTokens.js`, the page's
+         kind, a title, a sentence, up to four stat tiles and the site's
+         name; long names cut with an ellipsis; tested without rendering.
+      3. `GET /api/card/<page path>` (in `server/routes/cards.js`) answers
+         the page's PNG (`image/png`, 1200 × 630), 404 for a page without a
+         card or an unknown pilot, match, night or map, and never blocks
+         the event loop for long: renders go one at a time, the PNG is
+         drawn by resvg's `renderAsync` off the main thread, and the render
+         time is logged and sent as `Server-Timing`. The cache holds about
+         200 cards in memory, keyed by the path and a hash of the card's
+         words and numbers, so a new match, a stats refresh or a recap save
+         that changes them makes a new card and one that does not reuses it.
+         The existing endpoints answer as before.
+      4. `server/pageMeta.js` adds `og:image` (with the `?v=` hash, so a
+         preview's own cache moves on when the numbers do), its width,
+         height and alt text, and `twitter:card` `summary_large_image` to
+         the four pages, on the request's origin like `og:url`. A page
+         with no card, or whose card failed to render, gets no `og:image`
+         and still loads.
+      5. The S18 recap embed carries the fight-night card under `SITE_URL`
+         as its image, built from the saved recap with no database read,
+         tested.
+      6. satori, `@resvg/resvg-js` and the two Fontsource packages are
+         dependencies with a decision entry each, install from prebuilds
+         with no compile on darwin-arm64 and `node:26-alpine`, and the
+         Docker image builds, runs healthy and renders a card. No
+         headless browser renders cards. Nothing in `App.tsx` changes and
+         the entry chunk does not grow (233.36 KB raw / 74.80 KB gzip
+         before).
+      7. Checked with curl against the local server (each page's
+         `og:image` tag and its PNG, looked at), and in headless Chrome at
+         1,280 and 390 px; the dashboard, fight night, leaderboard,
+         rankings, ladders, rivalries, pilot pages, maps, match page and
+         the admin page still work.
 - [ ] **S20 Tale of the Tape permalinks** (M). `/tape/:a/:b`.
 - [ ] **S21 Belts and achievements** (M).
 - [ ] **S22 Fight-night schedule and iCal** (S). Events table, `.ics` feed,
@@ -4969,6 +5205,133 @@ Not counted in the 28 sessions.
   save fails. A Refresh button reloads the latest posts (the archive toggle still does not, S11
   flag). Loading, ErrorState with Retry and EmptyState come from
   `States.tsx`.
+- 2026-10-09 (S19): The owner's answers at the start of S19, each the
+  recommended option. Cards for the pilot, match, fight-night and map pages
+  now; the tape's card waits for S20's page, and no route is reserved for
+  it. One layout, each card showing its own page's numbers. Orbitron and
+  Roboto Mono from the Fontsource packages, not font files in the repo.
+  Rendered on request and kept in memory; stale when the card's numbers
+  change. `og:image` on the request's origin, like `og:url`. The S18 recap
+  embed carries the fight-night card. `@resvg/resvg-js`, not the WebAssembly
+  build. Rejected: list-page cards (rankings, ladders, rivals, servers), a
+  layout per page, a disk cache under `DATA_DIR`, rendering ahead in the
+  nightly job, `SITE_URL` for `og:image`.
+- 2026-10-09 (S19): What each card says (`server/lib/shareCards.js`, pure
+  builders over rows the page route already reads). Pilot: matches and
+  kills from `getPilotSummary` (the leaderboard's all-time row, as
+  `og:description` since S8), the rating with `ratingStanding` (the rating
+  card's words, moved from `RatingCard.tsx` to `matchResult.js` so the two
+  share them; read through `getPilotRating`: /code-review asked for a read
+  without the history, /simplify found that more code than the saving was
+  worth, since the ranking it needs is already kept in memory), the career
+  Combat Ratio from
+  `pilot_stats_cache` (the profile's card, negative shown as 0), and the
+  last match's fight-night day (left out for a date that does not parse). Match: the map, `resultLine(winnerOf)`, the mode, `clock` of
+  `measuredDurationOf` (no length when only the limit is known, as in S8's
+  description), `VERDICT_LABEL[verdictOf]` and the fight-night day. Fight
+  night: the saved recap's date, matches, pilots, kills and most kills.
+  Map: the name, its author (left out when "Unknown"), matches, kills,
+  matches in the last 30 days and the top pilot as `getMapIntel` gives the
+  map popup, and the image when the image route has cached it on disk (a
+  card never fetches it from overloadmaps.com); a map with an all-digit
+  name gets its card at `/maps/<id>`, because the server reads digits as a
+  map id (S8). Each builder also writes
+  the page's `og:description`, so the preview's text and image read one
+  object; the pilot, match and fight-night sentences are S8's, now with
+  `plural` ("1 match", which S8's "1 matches" got wrong), and the map page
+  gets one for the first time ("BLIZZARD by Revival Productions: 40
+  matches, 1,200 kills, top pilot WD-40."). The map card's image file is
+  `mapImagePath` in `db/repos/maps.js` (a new `db` key), the rule the
+  image route used inline.
+- 2026-10-09 (S19): The layout (`server/lib/cardLayout.js`, a satori element
+  tree, tested without rendering). 1200 × 630 on `surface.page` with a
+  12 px brand bar down the left; the page's kind in brand and the site's
+  name in `chart.label` across the top; the title in Orbitron 900 (88 px,
+  smaller for longer titles, one line with an ellipsis); one sentence in
+  Roboto Mono, up to two lines; up to four tiles on `surface.card` with a
+  `line` border, each a label, a value in Orbitron 700 in brand and an
+  optional note. The tokens are the site's at 2.5 times: `rounded-card`'s
+  8 px is 20 px, `text-2xs`'s 10 px is 25 px for the kind and the labels.
+  Values step down from 46 to 22 px with their length, because Orbitron's
+  capitals are about 0.85 em wide ("BADASS" at 46 px ran out of its tile);
+  past 11 characters a value wraps onto two lines, a note onto three. A map
+  with a cached image shows it at 30% behind a gradient from the page
+  colour.
+- 2026-10-09 (S19): Rendering and the cache (`server/services/cardService.js`).
+  A card is drawn the first time its URL is asked for: satori turns the tree
+  into SVG with the text as paths, then resvg's `renderAsync` turns that into
+  PNG on libuv's thread pool. satori and the fonts load on the first draw,
+  not at startup (importing satori costs about 80 ms and 44 MB; /simplify).
+  Draws go one at a time through a promise queue, and a second request for
+  a card already being drawn waits for the same draw. resvg is told not to
+  load system fonts: with them it spent 2.2 s on the first render on this
+  Mac and 220 ms on each after; without them, 9 ms sync, 1.5 ms async. A
+  draw took 19 to 25 ms for a card without an image, 75 to 90 ms with one
+  (a 230 KB PNG) and 98 ms for the first card after a start, logged as
+  `[Card] <path> drawn in N ms` and sent as `Server-Timing: render;dur=N`
+  (0 from the cache). The PNGs are kept in memory, least recently used
+  dropped first, at most 200 cards and 20 MB (`CARD_LIMITS`), keyed by
+  `cardKey`: a SHA-1 of every word and number on the card, plus the map
+  image's path and modified time, so a re-downloaded image makes a new
+  card. That key is a change from the owner's answer, which named stamps
+  (the latest match id, the recap's save time): the hash makes a card stale
+  exactly when what it shows changes, where a new match id would have
+  redrawn every pilot's card after every match and missed a stats refresh
+  that moved a rating with no new match. A failed draw is remembered under
+  the same key (200 at most), so the page leaves `og:image` out until the
+  card's numbers change. Nothing is written to disk and no table is added,
+  so there is no migration: a restart starts with an empty cache and the
+  first request redraws. Rollback: revert.
+- 2026-10-09 (S19): `GET /api/card/<page path>` (`server/routes/cards.js`,
+  mounted with the other `/api` routers). The path is a page path that
+  `parseRoute` reads (`/api/card/pilot/WD-40`, `/api/card/fight-night` for
+  the latest night, `/api/card/maps/BLIZZARD`), so the card URL needs no
+  route table of its own; only the four views with a card are looked up.
+  A card cached under the request's `?v=` is sent before any database
+  read (/simplify); otherwise the page's current card is drawn, whatever
+  the `?v=` said. It answers `image/png` with `Cache-Control: public,
+  max-age=600`, 404 for a page with no card (any other page, an unknown
+  pilot, match, night or map), 503 with `Retry-After: 5` when 20 draws are
+  already waiting (`CARD_LIMITS.waiting`; nothing is remembered as failed),
+  so a crawler asking for thousands of cards cannot leave a preview's fetch
+  behind them all (/code-review; /simplify moved the limit from the
+  service to the route, so the recap's own draw always waits its turn), and
+  500 when the lookup throws or the draw fails. `robots.txt` (the file and
+  the fallback) gains `Allow: /api/card/` above `Disallow: /api/`, so
+  crawlers that read robots fetch the image.
+- 2026-10-09 (S19): The share tags. For a page with a card, `withPageMeta`
+  adds `og:image` (the request's origin plus `cardUrl`), `og:image:width`
+  1200, `og:image:height` 630, `og:image:alt` (the card's sentence) and
+  `twitter:card` `summary_large_image`, which Discord reads to show the
+  image large. No card, or a card that failed, gives none of the five and
+  the page loads as before.
+- 2026-10-09 (S19): The recap embed (S18) gets `image: { url }`, the
+  fight-night card under `SITE_URL`, built from the saved recap alone, so
+  `discordMessages.js` still reads no database; the embed's link and its
+  sentence of totals are the card's `path` and `line` (/simplify). Before
+  posting, `discordService.js` draws the card, so Discord's fetch finds it
+  cached, and a card that fails to draw is left out of the embed rather
+  than shown broken (/code-review).
+- 2026-10-09 (S19): Dependencies. satori 0.33.5 (MPL-2.0, Vercel's HTML and
+  CSS to SVG; pure JavaScript with WebAssembly for yoga and harfbuzz): the
+  newest release more than two weeks old on 2026-10-09. 23 releases
+  followed it (0.34.0 to 0.47.1), 17 of them on 2026-10-08 and 10-09. `@resvg/resvg-js` 2.6.2 (MPL-2.0,
+  2024-03): a native N-API addon whose binary comes as an optional package
+  per platform, so `npm ci` installs `resvg-js-darwin-arm64` here and
+  `resvg-js-linux-arm64-musl` in the arm64 image with no install script and
+  nothing compiled (the Command Line Tools postmortem does not bite).
+  `@fontsource/orbitron` and `@fontsource/roboto-mono` 5.3.0 (OFL-1.1): the
+  `.woff` files satori reads (it cannot read WOFF2); Orbitron 700 and 900
+  latin, Roboto Mono 400 and 600 in latin, latin-ext, Cyrillic,
+  Cyrillic-ext, Greek and Vietnamese, loaded once. satori falls back to
+  another font for a glyph only across fonts with other names (found when
+  /code-review showed a Cyrillic name drawn blank), so each extra Roboto
+  Mono script is registered as "Roboto Mono <script>". A name in CJK or
+  with emoji still draws nothing for those characters (flagged). All four are `dependencies`, kept by `npm prune
+  --omit=dev`. The runtime image now copies `designTokens.js`, which
+  `cardLayout.js` imports from the repo root. The image is 619 MB against
+  599 MB. Rejected: `@resvg/resvg-wasm` (no native code, but on the main
+  thread), a headless browser, font files committed to the repo.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -5916,6 +6279,70 @@ Not counted in the 28 sessions.
   cover both (/simplify, outside the diff). The card's "06:15" is
   written out, not read from `DETECTOR_DELAY_MS`.
 
+- (S19) Earlier flags that name S19, share cards, og tags, pageMeta, fonts,
+  images or the map images, decided:
+  - (S12) "The verdict thresholds ... are not in the share description;
+    S19's cards could use them": covered. The match card shows the verdict;
+    the description is unchanged.
+  - (S8) The share tags read the database on every page load: still open,
+    and the four card pages read a little more now (the pilot's rating and
+    cache row, the map's row and a file check). The card route repeats the
+    page's reads, because the card's key is the hash of what it shows.
+  - (S8) Whether the DSM proxy passes the original `Host`: still open, and
+    `og:image` now depends on it too.
+  - (S18) Four maps whose image overloadmaps.com answers 404 for: still
+    open (the S19 Chrome checks report them on `/history` and `/maps`). A
+    map card only draws an image the image route has already cached, so
+    those four, and any map nobody has opened on `/maps`, get a card
+    without one.
+  - (S18) The recap's saved lines say "1 matches" and "a ANARCHY
+    slugfest": still open in `fightNightService.js`. The share sentences
+    S19 builds use `plural`, so the pilot, fight-night and map
+    descriptions say "1 match".
+  - (S5) `pilot_stats_cache` lookups do not trim the name: the pilot card
+    reads the cache by the summary's spelling, which is trimmed, so the
+    card is not affected; `/ppi` still is.
+- (S19) A pilot or map name in CJK, or with emoji, draws nothing for those
+  characters on the card: no font loaded covers them (satori asks for one
+  through `loadAdditionalAsset`, which the service does not supply). The
+  page and the description show the name in full. A Noto CJK fallback
+  would cover it at several MB a weight.
+- (S19) Cards live in memory: a restart or a deploy empties the cache, and
+  the first preview of each page after it pays the draw (20 to 90 ms on
+  this Mac, unknown on the NAS's Atom). The cache holds 200 cards; a
+  crawler walking thousands of pilot pages would draw each once and push
+  older cards out.
+- (S19) `og:image` on a page opened over the LAN points at the LAN
+  address, which Discord cannot fetch. That follows the owner's choice of
+  the request's origin (S8's rule for `og:url`); a link shared from the
+  public site works.
+- (S19) Previews cache by URL. Discord and others keep the image they
+  fetched for a `?v=`; a pilot whose numbers moved gets a new `?v=` only
+  when the page is shared again, so an old message keeps its old card.
+- (S19) Twitter (X) and Slack read `robots.txt`, so `Allow: /api/card/` is
+  what lets them fetch the image; Discord does not read it. Nobody pasted
+  a link into any of them (see NOT validated).
+- (S19) A fifth map, JUNEBUG (map 62), has an image overloadmaps.com
+  answers 404 for; it showed on `/maps` at 1,280 px in the S19 checks,
+  beside the S18 four.
+- (S19, /simplify) Skipped: `getMapIntel` trying a name before an id,
+  which would fix all-digit map names for every caller but changes what
+  `/api/maps/:id/intel` answers for a number (the card names such a map by
+  its id instead); dropping the failure memory and loading the fonts at
+  startup (the binding rule is no `og:image` for a card that failed);
+  returning `local_image` from `getMapIntel` to save the map page's second
+  read (it would add an internal file name to a public answer); one
+  `careerKda` for the page and the card (the profile falls back to a ratio
+  computed from the telemetry when the pilot has no `pilot_stats_cache`
+  row, which only happens before the first refresh; the card leaves the
+  tile out then); not drawing a failed card again (a passing failure
+  should recover); drawing the recap's card beside its rankings read
+  (about 90 ms once a night).
+- (S19) The image grew from 599 to 619 MB: satori and its WebAssembly
+  (about 12 MB with `yoga-layout`, `harfbuzzjs` and `@shuding/opentype.js`),
+  resvg's musl binary and the two Fontsource packages (2.7 MB, every
+  subset and weight, of which the cards load six files).
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -5946,6 +6373,10 @@ S18 adds `discord_posts` to `tracker.db` and the `discord_enabled` row to
 `admin_settings`; after its revert `DROP TABLE discord_posts;` or leave
 it, and the row can stay. Nothing posts once the S18 code is gone;
 `DISCORD_WEBHOOK_URL` and `SITE_URL` in `.env` are then unread.
+S19 adds no table, setting or file: its cards live in memory. After its
+revert the pages lose `og:image` and previews fall back to text; links
+already posted keep the image their chat client cached, and a fresh fetch
+of `/api/card/...` answers the API's 404.
 
 ## Open questions
 
@@ -5963,6 +6394,11 @@ it, and the row can stay. Nothing posts once the S18 code is gone;
 - S18's (the ping's trigger and how often, which saves post, the embed,
   where the URL lives, failures, the origin, a test button) were settled
   by the owner at its start; see the S18 decisions.
+- S19's seven (which pages, what each card shows, the font, when cards
+  are drawn and kept, the `og:image` origin, the recap's image, resvg's
+  build) were settled by the owner at its start; see the S19 decisions.
+  The cache key is a hash of the card rather than the stamps the answer
+  named (see the rendering decision).
 
 ## Skills to load
 
@@ -6665,13 +7101,38 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   Chrome checks: 62 of 66, the four failures map-image 404s from
   overloadmaps.com. Nothing posted to a real channel (the [HUMAN] task is
   open). PR #19 opened against `main`, not merged.
+- 2026-10-09, S19 (Claude Opus 5.5): share cards. Status line checked
+  first: PR #19 had merged (`6e7ed6d`, nothing after it), so S19 branched
+  from `origin/main`; `10223be` is not an object here. First move: 18
+  files, 313 tests; entry 74.80 KB gzip; tsc 0. The owner took every
+  recommendation: cards for pilots, matches, fight nights and maps, one
+  layout with each page's own numbers, the Fontsource fonts, drawn on
+  request and kept in memory, `og:image` on the request's origin, the
+  card on the Discord recap, resvg's native build. I keyed the cache by a
+  hash of what the card shows rather than the stamps the answer named,
+  because a new match would otherwise have redrawn every pilot's card. A
+  prototype showed resvg spending 2.2 s loading system fonts the cards do
+  not need; switched off, a card takes 19 to 25 ms (75 to 90 with a map
+  image). Building the cards turned up "1 matches" in S8's pilot
+  description (now "1 match") and gave the map page its first description.
+  satori shipped 17 releases in the two days before the session, so it is
+  pinned at 0.33.5, the last one over two weeks old. Looking at the PNGs
+  caught a name running out of its tile; /code-review caught Cyrillic
+  names drawn blank, which came down to satori falling back only across
+  differently named fonts. /code-review found nine issues, eight fixed;
+  /simplify (four agents) moved the wait limit to the route, served cached
+  cards before any read and loaded satori lazily; six findings skipped.
+  26 of 26 mutants fail a test. Chrome checks: 166 of 172, the failures
+  map-image 404s from overloadmaps.com (now five maps). The image builds
+  on `node:26-alpine` from resvg's musl prebuild with nothing compiled.
+  PR #20 opened against `main`, not merged.
 
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S19: OG share cards.
+Continue the overloadfight.club roadmap. This session is S20: Tale of the Tape permalinks.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first (a hook blocks reads over 350 lines, so read it in sections), then verify its status line against the repo before building on anything in it.
@@ -6680,54 +7141,53 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S18 is on branch ofc/s18-discord-webhook, PR #19. PRs #1 to #18 are merged.
-  If PR #19 is merged:
-    git checkout -B ofc/s19-og-share-cards origin/main
-  If PR #19 is still open:
-    git checkout -B ofc/s19-og-share-cards origin/ofc/s18-discord-webhook
-    and open the S19 PR against main anyway; say in its description that it sits on PR #19.
-  Check again before opening the PR: if PR #19 merged during the session, rebase onto origin/main first.
+  S19 is on branch ofc/s19-og-share-cards, PR #20. PRs #1 to #19 are merged.
+  If PR #20 is merged:
+    git checkout -B ofc/s20-tale-of-the-tape origin/main
+  If PR #20 is still open:
+    git checkout -B ofc/s20-tale-of-the-tape origin/ofc/s19-og-share-cards
+    and open the S20 PR against main anyway; say in its description that it sits on PR #20.
+  Check again before opening the PR: if PR #20 merged during the session, rebase onto origin/main first.
   `git checkout -B ... origin/...` sets the remote branch as upstream; run `git branch --unset-upstream` so a bare push cannot go to main.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #19 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #20 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 26
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
-If neither origin/main nor origin/ofc/s18-discord-webhook has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s19-og-share-cards has docs/ROADMAP.md, stop and tell me.
 
-Before building, ask me the questions the S19 entry leaves open: which pages get a card now (pilot, match, fight night and map; the tape URL does not exist until S20, so leave it out or reserve its route), what each card shows (the numbers pageMeta.js already writes into og:description, or a different set per page) and whether the cards share one layout; which font the card uses (satori needs the font file itself, so Orbitron and Roboto Mono would ship in the repo or come from a package); whether a card is rendered on request and cached (in memory, on disk under DATA_DIR, and what makes it stale: a new match, a refresh, a recap save) or rendered ahead by the nightly job; the og:image origin (the request's host as og:url does, or S18's SITE_URL); and whether the S18 Discord recap embed gets the fight-night card as its image. Do not pick silently.
+Before building, ask me the questions the S20 entry leaves open: what the tape compares (the pilot page's "Tale of the Tape" card today sets the pilot's career numbers against one rival from "Frequent Adversaries", which counts teammates as rivals; S17 built kill-log rivals from opponents only, S16 the 1v1 duel records, S13 the ratings), and over which matches (all, ranked, a mode, a window); whether /tape/:a/:b is one canonical order (A/B sorted, the other order redirecting or reading the same) or keeps the order given; what an unknown pilot, the same pilot twice or two pilots who never met show; whether the pilot page's rival picker writes the tape URL (the S8 flag: the picked rival is not in the URL) and whether the old card and "Frequent Adversaries" go (the S17 flag says replacing them changes the tape); and whether the tape gets a share card in S19's layout (two names, the tiles as A against B) or a layout of its own. Do not pick silently.
 
 Read first:
-- docs/ROADMAP.md, the S19 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the share tags and the pages already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S8 decisions (share tags, og:url from the request, the rejected PUBLIC_URL), S9 (design tokens), S11 (server/routes/ layout), S13 to S17 (the numbers each page shows), S18 (SITE_URL, the recap embed, discordMessages.js), every "Flagged, not fixed" item that names S19, share cards, og tags, pageMeta, fonts, images or the map images (the S18 flag: four maps whose image overloadmaps.com answers 404 for), and the Postmortems (the Command Line Tools on this Mac cannot link native modules: a new dependency has to install from a prebuild on darwin-arm64 and on node:26-alpine).
-- server/pageMeta.js (the share tags), server/index.js (the page route that fills them and the static file serving), server/lib/siteRoutes.js (urlFor, pageTitle), server/routes/maps.js (the map image route), server/lib/matchResult.js (count, plural, resultLine), server/lib/discordMessages.js (the recap embed), designTokens.js, tailwind.config.js, index.html (the fonts), the Dockerfile and package.json. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S20 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the pilot page, the rivalry tables and the share cards already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S8 decisions (URLs, share tags), S10 (Combat Ratio and Lethality, the tape's career numbers), S13 (ratings), S16 (duels, pilot_duels), S17 (pilot_rivals, opponentsOf, the rivals card), S19 (shareCards.js, cardLayout.js, cardService.js, routes/cards.js, CARD_VIEWS in pageMeta.js, the cache key, og:image), and every "Flagged, not fixed" item that names S20, the tape, rivals, head-to-head, the dominance index, "Frequent Adversaries" or the rival picker.
+- components/PilotDetail.tsx (the tape and the rival picker), server/db/analytics/pilotTelemetry.js (getPilotBreakdown, the rivals it gives), server/db/analytics/rivals.js, server/lib/siteRoutes.js, server/pageMeta.js, server/lib/shareCards.js, server/lib/cardLayout.js and server/services/cardService.js. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
-- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every number a card shows ships with a test on fixture data.
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every number the tape shows ships with a test on fixture data.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
-- Secrets come from the environment or admin-only storage, never from tracked files, logs, error messages, API answers to non-admins or share tags. A card never shows anything a non-admin page does not.
+- Secrets come from the environment or admin-only storage, never from tracked files, logs, error messages, API answers to non-admins or share tags.
 - server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. A new table or cache on disk gets a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules; server/lib/matchResult.js the shared wording (count, plural, resultLine); server/lib/siteRoutes.js the page URLs (`urlFor`). A card reads the same numbers its page and its og:description show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
-- A card request must not block the event loop for long: render off the request path or cache it, and record the render time. A failed render falls back to no og:image, never to a broken page.
-- Colours, radius and small text come from designTokens.js. The card is not a React view: nothing in App.tsx changes for it, and the entry chunk does not grow.
+- server/lib/gameParse.js owns the game rules; server/lib/matchResult.js the shared wording; server/lib/siteRoutes.js the page URLs (`urlFor`, `parseRoute`, `pageTitle`); server/lib/shareCards.js what a share card says, built from the same object as the page's og:description. A page reads the same numbers the pilot page and the rivalry tables show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
+- A new view is React.lazy in App.tsx behind the one Suspense, with its route, title and nav section in siteRoutes.js and its share description in pageMeta.js; charts stay out of the entry chunk and the dashboard's first visit loads no Recharts chunk. Record the entry size (S19 left 233.36 KB raw / 74.78 KB gzip) and the view's and PilotDetail's chunks before and after.
+- Colours, radius and small text come from designTokens.js; chart colours from `chart` there, checked with the dataviz validator for any new pair. Shared states (Loading, EmptyState, ErrorState) for loading, nothing and failure; 390 px wide at 390 px.
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
-- Every view in App.tsx is React.lazy behind one Suspense; charts stay out of the entry chunk and the dashboard's first visit loads no Recharts chunk. Record the entry size (S18 left 233.36 KB raw / 74.80 KB gzip) before and after.
 - Keep new components and modules under 500 lines (S11).
-- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI). A new dependency gets a decision entry; satori and resvg are the plan's choice, and no headless browser renders cards. Build the Docker image once to show the new dependencies install on node:26-alpine without a compile.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (48 local matches at the end of S18; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the cards by fetching them and looking at the PNGs, and the pages' tags with curl; check the pages in headless Chrome over CDP, as S4 and S7 to S18 did (S18's harness was a 120-line CDP client over Node's WebSocket with a Fetch-domain mock list that fulfils, fails or holds; held requests failed when the mocks change; write your own); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/history` and `/maps` also log 404s for four map images overloadmaps.com lacks (S18 flag); report them, do not filter them.
+- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI). A new dependency gets a decision entry; none is expected.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (49 local matches at the end of S19; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the pages' tags (and a tape card, if there is one) with curl, and the pages in headless Chrome over CDP, as S4 and S7 to S19 did (S19's harness was a 144-line CDP client over Node's WebSocket on its own port and profile; write your own, with a Fetch-domain mock list that fulfils, fails or holds for the empty, failed and loading states); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/history` and `/maps` also log 404s for five map images overloadmaps.com lacks (S18 and S19 flags); report them, do not filter them.
 - Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy kept in the scratch folder, named by absolute path, not with `git checkout`, which also discards uncommitted work. Run `git status` after every mutation run.
 
 Rules for this session:
-- One PR, scope is the S19 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the owner's answers, the two dependencies, where cards are rendered and cached and what makes one stale, the card layouts and their numbers, the og:image origin, any new table, setting or file cache and its migration, and any new endpoint.
+- One PR, scope is the S20 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the owner's answers, what the tape compares and how each number counts, the URL and its canonical order, any change to the pilot page's rival card, the tape's share card, any new table, setting or cache and its migration, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
-- Apply the unslop skill to the PR description, the tracker prose and the cards' words.
+- Apply the unslop skill to the PR description, the tracker prose and the page's words.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S19 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S20 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S20.
+- Before ending: tick S20 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S21 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S21.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S18 left 18 files, 313 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|AdminPanel|GameList|FightNightSection)-.*\.js"` (the Verification table records the entry at 74.80 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S19 Done-when list into the tracker.
-Done when: every item of the S19 Done-when list is true and checked on fixture data, with curl against the local server (each page's og:image tag and its PNG) and in headless Chrome at 1,280 and 390 px; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, pilot pages, maps, match page and the admin page still work; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S19 PR; the Docker image builds and reports healthy; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/:name/rivalry` and `/api/health`; and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S19 left 21 files, 352 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|GameList)-.*\.js"` (the Verification table records the entry at 74.78 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S20 Done-when list into the tracker.
+Done when: every item of the S20 Done-when list is true and checked on fixture data and in headless Chrome at 1,280 and 390 px (the tape on local data plus Fetch-domain mocks for its states), with curl against the local server for its share tags; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, pilot pages, maps, match page and the admin page still work, and the S19 cards still draw; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S20 PR; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/:name/rivalry`, `/api/card/pilot/:name` and `/api/health`; and the PR is open with the tracker updated.
 ```

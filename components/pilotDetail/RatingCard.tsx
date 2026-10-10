@@ -4,6 +4,7 @@ import { Loading, EmptyState, ErrorState } from '../States';
 import Link from '../Link';
 import { urlFor } from '../../server/lib/siteRoutes.js';
 import { RATING, RATING_HINT, RATED_MATCH_TEXT } from '../../server/lib/gameParse.js';
+import { ratingStanding } from '../../server/lib/matchResult.js';
 import { PilotRating, RatingPoint } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
 import DetailsTable from '../DetailsTable';
@@ -31,10 +32,9 @@ const RatingTable: React.FC<{ history: RatingPoint[] }> = ({ history }) => (
 // (rankStatus in gameParse.js). The rankings page lists the top RATING.listed,
 // so only those link to it.
 const standing = (rating: PilotRating) => {
-    if (rating.status === 'provisional') return `Provisional: ${rating.matches} of ${RATING.rankedAfter} rated matches`;
-    if (rating.status === 'inactive' || rating.rank === null) return `Not ranked: no rated match in the last ${RATING.activeDays} days`;
-    if (rating.rank > RATING.listed) return `#${rating.rank} in the power rankings`;
-    return <Link to={urlFor('rankings')} className="text-brand hover:text-brand-hover underline">#{rating.rank} in the power rankings</Link>;
+    const text = ratingStanding(rating);
+    const listed = rating.status === 'ranked' && rating.rank !== null && rating.rank <= RATING.listed;
+    return listed ? <Link to={urlFor('rankings')} className="text-brand hover:text-brand-hover underline">{text}</Link> : text;
 };
 
 // The pilot page's Glicko-2 rating: the number, its RD, the standing and the
