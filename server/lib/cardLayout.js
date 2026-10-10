@@ -25,29 +25,31 @@ const oneLine = { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellip
 
 // Smaller type for longer text, so most names fit a tile (Orbitron's capitals
 // are about 0.85 em wide); past 11 characters a value wraps onto a second
-// line before the ellipsis. Five tiles (the pilot card with a belt or
-// achievements, S21) are a fifth narrower than four, so their values are a
-// quarter smaller.
-export const MAX_TILES = 5;
+// line before the ellipsis. The sizes are for four tiles; with more (five on
+// the pilot card with a belt or achievements, S21) each tile is narrower, so
+// its type and padding scale by `fit`, four over the number of tiles.
+const MAX_TILES = 5;
 const titleSize = text => (text.length <= 12 ? 88 : text.length <= 20 ? 72 : text.length <= 27 ? 58 : 48);
-const valueSize = (text, crowded) => {
-    const size = text.length <= 5 ? 46 : text.length <= 7 ? 34 : text.length <= 11 ? 26 : 22;
-    return crowded ? Math.round(size * 0.75) : size;
-};
+const valueSize = text => (text.length <= 5 ? 46 : text.length <= 7 ? 34 : text.length <= 11 ? 26 : 22);
 // Up to `lines` lines, cut with an ellipsis after the last.
 const clamp = lines => ({ display: 'block', lineClamp: lines, overflow: 'hidden', wordBreak: 'break-word' });
 
-function tile({ label, value, note }, crowded) {
+function tile({ label, value, note }, fit) {
     return el('div', {
-        display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, padding: crowded ? '20px 18px' : '22px 24px',
+        display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, padding: `22px ${24 * fit}px`,
         background: colors.surface.card, border: `2px solid ${colors.line}`, borderRadius: RADIUS
     }, [
-        // five tiles leave about 160 px of text: "COMBAT RATIO" fits at 0.72
-        el('div', { fontSize: SMALL * (crowded ? 0.72 : 0.9), color: chart.label, textTransform: 'uppercase', letterSpacing: crowded ? 0 : 1, ...oneLine }, label),
-        el('div', { fontFamily: CARD_FONTS.display, fontWeight: 700, fontSize: valueSize(value, crowded), lineHeight: 1.15, color: colors.brand.DEFAULT, marginTop: 10, ...clamp(2) }, value),
-        ...(note ? [el('div', { fontSize: SMALL * (crowded ? 0.68 : 0.8), lineHeight: 1.3, color: chart.text, marginTop: 8, ...clamp(3) }, note)] : [])
+        el('div', { fontSize: SMALL * 0.9 * fit, color: chart.label, textTransform: 'uppercase', letterSpacing: 1, ...oneLine }, label),
+        el('div', { fontFamily: CARD_FONTS.display, fontWeight: 700, fontSize: Math.round(valueSize(value) * fit), lineHeight: 1.15, color: colors.brand.DEFAULT, marginTop: 10, ...clamp(2) }, value),
+        ...(note ? [el('div', { fontSize: SMALL * 0.8 * fit, lineHeight: 1.3, color: chart.text, marginTop: 8, ...clamp(3) }, note)] : [])
     ]);
 }
+
+// The card's tiles, at most MAX_TILES, sized for how many there are.
+const tiles = stats => {
+    const shown = stats.slice(0, MAX_TILES);
+    return shown.map(stat => tile(stat, 4 / Math.max(4, shown.length)));
+};
 
 /**
  * The element tree satori draws for a card.
@@ -74,6 +76,6 @@ export function cardTree(card, image) {
         el('div', { fontFamily: CARD_FONTS.display, fontWeight: 900, fontSize: titleSize(card.title), marginTop: 28, lineHeight: 1.1, ...oneLine }, card.title),
         el('div', { fontSize: 30, color: chart.text, marginTop: 20, lineHeight: 1.35, ...clamp(2) }, card.line),
         el('div', { display: 'flex', flexGrow: 1 }, []),
-        el('div', { display: 'flex', gap: 20 }, card.stats.slice(0, MAX_TILES).map((stat, _, shown) => tile(stat, shown.length > 4)))
+        el('div', { display: 'flex', gap: 20 }, tiles(card.stats))
     ]);
 }

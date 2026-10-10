@@ -4,7 +4,7 @@ import { count, plural } from '../../server/lib/matchResult.js';
 
 // Every achievement (S21) with what it counts, its three thresholds and how
 // many pilots reached each tier, by group.
-const AchievementList: React.FC<{ pilots: Map<string, number[]> }> = ({ pilots }) => (
+const AchievementList: React.FC<{ pilots: Record<string, number[]> }> = ({ pilots }) => (
     <div className="space-y-6">
         {ACHIEVEMENT_GROUPS.map(group => (
             <div key={group}>
@@ -19,7 +19,7 @@ const AchievementList: React.FC<{ pilots: Map<string, number[]> }> = ({ pilots }
                                     <div key={tier} className="bg-surface-raised rounded-control px-2 py-1.5">
                                         <dt className="text-gray-500 uppercase text-2xs">{tier}</dt>
                                         <dd className="text-brand font-bold">{count(a.tiers[i])}</dd>
-                                        <dd className="text-gray-400">{plural(pilots.get(a.id)?.[i] ?? 0, 'pilot', 'pilots')}</dd>
+                                        <dd className="text-gray-400">{plural(pilots[a.id]?.[i] ?? 0, 'pilot', 'pilots')}</dd>
                                     </div>
                                 ))}
                             </dl>

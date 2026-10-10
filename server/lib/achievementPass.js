@@ -4,11 +4,10 @@
 // earned on the match whose count first passes it and Boss Slayer knows who
 // held the belt at the time. The rules are gameParse.js's.
 import {
-    ACHIEVEMENTS, beltMatch, beltStep, clutchOf, duelMatch, durationOf, fightNightDay, hasDate, inDateOrder, killStreaksOf,
-    netKills, outcomeOf, pilotKey, rankedMatch, tierOf, winnerOf
+    ACHIEVEMENTS, ACHIEVEMENT_BY_ID, beltMatch, beltStep, clutchOf, duelMatch, durationOf, fightNightDay, hasDate, inDateOrder,
+    killStreaksOf, netKills, outcomeOf, pilotKey, rankedMatch, sideOutcome, tierOf, winnerOf
 } from './gameParse.js';
 
-const BY_ID = new Map(ACHIEVEMENTS.map(a => [a.id, a]));
 const zeros = () => Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, 0]));
 
 // Whole years from fight-night day `from` to `to` (YYYY-MM-DD), and the day a
@@ -53,17 +52,27 @@ export function achievementPass(today) {
             const seen = names.get(key);
             if (date && (!seen || date > seen.date)) names.set(key, { name: p.name.trim(), date });
         }
+        // the clutch kills as counts per pilot: every kill of a match earns on that match
         const clutch = clutchOf(g);
+        const feats = new Map();
+        for (const k of clutch?.kills ?? []) {
+            if (!k.late && !k.trailing) continue;
+            const key = pilotKey(k.attacker);
+            const f = feats.get(key) ?? feats.set(key, { late: 0, trailing: 0 }).get(key);
+            f.late += k.late;
+            f.trailing += k.trailing;
+        }
         const duel = duelMatch(g);
         entries.push({
             id: row.id,
             date,
+            day: fightNightDay(date) ?? '',
             players,
-            clutch: clutch && { firstBlood: pilotKey(clutch.firstBlood), kills: clutch.kills.map(k => ({ key: pilotKey(k.attacker), late: k.late, trailing: k.trailing })) },
+            firstBlood: clutch?.firstBlood ? pilotKey(clutch.firstBlood) : null,
+            feats: [...feats],
             streaks: [...killStreaksOf(g)],
             belt: beltMatch(g),
-            // each duellist's outcome, from the two sides' scores
-            duel: duel && duel.map((s, i) => [s.pilots[0].key, s.score > duel[1 - i].score ? 'win' : s.score < duel[1 - i].score ? 'loss' : 'tie'])
+            duel: duel && duel.map((s, i) => [s.pilots[0].key, sideOutcome(s, duel[1 - i])])
         });
     }
 
@@ -76,8 +85,8 @@ export function achievementPass(today) {
         const set = (key, id, value, entry) => {
             const s = pilot(key);
             s.counts[id] = value;
-            const tier = tierOf(BY_ID.get(id), value);
-            if (tier > (s.earned.get(id)?.tier ?? 0)) s.earned.set(id, { tier, earned: fightNightDay(entry.date) ?? '', game: entry.id });
+            const tier = tierOf(ACHIEVEMENT_BY_ID.get(id), value);
+            if (tier > (s.earned.get(id)?.tier ?? 0)) s.earned.set(id, { tier, earned: entry.day, game: entry.id });
         };
         const add = (key, id, n, entry) => set(key, id, pilot(key).counts[id] + n, entry);
         const best = (key, id, value, entry) => value > pilot(key).counts[id] && set(key, id, value, entry);
@@ -89,8 +98,8 @@ export function achievementPass(today) {
 
         const holders = new Map();
         const reigns = [];
-        // dated matches in the rating's order (inDateOrder, as beltReigns()
-        // plays the belt); an undated one still counts, first, with no day
+        // dated matches in the rating's order (inDateOrder); an undated one
+        // still counts, first, with no day
         const ordered = [...entries.filter(e => !hasDate(e.date)).sort((a, b) => a.id - b.id), ...inDateOrder(entries)];
         for (const entry of ordered) {
             const once = new Set();
@@ -98,22 +107,19 @@ export function achievementPass(today) {
                 add(key, 'matches', 1, entry);
                 add(key, 'kills', kills, entry);
                 if (outcome === 'win') add(key, 'wins', 1, entry);
-                const day = fightNightDay(entry.date);
                 const s = pilot(key);
-                if (day && !s.nights.has(day)) {
-                    s.nights.add(day);
+                if (entry.day && !s.nights.has(entry.day)) {
+                    s.nights.add(entry.day);
                     add(key, 'nights', 1, entry);
                 }
                 // a pilot listed twice runs their streak once
                 if (!once.has(key)) run(key, 'win', 'win_streak', outcome, entry);
                 once.add(key);
             }
-            if (entry.clutch) {
-                if (entry.clutch.firstBlood) add(entry.clutch.firstBlood, 'first_bloods', 1, entry);
-                for (const k of entry.clutch.kills) {
-                    if (k.late) add(k.key, 'late_kills', 1, entry);
-                    if (k.trailing) add(k.key, 'trailing_kills', 1, entry);
-                }
+            if (entry.firstBlood) add(entry.firstBlood, 'first_bloods', 1, entry);
+            for (const [key, { late, trailing }] of entry.feats) {
+                if (late) add(key, 'late_kills', late, entry);
+                if (trailing) add(key, 'trailing_kills', trailing, entry);
             }
             for (const [key, streak] of entry.streaks) best(key, 'kill_streak', streak, entry);
             for (const [key, outcome] of entry.duel ?? []) run(key, 'duel', 'duel_streak', outcome, entry);
@@ -126,7 +132,7 @@ export function achievementPass(today) {
         }
         // the anniversary: whole years since the first stored match, each
         // tier earned on its day
-        const years = BY_ID.get('years');
+        const years = ACHIEVEMENT_BY_ID.get('years');
         for (const [key, date] of firsts) {
             const first = fightNightDay(date);
             const n = first && today >= first ? yearsBetween(first, today) : 0;

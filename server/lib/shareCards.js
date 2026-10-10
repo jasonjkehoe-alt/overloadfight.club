@@ -4,7 +4,7 @@
 // returns null when there is nothing to show; the rules are gameParse.js's and
 // the words matchResult.js's. cardLayout.js draws the object.
 import { createHash } from 'node:crypto';
-import { ACHIEVEMENTS, TIERS, VERDICT_LABEL, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
+import { TIER_TOTAL, VERDICT_LABEL, tiersEarned, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
 import { boutLead, championLine, clock, count, dayLabel, modeLabel, noBouts, plural, rankedMatches, ratingStanding, recordText, resultLine } from './matchResult.js';
 import { urlFor } from './siteRoutes.js';
 import { CARD_LAYOUT } from './cardLayout.js';
@@ -37,9 +37,9 @@ export function pilotCard(summary, rating, cached, honours) {
     // the profile's Combat Ratio card: the career number from the stats cache
     if (cached?.kda != null) stats.push({ label: 'Combat Ratio', value: Math.max(0, cached.kda).toFixed(2) });
     const held = honours?.belts.filter(b => !b.until) ?? [];
-    const tiers = honours?.achievements.reduce((sum, a) => sum + a.tier, 0) ?? 0;
+    const tiers = honours ? tiersEarned(honours.achievements) : 0;
     if (held.length > 0) stats.push({ label: held.length === 1 ? 'Belt' : 'Belts', value: held.map(b => b.label).join(', '), note: held.length === 1 ? `Since ${dayLabel(held[0].since)}` : undefined });
-    else if (tiers > 0) stats.push({ label: 'Achievements', value: count(tiers), note: `of ${ACHIEVEMENTS.length * TIERS.length} tiers` });
+    else if (tiers > 0) stats.push({ label: 'Achievements', value: count(tiers), note: `of ${TIER_TOTAL} tiers` });
     const belts = held.map(b => ` ${championLine(b)}.`).join('');
     return {
         // the stored name, so every spelling the lookup accepts shares one card

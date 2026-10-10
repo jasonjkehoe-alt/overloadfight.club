@@ -47,23 +47,24 @@ const reignOf = (r, today) => {
 
 // { day, modes, achievements }: for each MATCH_MODES mode its champion (the
 // newest reign, which always lasts: a reign ends only as the next one starts;
-// null before the mode's first decisive match), how many
-// reigns it has had and its last LINEAGE reigns, newest first; and for each
-// achievement how many pilots reached each tier, a higher tier counting
-// toward the lower ones. Kept per day until the next refresh writes.
+// its `reign` is how many the mode has had; null before the mode's first
+// decisive match) and its last LINEAGE reigns, newest first; and
+// { [achievement]: [pilots per tier] }, how many pilots reached each tier, a
+// higher tier counting toward the lower ones. Kept per day until the next
+// refresh writes.
 export const getBelts = (today = fightNightDay(Date.now())) => until(`belts\n${today}`, () => {
-  const reached = new Map(ACHIEVEMENTS.map(a => [a.id, TIERS.map(() => 0)]));
+  const reached = Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, TIERS.map(() => 0)]));
   for (const { achievement, tier, pilots } of tierCounts.all()) {
-    const counts = reached.get(achievement);
+    const counts = reached[achievement];
     if (counts) for (let t = 0; t < tier && t < counts.length; t++) counts[t] += pilots;
   }
   return {
     day: today,
     modes: MATCH_MODES.map(({ id, label }) => {
       const reigns = lineage.all(id, LINEAGE).map(r => reignOf(r, today));
-      return { mode: id, label, reigns: reigns[0]?.reign ?? 0, holder: reigns[0] ?? null, lineage: reigns };
+      return { mode: id, label, holder: reigns[0] ?? null, lineage: reigns };
     }),
-    achievements: ACHIEVEMENTS.map(a => ({ id: a.id, pilots: reached.get(a.id) }))
+    achievements: reached
   };
 });
 

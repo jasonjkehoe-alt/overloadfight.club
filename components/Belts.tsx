@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { Award } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link from './Link';
@@ -9,6 +9,7 @@ import { ACHIEVEMENT_HINT, BELT_HINT, FIGHT_NIGHT_DAY_TEXT } from '../server/lib
 import { dayLabel, plural } from '../server/lib/matchResult.js';
 import { Belts as BeltsAnswer, fetchBelts } from '../services/apiService';
 import { useLoad } from '../hooks/useLoad';
+import { seedBeltHolders } from '../hooks/useBeltHolders';
 
 type Mode = BeltsAnswer['modes'][number];
 
@@ -43,7 +44,8 @@ const ChampionCard: React.FC<{ mode: Mode }> = ({ mode: { mode, label, holder } 
 // both; this page only reads them.
 const Belts: React.FC = () => {
     const { data, failed, retry } = useLoad(fetchBelts, []);
-    const pilots = useMemo(() => new Map(data?.achievements.map(a => [a.id, a.pilots]) ?? []), [data]);
+    // the belt marks on the next pages read this answer
+    useEffect(() => { if (data) seedBeltHolders(data); }, [data]);
 
     let body: React.ReactNode;
     if (failed) {
@@ -51,7 +53,7 @@ const Belts: React.FC = () => {
     } else if (!data) {
         body = <Loading label="Loading the belts..." />;
     } else {
-        const decided = data.modes.filter(m => m.reigns > 0);
+        const decided = data.modes.filter(m => m.holder);
         body = (
             <>
                 <section aria-labelledby="belts-champions" className="space-y-3">
@@ -69,14 +71,14 @@ const Belts: React.FC = () => {
                     <section aria-labelledby="belts-lineage" className="space-y-3">
                         <h2 id="belts-lineage" className="text-gray-500 font-bold text-xs uppercase tracking-widest">Line of holders</h2>
                         <p className="text-xs font-mono text-gray-500">Fight-night days ({FIGHT_NIGHT_DAY_TEXT}); each links to the match that started or ended the reign.</p>
-                        {decided.map(m => <BeltLineage key={m.mode} label={m.label} reigns={m.reigns} lineage={m.lineage} />)}
+                        {decided.map(m => <BeltLineage key={m.mode} label={m.label} lineage={m.lineage} />)}
                     </section>
                 )}
 
                 <section aria-labelledby="belts-achievements" className="space-y-3">
                     <h2 id="belts-achievements" className="text-gray-500 font-bold text-xs uppercase tracking-widest">Achievements</h2>
                     <p className="text-xs font-mono text-gray-500 max-w-3xl">{ACHIEVEMENT_HINT} A pilot's page shows their own, and how far they are from the next tier.</p>
-                    <AchievementList pilots={pilots} />
+                    <AchievementList pilots={data.achievements} />
                 </section>
             </>
         );
@@ -93,7 +95,7 @@ const Belts: React.FC = () => {
             <div className="text-xs font-mono text-gray-500 flex flex-wrap gap-4">
                 <Link to={urlFor('rankings')} className="text-brand hover:text-brand-hover underline">Power rankings</Link>
                 <Link to={urlFor('pilots')} className="text-brand hover:text-brand-hover underline">Leaderboard</Link>
-                {data && <span>{plural(data.modes.reduce((n, m) => n + m.reigns, 0), 'reign', 'reigns')} in all</span>}
+                {data && <span>{plural(data.modes.reduce((n, m) => n + (m.holder?.reign ?? 0), 0), 'reign', 'reigns')} in all</span>}
             </div>
         </div>
     );

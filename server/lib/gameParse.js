@@ -1173,12 +1173,14 @@ export function boutsOf(game) {
     for (let i = 0; i < sides.length; i++) {
         for (let j = i + 1; j < sides.length; j++) {
             const [x, y] = [sides[i], sides[j]];
-            const outcome = x.score > y.score ? 'win' : x.score < y.score ? 'loss' : 'tie';
+            const outcome = sideOutcome(x, y);
             for (const a of x.pilots) for (const b of y.pilots) pairs.push({ a: a.key, b: b.key, outcome });
         }
     }
     return { mode: matchModeOf(game), map: mapKey(game) ?? '', pairs };
 }
+// Side x's outcome against side y of ratingSides(), by their scores.
+export const sideOutcome = (x, y) => (x.score > y.score ? 'win' : x.score < y.score ? 'loss' : 'tie');
 // The other pilot's outcome of a bout.
 export const OPPOSITE_OUTCOME = { win: 'loss', loss: 'win', tie: 'tie' };
 
@@ -1257,15 +1259,6 @@ export function beltStep(holders, reigns, { id, date, mode, sides, champion }) {
     return { won: crown(), defended: null, slayers };
 }
 
-// Every reign of every belt, from matches ([{ id, date, ...beltMatch() }])
-// replayed in date order (inDateOrder, as the rating is).
-export function beltReigns(matches) {
-    const holders = new Map();
-    const reigns = [];
-    for (const m of inDateOrder(matches)) beltStep(holders, reigns, m);
-    return reigns;
-}
-
 // The best kill streak of each pilot in one ranked match with a kill log:
 // kills on opponents (killPoints() worth a point) without dying in between,
 // any death (a suicide, a team kill, a death with no attacker) ending the
@@ -1313,5 +1306,10 @@ export const ACHIEVEMENTS = [
     { id: 'years', group: 'Streaks', name: 'Anniversary', counts: 'years since the first stored match', tiers: [1, 3, 5] }
 ];
 export const ACHIEVEMENT_HINT = `Counted over every stored match. Kill-log feats need a match whose kill log the tracker kept; a tie or a loss ends a streak, a match with no result does not. ${TIERS.join(', ')} at the thresholds shown.`;
+export const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map(a => [a.id, a]));
 // The tier a count reaches: 0 (none) to TIERS.length.
 export const tierOf = (achievement, value) => achievement.tiers.filter(t => value >= t).length;
+// Every tier of every achievement, and how many of them a pilot's
+// achievements ([{ tier }]) have reached.
+export const TIER_TOTAL = ACHIEVEMENTS.length * TIERS.length;
+export const tiersEarned = achievements => achievements.reduce((sum, a) => sum + a.tier, 0);

@@ -48,18 +48,17 @@ describe('cardTree', () => {
         expect(value('BADASS').fontSize).toBe(34);
         expect(value('FUTZPIMMEL').fontSize).toBe(26);
         expect(value('Tue, Oct 6, 2026')).toMatchObject({ fontSize: 22, lineClamp: 2 });
-        // five tiles (the pilot card with a belt, S21) set every value a quarter smaller
+        // five tiles (the pilot card with a belt, S21) scale everything by four fifths
         const crowded = v => walk(cardTree({ ...card, stats: [...card.stats.slice(0, 4), { label: 'L', value: v }] })).find(n => n.props?.children === v).props.style;
-        expect(crowded('1,234').fontSize).toBe(35);
-        expect(crowded('Anarchy').fontSize).toBe(26);
-        expect(crowded('Team Anarchy')).toMatchObject({ fontSize: 17, lineClamp: 2 });
+        expect(crowded('1,234').fontSize).toBe(37);
+        expect(crowded('Anarchy').fontSize).toBe(27);
+        expect(crowded('Team Anarchy')).toMatchObject({ fontSize: 18, lineClamp: 2 });
         const four = walk(cardTree({ ...card, stats: card.stats.slice(0, 4) })).find(n => n.props?.children === '1').props.style;
         expect(four.fontSize).toBe(46);
-        // and their labels and notes smaller, so "COMBAT RATIO" fits its tile
+        // and their labels and notes, so "COMBAT RATIO" fits its tile
         const small = parseFloat(fontSize['2xs'][0]) * 16 * 2.5;
-        const label = walk(cardTree(card)).find(n => n.props?.children === 'L1').props.style;
-        expect(label).toMatchObject({ fontSize: small * 0.72, letterSpacing: 0 });
-        expect(walk(cardTree(card)).find(n => n.props?.children === 'n3').props.style.fontSize).toBe(small * 0.68);
+        expect(walk(cardTree(card)).find(n => n.props?.children === 'L1').props.style.fontSize).toBeCloseTo(small * 0.9 * 0.8);
+        expect(walk(cardTree(card)).find(n => n.props?.children === 'n3').props.style.fontSize).toBeCloseTo(small * 0.8 * 0.8);
     });
 
     it('draws an image faint behind the text only when the card has one', () => {

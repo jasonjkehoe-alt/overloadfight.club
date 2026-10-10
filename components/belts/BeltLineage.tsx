@@ -1,15 +1,16 @@
 import React from 'react';
 import Link from '../Link';
 import { urlFor } from '../../server/lib/siteRoutes.js';
-import { count } from '../../server/lib/matchResult.js';
+import { count, plural } from '../../server/lib/matchResult.js';
 import { BeltReign } from '../../services/apiService';
 
 // One mode's line of holders (S21), newest first: each reign's champion, the
 // days it ran, its defenses and the match that ended it.
-const BeltLineage: React.FC<{ label: string; reigns: number; lineage: BeltReign[] }> = ({ label, reigns, lineage }) => (
+// (The newest reign's number is how many the mode has had.)
+const BeltLineage: React.FC<{ label: string; lineage: BeltReign[] }> = ({ label, lineage }) => (
     <div className="bg-surface-card border border-line rounded-card overflow-hidden">
         <h3 className="px-4 py-3 border-b border-line text-gray-500 font-bold text-xs uppercase tracking-widest">
-            {label} <span className="normal-case tracking-normal font-normal">({count(reigns)} {reigns === 1 ? 'reign' : 'reigns'}{reigns > lineage.length ? `, the last ${lineage.length}` : ''})</span>
+            {label} <span className="normal-case tracking-normal font-normal">({plural(lineage[0].reign, 'reign', 'reigns')}{lineage[0].reign > lineage.length ? `, the last ${lineage.length}` : ''})</span>
         </h3>
         <div className="overflow-x-auto">
             <table className="w-full text-left text-sm font-mono">
@@ -34,7 +35,7 @@ const BeltLineage: React.FC<{ label: string; reigns: number; lineage: BeltReign[
                             <td className="p-3 text-right text-gray-300">{count(r.days)}</td>
                             <td className="p-3 text-right text-brand font-bold">{count(r.defenses)}</td>
                             <td className="p-3 text-right text-gray-400 whitespace-nowrap">
-                                {r.until && r.lost_game ? <Link to={urlFor('game-detail', r.lost_game)} className="hover:text-brand underline decoration-gray-700">{r.until}</Link> : <span className="text-brand">Holds it</span>}
+                                {r.lost_game ? <Link to={urlFor('game-detail', r.lost_game)} className="hover:text-brand underline decoration-gray-700">{r.until}</Link> : <span className="text-brand">Holds it</span>}
                             </td>
                         </tr>
                     ))}

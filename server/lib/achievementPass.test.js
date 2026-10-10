@@ -1,26 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { ACHIEVEMENTS, beltMatch, beltReigns, beltStep, fightNightDay, killStreaksOf, rankedMatch, tierOf } from './gameParse.js';
+import { ACHIEVEMENTS, beltMatch, beltStep, fightNightDay, killStreaksOf, rankedMatch, tierOf } from './gameParse.js';
 import { achievementPass } from './achievementPass.js';
 import { pilotPass, rivalPass } from './statsPasses.js';
-import { byId, ffaWithLog, sample, teamWithLog } from '../testFixtures.js';
+import { byId, ffaWithLog, movedTo, sample, teamWithLog } from '../testFixtures.js';
 
 // Belts and achievements (S21) on fixture games. In the sample, Anarchy's
 // first decisive match is 72084 (BEHEMOTH 20, B2AF 15) and BEHEMOTH defends it
 // in 72085, then never plays again; Team Anarchy's is 72095 (INSANER alone on
 // BLUE, 11-5), and INSANER's BLUE wins 72096, 72097, 72099 and 72102.
 
-// a copy of a fixture match at another time (its start moved with it, so it
-// keeps its length), with some pilots' scores set
+// a copy of a fixture match at another time (movedTo keeps its length), with
+// some pilots' scores set
 const at = (id, date, kills = {}, extra = {}) => {
     const g = byId(id);
-    const start = date && new Date(Date.parse(g.settings.start) + Date.parse(date) - Date.parse(g.date)).toISOString();
     return {
-        ...g, id: extra.id ?? g.id + 1000, date, settings: { ...g.settings, start }, ...extra,
+        ...(date ? movedTo(g, date) : { ...g, date }), id: extra.id ?? g.id + 1000, ...extra,
         players: (extra.players ?? g.players).map(p => (p.name in kills ? { ...p, kills: kills[p.name] } : p))
     };
 };
 const beltRow = g => ({ id: g.id, date: g.date, ...beltMatch(g) });
-const beltMatches = games => games.map(g => (beltMatch(g) ? beltRow(g) : null)).filter(Boolean);
 const run = (games, today = '2026-10-10') => {
     const pass = achievementPass(today);
     for (const g of games) pass.add({ id: g.id, date: g.date }, g);
@@ -71,21 +69,24 @@ describe('beltMatch', () => {
     });
 });
 
-describe('beltReigns', () => {
+// the belt's replay as the stats worker runs it, through the pass
+const reignsOf = games => run(games).reigns();
+
+describe('the belt replay', () => {
     it('gives each mode its first champion and their defenses', () => {
-        const reigns = beltReigns(beltMatches(sample));
+        const reigns = reignsOf(sample);
         expect(reigns).toEqual([
             { mode: 'ANARCHY', reign: 1, pilot: 'behemoth', name: 'BEHEMOTH', since: byId(72084).date, game: 72084, defenses: 1, until: '', lost_game: 0 },
             { mode: 'TEAM ANARCHY', reign: 1, pilot: 'insaner', name: 'INSANER', since: byId(72095).date, game: 72095, defenses: 4, until: '', lost_game: 0 }
         ]);
         // the same whatever order the matches come in
-        expect(beltReigns(beltMatches([...sample].reverse()))).toEqual(reigns);
+        expect(reignsOf([...sample].reverse())).toEqual(reigns);
     });
 
     it('passes the belt only when another side wins outright a match the holder plays', () => {
         const lost = at(72085, LATER, { BEHEMOTH: 20, B2AF: 21 });
         const draw = at(72085, '2025-11-26T03:00:00.000Z', { BEHEMOTH: 9, B2AF: 9 }, { id: 99001 });
-        const reigns = beltReigns(beltMatches([...sample, lost, draw]));
+        const reigns = reignsOf([...sample, lost, draw]);
         const anarchy = reigns.filter(r => r.mode === 'ANARCHY');
         expect(anarchy).toEqual([
             { mode: 'ANARCHY', reign: 1, pilot: 'behemoth', name: 'BEHEMOTH', since: byId(72084).date, game: 72084, defenses: 1, until: LATER, lost_game: lost.id },
@@ -129,7 +130,7 @@ describe('beltReigns', () => {
     });
 
     it('leaves out a match without a date', () => {
-        expect(beltReigns(beltMatches([{ ...byId(72084), date: null }]))).toEqual([]);
+        expect(reignsOf([{ ...byId(72084), date: null }])).toEqual([]);
     });
 });
 

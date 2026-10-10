@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { byId, day, ffaWithLog, onDay, sample, teamWithLog, veteranSoup } from '../../testFixtures.js';
+import { byId, day, ffaWithLog, movedTo, onDay, sample, teamWithLog, veteranSoup } from '../../testFixtures.js';
 import { ACHIEVEMENTS, fightNightDay, shiftDay } from '../../lib/gameParse.js';
 
 // Belts and achievements (S21) through the real refresh, on the sample moved to
@@ -16,12 +16,7 @@ import { ACHIEVEMENTS, fightNightDay, shiftDay } from '../../lib/gameParse.js';
 // `day`), defended in 72085, lost in 90100. Team Anarchy: INSANER crowned by
 // 72095 on `day`, defended in 72096, 72097, 72099 and 72102.
 const games = sample.map(g => (g.id === 72099 ? teamWithLog : g.id === 72098 ? ffaWithLog : g)).map(g => onDay(structuredClone(g)));
-const upset = (() => {
-    const g = onDay(byId(72085));
-    const date = `${day}T23:00:00.000Z`;
-    const start = new Date(Date.parse(g.settings.start) + Date.parse(date) - Date.parse(g.date)).toISOString();
-    return { ...g, id: 90100, date, settings: { ...g.settings, start }, players: g.players.map(p => ({ ...p, kills: p.name === 'B2AF' ? 21 : 20 })) };
-})();
+const upset = { ...movedTo(byId(72085), `${day}T23:00:00.000Z`), id: 90100, players: byId(72085).players.map(p => ({ ...p, kills: p.name === 'B2AF' ? 21 : 20 })) };
 const template = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'index.html'), 'utf8');
 const ORIGIN = 'https://overloadfight.club';
 const today = fightNightDay(Date.now());
@@ -65,7 +60,6 @@ describe('getBelts', () => {
         expect(belts.day).toBe(today);
         expect(belts.modes.map(m => m.mode)).toEqual(['ANARCHY', 'TEAM ANARCHY', 'CTF', 'MONSTERBALL']);
         const anarchy = mode(belts, 'ANARCHY');
-        expect(anarchy.reigns).toBe(2);
         expect(anarchy.holder).toMatchObject({
             reign: 2, name: 'B2AF', since: fightNightDay(upset.date), game: 90100, defenses: 0, until: null,
             from: { pilot: 'behemoth', name: 'BEHEMOTH' }, days: Math.max(0, (Date.parse(today) - Date.parse(fightNightDay(upset.date))) / 86400000)
@@ -78,14 +72,14 @@ describe('getBelts', () => {
         expect(anarchy.lineage[1]).toMatchObject({ since: shiftDay(day, -1), game: 72084, from: null, days: 1 });
         expect(mode(belts, 'TEAM ANARCHY').holder).toMatchObject({ name: 'INSANER', since: day, game: 72095, defenses: 4, from: null });
         // no rated CTF match with a winner; the 2019 Monsterball is a one-pilot match
-        expect(mode(belts, 'CTF')).toMatchObject({ reigns: 0, holder: null, lineage: [] });
+        expect(mode(belts, 'CTF')).toMatchObject({ holder: null, lineage: [] });
         expect(mode(belts, 'MONSTERBALL').holder).toBeNull();
     });
 
     it('counts the pilots who reached each tier of each achievement', () => {
         const { achievements } = db.getBelts();
-        expect(achievements.map(a => a.id)).toEqual(ACHIEVEMENTS.map(a => a.id));
-        const pilots = id => achievements.find(a => a.id === id).pilots;
+        expect(Object.keys(achievements)).toEqual(ACHIEVEMENTS.map(a => a.id));
+        const pilots = id => achievements[id];
         // BEHEMOTH, INSANER and B2AF each won a belt
         expect(pilots('belts')).toEqual([3, 0, 0]);
         // Soup's 2019 match: gold; the rest started on the fight-night days around `day`

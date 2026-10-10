@@ -754,9 +754,10 @@ export interface BeltReign {
 }
 export interface Belts {
     day: string;
-    modes: { mode: string; label: string; reigns: number; holder: BeltReign | null; lineage: BeltReign[] }[];
-    // per achievement, the pilots who reached each tier (or a higher one)
-    achievements: { id: string; pilots: number[] }[];
+    // `holder` is the newest reign, null before the mode's first; its `reign` counts the mode's reigns
+    modes: { mode: string; label: string; holder: BeltReign | null; lineage: BeltReign[] }[];
+    // per achievement id, the pilots who reached each tier (or a higher one)
+    achievements: Record<string, number[]>;
 }
 export const fetchBelts = () => getJson<Belts>(`${API_BASE}/stats/belts`);
 
