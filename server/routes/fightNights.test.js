@@ -82,12 +82,17 @@ describe('the events repo', () => {
         expect(db.listFightNightEvents()).toHaveLength(1);
     });
 
-    it('reads a day\'s span from the first match\'s start to the last match\'s end, in either file', () => {
+    it('reads a day\'s span from the first match\'s start to the last match\'s end, over both files', () => {
         const games = night.filter(g => fightNightDay(g.date) === day);
-        expect(db.getDaySpan(day)).toEqual({
-            start: new Date(Math.min(...games.map(g => Date.parse(g.settings.start)))).toISOString(),
-            end: games.map(g => g.date).sort().at(-1)
-        });
+        const first = new Date(Math.min(...games.map(g => Date.parse(g.settings.start)))).toISOString();
+        const last = games.map(g => g.date).sort().at(-1);
+        expect(db.getDaySpan(day)).toEqual({ start: first, end: last });
+        // a copy of the night's first match an hour earlier, moved to cold storage (a cold move
+        // during a night splits it): the span starts there
+        const earliest = games.find(g => new Date(g.settings.start).toISOString() === first);
+        const moved = { ...earliest, id: 90001, date: new Date(Date.parse(earliest.date) - 3600000).toISOString(), settings: { ...earliest.settings, start: new Date(Date.parse(first) - 3600000).toISOString() } };
+        db.saveColdGamesBatch([moved]);
+        expect(db.getDaySpan(day)).toEqual({ start: moved.settings.start, end: last });
         // the 2019 archive game carries a top-level start
         const soupDay = fightNightDay(veteranSoup.date);
         expect(db.getDaySpan(soupDay)).toEqual({ start: veteranSoup.start, end: veteranSoup.date });
@@ -104,21 +109,22 @@ describe('GET /api/fight-nights/schedule', () => {
         db.saveFightNightEvent({ ...oneOff(SCHEDULE.horizonWeeks * 7 + 3, 'Too far'), weekday: null });
         // a night under way: from the start of today's fight-night day (06:00) for a whole day
         db.saveFightNightEvent({ kind: 'once', weekday: null, date: fightNightDay(Date.now()), time: '06:00', minutes: SCHEDULE.maxMinutes, title: 'Running', notes: '' });
+        const before = Date.now();
         const res = await get('/api/fight-nights/schedule');
         expect(res.status).toBe(200);
         const body = await res.json();
-        expect(body).toMatchObject({ timeZone: 'Central time', feed: '/fight-nights.ics', horizonWeeks: SCHEDULE.horizonWeeks });
-        expect(Date.parse(body.now)).toBeGreaterThan(Date.now() - 5000);
-        const expected = occurrences(db.listFightNightEvents(), Date.parse(body.now), Date.parse(body.now) + SCHEDULE.horizonWeeks * 7 * DAY_MS);
+        expect(Object.keys(body).sort()).toEqual(['events', 'feed']);
+        expect(body.feed).toBe('/fight-nights.ics');
+        const expected = occurrences(db.listFightNightEvents(), before, before + SCHEDULE.horizonWeeks * 7 * DAY_MS);
         expect(body.events).toEqual(expected);
         expect(body.events.map(e => e.title)).toContain('Soon');
         expect(body.events.map(e => e.title)).not.toContain('Too far');
         expect(body.events.filter(e => e.title === 'Saturday Night Anarchy')).toHaveLength(SCHEDULE.horizonWeeks);
         expect(body.events.find(e => e.title === 'Soon')).toMatchObject({ id: soon.id, kind: 'once', time: '12:00', minutes: 60 });
         for (let i = 1; i < body.events.length; i++) expect(body.events[i].start >= body.events[i - 1].start).toBe(true);
-        expect(body.events.every(e => Date.parse(e.end) > Date.parse(body.now))).toBe(true);
+        expect(body.events.every(e => Date.parse(e.end) > before)).toBe(true);
         const running = body.events.find(e => e.title === 'Running');
-        expect(Date.parse(running.start) <= Date.parse(body.now)).toBe(true);
+        expect(Date.parse(running.start) <= before).toBe(true);
         expect(body.events[0]).toBe(running);
     });
 
@@ -132,6 +138,7 @@ describe('GET /api/fight-nights/schedule', () => {
 describe('the .ics feed', () => {
     it('answers text/calendar at the root and under /api with the coming nights and the fixture recap', async () => {
         clear();
+        (await import('./fightNights.js')).clearFeedCache();
         const sat = db.saveFightNightEvent({ ...weekly, date: null });
         for (const url of ['/fight-nights.ics', '/api/fight-nights.ics']) {
             const res = await get(url);
@@ -159,11 +166,19 @@ describe('the .ics feed', () => {
         }
     });
 
-    it('answers a feed of recaps alone with nothing scheduled', async () => {
+    it('answers a feed of recaps alone with nothing scheduled, and keeps a built feed until the schedule changes', async () => {
         clear();
+        (await import('./fightNights.js')).clearFeedCache();
         const text = await (await get('/fight-nights.ics')).text();
         expect(text.match(/BEGIN:VEVENT/g)).toHaveLength(1);
         expect(text).toContain(`UID:recap-${day}@`);
+        // a row written behind the routes' back is not in the kept feed; one saved through the admin route is
+        db.saveFightNightEvent({ ...weekly, date: null });
+        expect((await (await get('/fight-nights.ics')).text()).match(/BEGIN:VEVENT/g)).toHaveLength(1);
+        await send('POST', '/api/admin/events', { ...weekly, title: 'Through the route' });
+        const fresh = await (await get('/fight-nights.ics')).text();
+        expect(fresh.match(/BEGIN:VEVENT/g)).toHaveLength(2 * SCHEDULE.horizonWeeks + 1);
+        expect(fresh).toContain('SUMMARY:Through the route');
     });
 });
 

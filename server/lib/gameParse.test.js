@@ -6,7 +6,7 @@ import { pilotPass } from './statsPasses.js';
 import { combatRatio, durationOf, lethality, measuredDurationOf, netKills, outcomeOf, pairOutcome, pilotKey, playerRows, teamOf, winnerOf } from './gameParse.js';
 import { firstBloodOf, killPoints, replayLengthOf, killScored, leadChanges, momentumOf, scoreboardAt, verdictOf, weaponFamily, WEAPON_FAMILIES } from './gameParse.js';
 import { RATING, glicko2, powerRankings, rankStatus, rankedMatch, rankingMovement, ratingSides, ratingSnapshots, rdOn, shiftDay } from './gameParse.js';
-import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, localInstant, weekdayOf, winRate } from './gameParse.js';
+import { DAY_HOURS, FIGHT_NIGHT_DAY_TEXT, calendarDays, calendarSince, careerMonth, careerSeries, dayBounds, dayStart, daysBetween, nightRatingChange, fightNightDay, heatmapCells, heatmapDays, lastOuting, localClock, localInstant, localWall, weekdayOf, winRate } from './gameParse.js';
 import { HOUR_MS, SERVER_STATE, SERVER_WINDOWS, SERVER_WINDOW_DEFAULT, regionShare, serverSummary, serverWindow, snapshotRow } from './gameParse.js';
 import { FIGHT_NIGHT_PING, browserPilots } from './gameParse.js';
 import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
@@ -612,6 +612,16 @@ describe('fight-night days', () => {
         expect(localInstant('2026-11-01', '03:00')).toBe('2026-11-01T09:00:00.000Z');
         expect(dayStart('2026-10-31')).toBe(localInstant('2026-10-31', '06:00'));
         expect(fightNightDay(localInstant('2026-10-31', '02:00'))).toBe('2026-10-30');
+        // a time the spring change skips lands after the change (03:30 CDT), as calendars read it;
+        // a time the autumn change repeats is its first pass (CDT)
+        expect(localInstant('2026-03-08', '02:30')).toBe('2026-03-08T08:30:00.000Z');
+        expect(localInstant('2026-03-08', '01:59')).toBe('2026-03-08T07:59:00.000Z');
+        expect(localInstant('2026-11-01', '01:30')).toBe('2026-11-01T06:30:00.000Z');
+        expect(localInstant('2026-11-01', '02:00')).toBe('2026-11-01T08:00:00.000Z');
+        // and the wall clock read back from an instant
+        expect(localWall('2026-11-01T07:30:00.000Z')).toEqual({ date: '2026-11-01', time: '01:30' });
+        expect(localWall(Date.parse('2026-07-05T01:00:00.000Z'))).toEqual({ date: '2026-07-04', time: '20:00' });
+        for (const [date, time] of [['2026-03-08', '03:30'], ['2026-11-01', '03:00'], ['2026-07-04', '20:00']]) expect(localWall(localInstant(date, time))).toEqual({ date, time });
     });
 
     it('counts whole days across months', () => {

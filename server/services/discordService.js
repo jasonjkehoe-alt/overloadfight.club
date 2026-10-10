@@ -152,7 +152,7 @@ export function checkReminders(now = Date.now()) {
         if (!posting()) return [];
         db.dropStaleDiscordPosts('reminder', reminderKeysBefore(now));
         return dueReminders(db.listFightNightEvents(), now)
-            .map(one => deliver('reminder', reminderKey(one), () => reminderMessage(one, siteOrigin())))
+            .map(one => deliver('reminder', reminderKey(one), () => reminderMessage(one, siteOrigin(), now)))
             .filter(Boolean);
     } catch (error) {
         console.error('[Discord] Reminder check failed:', error.message);

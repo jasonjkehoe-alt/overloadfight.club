@@ -460,21 +460,24 @@ const lastDateInDay = conn => conn.prepare('SELECT MAX(date) FROM games WHERE da
 const daySpanStmts = [[firstGameInDay(hotDb), lastDateInDay(hotDb)], [firstGameInDay(coldDb), lastDateInDay(coldDb)]];
 // { start, end } of the matches on a fight-night day: the first match's
 // start (null when it has none) and the last match's end, as UTC ISO
-// strings; null for a day with no match in either file.
+// strings, over both files (a cold move during a night splits it); null for
+// a day with no match in either.
 export const getDaySpan = (dateStr) => {
   const bounds = dayBounds(dateStr);
   if (!bounds) return null;
+  let start = null;
+  let end = null;
   for (const [first, last] of daySpanStmts) {
     const details = first.get(...bounds);
     if (!details) continue;
-    let start = null;
     try {
       const at = Date.parse(matchStart(JSON.parse(details)));
-      if (Number.isFinite(at)) start = new Date(at).toISOString();
+      if (Number.isFinite(at) && (start === null || at < Date.parse(start))) start = new Date(at).toISOString();
     } catch {
       // a bad blob: the span starts at its end
     }
-    return { start, end: new Date(last.get(...bounds)).toISOString() };
+    const latest = new Date(last.get(...bounds)).toISOString();
+    if (end === null || latest > end) end = latest;
   }
-  return null;
+  return end === null ? null : { start, end };
 };

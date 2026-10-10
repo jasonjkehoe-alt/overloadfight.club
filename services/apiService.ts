@@ -480,10 +480,7 @@ export interface FightNightOccurrence {
     day: string;
 }
 export interface FightNightSchedule {
-    now: string;
-    timeZone: string;
     feed: string;
-    horizonWeeks: number;
     events: FightNightOccurrence[];
 }
 export const fetchFightNightSchedule = () => getJson<FightNightSchedule>(`${API_BASE}/fight-nights/schedule`);

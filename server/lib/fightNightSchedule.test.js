@@ -64,6 +64,9 @@ describe('validateEvent', () => {
         expect(validateEvent({ ...good, notes: 'x'.repeat(SCHEDULE.notesMax + 1) }).error).toMatch(/notes/);
         expect(validateEvent({ ...good, weekday: 7 }).error).toMatch(/weekday/);
         expect(validateEvent({ ...good, weekday: 'Sat' }).error).toMatch(/weekday/);
+        // Number() would read these as Monday
+        for (const weekday of [null, '', false, undefined]) expect(validateEvent({ ...good, weekday }).error).toMatch(/weekday/);
+        expect(validateEvent({ ...good, weekday: '0' }).event.weekday).toBe(0);
         expect(validateEvent({ kind: 'once', time: '20:00', title: 'x', date: '2026-02-30' }).error).toMatch(/date/);
         expect(validateEvent({ kind: 'once', time: '20:00', title: 'x', date: '14/10/2026' }).error).toMatch(/date/);
         expect(validateEvent().error).toMatch(/kind/);
@@ -86,11 +89,16 @@ describe('occurrences', () => {
         for (const one of [...spring, ...autumn]) expect(one.start).toBe(localInstant(one.date, one.time));
     });
 
-    it('keeps a night across the autumn change its real length, with the wall-clock end an hour later', () => {
+    it('keeps a night across the autumn change its real length, its wall-clock end read back in the zone', () => {
         const [late] = occurrences([weekly({ time: '23:30' })], at('2026-10-31T00:00:00Z'), at('2026-11-02T00:00:00Z'));
         expect([late.start, late.end]).toEqual(['2026-11-01T04:30:00.000Z', '2026-11-01T07:30:00.000Z']);
-        expect(wallEnd(late)).toEqual(['2026-11-01', '02:30']);
-        expect(wallEnd(weekly({ date: '2026-10-10' }))).toEqual(['2026-10-10', '23:00']);
+        // 07:30Z is 01:30 CST, after the clocks went back at 02:00 CDT
+        expect(wallEnd(late)).toEqual(['2026-11-01', '01:30']);
+        const [sat] = occurrences([weekly()], at('2026-10-10T00:00:00Z'), at('2026-10-12T00:00:00Z'));
+        expect(wallEnd(sat)).toEqual(['2026-10-10', '23:00']);
+        // a night across the spring change is an hour shorter on the clock
+        const [spring] = occurrences([weekly({ weekday: 5, time: '23:30' })], at('2026-03-07T00:00:00Z'), at('2026-03-09T00:00:00Z'));
+        expect([spring.start, spring.end, wallEnd(spring)]).toEqual(['2026-03-08T05:30:00.000Z', '2026-03-08T08:30:00.000Z', ['2026-03-08', '03:30']]);
     });
 
     it('places a one-off on its date, a night after midnight on the evening before, and sorts by start then id', () => {

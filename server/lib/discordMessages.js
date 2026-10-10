@@ -3,8 +3,8 @@
 // site's origin; nothing here reads the database or the webhook URL.
 import { SITE_NAME, urlFor } from './siteRoutes.js';
 import { RATING, onlineServers } from './gameParse.js';
-import { beltChange, count, eventWhen, itsOnLine, plural } from './matchResult.js';
-import { FEED_PATH, SCHEDULE } from './fightNightSchedule.js';
+import { beltChange, count, countdown, eventWhen, itsOnLine, plural } from './matchResult.js';
+import { FEED_PATH } from './fightNightSchedule.js';
 import { cardUrl, fightNightCard } from './shareCards.js';
 
 // Discord's limits on an embed (characters; `total` over the title,
@@ -128,16 +128,18 @@ export function pingMessage(servers, origin) {
 }
 
 /**
- * The reminder (S22) SCHEDULE.reminderMinutes before a scheduled night: its
- * title, when it starts, its notes, and links to the live list and the feed.
+ * The reminder (S22) before a scheduled night: how long until it starts
+ * (the hour the check runs ahead, or less after a restart or a late switch),
+ * its title, when it starts, its notes, and links to the live list and the feed.
  * @param {object} one an occurrence (fightNightSchedule.js)
  * @param {string} origin
+ * @param {number} now ms
  */
-export function reminderMessage(one, origin) {
+export function reminderMessage(one, origin, now = Date.now()) {
     const when = eventWhen(one);
     return {
         allowed_mentions: NO_MENTIONS,
-        content: `Fight night in ${plural(SCHEDULE.reminderMinutes, 'minute', 'minutes')}: ${plain(one.title, NAME_MAX)}, ${when}.`,
+        content: `Fight night ${countdown(Date.parse(one.start) - now)}: ${plain(one.title, NAME_MAX)}, ${when}.`,
         embeds: [fit({
             title: plain(one.title, EMBED_LIMITS.title),
             url: `${origin}${urlFor('dashboard')}`,

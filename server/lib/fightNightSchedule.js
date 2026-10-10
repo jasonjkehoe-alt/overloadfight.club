@@ -2,7 +2,7 @@
 // happens, which is next, when the Discord reminder is due, and the .ics feed.
 // The day rules come from gameParse.js; the page and the server both read
 // this file, so the dashboard's "next" is the feed's.
-import { FIGHT_NIGHT_DAY, fightNightDay, hasDate, localInstant, shiftDay, weekdayOf } from './gameParse.js';
+import { FIGHT_NIGHT_DAY, dayBounds, fightNightDay, localInstant, localWall, shiftDay, weekdayOf } from './gameParse.js';
 import { SITE_NAME, urlFor } from './siteRoutes.js';
 import { count, plural } from './matchResult.js';
 
@@ -16,7 +16,6 @@ export const FEED_PATH = '/fight-nights.ics';
 const MINUTE_MS = 60000;
 const ms = at => (typeof at === 'number' ? at : Date.parse(at));
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const validDay = day => /^\d{4}-\d{2}-\d{2}$/.test(day) && hasDate(`${day}T00:00:00Z`) && shiftDay(day, 0) === day;
 
 /**
  * Checks an event as the admin sends it: a weekly rule (weekday 0 Monday to
@@ -41,12 +40,13 @@ export function validateEvent(input = {}) {
     if (notes.length > SCHEDULE.notesMax) return { error: `notes must be at most ${SCHEDULE.notesMax} characters` };
     const event = { kind, weekday: null, date: null, time, minutes, title, notes };
     if (kind === 'weekly') {
-        const weekday = Number(input.weekday);
+        // Number() would read null, '' and false as Monday
+        const weekday = input.weekday === null || input.weekday === '' || typeof input.weekday === 'boolean' ? NaN : Number(input.weekday);
         if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) return { error: 'weekday must be 0 (Monday) to 6 (Sunday)' };
         event.weekday = weekday;
     } else {
         const date = String(input.date ?? '');
-        if (!validDay(date)) return { error: 'date must be a calendar day, YYYY-MM-DD' };
+        if (!dayBounds(date)) return { error: 'date must be a calendar day, YYYY-MM-DD' };
         event.date = date;
     }
     return { event };
@@ -191,13 +191,13 @@ function scheduledEvent(one, origin) {
     ]);
 }
 
-// The wall-clock end of an occurrence, as [date, time]: its length after the
-// start on the wall clock, so a night across a DST change keeps its length
-// in hours (a 3-hour night at 23:00 on the night the clocks go back ends at
-// 02:00 and is 4 hours long by the clock; the feed says 02:00 either way).
+// The wall-clock end of an occurrence, as [date, time]: its real end read on
+// the clock in the zone, so the feed, the dashboard and underWay agree
+// across a DST change (a 3-hour night at 23:00 on the night the clocks go
+// back ends at 01:00 CST, 07:00Z).
 export function wallEnd(one) {
-    const end = new Date(Date.parse(`${one.date}T${one.time}:00Z`) + one.minutes * MINUTE_MS).toISOString();
-    return [end.slice(0, 10), end.slice(11, 16)];
+    const { date, time } = localWall(one.end);
+    return [date, time];
 }
 
 // A night that happened: the saved recap on its fight-night day, from its

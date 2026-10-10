@@ -540,7 +540,8 @@ describe('the reminder before a scheduled night (S22)', () => {
         expect(received).toHaveLength(1);
         const { body } = received[0];
         expect(body.allowed_mentions).toEqual({ parse: [] });
-        expect(body.content).toBe(`Fight night in 60 minutes: Saturday Night Anarchy, ${eventWhen(saturday)}.`);
+        // the time left, not the hour the check runs ahead
+        expect(body.content).toBe(`Fight night in 50 minutes: Saturday Night Anarchy, ${eventWhen(saturday)}.`);
         expect(body.embeds[0]).toEqual({
             title: 'Saturday Night Anarchy',
             url: `${ORIGIN}/`,
@@ -587,7 +588,7 @@ describe('the reminder before a scheduled night (S22)', () => {
         const [one] = occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000).filter(o => o.title === 'Ticked');
         expect(await snapshots.takeSnapshot(start() - 40 * MINUTE)).toBe(0);
         await discord.postsSettled();
-        expect(received.map(r => r.body.content)).toEqual([`Fight night in 60 minutes: Ticked, ${eventWhen(one)}.`]);
+        expect(received.map(r => r.body.content)).toEqual([`Fight night in 40 minutes: Ticked, ${eventWhen(one)}.`]);
         expect(db.getDiscordPost('reminder', reminderKey(one))).toMatchObject({ status: 'sent', tries: 1 });
         for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
     });

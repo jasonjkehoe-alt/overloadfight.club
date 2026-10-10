@@ -3,7 +3,7 @@ import { CalendarDays, Check, Copy } from 'lucide-react';
 import { fetchFightNightSchedule } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
 import { useServerBrowser } from '../../hooks/useServerBrowser';
-import { FIGHT_NIGHT_PING, browserPilots, onlineServers } from '../../server/lib/gameParse.js';
+import { FIGHT_NIGHT_DAY, FIGHT_NIGHT_PING, browserPilots, onlineServers } from '../../server/lib/gameParse.js';
 import { SCHEDULE, nextOccurrence, underWay, wallEnd } from '../../server/lib/fightNightSchedule.js';
 import { clockLabel, countdown, dayLabel, eventWhen, itsOnLine } from '../../server/lib/matchResult.js';
 import { urlFor } from '../../server/lib/siteRoutes.js';
@@ -51,7 +51,8 @@ const FightNightSchedule: React.FC = () => {
     if (schedule.failed) return <ErrorState compact title="Could not load the fight-night schedule" onRetry={schedule.retry} />;
     if (!schedule.data) return <Loading compact label="Loading the schedule..." />;
 
-    const { events, feed, timeZone } = schedule.data;
+    const { events, feed } = schedule.data;
+    const timeZone = FIGHT_NIGHT_DAY.label;
     const pilots = games ? browserPilots(games) : 0;
     const itsOn = pilots >= FIGHT_NIGHT_PING.pilots;
     const next = nextOccurrence(events, now);

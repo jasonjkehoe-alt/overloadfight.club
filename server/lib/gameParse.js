@@ -491,7 +491,20 @@ export const fightNightDay = date => localClock(date)?.day ?? null;
 // the day's start both come from it.
 export function localInstant(day, time) {
     const wall = Date.parse(`${day}T${time}:00Z`);
-    return new Date(wall - wallClock(wall - wallClock(wall).offset).offset).toISOString();
+    const first = wall - wallClock(wall).offset;
+    const second = wall - wallClock(first).offset;
+    // a time the spring change skips (02:30 on its Sunday) has no instant of
+    // its own: the second pass lands an hour early, so the first (after the
+    // change, as calendars read it) stands
+    return new Date(second + wallClock(second).offset === wall ? second : first).toISOString();
+}
+
+// The wall clock of a UTC instant in FIGHT_NIGHT_DAY.timeZone, as
+// { date: 'YYYY-MM-DD', time: 'HH:MM' } (the schedule's ends, S22).
+export function localWall(iso) {
+    const ms = typeof iso === 'number' ? iso : Date.parse(iso);
+    const wall = new Date(ms + wallClock(ms).offset).toISOString();
+    return { date: wall.slice(0, 10), time: wall.slice(11, 16) };
 }
 
 // When a fight-night day ('YYYY-MM-DD') starts, as a UTC ISO string: the wall
