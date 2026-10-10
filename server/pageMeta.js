@@ -23,7 +23,7 @@ const withCard = (card, extra = {}) => (card ? { ...extra, card, description: ca
 function pilotMeta(name) {
     const summary = db.getPilotSummary(name);
     if (!summary) return {};
-    return withCard(pilotCard(name, summary, db.getPilotRating(summary.name), db.getPilotPPI(summary.name)));
+    return withCard(pilotCard(summary, db.getPilotRating(summary.name), db.getPilotPPI(summary.name)));
 }
 
 // "BLUE wins 42–35. TEAM ANARCHY on Vault, 15:10." The name is the map, for the title.

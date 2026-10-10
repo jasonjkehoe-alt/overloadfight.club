@@ -37,6 +37,9 @@ describe('cardTree', () => {
         const size = title => walk(cardTree({ ...card, title })).find(n => n.props?.children === title).props.style;
         expect(size('WD-40').fontSize).toBe(88);
         expect(size('LORD JOHN WARFIN').fontSize).toBe(72);
+        // the widest 28-character fight-night day runs past the card at 58
+        expect(size('Wednesday, December 2, 2026').fontSize).toBe(58);
+        expect(size('Wednesday, December 30, 2026').fontSize).toBe(48);
         expect(size('x'.repeat(64))).toMatchObject({ fontSize: 48, whiteSpace: 'nowrap', textOverflow: 'ellipsis' });
         const value = v => walk(cardTree({ ...card, stats: [{ label: 'L', value: v }] })).find(n => n.props?.children === v).props.style;
         expect(value('1,234').fontSize).toBe(46);

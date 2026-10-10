@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { VERDICT_LABEL, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
 import { clock, count, dayLabel, plural, ratingStanding, resultLine } from './matchResult.js';
 import { urlFor } from './siteRoutes.js';
+import { CARD_LAYOUT } from './cardLayout.js';
 
 /**
  * @typedef {{ label: string, value: string, note?: string }} CardStat
@@ -16,15 +17,14 @@ import { urlFor } from './siteRoutes.js';
  */
 
 /**
- * A pilot: matches and kills (the leaderboard's all-time row), the rating and
- * where it stands, the career Combat Ratio and the last match's day.
- * @param {string} param the name as the URL has it
+ * A pilot: matches and kills (counted from every match), the rating and where
+ * it stands, the career Combat Ratio and the last match's day.
  * @param {object} summary db.getPilotSummary
  * @param {object} rating db.getPilotRating
  * @param {object | null} cached db.getPilotPPI, the pilot_stats_cache row
  * @returns {Card}
  */
-export function pilotCard(param, summary, rating, cached) {
+export function pilotCard(summary, rating, cached) {
     // null for a date that does not parse
     const last = fightNightDay(summary.lastSeen);
     const stats = [
@@ -35,7 +35,8 @@ export function pilotCard(param, summary, rating, cached) {
     // the profile's Combat Ratio card: the career number from the stats cache
     if (cached?.kda != null) stats.push({ label: 'Combat Ratio', value: Math.max(0, cached.kda).toFixed(2) });
     return {
-        path: urlFor('pilot', param),
+        // the stored name, so every spelling the lookup accepts shares one card
+        path: urlFor('pilot', summary.name),
         kind: 'Pilot',
         title: summary.name,
         line: last ? `Last match ${dayLabel(last)}` : '',
@@ -102,8 +103,7 @@ export function fightNightCard(recap) {
 
 /**
  * A map: its name and author, the matches and kills on it, the matches in the
- * last 30 days and its top pilot, as the map popup shows them, with its image
- * when one is cached on disk.
+ * last 30 days and its top pilot, with its image when one is cached on disk.
  * @param {object} intel db.getMapIntel
  * @param {CardImage | null} image the cached image
  * @returns {Card}
@@ -130,9 +130,10 @@ export function mapCard(intel, image) {
     };
 }
 
-// A short hash of everything the card shows, so its URL and its place in the
-// cache change when, and only when, its words or numbers do.
-export const cardKey = card => createHash('sha1').update(JSON.stringify(card)).digest('hex').slice(0, 12);
+// A short hash of everything the card shows and the layout's version, so its
+// URL and its place in the cache change when, and only when, its words, its
+// numbers or its look do.
+export const cardKey = card => createHash('sha1').update(JSON.stringify([CARD_LAYOUT, card])).digest('hex').slice(0, 12);
 
 // "/api/card/pilot/WD-40?v=3f2a9c1b04de": the card's PNG for the page at card.path.
 export const cardUrl = (card, key = cardKey(card)) => `/api/card${card.path}?v=${key}`;

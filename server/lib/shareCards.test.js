@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { byId } from '../testFixtures.js';
 import { RATING, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
 import { dayLabel } from './matchResult.js';
@@ -68,8 +68,8 @@ describe('pilotCard', () => {
     const ranked = { matches: 40, rating: 1612.4, status: 'ranked', rank: 3 };
 
     it('shows matches, kills, the rating with its standing and the career Combat Ratio', () => {
-        const card = pilotCard('wd-40', summary, ranked, { kda: 1.234 });
-        expect(card).toMatchObject({ path: '/pilot/wd-40', kind: 'Pilot', title: 'WD-40', line: 'Last match Wed, Oct 7, 2026' });
+        const card = pilotCard(summary, ranked, { kda: 1.234 });
+        expect(card).toMatchObject({ path: '/pilot/WD-40', kind: 'Pilot', title: 'WD-40', line: 'Last match Wed, Oct 7, 2026' });
         expect(card.stats).toEqual([
             { label: 'Matches', value: '1,234' },
             { label: 'Kills', value: '5,678' },
@@ -81,17 +81,17 @@ describe('pilotCard', () => {
     });
 
     it('says why a pilot is not ranked, and leaves out a rating or ratio the pilot lacks', () => {
-        expect(stat(pilotCard('a', summary, { matches: 4, rating: 1700, status: 'provisional', rank: null }, null), 'Rating').note)
+        expect(stat(pilotCard(summary, { matches: 4, rating: 1700, status: 'provisional', rank: null }, null), 'Rating').note)
             .toBe(`Provisional: 4 of ${RATING.rankedAfter} rated matches`);
-        expect(stat(pilotCard('a', summary, { matches: 40, rating: 1700, status: 'inactive', rank: null }, null), 'Rating').note)
+        expect(stat(pilotCard(summary, { matches: 40, rating: 1700, status: 'inactive', rank: null }, null), 'Rating').note)
             .toBe(`Not ranked: no rated match in the last ${RATING.activeDays} days`);
-        const unrated = pilotCard('a', { ...summary, games: 1, kills: 1 }, { matches: 0, rating: null, status: null, rank: null }, null);
+        const unrated = pilotCard({ ...summary, games: 1, kills: 1 }, { matches: 0, rating: null, status: null, rank: null }, null);
         expect(unrated.stats.map(s => s.label)).toEqual(['Matches', 'Kills']);
         expect(unrated.description).toBe('WD-40: 1 match, 1 kill, last match 2026-10-07.');
         // the profile shows a negative cached ratio as 0
-        expect(stat(pilotCard('a', summary, ranked, { kda: -1 }), 'Combat Ratio').value).toBe('0.00');
+        expect(stat(pilotCard(summary, ranked, { kda: -1 }), 'Combat Ratio').value).toBe('0.00');
         // a last match whose date does not parse: no day, no throw
-        const undated = pilotCard('a', { ...summary, lastSeen: 'not a date' }, ranked, null);
+        const undated = pilotCard({ ...summary, lastSeen: 'not a date' }, ranked, null);
         expect(undated.line).toBe('');
         expect(undated.description).toBe('WD-40: 1,234 matches, 5,678 kills.');
     });
@@ -123,7 +123,7 @@ describe('fightNightCard', () => {
 describe('mapCard', () => {
     const intel = { name: 'BLIZZARD', author: 'Revival Productions', sorties: 40, totalKills: 1200, recent30d: 1, topPilot: { name: 'WD-40', kills: 300 } };
 
-    it('shows the matches, kills, last 30 days and top pilot the map popup shows', () => {
+    it('shows the matches, kills, last 30 days and top pilot', () => {
         const image = { file: '/data/map_images/BLIZZARD_1.jpg', mtime: 1760000000000 };
         const card = mapCard(intel, image);
         expect(card).toMatchObject({ path: '/maps/BLIZZARD', kind: 'Map', title: 'BLIZZARD', line: 'Made by Revival Productions', image });
@@ -162,7 +162,15 @@ describe('cardKey and cardUrl', () => {
         expect(cardKey(fightNightCard({ ...recap, totalFrags: 1103 }))).not.toBe(key);
         expect(cardUrl(fightNightCard(recap))).toBe(`/api/card/fight-night/2026-10-06?v=${key}`);
         // a name with a slash or a question mark stays in its own path segment
-        expect(cardUrl(pilotCard('a/b?c', { name: 'a/b?c', games: 1, kills: 1, lastSeen: '2026-10-08T03:00:00.000Z' }, null, null)))
+        expect(cardUrl(pilotCard({ name: 'a/b?c', games: 1, kills: 1, lastSeen: '2026-10-08T03:00:00.000Z' }, null, null)))
             .toMatch(/^\/api\/card\/pilot\/a%2Fb%3Fc\?v=[0-9a-f]{12}$/);
+    });
+
+    it('change every card\'s key when the layout\'s version moves', async () => {
+        vi.resetModules();
+        vi.doMock('./cardLayout.js', async importOriginal => ({ ...(await importOriginal()), CARD_LAYOUT: -1 }));
+        const next = await import('./shareCards.js');
+        vi.doUnmock('./cardLayout.js');
+        expect(next.cardKey(fightNightCard(recap))).not.toBe(cardKey(fightNightCard(recap)));
     });
 });

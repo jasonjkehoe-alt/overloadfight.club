@@ -171,7 +171,8 @@ export function postRecap(date, saved = false) {
             const rankings = await rankingsAfter(date);
             // drawn first, so Discord's fetch of the image finds it cached, and
             // a card that cannot be drawn is left out of the embed
-            const drawn = await renderCard(fightNightCard(recap)).then(() => true, () => false);
+            const card = fightNightCard(recap);
+            const drawn = card ? await renderCard(card).then(() => true, () => false) : false;
             return recapMessage(recap, rankings, siteOrigin(), { image: drawn });
         });
     } catch (error) {

@@ -138,6 +138,12 @@ describe('the cards on fixture data', () => {
         expect(pageCard('/maps')).toBeNull();
     });
 
+    it('gives every spelling of a pilot\'s name the one card under the stored name', () => {
+        const card = pageCard('/pilot/ZERGLING');
+        expect(card.path).toBe('/pilot/ZERGLING');
+        for (const url of ['/pilot/zergling', '/pilot/%20zergling', '/pilot/Zergling%20%20']) expect(cardKey(pageCard(url))).toBe(cardKey(card));
+    });
+
     it('has no card for the other pages, an unknown pilot or an unknown match', () => {
         for (const url of ['/', '/pilots', '/rankings', '/pilot/NOBODY', '/game/1', '/server/10.0.0.1']) expect(pageCard(url)).toBeNull();
         expect(pageCard('/game/72102').title).toBe('ASCENT');
@@ -299,6 +305,18 @@ describe('og:image', () => {
         failing.mockRestore();
         expect(ogImage(`/fight-night/${day}`)).toBeDefined();
         expect(ogImage('/game/72102')).toBe(`${ORIGIN}/api/card/game/72102?v=${cardKey(card)}`);
+    });
+
+    it('comes back CARD_LIMITS.failedMs after a card failed, so a passing failure recovers', async () => {
+        const before = Date.now();
+        const failing = failNight();
+        await expect(cards.renderCard(pageCard(`/fight-night/${day}`))).rejects.toThrow();
+        const after = Date.now();
+        const clock = vi.spyOn(Date, 'now').mockReturnValue(before + cards.CARD_LIMITS.failedMs - 1);
+        expect(ogImage(`/fight-night/${day}`)).toBeUndefined();
+        clock.mockReturnValue(after + cards.CARD_LIMITS.failedMs);
+        expect(ogImage(`/fight-night/${day}`)).toMatch(/\/api\/card\/fight-night\//);
+        failing.mockRestore();
     });
 });
 

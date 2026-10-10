@@ -14,6 +14,15 @@ import { cachedCard } from './cardService.js';
 // receives. The URL's token is a made-up secret that no log line, error or
 // answer may hold.
 const SECRET = 'tok3n-s18-never-logged';
+
+// satori, failing on a marker title, so a night's card can fail to draw.
+vi.mock('satori', async importOriginal => {
+    const real = (await importOriginal()).default;
+    return { default: async (tree, options) => {
+        if (JSON.stringify(tree).includes('THROW ME')) throw new Error('satori failed');
+        return real(tree, options);
+    } };
+});
 const ORIGIN = 'https://ofc.example';
 
 // The fixture games on `day` plus a second night's worth of the same games a
@@ -352,6 +361,22 @@ describe('the recap post from the detector', () => {
         expect(received).toHaveLength(3);
         expect(received[2].body.embeds[0].url).toBe(`${ORIGIN}/fight-night/${day}`);
         expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'sent', tries: 2 });
+    });
+
+    it('posts the recap without its card when the card cannot be drawn', async () => {
+        switchOn();
+        await fightNights.generateRecapForDate(day, true);
+        const saved = db.getFightNightRecapByDate(day);
+        const read = vi.spyOn(db, 'getFightNightRecapByDate').mockReturnValue({ ...saved, formattedDate: 'THROW ME' });
+        const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+        db.putDiscordPost({ kind: 'recap', key: day, status: 'pending', tries: 0 });
+        await discord.postRecap(day);
+        read.mockRestore();
+        log.mockRestore();
+        expect(recapPosts()).toHaveLength(1);
+        expect(recapPosts()[0].body.embeds[0].title).toBe('Fight Night: THROW ME');
+        expect(recapPosts()[0].body.embeds[0]).not.toHaveProperty('image');
+        expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'sent', tries: 1 });
     });
 
     it('counts a recap that cannot be built as a failed try', async () => {

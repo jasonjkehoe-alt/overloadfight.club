@@ -5,8 +5,9 @@
 // never drawn twice and one whose numbers moved gets a new key. resvg's
 // renderAsync runs on libuv's thread pool; satori's part runs here and takes a
 // few milliseconds. satori and the fonts load on the first draw (satori alone
-// is about 80 ms and 44 MB), not at startup. A card that fails is remembered,
-// so its page leaves og:image out instead of pointing at a broken image.
+// is about 80 ms and 44 MB), not at startup. A card that fails is remembered
+// for CARD_LIMITS.failedMs, so its page leaves og:image out instead of pointing
+// at a broken image, then offers it again and the next fetch draws it again.
 import fs from 'fs';
 import { createRequire } from 'module';
 import { renderAsync } from '@resvg/resvg-js';
@@ -20,8 +21,9 @@ const require = createRequire(import.meta.url);
 // draws the card route lets wait at once (routes/cards.js); past it a card is
 // not queued (CardBusy), so a crawler asking for thousands of cards cannot
 // hold a preview's fetch behind all of them. The recap's own draw
-// (discordService.js) always waits its turn.
-export const CARD_LIMITS = { cards: 200, bytes: 20 * 1024 * 1024, waiting: 20 };
+// (discordService.js) always waits its turn. `failedMs` is how long a failed
+// card keeps its page's og:image out.
+export const CARD_LIMITS = { cards: 200, bytes: 20 * 1024 * 1024, waiting: 20, failedMs: 10 * 60 * 1000 };
 export class CardBusy extends Error {}
 
 const cache = new Map();
@@ -119,7 +121,7 @@ export function renderCard(card, { waitLimit = Infinity } = {}) {
         console.log(`[Card] ${card.path} drawn in ${result.ms} ms`);
         return result;
     }, error => {
-        remember(failed, key, true);
+        remember(failed, key, Date.now());
         console.error(`[Card] ${card.path} could not be drawn:`, error.message);
         throw error;
     }).finally(() => pending.delete(key));
@@ -129,9 +131,9 @@ export function renderCard(card, { waitLimit = Infinity } = {}) {
     return job;
 }
 
-// Whether the card with this key (cardKey) failed to draw, so its page should
-// leave og:image out.
-export const cardFailed = key => failed.has(key);
+// Whether the card with this key (cardKey) failed to draw in the last
+// CARD_LIMITS.failedMs, so its page should leave og:image out.
+export const cardFailed = key => Date.now() - (failed.get(key) ?? -Infinity) < CARD_LIMITS.failedMs;
 
 // Empty the cache and the failures (tests).
 export function clearCards() {

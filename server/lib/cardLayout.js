@@ -6,6 +6,10 @@ import { borderRadius, chart, colors, fontSize } from '../../designTokens.js';
 import { SITE_NAME } from './siteRoutes.js';
 
 export const CARD_SIZE = { width: 1200, height: 630 };
+// The layout's version, part of every card's key (shareCards.js cardKey):
+// raised by one whenever the drawing changes, so each card gets a new ?v= and
+// link previews fetch the new look instead of keeping the old one.
+export const CARD_LAYOUT = 2;
 // The fonts the tree names (cardService.js loads their files): Orbitron for
 // titles and numbers, as the site's headings, Roboto Mono for the rest.
 export const CARD_FONTS = { display: 'Orbitron', text: 'Roboto Mono' };
@@ -22,7 +26,7 @@ const oneLine = { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellip
 // Smaller type for longer text, so most names fit a tile (Orbitron's capitals
 // are about 0.85 em wide); past 11 characters a value wraps onto a second
 // line before the ellipsis.
-const titleSize = text => (text.length <= 12 ? 88 : text.length <= 20 ? 72 : text.length <= 28 ? 58 : 48);
+const titleSize = text => (text.length <= 12 ? 88 : text.length <= 20 ? 72 : text.length <= 27 ? 58 : 48);
 const valueSize = text => (text.length <= 5 ? 46 : text.length <= 7 ? 34 : text.length <= 11 ? 26 : 22);
 // Up to `lines` lines, cut with an ellipsis after the last.
 const clamp = lines => ({ display: 'block', lineClamp: lines, overflow: 'hidden', wordBreak: 'break-word' });
