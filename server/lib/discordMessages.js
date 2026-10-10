@@ -3,7 +3,7 @@
 // site's origin; nothing here reads the database or the webhook URL.
 import { SITE_NAME, urlFor } from './siteRoutes.js';
 import { RATING, onlineServers } from './gameParse.js';
-import { count, plural } from './matchResult.js';
+import { beltChange, count, plural } from './matchResult.js';
 import { cardUrl, fightNightCard } from './shareCards.js';
 
 // Discord's limits on an embed (characters; `total` over the title,
@@ -52,19 +52,27 @@ export const movement = change => (change === null ? 'NEW' : change > 0 ? `▲${
 
 /**
  * The recap of one fight night: its totals, top pilots and saved lines, the
- * power rankings after it, and the night's share card as the embed's image.
+ * belts that changed hands, the power rankings after it, and the night's
+ * share card as the embed's image.
  * @param {object} recap a saved recap (fightNightService.generateRecapForDate)
  * @param {{ day: string, pilots: object[] }} rankings db.getPowerRankings()
  * @param {string} origin "https://overloadfight.club"
- * @param {{ image?: boolean }} [options] image: false leaves the card out (it failed to draw)
+ * @param {{ image?: boolean, belts?: object[] }} [options] image: false leaves
+ *   the card out (it failed to draw); belts: db.getBeltChanges() for the night
  */
-export function recapMessage(recap, rankings, origin, { image = true } = {}) {
+export function recapMessage(recap, rankings, origin, { image = true, belts = [] } = {}) {
     const fields = [];
     const { topFragger, mostActivePilot } = recap;
     if (topFragger?.kills > 0) fields.push({ name: 'Most kills', value: `${plain(topFragger.name, NAME_MAX)}, ${count(topFragger.kills)}`, inline: true });
     if (mostActivePilot?.matches > 0) fields.push({ name: 'Most matches', value: `${plain(mostActivePilot.name, NAME_MAX)}, ${count(mostActivePilot.matches)}`, inline: true });
     for (const [key, name] of RECAP_LINES) {
         if (recap[key]?.copy) fields.push({ name, value: plain(recap[key].copy) });
+    }
+    if (belts.length > 0) {
+        fields.push({
+            name: belts.length === 1 ? 'New champion' : 'New champions',
+            value: plain(belts.map(b => beltChange({ ...b, name: b.name.slice(0, NAME_MAX), from: b.from && { name: b.from.name.slice(0, NAME_MAX) } })).join('\n'))
+        });
     }
     const top = rankings.pilots.slice(0, RECAP_RANKINGS);
     if (top.length > 0) {

@@ -184,6 +184,20 @@ describe('the recap embed on fixture data', () => {
         expect(recapMessage(recap, rankings, ORIGIN, { image: false }).embeds[0]).not.toHaveProperty('image');
     });
 
+    it('names the belts that changed hands that night before the rankings (S21)', () => {
+        // INSANER took Team Anarchy's first belt in 72095, on `day`; Anarchy's was decided the evening before
+        const belts = db.getBeltChanges(day);
+        const { fields } = recapMessage(recap, rankings, ORIGIN, { belts }).embeds[0];
+        expect(fields.at(-2)).toEqual({ name: 'New champion', value: 'Team Anarchy: INSANER, the first champion' });
+        expect(fields.at(-1).name).toMatch(/^Power rankings/);
+        // a change of hands names who lost the belt; markdown in a name is escaped
+        const change = { label: 'Anarchy', name: 'B_2AF', from: { name: '*BEHEMOTH*' } };
+        const two = recapMessage(recap, rankings, ORIGIN, { belts: [change, belts[0]] }).embeds[0].fields.at(-2);
+        expect(two).toEqual({ name: 'New champions', value: 'Anarchy: B\\_2AF took the belt from \\*BEHEMOTH\\*\nTeam Anarchy: INSANER, the first champion' });
+        // no change, no field
+        expect(recapMessage(recap, rankings, ORIGIN, { belts: [] }).embeds[0].fields.some(f => f.name.startsWith('New champion'))).toBe(false);
+    });
+
     it('shows each kind of movement and the top 5 only', () => {
         expect([3, -1, 0, null].map(movement)).toEqual(['▲3', '▼1', '–', 'NEW']);
         const pilots = Array.from({ length: 8 }, (_, i) => ({ rank: i + 1, name: `P_${i}`, rating: 1700.4 - i * 10, change: [2, -3, 0, null][i % 4] }));
@@ -329,6 +343,8 @@ describe('the recap post from the detector', () => {
         expect(cachedCard(cardKey(card))).toBeDefined();
         // the rankings on the morning after that night
         expect(recapPosts()[0].body.embeds[0].fields.at(-1).name).toBe(`Power rankings on ${shiftDay(day, 2)} (▲▼ over 7 days)`);
+        // no belt changed hands that night (the copies are defenses)
+        expect(recapPosts()[0].body.embeds[0].fields.some(f => f.name.startsWith('New champion'))).toBe(false);
         expect(db.getDiscordPost('recap', day)).toBeNull();
         expect(db.getDiscordPost('recap', shiftDay(day, 1))).toMatchObject({ status: 'sent', tries: 1 });
         // a second run, the S14 rebuild and the empty-table backfill post nothing more
@@ -360,6 +376,8 @@ describe('the recap post from the detector', () => {
         await detectAt(morning + 3600000);
         expect(received).toHaveLength(3);
         expect(received[2].body.embeds[0].url).toBe(`${ORIGIN}/fight-night/${day}`);
+        // the night INSANER took Team Anarchy's first belt (S21)
+        expect(received[2].body.embeds[0].fields.find(f => f.name === 'New champion').value).toBe('Team Anarchy: INSANER, the first champion');
         expect(db.getDiscordPost('recap', day)).toMatchObject({ status: 'sent', tries: 2 });
     });
 

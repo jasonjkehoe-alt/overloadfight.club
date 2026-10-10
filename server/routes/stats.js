@@ -213,6 +213,8 @@ derivedRoute('/stats/duels', () => db.getDuelLadder(), 'Duel ladder');
 derivedRoute('/stats/objectives', () => db.getObjectiveBoards(), 'Objective boards');
 // GET /api/stats/rivalries - kills and damage among the top pilots, and the top pairs (S17)
 derivedRoute('/stats/rivalries', () => db.getRivalNetwork(), 'Rivalries');
+// GET /api/stats/belts - each mode's champion and line of holders, and how many pilots hold each achievement tier (S21)
+derivedRoute('/stats/belts', () => db.getBelts(), 'Belts');
 
 // Get robust map stats
 router.get('/stats/maps', async (req, res) => {

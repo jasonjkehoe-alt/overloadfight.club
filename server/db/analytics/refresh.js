@@ -3,6 +3,7 @@ import { hotDb, dbPath, coldDbPath } from '../connection.js';
 import { ensurePilotStatsCache } from '../migrations.js';
 import { DERIVED_TABLES, derivedColumns, derivedKey } from '../../lib/statsPasses.js';
 import { clearDerivedCaches, clearDerivedTablesBuilt, markDerivedTablesBuilt } from './meta.js';
+import { fightNightDay } from '../../lib/gameParse.js';
 
 // Rebuild pilot_stats_cache, the archive stats and map_stats_cache from one
 // pass over every stored game in server/statsWorker.js. Concurrent calls share
@@ -30,7 +31,9 @@ const runStatsWorker = () => new Promise((resolve, reject) => {
     workerData: {
       hotPath: dbPath,
       coldPath: coldDbPath,
-      thirtyDaysAgo: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      thirtyDaysAgo: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      // the anniversary counts whole years up to today (S21)
+      today: fightNightDay(Date.now())
     }
   });
   statsWorker = worker;

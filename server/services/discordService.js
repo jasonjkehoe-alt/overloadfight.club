@@ -173,7 +173,8 @@ export function postRecap(date, saved = false) {
             // a card that cannot be drawn is left out of the embed
             const card = fightNightCard(recap);
             const drawn = card ? await renderCard(card).then(() => true, () => false) : false;
-            return recapMessage(recap, rankings, siteOrigin(), { image: drawn });
+            // the belts that changed hands that night (S21), from the same refresh
+            return recapMessage(recap, rankings, siteOrigin(), { image: drawn, belts: db.getBeltChanges(date) });
         });
     } catch (error) {
         console.error(`[Discord] Recap ${date} not queued:`, error.message);

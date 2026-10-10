@@ -20,6 +20,7 @@ describe('parseRoute and urlFor', () => {
             { view: 'rankings' },
             { view: 'ladders' },
             { view: 'rivals' },
+            { view: 'belts' },
             { view: 'cold-storage' },
             { view: 'taunts' },
             { view: 'olmod' },
@@ -66,6 +67,7 @@ describe('pageTitle', () => {
         expect(pageTitle({ view: 'rankings' })).toBe('Power rankings | overloadfight.club');
         expect(pageTitle({ view: 'ladders' })).toBe('Ladders | overloadfight.club');
         expect(pageTitle({ view: 'rivals' })).toBe('Rivalries | overloadfight.club');
+        expect(pageTitle({ view: 'belts' })).toBe('Belts | overloadfight.club');
         expect(pageTitle({ view: 'pilot', param: 'WD-40' })).toBe('WD-40 | overloadfight.club');
         expect(pageTitle({ view: 'game-detail', param: 72102 })).toBe('Match 72102 | overloadfight.club');
         expect(pageTitle({ view: 'game-detail', param: 72102 }, 'ASCENT')).toBe('Match 72102: ASCENT | overloadfight.club');
@@ -84,6 +86,7 @@ describe('navSection', () => {
         expect(navSection('rankings')).toBe('pilots');
         expect(navSection('ladders')).toBe('pilots');
         expect(navSection('rivals')).toBe('pilots');
+        expect(navSection('belts')).toBe('pilots');
         expect(navSection('tape')).toBe('pilots');
         expect(navSection('server')).toBe('dashboard');
         expect(navSection('pilots')).toBe('pilots');

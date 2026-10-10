@@ -655,18 +655,22 @@ const round = (n, places) => Math.round(n * 10 ** places) / 10 ** places;
 // A stored date the replays can order by.
 export const hasDate = date => Number.isFinite(Date.parse(date));
 
+// Matches ([{ id, date, ... }]) in the order the replays play them: by date,
+// id order for equal dates, each with `at` (its time in ms); a match without
+// a date is left out.
+export const inDateOrder = matches => matches
+    .map(m => ({ ...m, at: Date.parse(m.date) }))
+    .filter(m => hasDate(m.date))
+    .sort((a, b) => a.at - b.at || a.id - b.id);
+
 // Replays rated matches ([{ id, date, sides }], sides from ratingSides()) in
-// date order (id order for equal dates; a match without a date is skipped)
-// and returns each pilot's rating at the end of every fight-night day they
-// played:
+// date order (inDateOrder) and returns each pilot's rating at the end of
+// every fight-night day they played:
 // [{ pilot, name, day, rating, rd, volatility, matches }],
 // `pilot` being the pilotKey(), `name` the latest spelling and `matches` the
 // rated matches so far.
 export function ratingSnapshots(matches) {
-    const timed = matches
-        .map(m => ({ ...m, at: Date.parse(m.date) }))
-        .filter(m => hasDate(m.date))
-        .sort((a, b) => a.at - b.at || a.id - b.id);
+    const timed = inDateOrder(matches);
     const pilots = new Map();
     const snapshots = new Map();
     for (const { at, sides } of timed) {
@@ -1189,3 +1193,121 @@ export const MATCH_MODES = [
 // A tape's ?mode= value as a MATCH_MODES id, or null (every mode) for anything else.
 export const tapeMode = value => MATCH_MODES.find(m => m.id === String(value ?? '').toUpperCase())?.id ?? null;
 export const TAPE_HINT = `Head-to-head: ranked matches (${RATED_MATCH_TEXT}) the two played on different sides, each a win, loss or tie by their sides' scores. Kills and damage come only from ranked matches with a kill or damage log, a result or not, as on the kill-log rivals card.`;
+
+// Belts (S21, the owner's rules at its start): one lineal belt per
+// MATCH_MODES mode, decided match by match over every rated match. The first
+// rated match in a mode with an outright winner crowns the winning side's top
+// scorer. After that the holder keeps the belt through every match they do
+// not play; a match their side wins or draws at the top is a defense; a match
+// another side wins outright passes the belt to that side's top scorer; a
+// match they lose while the top is shared by others changes nothing.
+export const BELT_HINT = `One belt per mode, held until the champion loses. The first rated match in a mode (${RATED_MATCH_TEXT}) with an outright winner crowns the winning side's top scorer. After that the belt changes hands only when the champion plays a rated match in that mode and another side wins it outright, and goes to that side's top scorer. A win or a draw at the top is a defense.`;
+
+// The belt's view of one match: { mode, sides, champion }, `sides` from
+// ratingSides() and `champion` the { key, name } of the top scorer on the
+// side that won outright (the pilot in FFA; in a team game the highest
+// in-game score, ties by listing order), or null when the top is shared.
+// Null for a match that is not rated or not in a MATCH_MODES mode.
+export function beltMatch(game) {
+    const mode = matchModeOf(game);
+    if (!MATCH_MODES.some(m => m.id === mode)) return null;
+    const sides = ratingSides(game);
+    if (!sides) return null;
+    const top = Math.max(...sides.map(s => s.score));
+    const won = sides.filter(s => s.score === top);
+    if (won.length > 1) return { mode, sides, champion: null };
+    const score = new Map();
+    for (const p of game.players) {
+        const key = pilotKey(p?.name);
+        if (key && !score.has(key)) score.set(key, Number(p.kills) || 0);
+    }
+    return { mode, sides, champion: won[0].pilots.reduce((best, p) => (score.get(p.key) > score.get(best.key) ? p : best)) };
+}
+
+// One match of the belt replay: `holders` maps a mode to its reign, `reigns`
+// collects every reign ({ mode, reign, pilot, name, since, game, defenses,
+// until, lost_game }, `until` '' and `lost_game` 0 while it lasts), and `m` is
+// { id, date, ...beltMatch() }. Returns what the match did: `won` (a reign
+// that started), `defended` (the reign the holder kept by winning or drawing
+// at the top) and `slayers`, the pilotKey()s on the sides that outscored the
+// holder's.
+export function beltStep(holders, reigns, { id, date, mode, sides, champion }) {
+    const held = holders.get(mode);
+    const crown = () => {
+        const next = { mode, reign: (held?.reign ?? 0) + 1, pilot: champion.key, name: champion.name, since: date, game: id, defenses: 0, until: '', lost_game: 0 };
+        holders.set(mode, next);
+        reigns.push(next);
+        return next;
+    };
+    if (!held) return { won: champion ? crown() : null, defended: null, slayers: [] };
+    const side = sides.find(s => s.pilots.some(p => p.key === held.pilot));
+    if (!side) return { won: null, defended: null, slayers: [] };
+    const slayers = sides.filter(s => s.score > side.score).flatMap(s => s.pilots.map(p => p.key));
+    if (slayers.length === 0) {
+        held.defenses++;
+        return { won: null, defended: held, slayers };
+    }
+    if (!champion) return { won: null, defended: null, slayers };
+    held.until = date;
+    held.lost_game = id;
+    return { won: crown(), defended: null, slayers };
+}
+
+// Every reign of every belt, from matches ([{ id, date, ...beltMatch() }])
+// replayed in date order (inDateOrder, as the rating is).
+export function beltReigns(matches) {
+    const holders = new Map();
+    const reigns = [];
+    for (const m of inDateOrder(matches)) beltStep(holders, reigns, m);
+    return reigns;
+}
+
+// The best kill streak of each pilot in one ranked match with a kill log:
+// kills on opponents (killPoints() worth a point) without dying in between,
+// any death (a suicide, a team kill, a death with no attacker) ending the
+// victim's streak. A Map of pilotKey() to the longest.
+export function killStreaksOf(game) {
+    const best = new Map();
+    if (!rankedMatch(game) || !hasKillLog(game)) return best;
+    const current = new Map();
+    replayLog(game, Infinity, (t, kill, points) => {
+        if (points.points > 0) {
+            const key = pilotKey(points.scorer);
+            const run = (current.get(key) || 0) + 1;
+            current.set(key, run);
+            if (run > (best.get(key) || 0)) best.set(key, run);
+        }
+        const victim = pilotKey(kill.defender);
+        if (victim) current.set(victim, 0);
+    });
+    return best;
+}
+
+// Achievements (S21): each counts one thing over every stored match, in
+// three tiers (TIERS) at the thresholds in `tiers`. `best` marks a count that
+// is the longest run or streak rather than a total. The milestones count what
+// the career cards count (ranked matches, netKills(), wins by outcomeOf());
+// the kill-log feats are clutchOf()'s and killStreaksOf()'s; the belt ones
+// come from beltStep(); the streaks from outcomeOf() over ranked matches and
+// duelMatch() duels; the anniversary from the pilot's first stored match.
+export const TIERS = ['Bronze', 'Silver', 'Gold'];
+export const ACHIEVEMENT_GROUPS = ['Milestones', 'Kill log', 'Belts', 'Streaks'];
+export const ACHIEVEMENTS = [
+    { id: 'matches', group: 'Milestones', name: 'Century', counts: 'ranked matches', tiers: [100, 500, 1000] },
+    { id: 'kills', group: 'Milestones', name: 'Body Count', counts: 'kills in ranked matches', tiers: [1000, 5000, 15000] },
+    { id: 'wins', group: 'Milestones', name: 'Winner', counts: 'ranked wins', tiers: [25, 100, 500] },
+    { id: 'nights', group: 'Milestones', name: 'Regular', counts: 'fight-night days with a ranked match', tiers: [10, 50, 150] },
+    { id: 'first_bloods', group: 'Kill log', name: 'First Blood', counts: 'first bloods', tiers: [10, 50, 200] },
+    { id: 'late_kills', group: 'Kill log', name: 'Closer', counts: `kills in a match's last ${CLUTCH.lateSeconds} s`, tiers: [25, 100, 500] },
+    { id: 'trailing_kills', group: 'Kill log', name: 'Comeback', counts: 'kills while trailing', tiers: [100, 500, 2000] },
+    { id: 'kill_streak', group: 'Kill log', name: 'Rampage', counts: 'kills in a row in one match without dying', best: true, tiers: [5, 10, 15] },
+    { id: 'belts', group: 'Belts', name: 'Champion', counts: 'belts won', tiers: [1, 3, 10] },
+    { id: 'defenses', group: 'Belts', name: 'Defender', counts: 'title defenses', tiers: [3, 10, 25] },
+    { id: 'boss_slayer', group: 'Belts', name: 'Boss Slayer', counts: 'rated matches finished ahead of the reigning champion', tiers: [1, 5, 25] },
+    { id: 'win_streak', group: 'Streaks', name: 'Hot Streak', counts: 'ranked wins in a row', best: true, tiers: [3, 5, 10] },
+    { id: 'duel_streak', group: 'Streaks', name: 'Duelist', counts: '1v1 duel wins in a row', best: true, tiers: [3, 5, 10] },
+    { id: 'years', group: 'Streaks', name: 'Anniversary', counts: 'years since the first stored match', tiers: [1, 3, 5] }
+];
+export const ACHIEVEMENT_HINT = `Counted over every stored match. Kill-log feats need a match whose kill log the tracker kept; a tie or a loss ends a streak, a match with no result does not. ${TIERS.join(', ')} at the thresholds shown.`;
+// The tier a count reaches: 0 (none) to TIERS.length.
+export const tierOf = (achievement, value) => achievement.tiers.filter(t => value >= t).length;
