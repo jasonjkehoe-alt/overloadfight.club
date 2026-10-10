@@ -735,6 +735,46 @@ export interface PilotOpponent extends BoutRecord {
 }
 export const fetchPilotOpponents = (name: string) => getJson<PilotOpponent[]>(`${API_BASE}/pilot/${encodeURIComponent(name)}/opponents`);
 
+// /api/stats/belts and /api/pilot/:name/achievements (S21). Days are
+// fight-night days; `until` is null while a reign lasts.
+export interface BeltReign {
+    mode: string;
+    label: string;
+    reign: number;
+    pilot: string;
+    name: string;
+    since: string;
+    game: number;
+    defenses: number;
+    until: string | null;
+    lost_game: number | null;
+    days: number;
+    // the champion it was taken from, null for a mode's first
+    from: { pilot: string; name: string } | null;
+}
+export interface Belts {
+    day: string;
+    modes: { mode: string; label: string; reigns: number; holder: BeltReign | null; lineage: BeltReign[] }[];
+    // per achievement, the pilots who reached each tier (or a higher one)
+    achievements: { id: string; pilots: number[] }[];
+}
+export const fetchBelts = () => getJson<Belts>(`${API_BASE}/stats/belts`);
+
+export interface PilotAchievement {
+    id: string;
+    value: number;
+    tier: number;
+    earned: string | null;
+    game: number | null;
+    // the next tier's threshold, null at the top
+    next: number | null;
+}
+export interface PilotAchievements {
+    belts: BeltReign[];
+    achievements: PilotAchievement[];
+}
+export const fetchPilotAchievements = (name: string) => getJson<PilotAchievements>(`${API_BASE}/pilot/${encodeURIComponent(name)}/achievements`);
+
 // Admin panel (hooks/useAdmin*.ts) requests. These keep the axios semantics the
 // panel was written against: a non-2xx status or a network failure rejects; the error's
 // `response.data` is the body parsed as JSON, or the raw text when it is not JSON.

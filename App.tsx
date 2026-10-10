@@ -19,6 +19,7 @@ const PilotsList = lazy(() => import('./components/PilotsList'));
 const PowerRankings = lazy(() => import('./components/PowerRankings'));
 const Ladders = lazy(() => import('./components/Ladders'));
 const Rivals = lazy(() => import('./components/Rivals'));
+const Belts = lazy(() => import('./components/Belts'));
 const Tape = lazy(() => import('./components/Tape'));
 const ServerHistory = lazy(() => import('./components/ServerHistory'));
 const MapLibrary = lazy(() => import('./components/MapLibrary'));
@@ -277,6 +278,10 @@ const App: React.FC = () => {
 
       {currentView === 'rivals' && (
         <Rivals />
+      )}
+
+      {currentView === 'belts' && (
+        <Belts />
       )}
 
       {currentView === 'tape' && (

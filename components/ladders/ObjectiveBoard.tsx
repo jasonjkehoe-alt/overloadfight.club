@@ -6,6 +6,7 @@ import { urlFor } from '../../server/lib/siteRoutes.js';
 import { BOARD_ROWS, OBJECTIVE_FIELDS, OBJECTIVE_MODES, RANKED } from '../../server/lib/gameParse.js';
 import { fetchObjectiveBoards } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
+import BeltMark from '../BeltMark';
 
 // each objective column's word, by pilot_objectives field
 export const LABEL: Record<string, string> = Object.fromEntries(OBJECTIVE_FIELDS.map(f => [f.field, f.label]));
@@ -41,7 +42,7 @@ const ObjectiveBoard: React.FC<{ mode: keyof typeof OBJECTIVE_MODES }> = ({ mode
                             return (
                                 <tr key={p.pilot} className="hover:bg-surface-raised transition-colors">
                                     <LinkCell to={url} className="p-3 text-center text-gray-400 font-bold">{p.rank}</LinkCell>
-                                    <LinkCell main to={url} className="p-3 font-bold text-white hover:text-brand">{p.name}</LinkCell>
+                                    <LinkCell main to={url} className="p-3 font-bold text-white hover:text-brand">{p.name}<BeltMark name={p.name} /></LinkCell>
                                     {fields.map(f => <LinkCell key={f} to={url} className={`p-3 text-right ${f === sort ? 'font-bold text-brand' : 'text-gray-300'}`}>{Number(p[f]).toLocaleString()}</LinkCell>)}
                                     <LinkCell to={url} className="p-3 text-right text-gray-300">{p.matches.toLocaleString()}</LinkCell>
                                     <LinkCell to={url} cellClassName="hidden sm:table-cell" className="p-3 text-right text-gray-400 whitespace-nowrap">{p.wins}-{p.losses}-{p.ties}</LinkCell>

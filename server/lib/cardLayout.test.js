@@ -53,6 +53,11 @@ describe('cardTree', () => {
         expect(crowded('Team Anarchy')).toMatchObject({ fontSize: 17, lineClamp: 2 });
         const four = walk(cardTree({ ...card, stats: card.stats.slice(0, 4) })).find(n => n.props?.children === '1').props.style;
         expect(four.fontSize).toBe(46);
+        // and their labels and notes smaller, so "COMBAT RATIO" fits its tile
+        const small = parseFloat(fontSize['2xs'][0]) * 16 * 2.5;
+        const label = walk(cardTree(card)).find(n => n.props?.children === 'L1').props.style;
+        expect(label).toMatchObject({ fontSize: small * 0.72, letterSpacing: 0 });
+        expect(walk(cardTree(card)).find(n => n.props?.children === 'n3').props.style.fontSize).toBe(small * 0.68);
     });
 
     it('draws an image faint behind the text only when the card has one', () => {

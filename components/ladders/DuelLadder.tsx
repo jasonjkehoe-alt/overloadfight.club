@@ -6,6 +6,7 @@ import { urlFor } from '../../server/lib/siteRoutes.js';
 import { DUEL, DUEL_HINT, FIGHT_NIGHT_DAY_TEXT, RD_HINT } from '../../server/lib/gameParse.js';
 import { fetchDuelLadder } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
+import BeltMark from '../BeltMark';
 
 // The 1v1 duel ladder (S16): every pilot with a duel by duel rating, the
 // listed ones (DUEL.listedAfter duels or more) above the provisional ones.
@@ -50,7 +51,7 @@ const DuelLadder: React.FC = () => {
                                     )}
                                     <tr className={`hover:bg-surface-raised transition-colors ${provisional ? 'text-gray-400' : ''}`}>
                                         <LinkCell to={url} className="p-3 text-center text-gray-400 font-bold">{p.rank}</LinkCell>
-                                        <LinkCell main to={url} className={`p-3 font-bold hover:text-brand ${provisional ? 'text-gray-300' : 'text-white'}`}>{p.name}</LinkCell>
+                                        <LinkCell main to={url} className={`p-3 font-bold hover:text-brand ${provisional ? 'text-gray-300' : 'text-white'}`}>{p.name}<BeltMark name={p.name} /></LinkCell>
                                         <LinkCell to={url} className={`p-3 text-right font-bold ${provisional ? 'text-gray-400' : 'text-brand'}`}>{Math.round(p.rating)}</LinkCell>
                                         <LinkCell to={url} cellClassName="hidden sm:table-cell" className="p-3 text-right text-gray-400">{Math.round(p.rd)}</LinkCell>
                                         <LinkCell to={url} className="p-3 text-right text-gray-300 whitespace-nowrap">{p.wins}-{p.losses}-{p.ties}</LinkCell>

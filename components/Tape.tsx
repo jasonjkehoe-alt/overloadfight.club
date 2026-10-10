@@ -5,6 +5,7 @@ import Link from './Link';
 import TapeCareer from './tape/TapeCareer';
 import TapeHeadToHead from './tape/TapeHeadToHead';
 import { CORNER } from './tape/SplitBar';
+import BeltMark from './BeltMark';
 import { useQueryParam } from '../hooks/useLocation';
 import { useLoad } from '../hooks/useLoad';
 import { fetchTape } from '../services/apiService';
@@ -45,7 +46,10 @@ const Tape: React.FC<{ a: string; b: string; onBack?: () => void }> = ({ a, b, o
                     {data.pilots.map((p, i) => (
                         <div key={p.key} className={`bg-surface-card border-2 rounded-card p-3 sm:p-4 min-w-0 ${i ? 'order-last text-right' : 'order-first'}`} style={{ borderColor: CORNER[i] }}>
                             <div className="text-2xs uppercase tracking-wider font-bold" style={{ color: CORNER[i] }}>{CORNER_NAMES[i]}</div>
-                            <Link to={urlFor('pilot', p.name)} className="block text-lg sm:text-2xl font-black text-white hover:underline truncate brand-font" title={`Open ${p.name}'s page`}>{p.name}</Link>
+                            <div className={`flex items-center min-w-0 ${i ? 'justify-end' : ''}`}>
+                                <Link to={urlFor('pilot', p.name)} className="block text-lg sm:text-2xl font-black text-white hover:underline truncate brand-font" title={`Open ${p.name}'s page`}>{p.name}</Link>
+                                <BeltMark name={p.name} size={18} />
+                            </div>
                         </div>
                     ))}
                     <div className="self-center text-xs font-black text-gray-500 uppercase" aria-hidden>vs</div>

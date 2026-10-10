@@ -42,9 +42,10 @@ function tile({ label, value, note }, crowded) {
         display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, padding: crowded ? '20px 18px' : '22px 24px',
         background: colors.surface.card, border: `2px solid ${colors.line}`, borderRadius: RADIUS
     }, [
-        el('div', { fontSize: SMALL * 0.9, color: chart.label, textTransform: 'uppercase', letterSpacing: 1, ...oneLine }, label),
+        // five tiles leave about 160 px of text: "COMBAT RATIO" fits at 0.72
+        el('div', { fontSize: SMALL * (crowded ? 0.72 : 0.9), color: chart.label, textTransform: 'uppercase', letterSpacing: crowded ? 0 : 1, ...oneLine }, label),
         el('div', { fontFamily: CARD_FONTS.display, fontWeight: 700, fontSize: valueSize(value, crowded), lineHeight: 1.15, color: colors.brand.DEFAULT, marginTop: 10, ...clamp(2) }, value),
-        ...(note ? [el('div', { fontSize: SMALL * 0.8, lineHeight: 1.3, color: chart.text, marginTop: 8, ...clamp(3) }, note)] : [])
+        ...(note ? [el('div', { fontSize: SMALL * (crowded ? 0.68 : 0.8), lineHeight: 1.3, color: chart.text, marginTop: 8, ...clamp(3) }, note)] : [])
     ]);
 }
 
