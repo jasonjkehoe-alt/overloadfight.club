@@ -1,8 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 
-// Public settings read from admin_settings. (/calendar-url, the Google
-// Calendar iframe's URL, went with the iframe in S22.)
+// Public settings read from admin_settings.
 const router = express.Router();
 
 // GET /api/config - Public configuration

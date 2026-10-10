@@ -1,7 +1,7 @@
 import db from '../db.js';
 import { FIGHT_NIGHT_PING, browserPilots, fightNightDay, shiftDay } from '../lib/gameParse.js';
 import { pingMessage, recapMessage, reminderMessage, testMessage } from '../lib/discordMessages.js';
-import { dueReminders, reminderKey, reminderKeysBefore } from '../lib/fightNightSchedule.js';
+import { dueReminders, reminderKey } from '../lib/fightNightSchedule.js';
 import { SITE_NAME } from '../lib/siteRoutes.js';
 import { fightNightCard } from '../lib/shareCards.js';
 import { renderCard } from './cardService.js';
@@ -150,7 +150,7 @@ export function checkPing(servers, now = Date.now()) {
 export function checkReminders(now = Date.now()) {
     try {
         if (!posting()) return [];
-        db.dropStaleDiscordPosts('reminder', reminderKeysBefore(now));
+        db.dropStaleDiscordPosts('reminder', new Date(now).toISOString());
         return dueReminders(db.listFightNightEvents(), now)
             .map(one => deliver('reminder', reminderKey(one), () => reminderMessage(one, siteOrigin(), now)))
             .filter(Boolean);

@@ -12,7 +12,7 @@ const blank = (): Draft => ({ kind: 'weekly', weekday: 5, date: '', time: '20:00
 const toDraft = (e: FightNightEvent): Draft => ({ id: e.id, kind: e.kind, weekday: e.weekday ?? 5, date: e.date ?? '', time: e.time, minutes: e.minutes, title: e.title, notes: e.notes });
 
 // "Every Saturday" or "Sat, Oct 17, 2026"
-const whenLabel = (e: FightNightEvent) => (e.kind === 'weekly' ? `Every ${WEEKDAYS[e.weekday ?? 0]}` : e.date ? dayLabel(e.date) : '');
+const whenLabel = (e: FightNightEvent) => (e.kind === 'weekly' ? `Every ${WEEKDAYS[e.weekday ?? 0]}` : dayLabel(e.date!));
 
 const inputClass = 'w-full bg-surface-raised border border-gray-700 focus:border-brand rounded-control px-2 py-1 text-sm text-white';
 const labelClass = 'block text-2xs text-gray-400 uppercase tracking-wider mb-1';
@@ -32,12 +32,15 @@ const AdminFightNights: React.FC<AdminFightNightsProps> = ({ events: { events, f
     const [confirming, setConfirming] = useState<number | null>(null);
 
     const set = (patch: Partial<Draft>) => setDraft(d => d && { ...d, ...patch });
+    // opens the form on a draft (or closes it) with a clean slate
+    const open = (d: Draft | null) => { setDraft(d); setError(null); setConfirming(null); };
 
+    // the server keeps the field its kind needs and ignores the other
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!draft) return;
         setSaving(true);
-        const problem = await save(draft.kind === 'weekly' ? { ...draft, date: null } : { ...draft, weekday: null });
+        const problem = await save(draft);
         setSaving(false);
         setError(problem);
         if (!problem) setDraft(null);
@@ -74,7 +77,7 @@ const AdminFightNights: React.FC<AdminFightNightsProps> = ({ events: { events, f
                                 {e.notes && <span className="block text-gray-500 truncate">{e.notes}</span>}
                             </span>
                             <span className="flex gap-2 shrink-0">
-                                <button type="button" onClick={() => { setDraft(toDraft(e)); setError(null); }} className="inline-flex items-center gap-1 text-gray-400 hover:text-white rounded-control" aria-label={`Edit ${e.title}`}>
+                                <button type="button" onClick={() => open(toDraft(e))} className="inline-flex items-center gap-1 text-gray-400 hover:text-white rounded-control" aria-label={`Edit ${e.title}`}>
                                     <Pencil className="w-3 h-3" aria-hidden /> Edit
                                 </button>
                                 <button type="button" onClick={() => del(e.id)} className={`inline-flex items-center gap-1 rounded-control ${confirming === e.id ? 'text-red-400 font-bold' : 'text-gray-400 hover:text-red-400'}`} aria-label={confirming === e.id ? `Confirm deleting ${e.title}` : `Delete ${e.title}`}>
@@ -128,11 +131,11 @@ const AdminFightNights: React.FC<AdminFightNightsProps> = ({ events: { events, f
                     </div>
                     <div className="sm:col-span-2 flex flex-wrap gap-3">
                         <button type="submit" disabled={saving} className={`${secondaryButtonClass} disabled:opacity-40`}>{saving ? 'Saving...' : draft.id ? 'Save changes' : 'Add night'}</button>
-                        <button type="button" onClick={() => { setDraft(null); setError(null); }} className="text-xs text-gray-400 hover:text-white rounded-control">Cancel</button>
+                        <button type="button" onClick={() => open(null)} className="text-xs text-gray-400 hover:text-white rounded-control">Cancel</button>
                     </div>
                 </form>
             ) : (
-                <button type="button" onClick={() => { setDraft(blank()); setError(null); setConfirming(null); }} className={`${secondaryButtonClass} mt-4`}>Add a night</button>
+                <button type="button" onClick={() => open(blank())} className={`${secondaryButtonClass} mt-4`}>Add a night</button>
             )}
         </section>
     );

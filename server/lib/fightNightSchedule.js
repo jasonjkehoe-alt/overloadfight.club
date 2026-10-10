@@ -1,21 +1,21 @@
 // The fight-night schedule (S22): what a scheduled night is, when each one
-// happens, which is next, when the Discord reminder is due, and the .ics feed.
-// The day rules come from gameParse.js; the page and the server both read
-// this file, so the dashboard's "next" is the feed's.
-import { FIGHT_NIGHT_DAY, dayBounds, fightNightDay, localInstant, localWall, shiftDay, weekdayOf } from './gameParse.js';
-import { SITE_NAME, urlFor } from './siteRoutes.js';
-import { count, plural } from './matchResult.js';
+// happens, which is next and when the Discord reminder is due. The day rules
+// come from gameParse.js; the page and the server both read this file, so
+// the dashboard's "next" is the feed's (fightNightFeed.js, server only).
+import { DAY_MS, FIGHT_NIGHT_DAY, dayBounds, fightNightDay, localInstant, localWall, shiftDay, weekdayOf } from './gameParse.js';
 
 // How far the feed and the dashboard look ahead, an event's length when the
 // admin gives none, how many coming nights the dashboard lists, how long
 // before a night the reminder posts, and the limits on what the admin types.
 export const SCHEDULE = { horizonWeeks: 12, defaultMinutes: 180, minMinutes: 15, maxMinutes: 24 * 60, listed: 3, reminderMinutes: 60, titleMax: 80, notesMax: 500 };
-export const EVENT_KINDS = ['weekly', 'once'];
 export const FEED_PATH = '/fight-nights.ics';
 
+const EVENT_KINDS = ['weekly', 'once'];
 const MINUTE_MS = 60000;
-const ms = at => (typeof at === 'number' ? at : Date.parse(at));
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+// A whole number from what a form or a request sends; NaN for null, '', a
+// boolean or anything else Number() would read as a number it is not.
+export const wholeNumber = value => (value === null || value === '' || typeof value === 'boolean' ? NaN : Number(value));
 
 /**
  * Checks an event as the admin sends it: a weekly rule (weekday 0 Monday to
@@ -30,7 +30,7 @@ export function validateEvent(input = {}) {
     if (!EVENT_KINDS.includes(kind)) return { error: 'kind must be weekly or once' };
     const time = String(input.time ?? '');
     if (!TIME.test(time)) return { error: `time must be HH:MM, 24-hour, ${FIGHT_NIGHT_DAY.label}` };
-    const minutes = input.minutes === undefined || input.minutes === '' ? SCHEDULE.defaultMinutes : Number(input.minutes);
+    const minutes = input.minutes === undefined || input.minutes === '' ? SCHEDULE.defaultMinutes : wholeNumber(input.minutes);
     if (!Number.isInteger(minutes) || minutes < SCHEDULE.minMinutes || minutes > SCHEDULE.maxMinutes) {
         return { error: `minutes must be a whole number from ${SCHEDULE.minMinutes} to ${SCHEDULE.maxMinutes}` };
     }
@@ -40,8 +40,7 @@ export function validateEvent(input = {}) {
     if (notes.length > SCHEDULE.notesMax) return { error: `notes must be at most ${SCHEDULE.notesMax} characters` };
     const event = { kind, weekday: null, date: null, time, minutes, title, notes };
     if (kind === 'weekly') {
-        // Number() would read null, '' and false as Monday
-        const weekday = input.weekday === null || input.weekday === '' || typeof input.weekday === 'boolean' ? NaN : Number(input.weekday);
+        const weekday = wholeNumber(input.weekday);
         if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) return { error: 'weekday must be 0 (Monday) to 6 (Sunday)' };
         event.weekday = weekday;
     } else {
@@ -52,27 +51,26 @@ export function validateEvent(input = {}) {
     return { event };
 }
 
-// A stored event on the calendar date `date`: its UTC start and end and the
-// fight-night day it belongs to (a night that starts after midnight is the
-// evening before's).
+// A stored event on the calendar date `date`: its UTC start and end, its end
+// on the wall clock in the zone (read back from the instant, so a night
+// across a DST change ends when its real end says), and the fight-night day
+// it belongs to (a night that starts after midnight is the evening before's).
 function occurrence(event, date) {
     const start = localInstant(date, event.time);
     const end = new Date(Date.parse(start) + event.minutes * MINUTE_MS).toISOString();
-    return { id: event.id, kind: event.kind, title: event.title, notes: event.notes, updated_at: event.updated_at, date, time: event.time, minutes: event.minutes, start, end, day: fightNightDay(start) };
+    const wall = localWall(end);
+    return { id: event.id, title: event.title, notes: event.notes, updated_at: event.updated_at, date, time: event.time, endDate: wall.date, endTime: wall.time, start, end, day: fightNightDay(start) };
 }
 
 /**
- * Every occurrence of `events` that overlaps [from, to), by start then id: a
- * weekly rule on each of its weekdays in the window, a one-off on its date.
- * The window's ends are ms or ISO strings. A DST change moves an occurrence's
- * UTC time, never its wall-clock time.
+ * Every occurrence of `events` that overlaps [from, to) (ms), by start then
+ * id: a weekly rule on each of its weekdays in the window, a one-off on its
+ * date. A DST change moves an occurrence's UTC time, never its wall-clock time.
  * @param {object[]} events stored rows (fightNightEvents.js)
- * @param {number | string} from
- * @param {number | string} to
+ * @param {number} fromMs
+ * @param {number} toMs
  */
-export function occurrences(events, from, to) {
-    const fromMs = ms(from);
-    const toMs = ms(to);
+export function occurrences(events, fromMs, toMs) {
     const out = [];
     // the calendar dates that can hold one: a fight-night day may start the
     // calendar day before, and a night can run on past `from`'s day
@@ -90,18 +88,15 @@ export function occurrences(events, from, to) {
 }
 
 // [now, now + the horizon), the window the feed and the dashboard show.
-export const scheduleWindow = now => [now, now + SCHEDULE.horizonWeeks * 7 * 86400000];
+export const scheduleWindow = now => [now, now + SCHEDULE.horizonWeeks * 7 * DAY_MS];
 
-/**
- * The occurrence under way at `now` or, failing that, the next to start;
- * null with none.
- * @param {object[]} list occurrences()
- * @param {number | string} now
- */
-export const nextOccurrence = (list, now) => list.find(o => Date.parse(o.end) > ms(now)) ?? null;
+// The occurrences not yet over at `now` (ms): one under way first, then the
+// coming ones; and the first of them, or null.
+export const comingOccurrences = (list, now) => list.filter(o => Date.parse(o.end) > now);
+export const nextOccurrence = (list, now) => comingOccurrences(list, now)[0] ?? null;
 
-// Whether an occurrence has started and not ended at `now`.
-export const underWay = (one, now) => Boolean(one) && Date.parse(one.start) <= ms(now) && Date.parse(one.end) > ms(now);
+// Whether an occurrence has started and not ended at `now` (ms).
+export const underWay = (one, now) => Boolean(one) && Date.parse(one.start) <= now && Date.parse(one.end) > now;
 
 /**
  * The occurrences whose reminder is due at `now`: starting within
@@ -116,128 +111,6 @@ export function dueReminders(events, now) {
 }
 
 // A reminder's key in discord_posts: the start first, so the keys sort by
-// time; and the key every reminder for a night that has started by `now`
-// sorts before ('~' sorts after the space and every digit of an id).
+// time and the ISO string of `now` bounds the ones for nights that have
+// started (a night starting this very ms is bounded by the next tick).
 export const reminderKey = one => `${one.start} ${one.id}`;
-export const reminderKeysBefore = now => `${new Date(now).toISOString()}~`;
-
-// RFC 5545 text: backslashes, semicolons, commas and newlines escaped.
-export const icsText = text => String(text ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
-
-const encoder = new TextEncoder();
-const octets = text => encoder.encode(text).length;
-
-// A content line folded at 75 octets: a CRLF and one space start each
-// continuation, and no character is split.
-export function foldLine(line) {
-    const parts = [];
-    let current = '';
-    let limit = 75;
-    for (const char of line) {
-        if (octets(current) + octets(char) > limit) {
-            parts.push(current);
-            current = ' ';
-            limit = 75;
-        }
-        current += char;
-    }
-    parts.push(current);
-    return parts.join('\r\n');
-}
-
-// 20261018T010000Z for a UTC ISO string, and 20261017T200000 for a wall
-// date and time.
-const utcStamp = iso => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-const wallStamp = (date, time) => `${date.replace(/-/g, '')}T${time.replace(':', '')}00`;
-
-// America/Chicago, the zone of FIGHT_NIGHT_DAY: the US rule since 2007
-// (forward on the second Sunday of March, back on the first Sunday of
-// November, both at 02:00). A test checks it against localInstant on the
-// DST days, so a change of zone fails it rather than drifting the feed.
-const VTIMEZONE = [
-    'BEGIN:VTIMEZONE',
-    `TZID:${FIGHT_NIGHT_DAY.timeZone}`,
-    'BEGIN:DAYLIGHT',
-    'TZOFFSETFROM:-0600',
-    'TZOFFSETTO:-0500',
-    'TZNAME:CDT',
-    'DTSTART:19700308T020000',
-    'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU',
-    'END:DAYLIGHT',
-    'BEGIN:STANDARD',
-    'TZOFFSETFROM:-0500',
-    'TZOFFSETTO:-0600',
-    'TZNAME:CST',
-    'DTSTART:19701101T020000',
-    'RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU',
-    'END:STANDARD',
-    'END:VTIMEZONE'
-];
-
-const vevent = lines => ['BEGIN:VEVENT', ...lines.filter(Boolean), 'END:VEVENT'];
-
-// A coming night: its wall-clock start and end in the zone, the title, the
-// notes with a line pointing at the live list, and the fight-night page.
-function scheduledEvent(one, origin) {
-    const notes = [one.notes, `Live servers: ${origin}${urlFor('dashboard')}`].filter(Boolean).join('\n');
-    return vevent([
-        `UID:fight-night-${one.id}-${one.date}@${SITE_NAME}`,
-        `DTSTAMP:${utcStamp(one.updated_at ?? one.start)}`,
-        `DTSTART;TZID=${FIGHT_NIGHT_DAY.timeZone}:${wallStamp(one.date, one.time)}`,
-        `DTEND;TZID=${FIGHT_NIGHT_DAY.timeZone}:${wallStamp(...wallEnd(one))}`,
-        `SUMMARY:${icsText(one.title)}`,
-        `DESCRIPTION:${icsText(notes)}`,
-        `URL:${origin}${urlFor('fight-night')}`
-    ]);
-}
-
-// The wall-clock end of an occurrence, as [date, time]: its real end read on
-// the clock in the zone, so the feed, the dashboard and underWay agree
-// across a DST change (a 3-hour night at 23:00 on the night the clocks go
-// back ends at 01:00 CST, 07:00Z).
-export function wallEnd(one) {
-    const { date, time } = localWall(one.end);
-    return [date, time];
-}
-
-// A night that happened: the saved recap on its fight-night day, from its
-// first match's start to its last match's end, in UTC, with the recap page.
-function recapEvent({ recap, span }, origin) {
-    if (!recap || !span?.end) return [];
-    const top = recap.topFragger?.name && recap.topFragger.kills > 0 ? recap.topFragger : null;
-    const totals = `${plural(recap.totalMatches, 'match', 'matches')}, ${plural(recap.totalPilots, 'pilot', 'pilots')}, ${plural(recap.totalFrags, 'kill', 'kills')}`;
-    const line = `${totals}${top ? `, most kills ${top.name} (${count(top.kills)})` : ''}.`;
-    return vevent([
-        `UID:recap-${recap.date}@${SITE_NAME}`,
-        `DTSTAMP:${utcStamp(recap.created_at ? `${recap.created_at.replace(' ', 'T')}Z` : span.end)}`,
-        `DTSTART:${utcStamp(span.start ?? span.end)}`,
-        `DTEND:${utcStamp(span.end)}`,
-        `SUMMARY:${icsText(`Fight Night recap: ${recap.formattedDate}`)}`,
-        `DESCRIPTION:${icsText(line)}`,
-        `URL:${origin}${urlFor('fight-night', recap.date)}`
-    ]);
-}
-
-/**
- * The .ics feed: the coming occurrences and the nights that happened, as
- * one VCALENDAR with CRLF line ends and lines folded at 75 octets.
- * @param {{ origin: string, occurrences: object[], recaps: { recap: object, span: { start: string | null, end: string } | null }[] }} feed
- * @returns {string}
- */
-export function icsFeed({ origin, occurrences: list, recaps }) {
-    const lines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        `PRODID:-//${SITE_NAME}//fight nights//EN`,
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
-        `X-WR-CALNAME:${icsText(`${SITE_NAME} fight nights`)}`,
-        `X-WR-TIMEZONE:${FIGHT_NIGHT_DAY.timeZone}`,
-        'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
-        ...VTIMEZONE,
-        ...list.flatMap(one => scheduledEvent(one, origin)),
-        ...recaps.flatMap(entry => recapEvent(entry, origin)),
-        'END:VCALENDAR'
-    ];
-    return `${lines.map(foldLine).join('\r\n')}\r\n`;
-}

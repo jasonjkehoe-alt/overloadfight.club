@@ -2,7 +2,8 @@ import express from 'express';
 import db from '../db.js';
 import fightNightService from '../services/fightNightService.js';
 import { requireAuth } from '../auth.js';
-import { FEED_PATH, icsFeed, occurrences, scheduleWindow } from '../lib/fightNightSchedule.js';
+import { FEED_PATH, occurrences, scheduleWindow } from '../lib/fightNightSchedule.js';
+import { icsFeed } from '../lib/fightNightFeed.js';
 
 // Fight-night recaps, the admin's detector run, and the schedule (S22): the
 // coming nights and the .ics feed.
@@ -13,13 +14,14 @@ const router = express.Router();
 const comingNights = now => occurrences(db.listFightNightEvents(), ...scheduleWindow(now));
 
 // How many saved recaps the feed carries as past events, and how long a
-// built feed is kept: calendar apps poll it about hourly, and each build
-// reads every recap's day, so a feed is built at most once per origin per
-// FEED_CACHE_MS unless the schedule changes (clearFeedCache).
+// built feed is kept: calendar apps poll it about hourly and each build
+// reads every recap's day, so the last feed built is kept for FEED_CACHE_MS
+// as long as the events and the recaps it was built from have not changed
+// (their versions: counts and latest writes). One origin at a time: the
+// feed's links carry the request's origin, as og:url does.
 const FEED_RECAPS = 500;
-export const FEED_CACHE_MS = 10 * 60 * 1000;
-const feeds = new Map();
-export const clearFeedCache = () => feeds.clear();
+const FEED_CACHE_MS = 10 * 60 * 1000;
+let feed = null;
 
 /**
  * GET /fight-nights.ics (and under /api): the coming nights and every saved
@@ -30,15 +32,14 @@ export function fightNightFeed(req, res) {
     try {
         const origin = `${req.protocol}://${req.get('host')}`;
         const now = Date.now();
-        let feed = feeds.get(origin);
-        if (!feed || feed.until <= now) {
+        const version = `${origin} ${db.fightNightEventsVersion()} ${db.fightNightRecapsVersion()}`;
+        if (!feed || feed.version !== version || feed.until <= now) {
             const recaps = db.getFightNightRecaps(FEED_RECAPS).map(recap => ({ recap, span: db.getDaySpan(recap.date) }));
-            feed = { body: icsFeed({ origin, occurrences: comingNights(now), recaps }), until: now + FEED_CACHE_MS };
-            feeds.set(origin, feed);
+            feed = { version, body: icsFeed({ origin, occurrences: comingNights(now), recaps }), until: now + FEED_CACHE_MS };
         }
         res.type('text/calendar; charset=utf-8');
         res.setHeader('Content-Disposition', 'inline; filename="fight-nights.ics"');
-        res.setHeader('Cache-Control', 'public, max-age=600');
+        res.setHeader('Cache-Control', `public, max-age=${FEED_CACHE_MS / 1000}`);
         res.send(feed.body);
     } catch (error) {
         console.error('Error building the fight-night feed:', error);
@@ -51,7 +52,7 @@ router.get(FEED_PATH, fightNightFeed);
 // (before /fight-nights/:date, which would read "schedule" as a date)
 router.get('/fight-nights/schedule', (req, res) => {
     try {
-        res.json({ feed: FEED_PATH, events: comingNights(Date.now()) });
+        res.json(comingNights(Date.now()));
     } catch (error) {
         console.error('Error reading the fight-night schedule:', error);
         res.status(500).json({ error: 'Failed to read the schedule' });

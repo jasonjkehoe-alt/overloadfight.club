@@ -1,25 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Copy, Check } from 'lucide-react';
+import { useCopy } from '../hooks/useCopy';
 
-// "Join at <ip>" with a copy button that says whether the copy worked.
-// navigator.clipboard only exists on HTTPS and localhost, so on plain HTTP
-// the button says so and a click on the IP selects it for a manual copy.
+// "Join at <ip>" with a copy button that says whether the copy worked (on
+// plain HTTP it cannot, and a click on the IP selects it for a manual copy).
 const JoinIp: React.FC<{ ip: string }> = ({ ip }) => {
-    const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
-
-    useEffect(() => {
-        if (status === 'idle') return;
-        const timer = setTimeout(() => setStatus('idle'), 2000);
-        return () => clearTimeout(timer);
-    }, [status]);
-
-    const copy = () => {
-        if (!navigator.clipboard) {
-            setStatus('failed');
-            return;
-        }
-        navigator.clipboard.writeText(ip).then(() => setStatus('copied'), () => setStatus('failed'));
-    };
+    const { status, copy } = useCopy(ip);
 
     return (
         <div className="flex items-center gap-2 text-sm font-mono text-gray-400">

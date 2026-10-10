@@ -520,13 +520,15 @@ describe('admin endpoints and secrecy', () => {
 
 describe('the reminder before a scheduled night (S22)', () => {
     const MINUTE = 60000;
+    const clearEvents = () => { for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id); };
+    const nextWeek = () => occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000);
     // the next Saturday 20:00 Central from the stored rule, and its reminder key
     let saturday;
     let key;
     beforeAll(() => {
-        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        clearEvents();
         db.saveFightNightEvent({ kind: 'weekly', weekday: 5, date: null, time: '20:00', minutes: 180, title: 'Saturday Night Anarchy', notes: 'Bring a flag; or two' });
-        [saturday] = occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000);
+        [saturday] = nextWeek();
         key = reminderKey(saturday);
     });
     const start = () => Date.parse(saturday.start);
@@ -545,7 +547,7 @@ describe('the reminder before a scheduled night (S22)', () => {
         expect(body.embeds[0]).toEqual({
             title: 'Saturday Night Anarchy',
             url: `${ORIGIN}/`,
-            description: 'Bring a flag\; or two',
+            description: 'Bring a flag; or two',
             fields: [
                 { name: 'Starts', value: eventWhen(saturday), inline: true },
                 { name: 'Calendar', value: `${ORIGIN}/fight-nights.ics`, inline: true }
@@ -563,6 +565,8 @@ describe('the reminder before a scheduled night (S22)', () => {
         switchOn();
         db.putDiscordPost({ kind: 'reminder', key, status: 'pending', tries: 1 });
         expect(discord.checkReminders(start())).toEqual([]);
+        expect(db.getDiscordPost('reminder', key).status).toBe('pending'); // bounded by the next tick
+        expect(discord.checkReminders(start() + MINUTE)).toEqual([]);
         expect(db.getDiscordPost('reminder', key).status).toBe('dropped');
         expect(received).toHaveLength(0);
         // a pending reminder for a night that started a week ago is dropped by any later tick
@@ -575,29 +579,29 @@ describe('the reminder before a scheduled night (S22)', () => {
         expect(received).toHaveLength(0);
         expect(db.getDiscordPost('reminder', key).status).toBe('pending');
         switchOn();
-        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        clearEvents();
         expect(discord.checkReminders(start() - 30 * MINUTE)).toEqual([]);
         expect(received).toHaveLength(0);
     });
 
     it('rides the snapshot tick, a failed server-browser fetch included', async () => {
         switchOn();
-        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        clearEvents();
         const snapshots = await import('./serverSnapshots.js');
         db.saveFightNightEvent({ kind: 'once', weekday: null, date: saturday.date, time: saturday.time, minutes: 60, title: 'Ticked', notes: '' });
-        const [one] = occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000).filter(o => o.title === 'Ticked');
+        const [one] = nextWeek().filter(o => o.title === 'Ticked');
         expect(await snapshots.takeSnapshot(start() - 40 * MINUTE)).toBe(0);
         await discord.postsSettled();
         expect(received.map(r => r.body.content)).toEqual([`Fight night in 40 minutes: Ticked, ${eventWhen(one)}.`]);
         expect(db.getDiscordPost('reminder', reminderKey(one))).toMatchObject({ status: 'sent', tries: 1 });
-        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        clearEvents();
     });
 
     it('tries a failed reminder again on the next tick, and the admin status lists it by kind', async () => {
         switchOn();
-        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        clearEvents();
         db.saveFightNightEvent({ kind: 'once', weekday: null, date: saturday.date, time: saturday.time, minutes: 60, title: 'Once', notes: '' });
-        const [one] = occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000);
+        const [one] = nextWeek();
         answer(reply(500), reply(500));
         await discord.checkReminders(start() - 20 * MINUTE)[0];
         expect(received).toHaveLength(2);
@@ -606,7 +610,7 @@ describe('the reminder before a scheduled night (S22)', () => {
         expect(received).toHaveLength(3);
         expect(db.getDiscordPost('reminder', reminderKey(one))).toMatchObject({ status: 'sent', tries: 2 });
         expect(discord.discordStatus().posts.map(p => p.kind)).toContain('reminder');
-        for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id);
+        clearEvents();
     });
 });
 

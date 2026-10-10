@@ -893,6 +893,9 @@ export function browserRows(servers) {
 
 // The online servers in one server-browser answer (browserRows).
 export const onlineServers = servers => browserRows(servers).filter(({ row }) => row.online);
+// The online servers with pilots on them, most first (the ping's list and
+// the dashboard's live link, S22).
+export const busyServers = servers => onlineServers(servers).filter(({ row }) => row.players > 0).sort((a, b) => b.row.players - a.row.players);
 
 // The pilots in one server-browser answer: the online servers' players.
 export const browserPilots = servers => onlineServers(servers).reduce((sum, { row }) => sum + row.players, 0);

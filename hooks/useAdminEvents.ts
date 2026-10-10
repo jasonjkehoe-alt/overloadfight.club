@@ -17,25 +17,18 @@ export function useAdminEvents() {
         }
     };
 
-    const save = async (event: Partial<FightNightEvent>): Promise<string | null> => {
+    // a write, then the list again; the server's sentence (or `fallback`) when it fails
+    const mutate = async (call: Promise<unknown>, fallback: string): Promise<string | null> => {
         try {
-            await saveAdminEvent(event);
+            await call;
             await fetchEvents();
             return null;
         } catch (e: any) {
-            return e?.response?.data?.error || 'The event could not be saved.';
+            return e?.response?.data?.error || fallback;
         }
     };
-
-    const remove = async (id: number): Promise<string | null> => {
-        try {
-            await deleteAdminEvent(id);
-            await fetchEvents();
-            return null;
-        } catch (e: any) {
-            return e?.response?.data?.error || 'The event could not be deleted.';
-        }
-    };
+    const save = (event: Partial<FightNightEvent>) => mutate(saveAdminEvent(event), 'The event could not be saved.');
+    const remove = (id: number) => mutate(deleteAdminEvent(id), 'The event could not be deleted.');
 
     return { events, failed, fetchEvents, save, remove };
 }

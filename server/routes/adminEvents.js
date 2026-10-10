@@ -1,7 +1,6 @@
 import express from 'express';
 import db from '../db.js';
-import { validateEvent } from '../lib/fightNightSchedule.js';
-import { clearFeedCache } from './fightNights.js';
+import { validateEvent, wholeNumber } from '../lib/fightNightSchedule.js';
 
 // The scheduled fight nights (S22), behind the admin session: admin-routes.js
 // mounts this router after requireAuth.
@@ -23,12 +22,9 @@ router.post('/events', (req, res) => {
     try {
         const { event, error } = validateEvent(req.body);
         if (error) return res.status(400).json({ error });
-        const id = req.body?.id === undefined || req.body.id === null ? null : Number(req.body.id);
-        if (id !== null && (!Number.isInteger(id) || !db.getFightNightEvent(id))) {
-            return res.status(404).json({ error: 'No event with that id' });
-        }
-        const saved = db.saveFightNightEvent(id === null ? event : { ...event, id });
-        clearFeedCache();
+        const id = req.body?.id == null ? null : wholeNumber(req.body.id);
+        const saved = id === null ? db.saveFightNightEvent(event) : Number.isInteger(id) && db.saveFightNightEvent({ ...event, id });
+        if (!saved) return res.status(404).json({ error: 'No event with that id' });
         res.json(saved);
     } catch (error) {
         console.error('Error saving a fight-night event:', error);
@@ -39,11 +35,10 @@ router.post('/events', (req, res) => {
 // DELETE /api/admin/events/:id
 router.delete('/events/:id', (req, res) => {
     try {
-        const id = Number(req.params.id);
+        const id = wholeNumber(req.params.id);
         if (!Number.isInteger(id) || db.deleteFightNightEvent(id) === 0) {
             return res.status(404).json({ error: 'No event with that id' });
         }
-        clearFeedCache();
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting a fight-night event:', error);

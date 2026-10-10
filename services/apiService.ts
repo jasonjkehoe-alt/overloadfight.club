@@ -466,24 +466,22 @@ const getJson = async <T,>(url: string): Promise<T | null> => {
 export const fetchPilotRating = (name: string) => getJson<PilotRating>(`${API_BASE}/pilot/${encodeURIComponent(name)}/rating`);
 
 // /api/fight-nights/schedule (S22): the coming scheduled nights, one under
-// way included (server/lib/fightNightSchedule.js occurrences).
+// way included (server/lib/fightNightSchedule.js occurrences); `date`,
+// `time`, `endDate` and `endTime` on the wall clock in Central, `start` and
+// `end` the UTC instants, `day` the fight-night day.
 export interface FightNightOccurrence {
     id: number;
-    kind: 'weekly' | 'once';
     title: string;
     notes: string;
     date: string;
     time: string;
-    minutes: number;
+    endDate: string;
+    endTime: string;
     start: string;
     end: string;
     day: string;
 }
-export interface FightNightSchedule {
-    feed: string;
-    events: FightNightOccurrence[];
-}
-export const fetchFightNightSchedule = () => getJson<FightNightSchedule>(`${API_BASE}/fight-nights/schedule`);
+export const fetchFightNightSchedule = () => getJson<FightNightOccurrence[]>(`${API_BASE}/fight-nights/schedule`);
 
 export const fetchPowerRankings = () => getJson<PowerRankings>(`${API_BASE}/stats/rankings`);
 

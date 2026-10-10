@@ -112,15 +112,14 @@ describe('GET /api/fight-nights/schedule', () => {
         const before = Date.now();
         const res = await get('/api/fight-nights/schedule');
         expect(res.status).toBe(200);
-        const body = await res.json();
-        expect(Object.keys(body).sort()).toEqual(['events', 'feed']);
-        expect(body.feed).toBe('/fight-nights.ics');
+        const events = await res.json();
         const expected = occurrences(db.listFightNightEvents(), before, before + SCHEDULE.horizonWeeks * 7 * DAY_MS);
-        expect(body.events).toEqual(expected);
+        expect(events).toEqual(expected);
+        const body = { events };
         expect(body.events.map(e => e.title)).toContain('Soon');
         expect(body.events.map(e => e.title)).not.toContain('Too far');
         expect(body.events.filter(e => e.title === 'Saturday Night Anarchy')).toHaveLength(SCHEDULE.horizonWeeks);
-        expect(body.events.find(e => e.title === 'Soon')).toMatchObject({ id: soon.id, kind: 'once', time: '12:00', minutes: 60 });
+        expect(body.events.find(e => e.title === 'Soon')).toMatchObject({ id: soon.id, time: '12:00', endTime: '13:00' });
         for (let i = 1; i < body.events.length; i++) expect(body.events[i].start >= body.events[i - 1].start).toBe(true);
         expect(body.events.every(e => Date.parse(e.end) > before)).toBe(true);
         const running = body.events.find(e => e.title === 'Running');
@@ -130,15 +129,13 @@ describe('GET /api/fight-nights/schedule', () => {
 
     it('answers with nothing scheduled', async () => {
         clear();
-        const body = await (await get('/api/fight-nights/schedule')).json();
-        expect(body.events).toEqual([]);
+        expect(await (await get('/api/fight-nights/schedule')).json()).toEqual([]);
     });
 });
 
 describe('the .ics feed', () => {
     it('answers text/calendar at the root and under /api with the coming nights and the fixture recap', async () => {
         clear();
-        (await import('./fightNights.js')).clearFeedCache();
         const sat = db.saveFightNightEvent({ ...weekly, date: null });
         for (const url of ['/fight-nights.ics', '/api/fight-nights.ics']) {
             const res = await get(url);
@@ -162,23 +159,31 @@ describe('the .ics feed', () => {
             expect(text).toContain(`DTSTART:${stamp(span.start)}\r\nDTEND:${stamp(span.end)}\r\n`);
             expect(text).toContain(`URL:${base}/fight-night/${day}`);
             const recap = db.getFightNightRecapByDate(day);
-            expect(text).toContain(`DESCRIPTION:${recap.totalMatches} matches\\, ${recap.totalPilots} pilots\\,`);
+            expect(text).toContain(`: ${recap.totalMatches} matches\\, ${recap.totalPilots} pilots`);
         }
     });
 
-    it('answers a feed of recaps alone with nothing scheduled, and keeps a built feed until the schedule changes', async () => {
+    it('answers a feed of recaps alone with nothing scheduled, and keeps a built feed until an event or a recap changes', async () => {
         clear();
-        (await import('./fightNights.js')).clearFeedCache();
         const text = await (await get('/fight-nights.ics')).text();
         expect(text.match(/BEGIN:VEVENT/g)).toHaveLength(1);
         expect(text).toContain(`UID:recap-${day}@`);
-        // a row written behind the routes' back is not in the kept feed; one saved through the admin route is
+        // nothing changed: the kept feed answers without reading the recaps' days
+        const spans = vi.spyOn(db, 'getDaySpan');
+        expect(await (await get('/api/fight-nights.ics')).text()).toBe(text);
+        expect(spans).not.toHaveBeenCalled();
+        // any write to the events shows at once, however it was made
         db.saveFightNightEvent({ ...weekly, date: null });
-        expect((await (await get('/fight-nights.ics')).text()).match(/BEGIN:VEVENT/g)).toHaveLength(1);
-        await send('POST', '/api/admin/events', { ...weekly, title: 'Through the route' });
         const fresh = await (await get('/fight-nights.ics')).text();
-        expect(fresh.match(/BEGIN:VEVENT/g)).toHaveLength(2 * SCHEDULE.horizonWeeks + 1);
-        expect(fresh).toContain('SUMMARY:Through the route');
+        expect(spans).toHaveBeenCalled();
+        expect(fresh.match(/BEGIN:VEVENT/g)).toHaveLength(SCHEDULE.horizonWeeks + 1);
+        // and so does a new recap (the 2019 night, whose span comes from cold storage)
+        const soupDay = fightNightDay(veteranSoup.date);
+        db.saveFightNightRecap(soupDay, { date: soupDay, formattedDate: 'Tuesday, July 2, 2019', totalMatches: 1, totalPilots: 2, totalFrags: 0, topFragger: { name: 'Unknown', kills: 0 } });
+        const withSoup = await (await get('/fight-nights.ics')).text();
+        expect(withSoup.match(/UID:recap-/g)).toHaveLength(2);
+        expect(withSoup).toContain(`UID:recap-${soupDay}@`);
+        spans.mockRestore();
     });
 });
 

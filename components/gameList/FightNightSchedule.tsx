@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { CalendarDays, Check, Copy } from 'lucide-react';
 import { fetchFightNightSchedule } from '../../services/apiService';
 import { useLoad } from '../../hooks/useLoad';
+import { useCopy } from '../../hooks/useCopy';
 import { useServerBrowser } from '../../hooks/useServerBrowser';
-import { FIGHT_NIGHT_DAY, FIGHT_NIGHT_PING, browserPilots, onlineServers } from '../../server/lib/gameParse.js';
-import { SCHEDULE, nextOccurrence, underWay, wallEnd } from '../../server/lib/fightNightSchedule.js';
+import { FIGHT_NIGHT_DAY, FIGHT_NIGHT_PING, browserPilots, busyServers } from '../../server/lib/gameParse.js';
+import { FEED_PATH, SCHEDULE, comingOccurrences, underWay } from '../../server/lib/fightNightSchedule.js';
 import { clockLabel, countdown, dayLabel, eventWhen, itsOnLine } from '../../server/lib/matchResult.js';
 import { urlFor } from '../../server/lib/siteRoutes.js';
 import { ErrorState, Loading } from '../States';
@@ -13,19 +14,9 @@ import Link from '../Link';
 // The countdown moves this often; the schedule itself is read once per mount.
 const TICK_MS = 30000;
 
-// The feed's URL with a copy button (the JoinIp pattern: the clipboard only
-// exists on HTTPS and localhost, and the button says when the copy failed).
+// The feed's URL with a copy button that says when the copy failed.
 const CopyFeed: React.FC<{ url: string }> = ({ url }) => {
-    const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
-    useEffect(() => {
-        if (status === 'idle') return;
-        const timer = setTimeout(() => setStatus('idle'), 2000);
-        return () => clearTimeout(timer);
-    }, [status]);
-    const copy = () => {
-        if (!navigator.clipboard) return setStatus('failed');
-        navigator.clipboard.writeText(url).then(() => setStatus('copied'), () => setStatus('failed'));
-    };
+    const { status, copy } = useCopy(url);
     return (
         <button type="button" onClick={copy} title={`Copy ${url}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-control border border-gray-700 hover:border-brand text-2xs text-gray-400 hover:text-brand transition-colors">
             {status === 'copied' ? <span className="text-green-400 flex items-center gap-1"><Check size={12} /> Copied</span>
@@ -43,27 +34,30 @@ const FightNightSchedule: React.FC = () => {
     const schedule = useLoad(fetchFightNightSchedule, []);
     const { games } = useServerBrowser();
     const [now, setNow] = useState(() => Date.now());
+    // the countdown moves only while a night is coming
+    const hasNext = Boolean(schedule.data?.length);
     useEffect(() => {
+        if (!hasNext) return;
         const timer = setInterval(() => setNow(Date.now()), TICK_MS);
         return () => clearInterval(timer);
-    }, []);
+    }, [hasNext]);
 
     if (schedule.failed) return <ErrorState compact title="Could not load the fight-night schedule" onRetry={schedule.retry} />;
     if (!schedule.data) return <Loading compact label="Loading the schedule..." />;
 
-    const { events, feed } = schedule.data;
     const timeZone = FIGHT_NIGHT_DAY.label;
     const pilots = games ? browserPilots(games) : 0;
     const itsOn = pilots >= FIGHT_NIGHT_PING.pilots;
-    const next = nextOccurrence(events, now);
+    const upcoming = comingOccurrences(schedule.data, now);
+    const next = upcoming[0];
     if (!next && !itsOn) return null;
 
     const live = underWay(next, now);
     // the server with the most pilots, for the live link
-    const busiest = games ? onlineServers(games).filter(s => s.row.players > 0).sort((a, b) => b.row.players - a.row.players)[0] : undefined;
-    const coming = events.filter(one => Date.parse(one.end) > now).slice(0, SCHEDULE.listed);
-    const feedUrl = `${window.location.origin}${feed}`;
-    const webcal = `webcal://${window.location.host}${feed}`;
+    const busiest = games ? busyServers(games)[0] : undefined;
+    const coming = upcoming.slice(0, SCHEDULE.listed);
+    const feedUrl = `${window.location.origin}${FEED_PATH}`;
+    const webcal = `webcal://${window.location.host}${FEED_PATH}`;
 
     return (
         <section aria-labelledby="fight-nights-title" className="bg-surface-card border border-line rounded-card p-4 space-y-3">
@@ -80,13 +74,13 @@ const FightNightSchedule: React.FC = () => {
             <p role="status" className={`font-mono text-xs ${itsOn || live ? 'text-brand font-bold' : 'text-gray-300'}`}>
                 {itsOn ? (
                     <>
-                        {itsOnLine(pilots)}{live && next && ` ${next.title} is on now.`}
+                        {itsOnLine(pilots)}{live && ` ${next.title} is on now.`}
                         {busiest && <> <Link to={urlFor('live-game-detail', busiest.row.ip)} className="underline">Watch live</Link></>}
                     </>
                 ) : live ? (
-                    <>On now: {next!.title}, until {clockLabel(wallEnd(next)[1])} {timeZone}.</>
+                    <>On now: {next.title}, until {clockLabel(next.endTime)} {timeZone}.</>
                 ) : (
-                    <>Next fight night: {next!.title}, {eventWhen(next)}, {countdown(Date.parse(next!.start) - now)}.</>
+                    <>Next fight night: {next.title}, {eventWhen(next)}, {countdown(Date.parse(next.start) - now)}.</>
                 )}
             </p>
 
@@ -105,4 +99,5 @@ const FightNightSchedule: React.FC = () => {
     );
 };
 
-export default FightNightSchedule;
+// memo: GameList re-renders on every server-browser poll and keystroke
+export default memo(FightNightSchedule);

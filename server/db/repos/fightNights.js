@@ -60,3 +60,8 @@ export const deleteFightNightRecapsSince = (day, keep = []) => hotDb
 
 const hasFightNightRecapStmt = hotDb.prepare('SELECT 1 FROM fight_night_recaps WHERE date = ?').pluck();
 export const hasFightNightRecap = date => Boolean(hasFightNightRecapStmt.get(date));
+
+// The recaps' version: their count and latest save, so a built feed knows
+// when it is stale (routes/fightNights.js, S22).
+const versionStmt = hotDb.prepare('SELECT COUNT(*) || \' \' || COALESCE(MAX(created_at), \'\') FROM fight_night_recaps').pluck();
+export const fightNightRecapsVersion = () => versionStmt.get();

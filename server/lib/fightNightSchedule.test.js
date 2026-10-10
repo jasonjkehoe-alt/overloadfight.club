@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-    EVENT_KINDS, FEED_PATH, SCHEDULE, dueReminders, foldLine, icsFeed, icsText, nextOccurrence, occurrences,
-    reminderKey, reminderKeysBefore, scheduleWindow, underWay, validateEvent, wallEnd
+    SCHEDULE, comingOccurrences, dueReminders, nextOccurrence, occurrences,
+    reminderKey, scheduleWindow, underWay, validateEvent, wholeNumber
 } from './fightNightSchedule.js';
+import { foldLine, icsFeed, icsText } from './fightNightFeed.js';
 import { DAY_MS, fightNightDay, localInstant } from './gameParse.js';
 import { day, onDay, sample } from '../testFixtures.js';
 
@@ -48,7 +49,8 @@ describe('validateEvent', () => {
             .toEqual({ event: { kind: 'weekly', weekday: 5, date: null, time: '20:00', minutes: SCHEDULE.defaultMinutes, title: 'Saturday Night Anarchy', notes: 'bring flags' } });
         expect(validateEvent({ kind: 'once', date: '2026-10-14', time: '19:30', minutes: 120, title: 'CTF special' }))
             .toEqual({ event: { kind: 'once', weekday: null, date: '2026-10-14', time: '19:30', minutes: 120, title: 'CTF special', notes: '' } });
-        expect(EVENT_KINDS).toEqual(['weekly', 'once']);
+        // the one number reader behind weekday, minutes and the admin routes' ids
+        expect([wholeNumber('5'), wholeNumber(5), wholeNumber(null), wholeNumber(''), wholeNumber(false), wholeNumber('x')]).toEqual([5, 5, NaN, NaN, NaN, NaN]);
     });
 
     it('names the first thing wrong', () => {
@@ -85,7 +87,7 @@ describe('occurrences', () => {
             ['2026-10-31', '2026-11-01T01:00:00.000Z', '2026-10-31'],
             ['2026-11-07', '2026-11-08T02:00:00.000Z', '2026-11-07']
         ]);
-        expect(spring[0]).toMatchObject({ id: 1, kind: 'weekly', title: 'Saturday Night Anarchy', time: '20:00', minutes: 180, updated_at: '2026-10-01T00:00:00.000Z' });
+        expect(spring[0]).toEqual({ id: 1, title: 'Saturday Night Anarchy', notes: '', updated_at: '2026-10-01T00:00:00.000Z', date: '2026-03-07', time: '20:00', endDate: '2026-03-07', endTime: '23:00', start: '2026-03-08T02:00:00.000Z', end: '2026-03-08T05:00:00.000Z', day: '2026-03-07' });
         for (const one of [...spring, ...autumn]) expect(one.start).toBe(localInstant(one.date, one.time));
     });
 
@@ -93,12 +95,10 @@ describe('occurrences', () => {
         const [late] = occurrences([weekly({ time: '23:30' })], at('2026-10-31T00:00:00Z'), at('2026-11-02T00:00:00Z'));
         expect([late.start, late.end]).toEqual(['2026-11-01T04:30:00.000Z', '2026-11-01T07:30:00.000Z']);
         // 07:30Z is 01:30 CST, after the clocks went back at 02:00 CDT
-        expect(wallEnd(late)).toEqual(['2026-11-01', '01:30']);
-        const [sat] = occurrences([weekly()], at('2026-10-10T00:00:00Z'), at('2026-10-12T00:00:00Z'));
-        expect(wallEnd(sat)).toEqual(['2026-10-10', '23:00']);
+        expect([late.endDate, late.endTime]).toEqual(['2026-11-01', '01:30']);
         // a night across the spring change is an hour shorter on the clock
         const [spring] = occurrences([weekly({ weekday: 5, time: '23:30' })], at('2026-03-07T00:00:00Z'), at('2026-03-09T00:00:00Z'));
-        expect([spring.start, spring.end, wallEnd(spring)]).toEqual(['2026-03-08T05:30:00.000Z', '2026-03-08T08:30:00.000Z', ['2026-03-08', '03:30']]);
+        expect([spring.start, spring.end, spring.endDate, spring.endTime]).toEqual(['2026-03-08T05:30:00.000Z', '2026-03-08T08:30:00.000Z', '2026-03-08', '03:30']);
     });
 
     it('places a one-off on its date, a night after midnight on the evening before, and sorts by start then id', () => {
@@ -110,7 +110,6 @@ describe('occurrences', () => {
             [2, '2026-10-14', '2026-10-15T00:30:00.000Z', '2026-10-14'],
             [4, '2026-10-17', '2026-10-17T05:30:00.000Z', '2026-10-16'] // Saturday 00:30 is Friday's night
         ]);
-        expect(fightNightDay(list[3].start)).toBe('2026-10-16');
     });
 
     it('includes a night that falls inside the window by the wall clock in the zone', () => {
@@ -129,6 +128,7 @@ describe('occurrences', () => {
 
     it('names the one under way or the next, and the window ahead', () => {
         const list = occurrences([weekly()], at('2026-10-05T00:00:00Z'), at('2026-10-30T00:00:00Z'));
+        expect(comingOccurrences(list, at('2026-10-11T02:00:00Z')).map(o => o.date)).toEqual(['2026-10-10', '2026-10-17', '2026-10-24']);
         expect(nextOccurrence(list, at('2026-10-11T02:00:00Z')).date).toBe('2026-10-10');
         expect(underWay(nextOccurrence(list, at('2026-10-11T02:00:00Z')), at('2026-10-11T02:00:00Z'))).toBe(true);
         expect(nextOccurrence(list, at('2026-10-11T04:00:00Z')).date).toBe('2026-10-17');
@@ -148,10 +148,10 @@ describe('occurrences', () => {
         expect(dueReminders([weekly()], start + 60000)).toEqual([]);
         const [one] = dueReminders([weekly()], start - 30 * 60000);
         expect(reminderKey(one)).toBe('2026-10-11T01:00:00.000Z 1');
-        // stale once the night has started, not a minute before
-        expect(reminderKey(one) < reminderKeysBefore(start)).toBe(true);
-        expect(reminderKey(one) < reminderKeysBefore(start - 60000)).toBe(false);
-        expect(reminderKey({ ...one, id: 1234 }) < reminderKeysBefore(start)).toBe(true);
+        // stale once a later tick's ISO bounds it, not a minute before
+        expect(reminderKey(one) < new Date(start + 60000).toISOString()).toBe(true);
+        expect(reminderKey(one) < new Date(start - 60000).toISOString()).toBe(false);
+        expect(reminderKey({ ...one, id: 1234 }) < new Date(start + 1).toISOString()).toBe(true);
     });
 });
 
@@ -204,16 +204,16 @@ describe('the .ics feed', () => {
             DTSTART: stamp(span.start),
             DTEND: stamp(span.end),
             SUMMARY: 'Fight Night recap: Sunday\\, October 4\\, 2026',
-            DESCRIPTION: '18 matches\\, 11 pilots\\, 1\\,102 kills\\, most kills WD-40 (237).',
+            // the night's share card's own sentence (S19), escaped
+            DESCRIPTION: 'Sunday\\, October 4\\, 2026: 18 matches\\, 11 pilots\\, most kills WD-40 (237).',
             URL: `https://ofc.example/fight-night/${day}`
         });
-        expect(FEED_PATH).toBe('/fight-nights.ics');
     });
 
     it('leaves out a most-kills line at 0 and starts a recap at its end when the first match has no start', () => {
         const feed = icsFeed({ origin: 'https://ofc.example', occurrences: [], recaps: [{ recap: recap({ topFragger: { name: 'Unknown', kills: 0 }, created_at: undefined }), span: { start: null, end: '2026-10-05T04:00:00.000Z' } }] });
         const [, past] = parseIcs(feed).children;
-        expect(past.props).toMatchObject({ DTSTART: '20261005T040000Z', DTEND: '20261005T040000Z', DTSTAMP: '20261005T040000Z', DESCRIPTION: '18 matches\\, 11 pilots\\, 1\\,102 kills.' });
+        expect(past.props).toMatchObject({ DTSTART: '20261005T040000Z', DTEND: '20261005T040000Z', DTSTAMP: '20261005T040000Z', DESCRIPTION: 'Sunday\\, October 4\\, 2026: 18 matches\\, 11 pilots.' });
     });
 
     it('writes a VTIMEZONE that agrees with localInstant on both sides of each DST change', () => {

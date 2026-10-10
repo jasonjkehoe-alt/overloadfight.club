@@ -2,7 +2,7 @@
 // admin's test post, as webhook bodies. Links are built from urlFor and the
 // site's origin; nothing here reads the database or the webhook URL.
 import { SITE_NAME, urlFor } from './siteRoutes.js';
-import { RATING, onlineServers } from './gameParse.js';
+import { RATING, busyServers } from './gameParse.js';
 import { beltChange, count, countdown, eventWhen, itsOnLine, plural } from './matchResult.js';
 import { FEED_PATH } from './fightNightSchedule.js';
 import { cardUrl, fightNightCard } from './shareCards.js';
@@ -104,9 +104,7 @@ export function recapMessage(recap, rankings, origin, { image = true, belts = []
  * @param {string} origin
  */
 export function pingMessage(servers, origin) {
-    const busy = onlineServers(servers)
-        .filter(({ row }) => row.players > 0)
-        .sort((a, b) => b.row.players - a.row.players);
+    const busy = busyServers(servers);
     const pilots = busy.reduce((sum, { row }) => sum + row.players, 0);
     const fields = busy.slice(0, PING_SERVERS).map(({ entry, row }) => {
         const { mapName, mode, inLobby } = entry.game;
