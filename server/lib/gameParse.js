@@ -377,14 +377,17 @@ export function firstBloodOf(game) {
 // Weapon families for the charts: one colour each (designTokens.js `chart.weapon`),
 // in this order. A weapon not listed is 'other', the last entry.
 // `short` names a family by its first weapon where a column is narrow.
+// Legacy kill-log names (pre-late-2025 internal projectile/missile names like
+// PROJ_IMPULSE and MISSILE_HUNTER) map to the same families; anything else is
+// 'other'.
 export const WEAPON_FAMILIES = [
-    { id: 'laser', label: 'Impulse, Cyclone, Reflex', short: 'Impulse', weapons: ['IMPULSE', 'CYCLONE', 'REFLEX'] },
-    { id: 'thunderbolt', label: 'Thunderbolt', short: 'Thunderbolt', weapons: ['THUNDERBOLT'] },
-    { id: 'flak', label: 'Flak, Crusher', short: 'Flak', weapons: ['FLAK', 'CRUSHER'] },
-    { id: 'driller', label: 'Driller, Lancer', short: 'Driller', weapons: ['DRILLER', 'LANCER'] },
-    { id: 'missile', label: 'Falcon, Missile Pod, Hunter', short: 'Falcon', weapons: ['FALCON', 'MISSILE POD', 'HUNTER'] },
-    { id: 'mine', label: 'Creeper, Time Bomb', short: 'Creeper', weapons: ['CREEPER', 'TIME BOMB'] },
-    { id: 'heavy', label: 'Nova, Devastator, Vortex', short: 'Nova', weapons: ['NOVA', 'DEVASTATOR', 'VORTEX'] },
+    { id: 'laser', label: 'Impulse, Cyclone, Reflex', short: 'Impulse', weapons: ['IMPULSE', 'CYCLONE', 'REFLEX', 'PROJ_IMPULSE', 'PROJ_REFLEX'] },
+    { id: 'thunderbolt', label: 'Thunderbolt', short: 'Thunderbolt', weapons: ['THUNDERBOLT', 'PROJ_THUNDERBOLT', 'PROJ_BEAM'] },
+    { id: 'flak', label: 'Flak, Crusher', short: 'Flak', weapons: ['FLAK', 'CRUSHER', 'PROJ_SHOTGUN', 'PROJ_FLAK_CANNON'] },
+    { id: 'driller', label: 'Driller, Lancer', short: 'Driller', weapons: ['DRILLER', 'LANCER', 'PROJ_DRILLER'] },
+    { id: 'missile', label: 'Falcon, Missile Pod, Hunter', short: 'Falcon', weapons: ['FALCON', 'MISSILE POD', 'HUNTER', 'MISSILE_HUNTER', 'MISSILE_SMART', 'MISSILE_SMART_MINI', 'MISSILE_POD', 'MISSILE_FALCON'] },
+    { id: 'mine', label: 'Creeper, Time Bomb', short: 'Creeper', weapons: ['CREEPER', 'TIME BOMB', 'MISSILE_CREEPER', 'MISSILE_TIMEBOMB'] },
+    { id: 'heavy', label: 'Nova, Devastator, Vortex', short: 'Nova', weapons: ['NOVA', 'DEVASTATOR', 'VORTEX', 'PROJ_VORTEX', 'MISSILE_VORTEX', 'MISSILE_DEVASTATOR', 'MISSILE_DEVASTATOR_MINI'] },
     { id: 'other', label: 'Other', short: 'Other', weapons: [] },
 ];
 

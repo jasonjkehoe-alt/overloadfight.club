@@ -337,9 +337,17 @@ describe('kill log replay', () => {
         expect(weaponFamily(' thunderbolt ')).toBe('thunderbolt');
         expect(weaponFamily('Miscellaneous')).toBe('other');
         expect(weaponFamily(undefined)).toBe('other');
+        // legacy kill-log names (pre-late-2025) map to the same families
+        expect(weaponFamily('proj_impulse')).toBe('laser');
+        expect(weaponFamily('PROJ_SHOTGUN')).toBe('flak');
+        expect(weaponFamily('missile_hunter')).toBe('missile');
+        expect(weaponFamily('missile_timebomb')).toBe('mine');
+        expect(weaponFamily('missile_devastator_mini')).toBe('heavy');
+        expect(weaponFamily('proj_beam')).toBe('thunderbolt');
+        expect(weaponFamily('proj_driller')).toBe('driller');
         const listed = WEAPON_FAMILIES.flatMap(f => f.weapons);
         expect(new Set(listed).size).toBe(listed.length);
-        expect(listed).toHaveLength(16);
+        expect(listed).toHaveLength(34);
     });
 });
 
