@@ -103,8 +103,12 @@ as `6e7ed6d`), with no owner commits after it.
 S19 is merged into `main` (PR #20, squash-merged 2026-10-10 00:38 UTC
 as `00fa782`), with no owner commits after it.
 
-S20 is on branch `ofc/s20-tale-of-the-tape`, based on `00fa782`, its PR
-(#21) open against `main` and not merged, 2026-10-10 UTC.
+S20 is merged into `main` (PR #21, squash-merged 2026-10-10 12:31 UTC
+as `f4d55fd`), with no owner commits after it. (The S21 prompt allowed
+for it still being open; it had merged.)
+
+S21 is on branch `ofc/s21-belts-and-achievements`, based on `f4d55fd`,
+its PR (#22) open against `main` and not merged, 2026-10-10 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -115,11 +119,160 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 20 of 28 sessions done (S1 to S19 merged, S20 in its PR).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 3/11. The Node 26
+Counts: 21 of 28 sessions done (S1 to S20 merged, S21 in its PR).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 4/11. The Node 26
 maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-10 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S19 and Node 26 merged into `main`, `main` at 00fa782, S20 on `ofc/s20-tale-of-the-tape`)
+## Validated (as of 2026-10-10 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S20 and Node 26 merged into `main`, `main` at f4d55fd, S21 on `ofc/s21-belts-and-achievements`)
+
+- S21, first move on Node 26.11.1, on `main` at `f4d55fd` (PR #21 merged,
+  no owner commits after it; `git diff origin/ofc/s20-tale-of-the-tape
+  origin/main` is empty; `10223be` is not an object here, so the
+  pre-rewrite check fails as it should): `npx vitest run` passed 22 files,
+  387 tests. `npx vite build` wrote the entry at 234.10 KB raw / 75.04 KB
+  gzip, `PilotDetail` 52.02 KB / 13.47 KB, `GameList` 41.74 KB / 11.45 KB
+  and `Tape` 10.74 KB / 3.56 KB gzip; `npx tsc --noEmit` exited 0. All
+  match the S20 records. `wc -l` before building: `gameParse.js` 1,191,
+  `statsPasses.js` 820, `analytics/ratings.js` 60, `analytics/meta.js`
+  147, `analytics/tape.js` 110, `discordService.js` 224,
+  `discordMessages.js` 124, `shareCards.js` 177, `pageMeta.js` 176,
+  `PilotDetail.tsx` 707.
+- S21, the owner's seven answers at the start (see the decisions): a
+  lineal belt per mode, decided match by match; all four groups of
+  achievements, from every stored match, tiered; the pilot page, a
+  `/belts` view, a belt mark beside names and the share cards; NEW
+  CHAMPION in the recap embed; locked achievements shown with progress.
+- S21, the fixtures by hand before building: Anarchy's first decisive
+  match is 72084 (BEHEMOTH 20, B2AF 15) and BEHEMOTH defends it in 72085;
+  Team Anarchy's is 72095 (INSANER alone on BLUE) and BLUE wins 72096,
+  72097, 72099 and 72102, so INSANER has 4 defenses; neither belt changes
+  hands in the sample. In 72099's hand-written log INSANER's best kill
+  streak is 3, STITCH's 2; in 72098's "." has 2.
+- S21, tests: `npx vitest run` passes 24 files, 426 tests (387 at the
+  start). New: `server/lib/achievementPass.test.js` (21: `beltMatch` on
+  72084, a 1-1 draw, 72097 and 72102's top scorers, a level team with
+  listing order, CTF by captures and Monsterball by goals with kills
+  after them, an unrated match, a mode without a belt; the belt replay
+  through the pass on the sample in both orders, a lost belt and a draw
+  defended, a holder beaten while the top was shared, a whole winning
+  team as slayers, a match without the holder, an undated match;
+  `killStreaksOf` on both logs and with a suicide, a death with no
+  attacker and a team kill added; `tierOf`; the pass's milestones
+  against `pilotPass` for every fixture pilot, its kill-log feats
+  against `rivalPass`'s clutch rows, the match each tier is earned on,
+  the streaks with a tie, a pilot listed twice and a match with no
+  result, belts won and Boss Slayer when the belt changes hands, the
+  anniversary on its day, an undated match, the latest spelling) and
+  `server/db/analytics/belts.test.js` (13, through the real refresh on
+  the sample with its two logs, the 2019 match in cold storage and one
+  more match passing the Anarchy belt to B2AF: each mode's champion,
+  lineage and vacancy, the tier counts, a pilot's achievements against
+  `pilot_stats_cache` and `pilot_clutch`, B2AF's belt and Boss Slayer,
+  the anniversary from cold storage, an unknown pilot, the belt changes
+  on a day, the reign chain and the built marker, both routes, both
+  cards, the share tags). `discordService.test.js`: the "New champion"
+  field from `getBeltChanges` on the fixtures, its plural and escaping,
+  none on a night without a change, and the posted recap carrying it.
+  `shareCards.test.js`: the pilot card's belt and achievements tiles and
+  description, `beltsCard`. `cardLayout.test.js`: five tiles, sized by
+  four fifths. `siteRoutes.test.js`: `/belts`.
+- S21, mutations (`mutate.py` in the scratch folder: each edit on a
+  source file restored from a copy named by its absolute path, five test
+  files run): 33 of 33 fail a test after /simplify. The first run caught
+  28 of 31: a pilot listed twice running a streak twice and a tie not
+  ending a streak got tests, and an ended reign shown as the holder
+  showed that guard was dead (the newest reign always lasts), so it
+  went. `git status` after each run showed only the session's own
+  changes.
+- S21, real data (`real.mjs` run by plain `node` on a copy of
+  `/tmp/ofc-data`, 76 matches): the pass recounted over every stored match
+  gives the same rows as the server wrote, 5 of 5 reigns and 249 of 249
+  achievement rows (run again after /simplify on tables written before
+  it: still equal); the milestones equal `pilot_stats_cache` for 38 of
+  38 pilots and the kill-log feats `pilot_clutch` for 20 of 20; the
+  reigns chain with no break (Anarchy: WD-40 with 2 defenses, LORD JOHN
+  WARFIN, WD-40, then BOOGEYMAN, all on 2026-10-06; Team Anarchy:
+  KAUMRAPSEL since 2026-10-05). A pilot's achievements read on the
+  primary key; a mode's lineage on the primary key; a pilot's reigns
+  scan `belt_reigns` (flagged).
+- S21, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` on the built `dist/`:
+  the first start refreshed for the new list ("[Belts] 5 belt reigns: 5
+  written", "[Achievements] 249 pilot achievements: 249 written"); the
+  restarts after it logged "Cache already warm on startup". The
+  seventeen API paths in the prompt answer 200 (`total_games: 76`), and
+  so do `/api/stats/belts`, `/api/pilot/WD-40/achievements`,
+  `/api/pilot/NOBODY/achievements` (zeros) and `/api/card/belts`
+  (`image/png`). `curl /belts`: "Belts | overloadfight.club", "Champions:
+  Anarchy BOOGEYMAN (since 2026-10-06, 0 defenses), Team Anarchy
+  KAUMRAPSEL (since 2026-10-05, 0 defenses).", `og:image`
+  `/api/card/belts?v=...` and `twitter:card`; `/pilot/BOOGEYMAN`'s
+  description ends "Anarchy champion since Tue, Oct 6, 2026, 0
+  defenses."; WD-40's says nothing of belts. The `og:image` of a pilot,
+  a match, the fight night, a map, a tape, a tape in a mode and `/belts`
+  each answer 200 `image/png`. Looked at: the belts card, BOOGEYMAN's
+  card with the Belt tile, WD-40's with "4 of 42 tiers", and a worst case
+  (LORD JOHN WARFIN, 12,345 matches, 123,456 kills, a provisional note,
+  Team Anarchy). The first look showed "COMBAT RA..." and
+  "ACHIEVEME..." cut in five tiles; fixed.
+- S21, headless Chrome 154 over CDP (`checks.mjs` on my own client,
+  `cdp.mjs`, over Node's WebSocket on port 9341 with its own profile and
+  a Fetch-domain mock list that fulfils, fails or holds), at 1,280 and
+  390 px: 134 of 140 on the final build. `/belts` on local data: the
+  title, a card per mode equal to the API (holder, days, defenses, the
+  match and who it was taken from, Vacant for CTF and Monsterball), a
+  lineage per decided mode equal to the API, the tier counts, no
+  Recharts, no overflow, Leaderboards lit. Mocked: held (Loading),
+  failed (ErrorState) then Retry, every belt vacant (EmptyState and the
+  achievements still there), and four champions with 32-character names
+  and ten reigns each, no wider than the window. The pilot page:
+  BOOGEYMAN's 14 tiles in order with each tier and count equal to the
+  API, the belt held named, the mark in the header, the earned tile
+  linking its match; WD-40's two ended reigns and no mark; one
+  `/api/stats/belts` request per page load; mocked held, failed then
+  Retry, and a pilot with nothing (14 greyed tiles, "0 of 100 ranked
+  matches", no belt line). The marks: the leaderboard marks exactly the
+  champions it lists, each saying its mode; its Belts link opens
+  `/belts` in place; the tape's red corner marks a champion; with WD-40
+  made a champion by a mock, `/rankings`, the duel ladder and the CTF
+  board mark him alone; a failed belts answer leaves no mark and no
+  error. The dashboard (no Recharts chunk), fight night, leaderboard,
+  rankings, ladders, rivalries, a tape, a pilot, maps, history, a match
+  and admin load with their titles and fit. The 6 failures are map-image
+  404s from overloadmaps.com: SWAT (map 516) and ICEWOLF DEATH MATCH V.1
+  (640) on the dashboard and `/history`, SUB ROSA (424) and REC CENTRE
+  (151) on `/history`, 640 on `/maps` (flagged; SWAT is new since S20).
+  The first run also failed the pilot card's held state, which was the
+  harness reading a DOM node by value.
+- S21, /code-review found 8 issues; 7 fixed (CTF and Monsterball belts
+  going to the most kills instead of captures or goals, two copies of
+  the replay order, the belt marks never asking again and holding state
+  per row, the tape's long names no longer truncating, two doc comments
+  stranded above the wrong functions), 1 skipped and flagged (each pass
+  replaying the kill logs on its own). /simplify (four agents): the belt
+  tested through the pass that writes it (`beltReigns` gone), one
+  `sideOutcome` for bouts and duels, `tiersEarned`, `TIER_TOTAL` and
+  `ACHIEVEMENT_BY_ID` shared, one tile-count rule for the card sizes, the
+  clutch kills counted per pilot per match, each match's day worked out
+  once, the belts answer without a count its holder carries, the marks
+  seeded from `/belts`, `movedTo` in the fixtures; skipped: the
+  anniversary computed on read, one replay for streaks and clutch, an
+  index on `belt_reigns`, slimmer kept sides, a shared spelling helper
+  and a shared totals helper with `pilotPass`, the pilot page's mark fed
+  from its own answer (see the flags).
+- S21, sizes on Node 26.11.1 at the end, against a build of `origin/main`
+  in a scratch worktree: entry 234.10 to 234.57 KB raw, 75.04 to 75.21 KB
+  gzip (the route row and the two fetchers); `PilotDetail` 52.02 / 13.47
+  to 55.64 / 14.33 (the card); `PilotsList` 18.04 / 5.18 to 18.42 / 5.26;
+  `PowerRankings` 4.20 / 1.50 to 4.33 / 1.58; `Ladders` 8.15 / 2.51 to
+  8.32 / 2.59; `Tape` 10.74 / 3.56 to 11.02 / 3.67; `Rivals` 7.32 / 2.48
+  to 7.36 / 2.50; `GameList` 41.74 / 11.45 to 41.75 / 11.46; new `Belts`
+  7.53 / 2.29 and `BeltMark` 0.58 / 0.39 (shared by the five pages). No
+  new Recharts chunk. `npx tsc --noEmit` exits 0. `wc -l`:
+  `achievementPass.js` 158, `analytics/belts.js` 94, `Belts.tsx` 104,
+  `belts/BeltLineage.tsx` 48, `belts/AchievementList.tsx` 34,
+  `belts/TierPips.tsx` 17, `pilotDetail/AchievementsCard.tsx` 80,
+  `BeltMark.tsx` 21, `useBeltHolders.ts` 42, `gameParse.js` 1,315,
+  `PilotDetail.tsx` 712; no new module over 500.
 
 - S20, first move on Node 26.11.1, on `main` at `00fa782` (PR #20 merged,
   no owner commits after it; `git diff origin/ofc/s19-og-share-cards
@@ -2242,6 +2395,30 @@ maintenance item does not count toward the 28.
 
 ## NOT validated, do not claim these work
 
+- S21: the belts and achievements on the NAS's 75,000 or so matches. On
+  76 local matches, all from October 2026, there are 5 reigns and no
+  defense past 2; nobody has seen how many reigns the history since 2019
+  gives each mode, who holds each belt there, how many pilots reach each
+  tier, how long the pass adds to a refresh, or how much memory it keeps
+  in the worker (each rated match is held as its counts until the scan
+  ends).
+- S21: the tier thresholds were set by reasoning about the NAS's history,
+  not checked against it: locally only belts, Boss Slayer, Rampage, Hot
+  Streak and Duelist reach a tier.
+- S21: no CTF or Monsterball belt exists locally (one CTF match, 0-0), so
+  the captures and goals rule ran on fixture copies only.
+- S21: the NEW CHAMPION field went to the S18 stub webhook in tests, not to
+  a real channel (the S18 [HUMAN] task is still open), and no real night
+  passed the thresholds, so the detector never posted one locally.
+- S21: the anniversary on a real anniversary: tested with a set `today`;
+  the local data is five days old, so nobody has one.
+- S21: no screen reader on the belt marks, the tier pips or the progress
+  bars; the marks carry their modes in text and the tiles their tier's
+  name. Headless Chrome 154 on macOS only, at 1,280 and 390 px; not
+  Safari, Firefox or a real phone.
+- S21: the belt marks' 10-minute refresh was read from the code, not
+  watched across a stats refresh in an open tab.
+
 - S20: no tape link was pasted into Discord or any other chat, so the
   tape's preview is checked by curl and by looking at the PNG only.
 - S20: `pilot_bouts` at production size. 520 rows for 62 local matches;
@@ -2665,12 +2842,12 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 22 files, 387 tests pass on 26.11.1 (S20; 356 at its start) | 2026-10-10 |
+| `npx vitest run` | all pass | 24 files, 426 tests pass on 26.11.1 (S21; 387 at its start) | 2026-10-10 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 234.10 KB raw / 75.04 KB gzip (S20; 233.36 / 74.78 at its start), new `Tape` 10.74 KB / 3.56 KB, `PilotDetail` 52.02 KB / 13.47 KB, dashboard `GameList` 41.74 KB / 11.45 KB gzip and no Recharts on its first visit, `GameDetail` 124.19 KB / 40.12 KB, `Rivals` 7.32 KB / 2.48 KB, `Ladders` 8.15 KB / 2.51 KB gzip, on 26.11.1. Unchanged since S19: `AdminPanel` 35.18 KB / 9.32 KB, `FightNightSection` 14.13 KB / 3.05 KB, `MapLibrary` 34.26 KB / 8.93 KB (one 351.07 KB chunk before S4) | 2026-10-10 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S20) | 2026-10-10 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S20 on `/tmp/ofc-data`: `total_games: 62`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/WD-40/rivalry`, `/api/card/pilot/WD-40` and `/api/health` all 200; new `/api/pilot/:a/tape/:b` and `/api/pilot/:name/opponents` 200, `/api/card/tape/:a/:b` 200 `image/png`, 404 for an unknown pilot | 2026-10-10 |
-| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep -E 'og:\|twitter:'` (and a match, a fight night and a map) | the page's own `og:title`, `og:description`, `og:url`; since S19 `og:image` on the request's origin, its size and alt, `twitter:card` | "WD-40: 23 matches, 380 kills, last match 2026-10-07." with its `og:image` (S20, unchanged); the tape: "FUTZPIMMEL vs BADASS: BADASS leads 3–2 in 5 ranked matches, kills 41–21 in 3 logged matches.", `og:image` `/api/card/tape/FUTZPIMMEL/BADASS?v=...`, `?mode=` carried into both; none for an unknown pilot (S20) | 2026-10-10 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 234.57 KB raw / 75.21 KB gzip (S21; 234.10 / 75.04 at its start), new `Belts` 7.53 KB / 2.29 KB and `BeltMark` 0.58 KB / 0.39 KB, `PilotDetail` 55.64 KB / 14.33 KB, `PilotsList` 18.42 KB / 5.26 KB, `PowerRankings` 4.33 KB / 1.58 KB, `Ladders` 8.32 KB / 2.59 KB, `Tape` 11.02 KB / 3.67 KB, `Rivals` 7.36 KB / 2.50 KB, dashboard `GameList` 41.75 KB / 11.46 KB gzip and no Recharts on its first visit, on 26.11.1. Unchanged since S20: `GameDetail` 124.19 KB / 40.12 KB; since S19: `AdminPanel` 35.18 KB / 9.32 KB, `FightNightSection` 14.13 KB / 3.05 KB, `MapLibrary` 34.26 KB / 8.93 KB (one 351.07 KB chunk before S4) | 2026-10-10 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S21) | 2026-10-10 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S21 on `/tmp/ofc-data`: `total_games: 76`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/WD-40/rivalry`, `/api/pilot/:a/tape/:b`, `/api/pilot/WD-40/opponents`, `/api/card/pilot/WD-40`, `/api/card/tape/:a/:b` and `/api/health` all 200; new `/api/stats/belts` and `/api/pilot/:name/achievements` 200 (zeros for an unknown pilot), `/api/card/belts` 200 `image/png` | 2026-10-10 |
+| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep -E 'og:\|twitter:'` (and a match, a fight night and a map) | the page's own `og:title`, `og:description`, `og:url`; since S19 `og:image` on the request's origin, its size and alt, `twitter:card` | "WD-40: 23 matches, 380 kills, last match 2026-10-07." with its `og:image` (S21, unchanged); `/belts`: "Champions: Anarchy BOOGEYMAN (since 2026-10-06, 0 defenses), Team Anarchy KAUMRAPSEL (since 2026-10-05, 0 defenses)." with `og:image` `/api/card/belts?v=...`; a champion's pilot description ends with their belt; the S19 and S20 cards' `og:image` all 200 `image/png` (S21) | 2026-10-10 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine` (cached locally), arm64: healthy, uid 1000, resvg's `linux-arm64-musl` prebuild with no object file, a card drawn in the container, 619 MB (S19) | 2026-10-09 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
 | `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
@@ -2717,6 +2894,10 @@ maintenance item does not count toward the 28.
 | S20 `checks.mjs`: headless Chrome over CDP, the tape (a pair that met, a mode by click, URL, reload and lower case, a mode they never met in, two who never met, an unknown pilot, one pilot twice, the duels; held, failed and Retry, a full mocked tape), the pilot page's list (held, failed, empty), the links from `/rivals`, the ladder and the damage grid, then the dashboard, fight night, leaderboard, rankings, ladders, rivalries, a pilot, maps, history, a match and admin, at 1,280 and 390 px | numbers equal the API, the shared states, no Recharts on the tape or the dashboard, no wider than the window, no console errors but the S1 401 | 164 of 168; the 4 failures are map-image 404s on `/history` and `/maps` from overloadmaps.com (S20) | 2026-10-10 |
 | S20 `mutate.py`: 28 edits to the S20 rules, reads, builders and routes, each restored from a copy, six test files run | every edit fails a test | 27 of 28; the one left changed nothing and its guard was removed (S20) | 2026-10-10 |
 | dataviz `validate_palette.js --mode dark --surface "#111111"` on the tape's corners, `chart.team` | every check passes | passes, worst adjacent CVD ΔE 26.8 (S20) | 2026-10-10 |
+| S21 `server/db/analytics/belts.test.js`: a temp database of the fixtures with two logged matches, the 2019 match in cold storage and a match passing the Anarchy belt, the pilots, stats and card routers on a local server | each mode's champion and lineage, the tier counts, a pilot's achievements against `pilot_stats_cache` and `pilot_clutch`, the reign chain, both routes, both cards, the share tags | 13 of 13 (S21) | 2026-10-10 |
+| S21 `real.mjs`, run by `node` on a copy of `/tmp/ofc-data`: `achievementPass` over every stored match against `belt_reigns` and `pilot_achievements`, the milestones against `pilot_stats_cache`, the kill-log feats against `pilot_clutch`, the reign chain, the reads' query plans | the same rows; equal counts; no chain break | 5 of 5 reigns, 249 of 249 rows, 38 of 38 and 20 of 20 pilots, 0 breaks, 76 matches (S21) | 2026-10-10 |
+| S21 `checks.mjs`: headless Chrome over CDP, `/belts` (local; held, failed and Retry, all vacant, a full mocked answer), the pilot page's card (a champion, a former champion; held, failed and Retry, nothing earned), the belt marks on the leaderboard, the tape, the rankings and both ladder boards (mocked champion; a failed answer), the leaderboard's link, then the dashboard, fight night, leaderboard, rankings, ladders, rivalries, a tape, a pilot, maps, history, a match and admin, at 1,280 and 390 px | numbers equal the API, the shared states, one belts request per page, no Recharts on `/belts` or the dashboard, no wider than the window, no console errors but the S1 401 | 134 of 140; the 6 failures are map-image 404s on `/`, `/history` and `/maps` from overloadmaps.com (S21) | 2026-10-10 |
+| S21 `mutate.py`: 33 edits to the S21 rules, pass, reads, builders, layout and Discord, each restored from a copy, five test files run | every edit fails a test | 33 of 33 after /simplify (28 of 31 on the first run; the 3 got tests or their dead guard removed) (S21) | 2026-10-10 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -3450,7 +3631,7 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          grid; the dashboard, fight night, leaderboard, rankings, ladders,
          rivalries, pilot pages, maps, match page and admin page still
          work, and the S19 cards still draw.
-- [ ] **S21 Belts and achievements** (M). The owner decided at the start
+- [x] **S21 Belts and achievements** (M). PR #22. The owner decided at the start
       of S21: a belt is lineal, one per mode (`MATCH_MODES`: Anarchy, Team
       Anarchy, CTF, Monsterball), decided match by match over every rated
       match since the first stored one; achievements are milestones,
@@ -3465,11 +3646,13 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
       nothing about belts until they hold one. Done when (written at the
       start of S21):
       1. `server/lib/gameParse.js` owns the rules, each tested on fixture
-         games. The belt (`beltMatch`, `beltReigns`): a rated match
+         games. The belt (`beltMatch`, `beltStep`; amended during S21: the first
+         draft named a `beltReigns` that /simplify removed): a rated match
          (`ratingSides`) in a `MATCH_MODES` mode; the first one in a mode
          with an outright winner crowns the winning side's top scorer (the
          pilot in FFA, the team's highest in-game score in a team game,
-         ties by listing order); after that the holder keeps the belt
+         ties by listing order; amended during S21 after /code-review: in
+         CTF and Monsterball the most captures or goals come first); after that the holder keeps the belt
          through any match they do not play, a match their side wins or
          draws at the top is a defense, and a match another side wins
          outright passes the belt to that side's top scorer; a match the
@@ -5818,6 +6001,165 @@ Not counted in the 28 sessions.
   (/simplify). An unknown pilot or
   one pilot twice gets no card and the site description. No layout change,
   so `CARD_LAYOUT` stays 2.
+- 2026-10-10 (S21): The owner's answers at the start of S21, each the
+  recommended option where one was offered. A belt is lineal, one per mode
+  (`MATCH_MODES`: Anarchy, Team Anarchy, CTF, Monsterball), and changes
+  hands only when the holder plays a rated match in that mode and loses.
+  It is decided match by match, replayed over every stored match on each
+  refresh. Achievements come in all four groups offered: milestones,
+  kill-log feats, belts and Boss Slayer, and streaks and the anniversary.
+  They count every stored match back to 2019, in three tiers. Belts and
+  achievements show on the pilot page, a new `/belts` view, a belt mark
+  beside the holder's name and the share cards. A belt that changes hands
+  shows as NEW CHAMPION in the S18 recap embed, with no post of its own.
+  A pilot sees every achievement, the unearned ones greyed with their
+  progress, and nothing about belts until they hold one. Rejected: the
+  power rankings' #1 or the duel ladder's #1 as the belt (it would move
+  on days the holder did not play, and the ladder has few duels), a belt
+  per mode and map, deciding once per fight-night day or weekly,
+  achievements from the deploy on, no tiers, a Discord post per change,
+  showing only what a pilot has earned.
+- 2026-10-10 (S21): The belt rule, in `gameParse.js`. `beltMatch` takes a
+  rated match (`ratingSides`: ranked, a result, a team-game pilot without
+  a team sitting out) in a `MATCH_MODES` mode and names its champion: the
+  side that won outright's top scorer (the pilot in FFA; in a team game
+  the most of the mode's headline count, captures in CTF and goals in
+  Monsterball from `OBJECTIVE_MODES`, then in-game score, then the first
+  listed). A shared top score names none. (/code-review: the first draft
+  took the most kills in every mode, which in CTF hands the belt to a
+  pilot who never touched the flag.)
+  `beltStep` plays one match against the holders: the first match in a
+  mode with a champion crowns them; a match the holder does not play
+  changes nothing; a match where no side outscored the holder's is a
+  defense, so a draw at the top is one; a match another side wins
+  outright ends the reign and crowns that side's champion; a match where
+  others outscored the holder but shared the top changes nothing and is
+  not a defense. Everyone on a side that outscored the holder's is a
+  slayer (Boss Slayer). The pass plays the matches in `inDateOrder`, the
+  rating's order, now one function for both, so an undated match plays no
+  part in the belt. (/simplify: a `beltReigns` that only the tests called
+  went; the tests run the belt through the pass that writes it.) A belt never falls vacant: a holder who stops playing keeps it.
+  Rejected: vacating after the rankings' 28 days (not asked, and it would
+  make the belt a second ranking), the match's MVP across both teams as a
+  team game's champion.
+- 2026-10-10 (S21): The achievements, `ACHIEVEMENTS` in `gameParse.js`,
+  each three thresholds for Bronze, Silver and Gold, set for the NAS's
+  history rather than the 76 local matches. Milestones: Century (ranked
+  matches, 100/500/1,000), Body Count (kills in ranked matches,
+  1,000/5,000/15,000), Winner (ranked wins, 25/100/500), Regular
+  (fight-night days with a ranked match, 10/50/150). Kill log: First Blood
+  (first bloods, 10/50/200), Closer (kills in the last 60 s, 25/100/500),
+  Comeback (kills while trailing, 100/500/2,000), Rampage (the most kills
+  on opponents in one match without dying, 5/10/15). Belts: Champion
+  (belts won, 1/3/10), Defender (title defenses, 3/10/25), Boss Slayer
+  (rated matches finished ahead of the reigning champion, 1/5/25).
+  Streaks: Hot Streak (ranked wins in a row, 3/5/10), Duelist (1v1 duel
+  wins in a row, 3/5/10), Anniversary (whole years since the first stored
+  match, 1/3/5). The milestones count what the career cards count
+  (`rankedMatch`, `netKills`, `outcomeOf`, every listing as `pilotPass`
+  counts it, so they equal `pilot_stats_cache`); the kill-log feats are
+  `clutchOf`'s, so they equal `pilot_clutch`; Rampage is a new
+  `killStreaksOf` on `replayLog`, where any death (a suicide, a team kill,
+  a death without an attacker) ends the victim's run; a streak ends on a
+  tie or a loss and a match with no result leaves it as it was; a pilot
+  listed twice runs a streak once; a duel's outcome is `sideOutcome`, the
+  comparison `boutsOf` now shares. A tier is earned on the match whose
+  count first passes the threshold, dated by its fight-night day; the
+  anniversary's tiers on the day N years after the first match's
+  fight-night day (29 February rolls to 1 March). Boss Slayer reads the
+  belt holder, not the power rankings' #1: the replay already knows the
+  holder at every match, and the rankings would need a ranking replayed
+  per day inside the worker.
+- 2026-10-10 (S21): `belt_reigns(mode, reign, pilot, name, since, game,
+  defenses, until, lost_game)`, key `(mode, reign)`, and
+  `pilot_achievements(pilot, achievement, name, value, tier, earned,
+  game)`, key `(pilot, achievement)`, join `DERIVED_TABLES`, built by a
+  new `achievementPass` (`server/lib/achievementPass.js`, its own module so
+  `statsPasses.js`, 820 lines, does not grow) in the worker's one scan:
+  each match is kept as its counts and replayed in date order once both
+  files are read. `since` and `until` are match dates (`until` '' and
+  `lost_game` 0 while a reign lasts), `earned` a fight-night day ('' below
+  the first tier), `game` 0 where no match earned it (the anniversary); a
+  pilot gets a row only for an achievement with a count above 0; `name`
+  is the spelling of the pilot's latest ranked match, as
+  `pilot_stats_cache` keeps it. The worker now takes today's fight-night
+  day for the anniversary. First build: `ensureDerivedTables` creates both
+  empty at startup and the new list changes the built marker, so the
+  first start refreshes once (seen locally: "[Belts] 5 belt reigns: 5
+  written" and "[Achievements] 249 pilot achievements: 249 written"; the
+  restart after logged "Cache already warm on startup"). A restart needs
+  no repair; every refresh brings both in line, and `restoreHot` creates
+  them for a backup that lacks them. The anniversary moves with the day,
+  so a refresh on a pilot's anniversary rewrites that row. Rollback:
+  revert, pull the old image, and `DROP TABLE belt_reigns; DROP TABLE
+  pilot_achievements;` on `tracker.db`, or leave them (nothing older reads
+  them; the S20 code's marker check refreshes once).
+- 2026-10-10 (S21): Endpoints, reads in a new `server/db/analytics/belts.js`
+  with `db` keys `getBelts`, `getPilotAchievements` and `getBeltChanges`,
+  no route cache (the S16 rule; `getBelts` is kept per day through
+  `meta.js`'s `until` until a refresh writes). `GET /api/stats/belts` (in
+  `routes/stats.js`) answers `{ day, modes, achievements }`: each mode's
+  holder (the newest reign, which always lasts, its `reign` the mode's
+  count) and its last 10 reigns, each with the fight-night days it started
+  and ended, the days held to today, its defenses, the match that started
+  and the one that ended it, and who it was taken from; and
+  `achievements[id]`, the pilots who reached each tier, a higher tier
+  counting toward the lower.
+  `GET /api/pilot/:name/achievements` (in `routes/pilots.js`) answers `{
+  belts, achievements }`: every reign the pilot held, newest first, and
+  every achievement in order with its count, tier, day, match and the
+  next threshold; zeros and no reigns for a pilot with none or never
+  stored, a 200 (S15, S17, S20). The client reads them through
+  `fetchBelts` and `fetchPilotAchievements` (null on failure) and
+  `useLoad`.
+- 2026-10-10 (S21): The views. `/belts` is a route in `siteRoutes.js`
+  ("Belts", under Leaderboards in the nav), a share description in
+  `pageMeta.js`, lazy in `App.tsx`, linked from the leaderboard's tab bar
+  after Rivalries. `components/Belts.tsx` shows a card per mode (the
+  champion linked, held since, days, defenses, who they took it from in
+  which match, or "Vacant"), each decided mode's line of holders
+  (`belts/BeltLineage.tsx`, the won day hidden below 640 px) and the
+  achievements by group with each tier's threshold and pilots
+  (`belts/AchievementList.tsx`). The pilot page's
+  `pilotDetail/AchievementsCard.tsx` sits under the rating card, loaded
+  beside the rating, career and rivalry: the reigns held (the one held now
+  in brand, ended ones grey with the match that ended them), the tiers
+  earned of 42, and a tile per achievement with its tier as pips and its
+  name, the count against the next threshold with a bar, and the day and
+  match the tier came on; unearned tiles are greyed. The belt mark
+  (`components/BeltMark.tsx`, lucide's `Award`, the modes in its title and
+  in screen-reader text) sits after a holder's name on `/rankings`, both
+  ladder boards, the leaderboard, the tape's corners and the pilot page's
+  header. `hooks/useBeltHolders.ts` is one `useSyncExternalStore` store
+  for every mark: one `/api/stats/belts` request, asked again when a mark
+  mounts and the answer is over 10 minutes old (/code-review: a stats
+  refresh can move a belt while a tab stays open), seeded by `/belts`' own
+  answer; a failed request shows no mark and the next mark asks again. No new colour: brand marks on the existing
+  surfaces, so the dataviz validator had no new pair to check. No
+  Recharts.
+- 2026-10-10 (S21): The share cards. `beltsCard` in `shareCards.js` builds
+  `/belts`' card and description from one object: kind "Belts", title
+  "Champions", one tile per mode with a holder (name, days, defenses), and
+  "Champions: Anarchy B2AF (since 2026-10-06, 0 defenses), ..."; no holder
+  anywhere gives no card and the site description. `/belts` joined
+  `CARD_VIEWS`, so `/api/card/belts` draws it. The pilot card gains a
+  fifth tile: "Belt" (the mode and the day it was won) for a holder, else
+  "Achievements" (tiers earned of 42) when any is earned, else none, and a
+  holder's description ends with "Anarchy champion since Tue, Oct 6, 2026,
+  0 defenses." (`championLine` in `matchResult.js`, shared with the
+  page). The S19 sizes are for four tiles; with more, every tile's type
+  and padding scale by four over the number of tiles, 0.8 for five
+  (/simplify, in place of a second table of sizes; looked at: "COMBAT
+  RATIO", "123,456" and "Team Anarchy" fit), and four tiles keep the S19
+  sizes. `CARD_LAYOUT` went from 2 to 3, so every card gets a new `?v=`.
+- 2026-10-10 (S21): The recap embed gains "New champion" (or "New
+  champions") before the power rankings: one line per reign that started
+  on the night ("Anarchy: B2AF took the belt from BEHEMOTH", or
+  "Anarchy: B2AF, the first champion", `beltChange` in `matchResult.js`),
+  markdown escaped, no field when nothing changed hands.
+  `discordService.js` reads `getBeltChanges(date)` after the stats refresh
+  the recap already waits for, so `discordMessages.js` still reads no
+  database. No new post kind and no `discord_posts` change.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -6878,6 +7220,79 @@ Not counted in the 28 sessions.
   writes "3–0–2"; one Back button for the tape, the pilot page and the
   match page.
 
+- (S21) Earlier flags that name S21, belts, achievements, streaks, the power
+  rankings, the duel ladder or the Discord recap, decided:
+  - (S18) The Monday power-rankings post is not built: still open. S21
+    adds the belts to the nightly recap, not a post of their own.
+  - (S18) The recap's saved lines post their old faults ("1 matches", a
+    0 - 0 closest finish, Biggest Upset naming a losing team's top
+    fragger, a streak counting a suicide): still open; the New champion
+    field is new text from `beltChange`.
+  - (S2, S13, S14) Biggest Upset still treats the top fragger as the
+    winner: still open. A belt changing hands is now a cleaner upset the
+    recap could name; not on S21's list.
+  - (S13) The rankings page shows nobody who dropped out during the week
+    and no ranks past 25: still open; the belts sit beside it.
+  - (S14) The calendar counts every match while the career arc counts
+    ranked ones: the Regular achievement counts ranked matches' days, like
+    the arc, so it can be lower than the calendar's days.
+  - (S20) `pilot_duels` keeps no mode: the Duelist streak reads `duelMatch`
+    itself and needs none.
+- (S21) Each pass in the worker works out its own view of a match:
+  `achievementPass` calls `clutchOf` (also called by `rivalPass`),
+  `killStreaksOf` (a second replay of the same log), and `ratingSides`
+  through `beltMatch` and `duelMatch` (also called by the rating, duel and
+  bout passes). /code-review and /simplify both raised it; skipped, as S20
+  skipped passing `ratingSides` between passes, since the passes stay
+  independent so one failing does not stop another. The local refresh
+  took 0.05 s; the NAS's is unmeasured.
+- (S21) A belt never falls vacant: a champion who stops playing keeps it
+  for good, and on the NAS a mode's belt may sit with a pilot gone for
+  years. Vacating it after the rankings' 28 days was not asked; the
+  owner's call.
+- (S21) A pilot's reigns (`getPilotAchievements`) scan `belt_reigns`,
+  which has no index on `pilot`; it holds one row per change of hands, so
+  the scan is small, and the pilot page and its share tags each run it
+  once per view. An index needs `ensureDerivedTables` to learn indexes.
+- (S21) The anniversary is worked out when the stats refresh runs (every
+  6 hours whether or not a match arrived), so a tier can show up to 6
+  hours after its day. Working it out on read needs each pilot's first
+  match stored and, for `/belts`' tier counts, read for every pilot.
+  Skipped by /simplify.
+- (S21) The milestones repeat `pilotPass`'s counting (ranked matches,
+  `netKills`, every listing) so the tiers can be dated, tested equal to
+  `pilot_stats_cache` but written twice; and the latest-spelling rule is
+  now in three passes (`pilotPass`, `rivalPass`, `achievementPass`), each
+  over slightly different matches. A shared totals helper and a shared
+  spelling helper would change `pilotPass` and `rivalPass`, outside the
+  diff (/simplify, skipped).
+- (S21) The worker keeps every rated match's sides, with each pilot's
+  name, until the scan ends; `beltStep` reads only the keys and scores.
+  A slimmer form would change `beltMatch`'s shape (/simplify, skipped).
+- (S21) The pilot page's header mark asks `/api/stats/belts` although the
+  page's own `/achievements` answer names the belts the pilot holds
+  (/simplify, skipped: the mark stays one component everywhere; `/belts`
+  seeds the store).
+- (S21) In a team game the belt goes to one pilot, the winning side's top
+  scorer, while Boss Slayer counts every pilot on that side. Both are the
+  stated rules; a team belt was not asked for.
+- (S21) The plan page put NEW CHAMPION on the fight-night recap card too;
+  the owner chose the Discord recap only, so `/fight-night` does not show
+  belt changes.
+- (S21) A belt that changes hands on a night that does not pass the
+  fight-night thresholds is never announced: the New champion field rides
+  the recap, and no recap is saved for that night.
+- (S21) The tier thresholds were set for the NAS's history by reasoning
+  (see NOT validated); a pass over the real history could show some
+  tiers no one reaches or everyone does.
+- (S21) A sixth map, SWAT (map 516), has an image overloadmaps.com answers
+  404 for, and the dashboard now shows map images too (516 and 640): the
+  S21 Chrome checks report 404s on `/`, `/history` and `/maps`. Not an
+  S21 change.
+- (S21) The belt marks ask again only when a mark mounts and the answer
+  is over 10 minutes old, so a page left open shows the champions of up
+  to 10 minutes before its last navigation.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -6918,6 +7333,12 @@ built marker names its own list, so the first start after the revert
 refreshes once, and its `rivalPass` writes `pilot_rivals` the old way,
 with the same rows. Tape links already posted open the dashboard (the
 older router has no `/tape`).
+S21 adds `belt_reigns` and `pilot_achievements` to `tracker.db`, both
+derived: after its revert `DROP TABLE` either, or leave them (nothing
+older reads them). The S20 code's built marker names its own list, so the
+first start after the revert refreshes once. Every share card's `?v=`
+changes back with `CARD_LAYOUT`, so previews fetch the old layout again;
+`/belts` links open the dashboard.
 
 ## Open questions
 
@@ -6946,6 +7367,12 @@ older router has no `/tape`).
   S20 decisions. The 404 and 400 the first draft answered became 200s with
   `{ missing }` and `{ same }` during the session (see the endpoints
   decision).
+- S21's seven (what a belt is and when it is decided, which achievements,
+  how far back they count and whether they have tiers, where they show,
+  whether a belt change posts to Discord, what a pilot with nothing sees)
+  were settled by the owner at its start; see the S21 decisions. During
+  the session /code-review moved the CTF and Monsterball belts to the
+  most captures or goals (see the belt rule decision).
 
 ## Skills to load
 
@@ -7692,12 +8119,30 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   the known map-image 404s. PR #21 opened against `main`, CI green on
   both jobs, not merged.
 
+- 2026-10-10, S21 (Claude Opus 5.5): belts and achievements. PR #21 had
+  merged, so the branch came off `f4d55fd`. The owner took every
+  recommendation: a lineal belt per mode decided match by match, all four
+  groups of achievements from every stored match in three tiers, the
+  pilot page, a `/belts` view, a mark beside champions' names and the
+  share cards, NEW CHAMPION in the recap embed, locked achievements with
+  their progress. Neither fixture belt changes hands, so the tests add a
+  match where B2AF beats BEHEMOTH. One replay in the worker writes
+  `belt_reigns` and `pilot_achievements`; recounted over all 76 local
+  matches it matched the tables, `pilot_stats_cache` and `pilot_clutch`
+  exactly. The pilot card's fifth tile cut two labels on the first look.
+  /code-review found 8 issues, 7 fixed (the worst: a CTF belt going to
+  the top killer rather than the pilot with the captures); /simplify
+  folded the test-only `beltReigns` into the pass and gave the card one
+  sizing rule by tile count. 33 of 33 mutants fail a test. Chrome: 134 of
+  140, the failures map-image 404s from overloadmaps.com, now including
+  SWAT. PR #22 opened against `main`, not merged.
+
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S21: Belts and achievements.
+Continue the overloadfight.club roadmap. This session is S22: Fight-night schedule and iCal.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first (a hook blocks reads over 350 lines, so read it in sections), then verify its status line against the repo before building on anything in it.
@@ -7706,53 +8151,53 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S20 is on branch ofc/s20-tale-of-the-tape, PR #21. PRs #1 to #20 are merged.
-  If PR #21 is merged:
-    git checkout -B ofc/s21-belts-and-achievements origin/main
-  If PR #21 is still open:
-    git checkout -B ofc/s21-belts-and-achievements origin/ofc/s20-tale-of-the-tape
-    and open the S21 PR against main anyway; say in its description that it sits on PR #21.
-  Check again before opening the PR: if PR #21 merged during the session, rebase onto origin/main first.
+  S21 is on branch ofc/s21-belts-and-achievements, PR #22. PRs #1 to #21 are merged.
+  If PR #22 is merged:
+    git checkout -B ofc/s22-fight-night-schedule origin/main
+  If PR #22 is still open:
+    git checkout -B ofc/s22-fight-night-schedule origin/ofc/s21-belts-and-achievements
+    and open the S22 PR against main anyway; say in its description that it sits on PR #22.
+  Check again before opening the PR: if PR #22 merged during the session, rebase onto origin/main first.
   `git checkout -B ... origin/...` sets the remote branch as upstream; run `git branch --unset-upstream` so a bare push cannot go to main.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #21 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #22 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 26
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
-If neither origin/main nor origin/ofc/s20-tale-of-the-tape has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s21-belts-and-achievements has docs/ROADMAP.md, stop and tell me.
 
-Before building, ask me the questions the S21 entry leaves open: what a belt is (the power rankings' #1 from S13, the duel ladder's #1 from S16, a belt per mode or per map, or a lineal title that changes hands only when someone beats the holder in a ranked match, which the S20 bouts can count) and how often it is decided (each refresh, each fight-night day, weekly); what an achievement is (milestones such as kills, matches or wins; feats such as first blood, late kills or kills while trailing from S17's clutch counts, duel streaks; whether they come from every stored match back to 2019 or only from now) and whether achievements carry tiers; where belts and achievements show (the pilot page, a new view, the tape's corners, the leaderboard, the share cards from S19, the Discord recap from S18) and whether a belt change posts to Discord; and what a pilot with no belt or no achievement sees. Do not pick silently.
+Before building, ask me the questions the S22 entry leaves open: what a scheduled fight night is (a recurring rule such as every Saturday at 20:00 Central, one-off events the admin enters, or both; whether events come from the Google Calendar the dashboard's iframe embeds today) and where they are kept (a new events table, admin settings, the environment); who creates and edits them (the admin page, nobody but a deploy); what the .ics feed carries (scheduled nights only, past recaps too, the URL, the time zone, how long an event runs, the S14 fight-night day) and whether each event links to its recap; what the dashboard countdown shows (the next event, a "live now" state when the S18 ping's 6 pilots are on, nothing when no event is set) and where it sits beside the S7 teaser and the S14 heatmap; what replaces the calendar iframe; and whether the schedule touches the S18 ping or the recap (a reminder post, the detector's window). Do not pick silently.
 
 Read first:
-- docs/ROADMAP.md, the S21 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the ratings, the ladders, the rivalry and tape tables, the share cards and the Discord service already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S8 decisions (URLs, share tags), S10 (Combat Ratio and Lethality), S13 (ratings, rankStatus, powerRankings, rating_snapshots), S14 (the fight-night day, pilot_months), S16 (duels, pilot_duels, duel_snapshots, the ladders), S17 (pilot_clutch, CLUTCH), S18 (the Discord service, discord_posts, the recap embed), S19 (shareCards.js, cardLayout.js, CARD_VIEWS, the cache key), S20 (pilot_bouts, boutsOf, the derived-table key size, MATCH_MODES, the tape), and every "Flagged, not fixed" item that names S21, belts, achievements, streaks, the power rankings, the duel ladder or the Discord recap.
-- server/lib/gameParse.js (the rating, duel and clutch rules), server/lib/statsPasses.js (DERIVED_TABLES, rivalPass, duelPass, ratingPass), server/db/analytics/ratings.js, server/db/analytics/meta.js, server/db/analytics/tape.js, server/services/discordService.js, server/lib/discordMessages.js, server/lib/shareCards.js, server/pageMeta.js and components/PilotDetail.tsx. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S22 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the fight-night service, the S14 day rule, the S15 server browser tick, the S18 Discord service and the admin page already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S7 decisions (the dashboard order, the teaser), S8 (URLs, share tags), S9 (tokens, shared states), S14 (the fight-night day, the detector, the recap rebuild), S15 (the minute tick), S18 (the Discord service, discord_posts, the ping), S19 (share cards, CARD_VIEWS), S21 (belt_reigns, the recap's New champion field), and every "Flagged, not fixed" item that names S22, the schedule, iCal, the calendar, the countdown, the teaser, fight nights or the Discord ping.
+- components/CalendarWidget.tsx, server/routes/config.js (/calendar-url), components/GameList.tsx, components/FightNightTeaser.tsx, server/services/fightNightService.js, server/services/discordService.js, server/lib/discordMessages.js, server/db/repos/settings.js, server/admin-routes.js, components/admin/, server/lib/gameParse.js (FIGHT_NIGHT_DAY, dayBounds, localClock), server/lib/siteRoutes.js and server/pageMeta.js. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
-- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
-- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every belt and achievement ships with a test on fixture data.
+- Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js (`onDay`, `movedTo`). vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every schedule rule ships with a test on fixture data, the DST days included.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
 - Secrets come from the environment or admin-only storage, never from tracked files, logs, error messages, API answers to non-admins or share tags.
-- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. A new table or cache on disk gets a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules; server/lib/matchResult.js the shared wording; server/lib/siteRoutes.js the page URLs (`urlFor`, `parseRoute`, `pageTitle`); server/lib/shareCards.js what a share card says, built from the same object as the page's og:description. A page reads the same numbers the pilot page, the rankings, the ladders and the rivalry tables show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request. A derived table goes in DERIVED_TABLES (with `key` when it is keyed by more than two columns). A page's not-found state comes from a 200 answer, so the browser logs no error (S15, S17, S20).
-- A new view is React.lazy in App.tsx behind the one Suspense, with its route, title and nav section in siteRoutes.js and its share description in pageMeta.js; charts stay out of the entry chunk and the dashboard's first visit loads no Recharts chunk. Record the entry size (S20 left 234.10 KB raw / 75.04 KB gzip) and the view's and PilotDetail's chunks before and after.
+- server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. A new table or cache on disk gets a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/ (admin ones behind requireAuth). Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
+- server/lib/gameParse.js owns the game and day rules (FIGHT_NIGHT_DAY: America/Chicago, 06:00 rollover); server/lib/matchResult.js the shared wording; server/lib/siteRoutes.js the page URLs (`urlFor`, `parseRoute`, `pageTitle`); server/lib/shareCards.js what a share card says. A page reads the same numbers the pages beside it show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request. A page's not-found state comes from a 200 answer, so the browser logs no error (S15, S17, S20, S21).
+- A new view is React.lazy in App.tsx behind the one Suspense, with its route, title and nav section in siteRoutes.js and its share description in pageMeta.js; the dashboard's first visit loads no Recharts chunk. Record the entry size (S21 left 234.57 KB raw / 75.21 KB gzip) and `GameList`'s and any new chunk before and after.
 - Colours, radius and small text come from designTokens.js; chart colours from `chart` there, checked with the dataviz validator for any new pair. Shared states (Loading, EmptyState, ErrorState) for loading, nothing and failure; 390 px wide at 390 px.
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
 - Keep new components and modules under 500 lines (S11).
-- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI). A new dependency gets a decision entry; none is expected.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (62 local matches at the end of S20; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the pages' tags (and any new card) with curl, and the pages in headless Chrome over CDP, as S4 and S7 to S20 did (S20's harness was an 87-line CDP client over Node's WebSocket on port 9333 with its own profile; write your own, with a Fetch-domain mock list that fulfils, fails or holds for the empty, failed and loading states; read text with textContent, since innerText applies the uppercase CSS); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/history` and `/maps` also log 404s for map images overloadmaps.com lacks (maps 62, 88, 151 and 424 on `/history`, 640 on `/maps`; S18 to S20 flags); report them, do not filter them.
+- Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI). A new dependency (an iCal library, say) gets a decision entry; writing the few lines of RFC 5545 by hand needs none.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (76 local matches at the end of S21; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the pages' tags and any feed with curl, and the pages in headless Chrome over CDP, as S4 and S7 to S21 did (S21's harness was a CDP client over Node's WebSocket on port 9341 with its own profile and a Fetch-domain mock list that fulfils, fails or holds; write your own; read text with textContent, since innerText applies the uppercase CSS, and wrap a DOM node in `!!` before reading it by value); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/`, `/history` and `/maps` also log 404s for map images overloadmaps.com lacks (maps 151, 424, 516 and 640; S18 to S21 flags); report them, do not filter them.
 - Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy kept in the scratch folder, named by absolute path, not with `git checkout`, which also discards uncommitted work. Run `git status` after every mutation run.
 
 Rules for this session:
-- One PR, scope is the S21 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the owner's answers, what a belt and each achievement are and how each counts, when they are decided, where they show, any Discord post, any share card, any new table, setting or cache and its migration, and any new endpoint.
+- One PR, scope is the S22 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the owner's answers, what an event is and where it lives, the feed's format and URL, the countdown, what replaces the iframe, any Discord change, any share card, any new table, setting or cache and its migration, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description, the tracker prose and the page's words.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S21 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S22 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S22.
+- Before ending: tick S22 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S23 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S23.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S20 left 22 files, 387 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|GameList|Tape)-.*\.js"` (the Verification table records the entry at 75.04 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S21 Done-when list into the tracker.
-Done when: every item of the S21 Done-when list is true and checked on fixture data and in headless Chrome at 1,280 and 390 px (the new views on local data plus Fetch-domain mocks for their states), with curl against the local server for any share tags; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, a tape, pilot pages, maps, match page and the admin page still work, and the S19 and S20 cards still draw; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S20 PR; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/:name/rivalry`, `/api/pilot/:name/tape/:opponent`, `/api/pilot/:name/opponents`, `/api/card/pilot/:name`, `/api/card/tape/:a/:b` and `/api/health`; and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S21 left 24 files, 426 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|AdminPanel|FightNightSection)-.*\.js"` (the Verification table records the entry at 75.21 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S22 Done-when list into the tracker.
+Done when: every item of the S22 Done-when list is true and checked on fixture data (the DST days included) and in headless Chrome at 1,280 and 390 px (the dashboard and any new view on local data plus Fetch-domain mocks for their states), with curl against the local server for the feed and any share tags, and the feed opened by a calendar parser; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, belts, a tape, pilot pages, maps, match page and the admin page still work, and the S19 to S21 cards still draw; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S22 PR; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/stats/belts`, `/api/pilot/:name/rivalry`, `/api/pilot/:name/tape/:opponent`, `/api/pilot/:name/opponents`, `/api/pilot/:name/achievements`, `/api/card/pilot/:name`, `/api/card/belts` and `/api/health`; and the PR is open with the tracker updated.
 ```
