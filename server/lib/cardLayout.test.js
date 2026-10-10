@@ -10,7 +10,7 @@ const texts = tree => walk(tree).flatMap(n => (typeof n.props?.children === 'str
 
 const card = {
     path: '/pilot/WD-40', kind: 'Pilot', title: 'WD-40', line: 'Last match Wed, Oct 7, 2026', description: '',
-    stats: [1, 2, 3, 4, 5].map(i => ({ label: `L${i}`, value: String(i), note: i === 3 ? 'n3' : undefined }))
+    stats: [1, 2, 3, 4, 5, 6].map(i => ({ label: `L${i}`, value: String(i), note: i === 3 ? 'n3' : undefined }))
 };
 
 describe('cardTree', () => {
@@ -22,15 +22,17 @@ describe('cardTree', () => {
         expect(texts(tree)).toEqual(expect.arrayContaining(['Pilot', 'overloadfight.club', 'WD-40', 'Last match Wed, Oct 7, 2026']));
     });
 
-    it('shows at most four tiles in the site\'s card colours, radius and small text, at 2.5 times', () => {
+    it('shows at most five tiles in the site\'s card colours, radius and small text, at 2.5 times', () => {
         const tiles = walk(cardTree(card)).filter(n => n.props?.style?.background === colors.surface.card);
-        expect(tiles).toHaveLength(4);
+        expect(tiles).toHaveLength(5);
         expect(tiles[0].props.style).toMatchObject({ border: `2px solid ${colors.line}`, borderRadius: parseFloat(borderRadius.card) * 16 * 2.5 });
         expect(texts(tiles[2])).toEqual(['L3', '3', 'n3']);
         expect(texts(tiles[0])).toEqual(['L1', '1']);
         const small = parseFloat(fontSize['2xs'][0]) * 16 * 2.5;
         expect(walk(cardTree(card)).find(n => n.props?.children === 'Pilot').props.style).toMatchObject({ color: colors.brand.DEFAULT });
-        expect(tiles[0].props.children[0].props.style).toMatchObject({ fontSize: small * 0.9, color: chart.label });
+        // four tiles keep the S19 sizes
+        const four = walk(cardTree({ ...card, stats: card.stats.slice(0, 4) })).filter(n => n.props?.style?.background === colors.surface.card);
+        expect(four[0].props.children[0].props.style).toMatchObject({ fontSize: small * 0.9, color: chart.label, letterSpacing: 1 });
     });
 
     it('sets long titles and values smaller and cuts what still overflows', () => {
@@ -46,6 +48,21 @@ describe('cardTree', () => {
         expect(value('BADASS').fontSize).toBe(34);
         expect(value('FUTZPIMMEL').fontSize).toBe(26);
         expect(value('Tue, Oct 6, 2026')).toMatchObject({ fontSize: 22, lineClamp: 2 });
+        // five tiles (the pilot card with a belt, S21) scale the type and the
+        // horizontal padding by four fifths
+        const padding = stats => walk(cardTree({ ...card, stats })).find(n => n.props?.style?.flex === 1).props.style.padding;
+        expect(padding(card.stats.slice(0, 4))).toBe('22px 24px');
+        expect(parseFloat(padding([...card.stats.slice(0, 4), { label: 'L', value: 'v' }]).split(' ')[1])).toBeCloseTo(19.2);
+        const crowded = v => walk(cardTree({ ...card, stats: [...card.stats.slice(0, 4), { label: 'L', value: v }] })).find(n => n.props?.children === v).props.style;
+        expect(crowded('1,234').fontSize).toBe(37);
+        expect(crowded('Anarchy').fontSize).toBe(27);
+        expect(crowded('Team Anarchy')).toMatchObject({ fontSize: 18, lineClamp: 2 });
+        const four = walk(cardTree({ ...card, stats: card.stats.slice(0, 4) })).find(n => n.props?.children === '1').props.style;
+        expect(four.fontSize).toBe(46);
+        // and their labels and notes, so "COMBAT RATIO" fits its tile
+        const small = parseFloat(fontSize['2xs'][0]) * 16 * 2.5;
+        expect(walk(cardTree(card)).find(n => n.props?.children === 'L1').props.style.fontSize).toBeCloseTo(small * 0.9 * 0.8);
+        expect(walk(cardTree(card)).find(n => n.props?.children === 'n3').props.style.fontSize).toBeCloseTo(small * 0.8 * 0.8);
     });
 
     it('draws an image faint behind the text only when the card has one', () => {

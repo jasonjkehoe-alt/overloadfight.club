@@ -9,9 +9,10 @@ import { parentPort, workerData } from 'worker_threads';
 import Database from 'better-sqlite3';
 import { DERIVED_TABLES, archivePass, derivedColumns, derivedKey, duelPass, mapPass, pilotPass, ratingPass, regionPass, rivalPass, weaponPass } from './lib/statsPasses.js';
 import { regionOf } from './lib/serverRegions.js';
+import { achievementPass } from './lib/achievementPass.js';
 
 const PAGE_SIZE = 500;
-const { hotPath, coldPath, thirtyDaysAgo } = workerData;
+const { hotPath, coldPath, thirtyDaysAgo, today } = workerData;
 
 // A pass that throws stops on its own; the others carry on, as when each pass
 // ran its own scan.
@@ -32,7 +33,7 @@ function regionsByIp() {
 }
 
 // the keys are the `pass` names in statsPasses.js DERIVED_TABLES
-const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass(), regions: regionPass(regionsByIp()), weapons: weaponPass(), duels: duelPass(), rivals: rivalPass() };
+const passes = { pilots: pilotPass(), archive: archivePass(), maps: mapPass(thirtyDaysAgo), ratings: ratingPass(), regions: regionPass(regionsByIp()), weapons: weaponPass(), duels: duelPass(), rivals: rivalPass(), achievements: achievementPass(today) };
 // Ids read from hot storage. The pages are separate reads, so a game moved to
 // cold storage mid-pass (or left in both files by a crash) would otherwise be
 // read twice.

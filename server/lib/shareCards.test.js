@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { byId } from '../testFixtures.js';
-import { RATING, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
+import { ACHIEVEMENTS, RATING, TIERS, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
 import { dayLabel } from './matchResult.js';
-import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard, tapeCard } from './shareCards.js';
+import { beltsCard, cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard, tapeCard } from './shareCards.js';
 
 const stat = (card, label) => card.stats.find(s => s.label === label);
 const recap = { date: '2026-10-06', formattedDate: 'Tuesday, October 6, 2026', totalMatches: 18, totalPilots: 11, totalFrags: 1102, topFragger: { name: 'WD-40', kills: 237 } };
@@ -94,6 +94,56 @@ describe('pilotCard', () => {
         const undated = pilotCard({ ...summary, lastSeen: 'not a date' }, ranked, null);
         expect(undated.line).toBe('');
         expect(undated.description).toBe('WD-40: 1,234 matches, 5,678 kills.');
+    });
+});
+
+describe('pilotCard with belts and achievements (S21)', () => {
+    const summary = { name: 'WD-40', games: 1234, kills: 5678, lastSeen: '2026-10-08T03:00:00.000Z' };
+    const ranked = { matches: 40, rating: 1612.4, status: 'ranked', rank: 3 };
+    const reign = (mode, label, until = null) => ({ mode, label, reign: 2, since: '2026-10-06', defenses: 3, until, days: 4 });
+    const honours = (belts, tiers) => ({ belts, achievements: ACHIEVEMENTS.map((a, i) => ({ id: a.id, value: 1, tier: tiers[i] ?? 0 })) });
+
+    it('adds the belt a champion holds as a fifth tile and names it in the description', () => {
+        const card = pilotCard(summary, ranked, { kda: 1.234 }, honours([reign('ANARCHY', 'Anarchy'), reign('CTF', 'CTF', '2026-10-01')], [1, 2]));
+        expect(card.stats.map(s => s.label)).toEqual(['Matches', 'Kills', 'Rating', 'Combat Ratio', 'Belt']);
+        expect(stat(card, 'Belt')).toEqual({ label: 'Belt', value: 'Anarchy', note: 'Since Tue, Oct 6, 2026' });
+        expect(card.description).toBe('WD-40: 1,234 matches, 5,678 kills, last match 2026-10-07. Anarchy champion since Tue, Oct 6, 2026, 3 defenses.');
+        const two = pilotCard(summary, ranked, null, honours([reign('ANARCHY', 'Anarchy'), reign('CTF', 'CTF')], []));
+        expect(stat(two, 'Belts')).toEqual({ label: 'Belts', value: '2', note: 'Anarchy, CTF' });
+        // all four: a count, so no mode is cut from the tile
+        const four = pilotCard(summary, ranked, null, honours([reign('ANARCHY', 'Anarchy'), reign('TEAM ANARCHY', 'Team Anarchy'), reign('CTF', 'CTF'), reign('MONSTERBALL', 'Monsterball')], []));
+        expect(stat(four, 'Belts')).toEqual({ label: 'Belts', value: '4', note: 'Anarchy, Team Anarchy, CTF, Monsterball' });
+    });
+
+    it('shows the tiers earned instead for a pilot who holds no belt, and nothing for none', () => {
+        const card = pilotCard(summary, ranked, null, honours([reign('ANARCHY', 'Anarchy', '2026-10-07')], [1, 2, 3]));
+        expect(stat(card, 'Achievements')).toEqual({ label: 'Achievements', value: '6', note: `of ${ACHIEVEMENTS.length * TIERS.length} tiers` });
+        expect(card.description).toBe('WD-40: 1,234 matches, 5,678 kills, last match 2026-10-07.');
+        expect(pilotCard(summary, ranked, null, honours([], [])).stats.map(s => s.label)).toEqual(['Matches', 'Kills', 'Rating']);
+    });
+});
+
+describe('beltsCard', () => {
+    const holder = (name, defenses) => ({ name, since: '2026-10-06', days: 4, defenses });
+    const belts = { modes: [
+        { mode: 'ANARCHY', label: 'Anarchy', holder: holder('B2AF', 0) },
+        { mode: 'TEAM ANARCHY', label: 'Team Anarchy', holder: holder('INSANER', 1) },
+        { mode: 'CTF', label: 'CTF', holder: null },
+        { mode: 'MONSTERBALL', label: 'Monsterball', holder: null }
+    ] };
+
+    it('shows a tile per mode with a champion, and describes them', () => {
+        const card = beltsCard(belts);
+        expect(card).toMatchObject({ path: '/belts', kind: 'Belts', title: 'Champions' });
+        expect(card.stats).toEqual([
+            { label: 'Anarchy', value: 'B2AF', note: '4 days, 0 defenses' },
+            { label: 'Team Anarchy', value: 'INSANER', note: '4 days, 1 defense' }
+        ]);
+        expect(card.description).toBe('Champions: Anarchy B2AF (since 2026-10-06, 0 defenses), Team Anarchy INSANER (since 2026-10-06, 1 defense).');
+    });
+
+    it('is null while no mode has a champion', () => {
+        expect(beltsCard({ modes: belts.modes.map(m => ({ ...m, holder: null })) })).toBeNull();
     });
 });
 

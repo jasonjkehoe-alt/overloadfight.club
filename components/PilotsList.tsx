@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { BrowserApiResponse, GameData } from '../types';
-import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X, Users, Swords, Network } from 'lucide-react';
+import { User, Calendar, Filter, Trophy, TrendingUp, Skull, Info, Search, X, Users, Swords, Network, Award } from 'lucide-react';
 import { Loading, EmptyState, ErrorState } from './States';
 import Link, { LinkCell } from './Link';
 import SortHeader from './SortHeader';
+import BeltMark from './BeltMark';
 import Pager, { usePage } from './Pager';
 import { useQueryParam, useQueryText } from '../hooks/useLocation';
 import { urlFor } from '../server/lib/siteRoutes.js';
@@ -269,6 +270,9 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                 </Link>
                 <Link to={urlFor('rivals')} className="px-4 py-3 font-mono text-sm font-bold text-gray-400 hover:text-brand flex items-center gap-2 whitespace-nowrap">
                     <Network size={14} className="text-brand" aria-hidden /> RIVALRIES
+                </Link>
+                <Link to={urlFor('belts')} className="px-4 py-3 font-mono text-sm font-bold text-gray-400 hover:text-brand flex items-center gap-2 whitespace-nowrap">
+                    <Award size={14} className="text-brand" aria-hidden /> BELTS
                 </Link>
             </div>
 
@@ -544,6 +548,7 @@ const PilotsList: React.FC<PilotsListProps> = ({ activeGames, archivedGames }) =
                                                 <LinkCell main to={url} className="p-3 flex items-center gap-2 font-bold text-white hover:text-brand">
                                                     <User size={14} className="text-gray-600" aria-hidden />
                                                     {pilot.name}
+                                                    <BeltMark name={pilot.name} />
                                                 </LinkCell>
                                                 <LinkCell to={url} className="p-3 text-right text-gray-400">{pilot.games.toLocaleString()}</LinkCell>
                                                 <LinkCell to={url} className="p-3 text-right font-bold text-gray-200">{Math.max(0, pilot.kills).toLocaleString()}</LinkCell>

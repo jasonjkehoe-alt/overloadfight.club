@@ -471,7 +471,7 @@ export function rivalPass() {
 }
 
 // The derived tables (rating_snapshots, pilot_months, region_months and the
-// S16 and S17 tables) in tracker.db: built by the worker on every refresh and brought
+// S16 to S21 tables) in tracker.db: built by the worker on every refresh and brought
 // in line by server/statsWorker.js tableChanges and analytics/refresh.js
 // writeChanges. One list, so the schema (migrations.js), the restore, the
 // startup check, the worker and the write step agree: `columns` with their
@@ -491,7 +491,11 @@ export const DERIVED_TABLES = {
     pilot_objectives: { columns: ['pilot TEXT', 'mode TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER', 'assists INTEGER', 'goals INTEGER', 'goal_assists INTEGER', 'blunders INTEGER', 'captures INTEGER', 'returns INTEGER', 'pickups INTEGER', 'carrier_kills INTEGER'], pass: 'pilots', rows: p => p.pilots.objectives(), log: ['Objectives', 'objective rows'] },
     pilot_rivals: { columns: ['pilot TEXT', 'opponent TEXT', 'name TEXT', 'opponent_name TEXT', 'matches INTEGER', 'kills INTEGER', 'deaths INTEGER', 'damage_dealt INTEGER', 'damage_taken INTEGER'], pass: 'rivals', rows: p => p.rivals.pairs(), log: ['Rivals', 'rival pairs'] },
     pilot_clutch: { columns: ['pilot TEXT', 'kind TEXT', 'name TEXT', 'matches INTEGER', 'first_bloods INTEGER', 'kills INTEGER', 'late_kills INTEGER', 'trailing_kills INTEGER'], pass: 'rivals', rows: p => p.rivals.clutch(), log: ['Clutch', 'clutch rows'] },
-    pilot_bouts: { columns: ['pilot TEXT', 'opponent TEXT', 'mode TEXT', 'map TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'logged INTEGER', 'kills INTEGER', 'deaths INTEGER', 'damage_dealt REAL', 'damage_taken REAL'], key: 4, pass: 'rivals', rows: p => p.rivals.bouts(), log: ['Bouts', 'bout rows'] }
+    pilot_bouts: { columns: ['pilot TEXT', 'opponent TEXT', 'mode TEXT', 'map TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'logged INTEGER', 'kills INTEGER', 'deaths INTEGER', 'damage_dealt REAL', 'damage_taken REAL'], key: 4, pass: 'rivals', rows: p => p.rivals.bouts(), log: ['Bouts', 'bout rows'] },
+    // S21 (achievementPass.js): `since` and `until` are match dates, `until`
+    // '' and `lost_game` 0 while the reign lasts; `earned` is a fight-night day
+    belt_reigns: { columns: ['mode TEXT', 'reign INTEGER', 'pilot TEXT', 'name TEXT', 'since TEXT', 'game INTEGER', 'defenses INTEGER', 'until TEXT', 'lost_game INTEGER'], pass: 'achievements', rows: p => p.achievements.reigns(), log: ['Belts', 'belt reigns'] },
+    pilot_achievements: { columns: ['pilot TEXT', 'achievement TEXT', 'name TEXT', 'value INTEGER', 'tier INTEGER', 'earned TEXT', 'game INTEGER'], pass: 'achievements', rows: p => p.achievements.achievements(), log: ['Achievements', 'pilot achievements'] }
 };
 // A derived table's column names, in table order.
 export const derivedColumns = table => DERIVED_TABLES[table].columns.map(c => c.split(' ')[0]);

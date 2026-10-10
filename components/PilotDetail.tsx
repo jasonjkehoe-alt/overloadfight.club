@@ -7,8 +7,10 @@ import CareerCard from './pilotDetail/CareerCard';
 import WeaponMix from './pilotDetail/WeaponMix';
 import KillLogRivalry from './pilotDetail/KillLogRivalry';
 import TapeOpponents from './pilotDetail/TapeOpponents';
+import AchievementsCard from './pilotDetail/AchievementsCard';
+import BeltMark from './BeltMark';
 import { useLoad } from '../hooks/useLoad';
-import { fetchPilotCareer, fetchPilotOpponents, fetchPilotRating, fetchPilotRivalry, fetchPilotWeaponMix } from '../services/apiService';
+import { fetchPilotAchievements, fetchPilotCareer, fetchPilotOpponents, fetchPilotRating, fetchPilotRivalry, fetchPilotWeaponMix } from '../services/apiService';
 import { colors } from '../designTokens.js';
 import { Loading, EmptyState, ErrorState } from './States';
 import { LinkCell } from './Link';
@@ -124,6 +126,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
     const weaponMix = useLoad(() => fetchPilotWeaponMix(pilotName), [pilotName]);
     const rivalry = useLoad(() => fetchPilotRivalry(pilotName), [pilotName]);
     const opponents = useLoad(() => fetchPilotOpponents(pilotName), [pilotName]);
+    const achievements = useLoad(() => fetchPilotAchievements(pilotName), [pilotName]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -222,7 +225,7 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                                 <span className="text-2xs font-mono text-gray-400 uppercase tracking-wider font-semibold">PILOT</span>
                             </div>
                         </div>
-                        <h2 className="text-3xl font-bold text-white mb-2 text-center tracking-tight break-all">{pilotName}</h2>
+                        <h2 className="text-3xl font-bold text-white mb-2 text-center tracking-tight break-all">{pilotName}<BeltMark name={pilotName} size={20} /></h2>
                         <div className="text-brand font-mono text-xs uppercase tracking-[0.2em] mb-6">Overload Pilot</div>
 
                         <div className="text-gray-500 text-xs font-mono mb-6">
@@ -372,6 +375,8 @@ const PilotDetail: React.FC<PilotDetailProps> = ({ pilotName, onBack }) => {
                             <PilotPerformanceCard pilotName={pilotName} />
 
                             <RatingCard load={rating} />
+
+                            <AchievementsCard load={achievements} />
 
                             {/* Arsenal Breakdown & Weapon Mastery */}
                             {((stats.weapons && stats.weapons.length > 0) || (stats.damage_taken_weapons && stats.damage_taken_weapons.length > 0)) && (

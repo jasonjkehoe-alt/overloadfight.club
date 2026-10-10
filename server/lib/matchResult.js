@@ -96,3 +96,10 @@ export function boutLead([a, b], { matches, wins, losses, ties }) {
     if (wins === losses) return `Level at ${wins}–${losses}${tied}`;
     return wins > losses ? `${a} leads ${wins}–${losses}${tied}` : `${b} leads ${losses}–${wins}${tied}`;
 }
+
+// A champion's reign, the belt pages' words and the share cards' (S21):
+// "Anarchy champion since Wed, Oct 7, 2026, 3 defenses".
+export const championLine = ({ label, since, defenses }) => `${label} champion since ${dayLabel(since)}, ${plural(defenses, 'defense', 'defenses')}`;
+// How a belt changed hands (the recap's "New champion"): "Anarchy: WD-40
+// took the belt from OKSTER", or "Anarchy: WD-40, the first champion".
+export const beltChange = ({ label, name, from }) => (from ? `${label}: ${name} took the belt from ${from.name}` : `${label}: ${name}, the first champion`);

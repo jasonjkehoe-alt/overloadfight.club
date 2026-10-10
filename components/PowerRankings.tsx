@@ -6,6 +6,7 @@ import { urlFor } from '../server/lib/siteRoutes.js';
 import { FIGHT_NIGHT_DAY_TEXT, RATING, RATING_HINT, RANKING_HINT, RD_HINT } from '../server/lib/gameParse.js';
 import { fetchPowerRankings } from '../services/apiService';
 import { useLoad } from '../hooks/useLoad';
+import BeltMark from './BeltMark';
 
 // Places gained or lost since a week earlier, NEW when not ranked then. The
 // arrow and the word carry it, so the colour is never the only cue.
@@ -71,7 +72,7 @@ const PowerRankings: React.FC = () => {
                                         <tr key={pilot.pilot} className="hover:bg-surface-raised transition-colors">
                                             <LinkCell to={url} className="p-3 text-center text-gray-400 font-bold">{pilot.rank}</LinkCell>
                                             <LinkCell to={url} className="p-3 text-center text-xs"><Movement change={pilot.change} /></LinkCell>
-                                            <LinkCell main to={url} className="p-3 font-bold text-white hover:text-brand">{pilot.name}</LinkCell>
+                                            <LinkCell main to={url} className="p-3 font-bold text-white hover:text-brand">{pilot.name}<BeltMark name={pilot.name} /></LinkCell>
                                             <LinkCell to={url} className="p-3 text-right font-bold text-brand">{Math.round(pilot.rating)}</LinkCell>
                                             <LinkCell to={url} cellClassName="hidden sm:table-cell" className="p-3 text-right text-gray-400">{Math.round(pilot.rd)}</LinkCell>
                                             <LinkCell to={url} className="p-3 text-right text-gray-300">{pilot.matches.toLocaleString()}</LinkCell>

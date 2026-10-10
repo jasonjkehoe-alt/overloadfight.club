@@ -1,20 +1,20 @@
 // The <title> and share-preview tags (og:title, og:description, og:url and,
 // for a page with a share card, og:image) for a page URL. index.js fills them
 // into index.html for every page it serves, so a link pasted into Discord
-// previews the pilot, match, fight night, map or tape it opens.
+// previews the pilot, match, fight night, map, tape or belts it opens.
 import fs from 'fs';
 import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
 import { SERVER_WINDOW_DEFAULT, tapeMode } from './lib/gameParse.js';
 import { regionLabel } from './lib/serverRegions.js';
 import { count, percent } from './lib/matchResult.js';
-import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard, tapeCard } from './lib/shareCards.js';
+import { beltsCard, cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard, tapeCard } from './lib/shareCards.js';
 import { CARD_SIZE } from './lib/cardLayout.js';
 import { cardFailed } from './services/cardService.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
-// The pilot, match, fight-night, map and tape pages describe themselves with
+// The pilot, match, fight-night, map, tape and belts pages describe themselves with
 // their share card's own sentence (shareCards.js), so the preview's text and its
 // image read the same numbers.
 const withCard = (card, extra = {}) => (card ? { ...extra, card, description: card.description } : {});
@@ -23,7 +23,7 @@ const withCard = (card, extra = {}) => (card ? { ...extra, card, description: ca
 function pilotMeta(name) {
     const summary = db.getPilotSummary(name);
     if (!summary) return {};
-    return withCard(pilotCard(summary, db.getPilotRating(summary.name), db.getPilotPPI(summary.name)));
+    return withCard(pilotCard(summary, db.getPilotRating(summary.name), db.getPilotPPI(summary.name), db.getPilotAchievements(summary.name)));
 }
 
 // "BLUE wins 42–35. TEAM ANARCHY on Vault, 15:10." The name is the map, for the title.
@@ -78,6 +78,10 @@ function laddersMeta(board) {
     return { description: `Duel ladder for ${day}: ${top}.` };
 }
 
+// "Champions: Anarchy WD-40 (since 2026-10-06, 3 defenses), ..." (S21);
+// nothing while no mode has a champion.
+const beltsMeta = () => withCard(beltsCard(db.getBelts()));
+
 // "Rivalries from the kill log: FUTZPIMMEL 41-21 BADASS (3 matches), ..." for the
 // three pairs with the most kills exchanged (each read from the leader's side).
 function rivalsMeta() {
@@ -114,6 +118,7 @@ function routeMeta({ view, param, other }, query) {
         case 'rankings': return rankingsMeta();
         case 'ladders': return laddersMeta(query.get('board'));
         case 'rivals': return rivalsMeta();
+        case 'belts': return beltsMeta();
         case 'live-game-detail': return { name: db.getServerListing(param)?.name, description: `Live Overload match. Join at ${param}.` };
         case 'server': return serverMeta(param);
         default: return {};
@@ -123,7 +128,7 @@ function routeMeta({ view, param, other }, query) {
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
 // The views with a share card.
-const CARD_VIEWS = new Set(['pilot', 'game-detail', 'fight-night', 'maps', 'tape']);
+const CARD_VIEWS = new Set(['pilot', 'game-detail', 'fight-night', 'maps', 'tape', 'belts']);
 
 /**
  * The share card of the page at `pathname` with `query` (a tape's ?mode=), or

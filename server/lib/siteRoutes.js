@@ -23,6 +23,7 @@ const ROUTES = [
     { view: 'ladders', path: '/ladders', title: 'Ladders', section: 'pilots' },
     // /tape without its two pilots opens the rivalries
     { view: 'rivals', path: '/rivals', aliases: ['/tape'], title: 'Rivalries', section: 'pilots' },
+    { view: 'belts', path: '/belts', title: 'Belts', section: 'pilots' },
     { view: 'pilot-manager', path: '/pilot', title: 'Pilot settings' },
     // detail pages: always a parameter; without one they fall back to `bare`
     { view: 'pilot', path: '/pilot', param: true, bare: 'pilot-manager' },

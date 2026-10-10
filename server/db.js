@@ -46,6 +46,7 @@ import { clearServerSummaries, getServerHistory, getServerSummary, getRegionShar
 import { clearDerivedCaches, clearDerivedTablesBuilt, derivedTablesBuilt, getDuelLadder, getObjectiveBoards, getPilotWeaponMix, getSpecialists, getWeaponMeta } from './db/analytics/meta.js';
 import { getPilotRivalry, getRivalNetwork } from './db/analytics/rivals.js';
 import { getPilotOpponents, getTape } from './db/analytics/tape.js';
+import { getBeltChanges, getBelts, getPilotAchievements } from './db/analytics/belts.js';
 import { refreshPilotStats, refreshInProgress, stopStatsWorker, getColdStorageStats } from './db/analytics/refresh.js';
 
 export { backupsDir, mapsDir, mapImagesDir } from './db/connection.js';
@@ -242,6 +243,11 @@ const db = {
   // analytics/tape.js
   getTape,
   getPilotOpponents,
+
+  // analytics/belts.js
+  getBelts,
+  getPilotAchievements,
+  getBeltChanges,
 
   // analytics/refresh.js
   refreshPilotStats,

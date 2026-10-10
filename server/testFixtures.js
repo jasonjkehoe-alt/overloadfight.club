@@ -25,6 +25,8 @@ export const day = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10
 const shift = Date.parse(`${day}T00:00:00Z`) - Date.parse('2025-11-24T00:00:00Z');
 const moved = iso => new Date(Date.parse(iso) + shift).toISOString();
 export const onDay = game => ({ ...game, date: moved(game.date), settings: { ...game.settings, start: moved(game.settings.start) } });
+// A game moved to `date`, its start moved with it so it keeps its length (S21).
+export const movedTo = (game, date) => ({ ...game, date, settings: { ...game.settings, start: new Date(Date.parse(game.settings.start) + Date.parse(date) - Date.parse(game.date)).toISOString() } });
 
 // The samples carry no kill logs (the detail sample has one suicide), so the
 // kill-log tests use fixture games with a log written to reproduce their

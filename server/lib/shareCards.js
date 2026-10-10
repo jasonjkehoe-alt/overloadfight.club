@@ -4,8 +4,8 @@
 // returns null when there is nothing to show; the rules are gameParse.js's and
 // the words matchResult.js's. cardLayout.js draws the object.
 import { createHash } from 'node:crypto';
-import { VERDICT_LABEL, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
-import { boutLead, clock, count, dayLabel, modeLabel, noBouts, plural, rankedMatches, ratingStanding, recordText, resultLine } from './matchResult.js';
+import { TIER_TOTAL, VERDICT_LABEL, tiersEarned, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
+import { boutLead, championLine, clock, count, dayLabel, modeLabel, noBouts, plural, rankedMatches, ratingStanding, recordText, resultLine } from './matchResult.js';
 import { urlFor } from './siteRoutes.js';
 import { CARD_LAYOUT } from './cardLayout.js';
 
@@ -18,13 +18,15 @@ import { CARD_LAYOUT } from './cardLayout.js';
 
 /**
  * A pilot: matches and kills (counted from every match), the rating and where
- * it stands, the career Combat Ratio and the last match's day.
+ * it stands, the career Combat Ratio, the last match's day and (S21) the
+ * belts they hold, or else the achievement tiers they have earned.
  * @param {object} summary db.getPilotSummary
  * @param {object} rating db.getPilotRating
  * @param {object | null} cached db.getPilotPPI, the pilot_stats_cache row
+ * @param {object} [honours] db.getPilotAchievements
  * @returns {Card}
  */
-export function pilotCard(summary, rating, cached) {
+export function pilotCard(summary, rating, cached, honours) {
     // null for a date that does not parse
     const last = fightNightDay(summary.lastSeen);
     const stats = [
@@ -34,6 +36,13 @@ export function pilotCard(summary, rating, cached) {
     if (rating?.matches > 0) stats.push({ label: 'Rating', value: String(Math.round(rating.rating)), note: ratingStanding(rating) });
     // the profile's Combat Ratio card: the career number from the stats cache
     if (cached?.kda != null) stats.push({ label: 'Combat Ratio', value: Math.max(0, cached.kda).toFixed(2) });
+    const held = honours?.belts.filter(b => !b.until) ?? [];
+    const tiers = honours ? tiersEarned(honours.achievements) : 0;
+    // two or more belts as a count, the modes in the note, so four fit a tile
+    if (held.length === 1) stats.push({ label: 'Belt', value: held[0].label, note: `Since ${dayLabel(held[0].since)}` });
+    else if (held.length > 1) stats.push({ label: 'Belts', value: count(held.length), note: held.map(b => b.label).join(', ') });
+    else if (tiers > 0) stats.push({ label: 'Achievements', value: count(tiers), note: `of ${TIER_TOTAL} tiers` });
+    const belts = held.map(b => ` ${championLine(b)}.`).join('');
     return {
         // the stored name, so every spelling the lookup accepts shares one card
         path: urlFor('pilot', summary.name),
@@ -41,7 +50,7 @@ export function pilotCard(summary, rating, cached) {
         title: summary.name,
         line: last ? `Last match ${dayLabel(last)}` : '',
         stats,
-        description: `${summary.name}: ${plural(summary.games, 'match', 'matches')}, ${plural(summary.kills, 'kill', 'kills')}${last ? `, last match ${last}` : ''}.`
+        description: `${summary.name}: ${plural(summary.games, 'match', 'matches')}, ${plural(summary.kills, 'kill', 'kills')}${last ? `, last match ${last}` : ''}.${belts}`
     };
 }
 
@@ -164,6 +173,25 @@ export function tapeCard({ pilots: [a, b], mode, record, logged, duels }) {
         line: lead ? `${lead} in ${scope}.` : `${noBouts(mode)}.`,
         stats: stats.filter(Boolean),
         description: `${a.name} vs ${b.name}: ${lead ? `${lead} in ${scope}${kills ? `, ${kills}` : ''}` : noBouts(mode, 'no')}.`
+    };
+}
+
+/**
+ * The belts (S21): each mode's champion, held since when and how many
+ * defenses; null while no mode has one.
+ * @param {object} belts db.getBelts
+ * @returns {Card | null}
+ */
+export function beltsCard({ modes }) {
+    const held = modes.filter(m => m.holder);
+    if (held.length === 0) return null;
+    return {
+        path: urlFor('belts'),
+        kind: 'Belts',
+        title: 'Champions',
+        line: 'One belt per mode, held until the champion loses.',
+        stats: held.map(({ label, holder }) => ({ label, value: holder.name, note: `${plural(holder.days, 'day', 'days')}, ${plural(holder.defenses, 'defense', 'defenses')}` })),
+        description: `Champions: ${held.map(({ label, holder }) => `${label} ${holder.name} (since ${holder.since}, ${plural(holder.defenses, 'defense', 'defenses')})`).join(', ')}.`
     };
 }
 
