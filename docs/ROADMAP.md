@@ -3450,7 +3450,115 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          grid; the dashboard, fight night, leaderboard, rankings, ladders,
          rivalries, pilot pages, maps, match page and admin page still
          work, and the S19 cards still draw.
-- [ ] **S21 Belts and achievements** (M).
+- [ ] **S21 Belts and achievements** (M). The owner decided at the start
+      of S21: a belt is lineal, one per mode (`MATCH_MODES`: Anarchy, Team
+      Anarchy, CTF, Monsterball), decided match by match over every rated
+      match since the first stored one; achievements are milestones,
+      kill-log feats, belts and Boss Slayer, and streaks and the
+      anniversary, from every stored match, each in three tiers (bronze,
+      silver, gold); they show on the pilot page, a new `/belts` view, a
+      belt mark beside the holder's name on the rankings, the ladders, the
+      leaderboard and the tape's corners, and the share cards (the pilot
+      card gains a tile, `/belts` gets a card); a belt that changes hands
+      shows as NEW CHAMPION in the S18 recap embed; a pilot sees every
+      achievement, the ones not yet earned greyed with their progress, and
+      nothing about belts until they hold one. Done when (written at the
+      start of S21):
+      1. `server/lib/gameParse.js` owns the rules, each tested on fixture
+         games. The belt (`beltMatch`, `beltReigns`): a rated match
+         (`ratingSides`) in a `MATCH_MODES` mode; the first one in a mode
+         with an outright winner crowns the winning side's top scorer (the
+         pilot in FFA, the team's highest in-game score in a team game,
+         ties by listing order); after that the holder keeps the belt
+         through any match they do not play, a match their side wins or
+         draws at the top is a defense, and a match another side wins
+         outright passes the belt to that side's top scorer; a match the
+         holder loses with the top shared changes nothing. Every reign has
+         its holder, the match and day it started, its defenses and the
+         match and day it ended. The achievements (`ACHIEVEMENTS`, each an
+         id, a name, what it counts and three tier thresholds; `tierOf`):
+         milestones (ranked matches, kills, wins, fight-night days played,
+         by the career cards' rules: `rankedMatch`, `netKills`,
+         `outcomeOf`, `fightNightDay`); kill-log feats (first bloods, kills
+         in the last 60 s and kills while trailing, from `clutchOf`, and
+         the best kill streak in one match from a new `killStreaksOf`:
+         kills on opponents by `killPoints` without dying in between); the
+         belt (belts won, title defenses, and Boss Slayer: rated matches
+         whose side outscored the reigning champion of that mode); streaks
+         (the most ranked wins in a row, a tie or loss ending one, and the
+         most duel wins in a row over `duelMatch` duels) and the
+         anniversary (whole years since the pilot's first stored match).
+         An achievement's tier is earned on the match (and day) whose
+         count first passes the threshold.
+      2. The stats worker builds, in the same scan, two derived tables
+         joined to `DERIVED_TABLES` (so the schema, the restore, the
+         built marker and the write step pick them up), each with a
+         migration decision entry: `belt_reigns(mode, reign, pilot, name,
+         since, game, defenses, until, lost_game)` and
+         `pilot_achievements(pilot, achievement, name, value, tier, earned,
+         game)`, one row per pilot and achievement with a count above 0.
+         Tested on fixture data: each pilot's milestones equal their
+         `pilot_stats_cache` row (matches, kills, wins) and their months'
+         days; the kill-log feats equal their `pilot_clutch` rows summed;
+         the reigns chain (each one's end is the next one's start, the
+         holder's defenses are the matches they kept it through); Boss
+         Slayer counts the bouts won against the holder.
+      3. New endpoints, reads in a new `server/db/analytics/belts.js` with
+         `db` keys, read through `apiService` (null on failure) and
+         `useLoad`, no route cache: `GET /api/stats/belts` (each mode's
+         holder with the day and match it was won, from whom, days held and
+         defenses; the mode's last reigns; how many pilots hold each tier of
+         each achievement) and `GET /api/pilot/:name/achievements` (the
+         belts the pilot holds and has held, and every achievement with its
+         count, tier, day and match earned and the next threshold; zeros
+         for a pilot with none, a 200 for an unknown pilot). The existing
+         endpoints answer as before and no request walks the stored
+         matches.
+      4. A `/belts` view (route, title "Belts" and the pilots nav section
+         in `siteRoutes.js`, a share description in `pageMeta.js`, lazy in
+         `App.tsx`, linked from the leaderboard's tab bar beside Power
+         rankings, Ladders and Rivalries): a card per mode with the
+         champion (linked), held since, days held, defenses and who they
+         took it from in which match, or "Vacant" before a mode's first
+         decisive match; each mode's line of holders as a table; and the
+         achievements with their tiers and how many pilots hold each.
+         Shared states; 390 px wide at 390 px; no Recharts.
+      5. The pilot page gets a "Belts and achievements" card loaded beside
+         the rating, career and rivalry: the belts the pilot holds (mode,
+         since, defenses) and has held, then every achievement, earned ones
+         with their tier, the day and a link to the match, the rest greyed
+         with progress to the next tier ("63 of 100 ranked matches"); the
+         shared states. A pilot who never held a belt sees no belt line.
+      6. A belt mark (an icon with the mode in its title and in
+         screen-reader text) beside a current holder's name on
+         `/rankings`, both ladders boards, the leaderboard, the tape's
+         corners and the pilot page's header, from one request per page
+         load (`/api/stats/belts`) shared by every mark.
+      7. Share cards: the pilot card gains a tile (the belt for a holder,
+         else the tiers earned), drawn in S19's layout (five tiles where
+         four fitted; `CARD_LAYOUT` raised, so every card gets a new key);
+         `/belts` gets a card (`beltsCard` in `shareCards.js`, one tile per
+         mode with a holder) at `/api/card/belts`, in `CARD_VIEWS`, built
+         from the same object as the page's `og:description`; no holder
+         anywhere gives no card and the site description.
+      8. The S18 recap embed gains a "New champion" field naming each belt
+         that changed hands on the night (mode, the new holder and who
+         lost it, or the first champion), read in `discordService.js`
+         after the stats refresh the recap already waits for, so
+         `discordMessages.js` still reads no database; tested on fixture
+         data against `belt_reigns`.
+      9. Charts stay out of the entry chunk and the dashboard's first visit
+         loads no Recharts chunk; the entry, `PilotDetail`, `PilotsList`,
+         `PowerRankings`, `Ladders`, `Tape` and the new view's chunk are
+         recorded before and after.
+      10. Checked with curl against the local server (`/belts`' and a
+         pilot's share tags and both cards, looked at) and in headless
+         Chrome at 1,280 and 390 px: `/belts` and the pilot page's card on
+         local data plus Fetch-domain mocks for loading, failure, empty and
+         full answers; the belt marks; the dashboard, fight night,
+         leaderboard, rankings, ladders, rivalries, a tape, pilot pages,
+         maps, match page and admin page still work, and the S19 and S20
+         cards still draw.
 - [ ] **S22 Fight-night schedule and iCal** (S). Events table, `.ics` feed,
       dashboard countdown; remove the calendar iframe.
 - [ ] **S23 Maps and hosts** (S). Map of the week, `/author/:name`, nightly
