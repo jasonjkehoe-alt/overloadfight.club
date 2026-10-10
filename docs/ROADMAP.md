@@ -259,6 +259,8 @@ maintenance item does not count toward the 28.
   index on `belt_reigns`, slimmer kept sides, a shared spelling helper
   and a shared totals helper with `pilotPass`, the pilot page's mark fed
   from its own answer (see the flags).
+- S21, CI on PR #22 at `2bc89a0`: `check` (tsc, vite build, vitest) passed
+  in 58 s and `build` (the Docker image) in 1 min 30 s.
 - S21, sizes on Node 26.11.1 at the end, against a build of `origin/main`
   in a scratch worktree: entry 234.10 to 234.57 KB raw, 75.04 to 75.21 KB
   gzip (the route row and the two fetchers); `PilotDetail` 52.02 / 13.47
@@ -8135,7 +8137,7 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   folded the test-only `beltReigns` into the pass and gave the card one
   sizing rule by tile count. 33 of 33 mutants fail a test. Chrome: 134 of
   140, the failures map-image 404s from overloadmaps.com, now including
-  SWAT. PR #22 opened against `main`, not merged.
+  SWAT. PR #22 opened against `main`, CI green on both jobs, not merged.
 
 ## Next session prompt
 
