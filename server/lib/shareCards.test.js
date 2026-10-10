@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { byId } from '../testFixtures.js';
 import { RATING, fightNightDay, measuredDurationOf, verdictOf, winnerOf } from './gameParse.js';
 import { dayLabel } from './matchResult.js';
-import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard } from './shareCards.js';
+import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard, tapeCard } from './shareCards.js';
 
 const stat = (card, label) => card.stats.find(s => s.label === label);
 const recap = { date: '2026-10-06', formattedDate: 'Tuesday, October 6, 2026', totalMatches: 18, totalPilots: 11, totalFrags: 1102, topFragger: { name: 'WD-40', kills: 237 } };
@@ -172,5 +172,38 @@ describe('cardKey and cardUrl', () => {
         const next = await import('./shareCards.js');
         vi.doUnmock('./cardLayout.js');
         expect(next.cardKey(fightNightCard(recap))).not.toBe(cardKey(fightNightCard(recap)));
+    });
+});
+
+describe('tapeCard (S20)', () => {
+    const corner = (name, rating, career) => ({ key: name.toLowerCase(), name, career, rating: { rating, rd: 50, matches: rating ? 30 : 0, status: rating ? 'ranked' : null, rank: rating ? 3 : null } });
+    const career = (matches, winRate, ratio) => ({ matches, wins: 0, losses: 0, ties: 0, win_rate: winRate, combat_ratio: ratio, lethality: 1 });
+    const tape = {
+        pilots: [corner('WD-40', 1612.4, career(120, 52.5, 1.234)), corner('OKSTER', 1580.6, career(80, 48, 0.9))],
+        mode: null,
+        record: { matches: 9, wins: 3, losses: 5, ties: 1 },
+        logged: { matches: 2, kills: 14, deaths: 9, damage_dealt: 900, damage_taken: 700 },
+        duels: { wins: 1, losses: 3, ties: 1, last: '2026-10-01T02:00:00.000Z' }
+    };
+
+    it('reads the record, the logged kills, the duels and the ratings as A–B tiles', () => {
+        const card = tapeCard(tape);
+        expect(card).toMatchObject({ path: '/tape/WD-40/OKSTER', kind: 'Tale of the Tape', title: 'WD-40 vs OKSTER', line: 'OKSTER leads 5–3, 1 tie in 9 ranked matches.' });
+        expect(card.stats.map(s => `${s.label}=${s.value}`)).toEqual(['Record=3–5–1', 'Kills=14–9', '1v1 duels=1–3–1', 'Rating=1612–1581']);
+        expect(card.description).toBe('WD-40 vs OKSTER: OKSTER leads 5–3, 1 tie in 9 ranked matches, kills 14–9 in 2 logged matches.');
+    });
+
+    it('leaves out the kills without a logged match and the duels without a duel, and names the mode', () => {
+        const card = tapeCard({ ...tape, mode: 'TEAM ANARCHY', logged: { ...tape.logged, matches: 0, kills: 0, deaths: 0 }, duels: null });
+        expect(card.stats.map(s => s.label)).toEqual(['Record', 'Rating']);
+        expect(card).toMatchObject({ path: '/tape/WD-40/OKSTER?mode=TEAM%20ANARCHY', kind: 'Tale of the Tape, Team Anarchy', line: 'OKSTER leads 5–3, 1 tie in 9 ranked Team Anarchy matches.' });
+        expect(cardUrl(card, 'abc')).toBe('/api/card/tape/WD-40/OKSTER?mode=TEAM%20ANARCHY&v=abc');
+    });
+
+    it('sets two careers side by side for pilots who never met, with a dash for what one lacks', () => {
+        const card = tapeCard({ ...tape, pilots: [tape.pilots[0], corner('ZERGLING', null, null)], record: { matches: 0, wins: 0, losses: 0, ties: 0 }, logged: { matches: 0, kills: 0, deaths: 0 }, duels: null });
+        expect(card.line).toBe('No ranked match between them yet.');
+        expect(card.description).toBe('WD-40 vs ZERGLING: no ranked match between them yet.');
+        expect(card.stats.map(s => `${s.label}=${s.value}`)).toEqual(['Rating=1612–—', 'Ranked matches=120–—', 'Combat Ratio=1.23–—', 'Win rate=52.5%–—']);
     });
 });

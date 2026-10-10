@@ -13,7 +13,7 @@ const OPPONENT = chart.label;
 // "Rivals from the kill log" (S17): the opponents with the most kills
 // exchanged, each a back-to-back bar (their kills on the pilot to the left,
 // the pilot's on them to the right, on one scale), with the matches and the
-// damage each way in words.
+// damage each way in words, and a link to the pair's tape (S20).
 const RivalBars: React.FC<{ name: string; data: PilotRivalry }> = ({ name, data }) => {
     const { opponents, totals } = data;
     const max = Math.max(1, ...opponents.flatMap(o => [o.kills, o.deaths]));
@@ -33,7 +33,10 @@ const RivalBars: React.FC<{ name: string; data: PilotRivalry }> = ({ name, data 
                     <li key={o.opponent} className="py-1.5">
                         <div className="flex items-baseline justify-between gap-2 text-xs">
                             <Link to={urlFor('pilot', o.opponent_name)} className="text-white font-bold hover:text-brand truncate">{o.opponent_name}</Link>
-                            <span className="text-gray-500 whitespace-nowrap">{o.matches.toLocaleString()} {o.matches === 1 ? 'match' : 'matches'}</span>
+                            <span className="text-gray-500 whitespace-nowrap">
+                                {o.matches.toLocaleString()} {o.matches === 1 ? 'match' : 'matches'}{' · '}
+                                <Link to={urlFor('tape', name, o.opponent_name)} className="text-brand hover:text-brand-hover underline" aria-label={`Tale of the tape: ${name} against ${o.opponent_name}`}>Tape</Link>
+                            </span>
                         </div>
                         <span className="sr-only">{name} killed {o.opponent_name} {o.kills} times and died to them {o.deaths} times.</span>
                         <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 text-xs tabular-nums" aria-hidden>

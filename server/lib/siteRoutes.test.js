@@ -47,6 +47,16 @@ describe('parseRoute and urlFor', () => {
         expect(parseRoute('/server')).toEqual({ view: 'dashboard' });
         expect(parseRoute('/pilot/%E0%A4%A')).toEqual({ view: 'pilot', param: '%E0%A4%A' });
     });
+
+    it('read and write the tape\'s two pilots in the order given, and send a tape short of one to the rivalries', () => {
+        expect(urlFor('tape', 'WD-40', 'a/b?c#d%')).toBe('/tape/WD-40/a%2Fb%3Fc%23d%25');
+        expect(parseRoute(urlFor('tape', 'WD-40', 'a/b?c#d%'))).toEqual({ view: 'tape', param: 'WD-40', other: 'a/b?c#d%' });
+        expect(parseRoute('/tape/OKSTER/WD-40')).toEqual({ view: 'tape', param: 'OKSTER', other: 'WD-40' });
+        expect(parseRoute('/tape/WD-40')).toEqual({ view: 'rivals' });
+        expect(parseRoute('/tape')).toEqual({ view: 'rivals' });
+        expect(urlFor('tape', 'WD-40')).toBe('/rivals');
+        expect(urlFor('tape')).toBe('/rivals');
+    });
 });
 
 describe('pageTitle', () => {
@@ -65,6 +75,7 @@ describe('pageTitle', () => {
         expect(pageTitle({ view: 'live-game-detail', param: '1.2.3.4' }, 'San Francisco 1')).toBe('Live: San Francisco 1 | overloadfight.club');
         expect(pageTitle({ view: 'server', param: '1.2.3.4' })).toBe('Server: 1.2.3.4 | overloadfight.club');
         expect(pageTitle({ view: 'server', param: '1.2.3.4' }, 'San Francisco 1')).toBe('Server: San Francisco 1 | overloadfight.club');
+        expect(pageTitle({ view: 'tape', param: 'WD-40', other: 'OKSTER' })).toBe('WD-40 vs OKSTER | overloadfight.club');
     });
 });
 
@@ -73,6 +84,7 @@ describe('navSection', () => {
         expect(navSection('rankings')).toBe('pilots');
         expect(navSection('ladders')).toBe('pilots');
         expect(navSection('rivals')).toBe('pilots');
+        expect(navSection('tape')).toBe('pilots');
         expect(navSection('server')).toBe('dashboard');
         expect(navSection('pilots')).toBe('pilots');
         expect(navSection('maps')).toBe('maps');

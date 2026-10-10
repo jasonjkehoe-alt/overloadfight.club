@@ -1154,3 +1154,38 @@ export function clutchOf(game) {
     // the first kill worth a point is firstBloodOf()'s
     return { team, firstBlood: kills[0]?.attacker ?? null, kills };
 }
+
+// The head-to-head bouts of a rated match (S20, the Tale of the Tape): every
+// pair of named pilots on different sides by ratingSides() (ranked, a result,
+// a team-game pilot without a team sitting out, a pilot listed twice once), so
+// a bout is a game of the rating's, each as { a, b, outcome }, a and b
+// pilotKey()s and `outcome` a's by the two sides' scores (equal scores a tie),
+// with the match's mode (matchModeOf) and map (mapKey, '' for none). Null when
+// the match is not rated.
+export function boutsOf(game) {
+    const sides = ratingSides(game);
+    if (!sides) return null;
+    const pairs = [];
+    for (let i = 0; i < sides.length; i++) {
+        for (let j = i + 1; j < sides.length; j++) {
+            const [x, y] = [sides[i], sides[j]];
+            const outcome = x.score > y.score ? 'win' : x.score < y.score ? 'loss' : 'tie';
+            for (const a of x.pilots) for (const b of y.pilots) pairs.push({ a: a.key, b: b.key, outcome });
+        }
+    }
+    return { mode: matchModeOf(game), map: mapKey(game) ?? '', pairs };
+}
+// The other pilot's outcome of a bout.
+export const OPPOSITE_OUTCOME = { win: 'loss', loss: 'win', tie: 'tie' };
+
+// The modes a page filters by: the pilot page's filter and the tape's switch
+// (each with an all-modes default of its own).
+export const MATCH_MODES = [
+    { id: 'ANARCHY', label: 'Anarchy' },
+    { id: 'TEAM ANARCHY', label: 'Team Anarchy' },
+    { id: 'CTF', label: 'CTF' },
+    { id: 'MONSTERBALL', label: 'Monsterball' }
+];
+// A tape's ?mode= value as a MATCH_MODES id, or null (every mode) for anything else.
+export const tapeMode = value => MATCH_MODES.find(m => m.id === String(value ?? '').toUpperCase())?.id ?? null;
+export const TAPE_HINT = `Head-to-head: ranked matches (${RATED_MATCH_TEXT}) the two played on different sides, each a win, loss or tie by their sides' scores. Kills and damage come only from ranked matches with a kill or damage log, a result or not, as on the kill-log rivals card.`;

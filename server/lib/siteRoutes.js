@@ -5,8 +5,9 @@
 export const SITE_NAME = 'overloadfight.club';
 
 // One row per view: its path, older paths that still open it, and the title of
-// the page without a parameter. A row with `param` takes /path/:param; a row
-// with `section` sits under that view's item in the header nav.
+// the page without a parameter. A row with `param` takes /path/:param, one
+// with `pair` too /path/:param/:other; a row with `section` sits under that
+// view's item in the header nav.
 const ROUTES = [
     { view: 'dashboard', path: '/', aliases: ['/dashboard'], title: 'Live' },
     { view: 'history', path: '/history', title: 'Match history' },
@@ -20,13 +21,16 @@ const ROUTES = [
     { view: 'pilots', path: '/pilots', title: 'Leaderboards' },
     { view: 'rankings', path: '/rankings', title: 'Power rankings', section: 'pilots' },
     { view: 'ladders', path: '/ladders', title: 'Ladders', section: 'pilots' },
-    { view: 'rivals', path: '/rivals', title: 'Rivalries', section: 'pilots' },
+    // /tape without its two pilots opens the rivalries
+    { view: 'rivals', path: '/rivals', aliases: ['/tape'], title: 'Rivalries', section: 'pilots' },
     { view: 'pilot-manager', path: '/pilot', title: 'Pilot settings' },
     // detail pages: always a parameter; without one they fall back to `bare`
     { view: 'pilot', path: '/pilot', param: true, bare: 'pilot-manager' },
     { view: 'game-detail', path: '/game', param: true, bare: 'history' },
     { view: 'live-game-detail', path: '/live', param: true, bare: 'dashboard' },
-    { view: 'server', path: '/server', param: true, bare: 'dashboard', section: 'dashboard' }
+    { view: 'server', path: '/server', param: true, bare: 'dashboard', section: 'dashboard' },
+    // the Tale of the Tape (S20): two pilots, in the order given
+    { view: 'tape', path: '/tape', param: true, pair: true, bare: 'rivals', section: 'pilots' }
 ];
 const byView = new Map(ROUTES.map(r => [r.view, r]));
 
@@ -39,12 +43,12 @@ const decode = part => {
 };
 
 /**
- * The view and its parameter for a URL path.
+ * The view and its parameters for a URL path (`other` for a `pair` row).
  * @param {string} pathname
- * @returns {{ view: string, param?: string | number }}
+ * @returns {{ view: string, param?: string | number, other?: string }}
  */
 export function parseRoute(pathname) {
-    const [first, second] = String(pathname).split('/').filter(Boolean);
+    const [first, second, third] = String(pathname).split('/').filter(Boolean);
     const base = first ? `/${first}` : '/';
     // a detail row first, so /pilot/:name is the pilot and /pilot alone the settings page
     const route = (second && ROUTES.find(r => r.bare && r.path === base))
@@ -54,32 +58,38 @@ export function parseRoute(pathname) {
         const id = parseInt(second, 10);
         return isNaN(id) ? { view: 'history' } : { view: route.view, param: id };
     }
+    if (route.pair) return second && third ? { view: route.view, param: decode(second), other: decode(third) } : { view: route.bare };
     return route.param && second ? { view: route.view, param: decode(second) } : { view: route.view };
 }
+
+const filled = value => value !== undefined && value !== null && value !== '';
 
 /**
  * The URL path of a view.
  * @param {string} view
  * @param {string | number} [param]
+ * @param {string} [other] the second parameter of a `pair` row
  * @returns {string}
  */
-export function urlFor(view, param) {
+export function urlFor(view, param, other) {
     const route = byView.get(view) || ROUTES[0];
-    const hasParam = route.param && param !== undefined && param !== null && param !== '';
+    const hasParam = route.param && filled(param) && (!route.pair || filled(other));
     if (route.bare && !hasParam) return urlFor(route.bare);
-    return hasParam ? `${route.path}/${encodeURIComponent(String(param))}` : route.path;
+    const path = hasParam ? `${route.path}/${encodeURIComponent(String(param))}` : route.path;
+    return hasParam && route.pair ? `${path}/${encodeURIComponent(String(other))}` : path;
 }
 
 /**
  * "<page> | overloadfight.club". `name` is what the page shows that the URL
  * may not: a match's map, a server's name.
- * @param {{ view: string, param?: string | number }} route
+ * @param {{ view: string, param?: string | number, other?: string }} route
  * @param {string} [name]
  * @returns {string}
  */
-export function pageTitle({ view, param }, name) {
+export function pageTitle({ view, param, other }, name) {
     let page = byView.get(view)?.title || '';
     if (view === 'pilot') page = String(param);
+    else if (view === 'tape') page = `${param} vs ${other}`;
     else if (view === 'maps' && param) page = `${param} map`;
     else if (view === 'fight-night' && param) page = `Fight Night ${param}`;
     else if (view === 'game-detail') page = `Match ${param}${name ? `: ${name}` : ''}`;

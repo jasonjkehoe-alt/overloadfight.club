@@ -4,7 +4,7 @@ import { CARD_LIMITS, CardBusy, cachedCard, renderCard } from '../services/cardS
 
 // The share cards (S19): GET /api/card/<page path> answers the PNG a page's
 // og:image points at, for the pages that have one (a pilot, a match, a fight
-// night, a map). The ?v= the page adds is the card's key: a card cached under
+// night, a map, a tape). The ?v= the page adds is the card's key: a card cached under
 // it is sent with no database read; otherwise the page's current card is
 // drawn, whatever the ?v= said.
 const router = express.Router();
@@ -19,7 +19,8 @@ router.get('/card/*', async (req, res) => {
     if (hit) return sendPng(res, hit, 0);
     let card;
     try {
-        card = pageCard(req.path.slice('/card'.length));
+        // the page's query as withPageMeta reads it (a tape's ?mode=)
+        card = pageCard(req.path.slice('/card'.length), new URLSearchParams(req.url.split('?')[1]));
     } catch (e) {
         console.error('[Card] Lookup failed:', e.message);
         return res.status(500).json({ error: 'Failed to read the card' });

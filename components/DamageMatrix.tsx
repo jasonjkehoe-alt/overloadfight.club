@@ -16,7 +16,8 @@ interface DamageMatrixProps {
 // The match's damage flow (S17): gameParse.js damageGrid() as dealer rows by
 // target columns, self-damage and teammates included as the tracker logged
 // them, each cell coloured by its share of the damage dealt to other pilots,
-// the diagonal (self-damage) left uncoloured, and each dealer's total.
+// the diagonal (self-damage) left uncoloured, and each dealer's total. A
+// cell between two opponents opens their tape, the dealer first (S20).
 const DamageMatrix: React.FC<DamageMatrixProps> = ({ game }) => {
   const grid = useMemo(() => damageGrid(game), [game]);
   if (!grid) return <EmptyState card icon={Activity} title="No damage log" message="The tracker did not keep a damage log for this match, so there is no damage to show." />;
@@ -29,14 +30,20 @@ const DamageMatrix: React.FC<DamageMatrixProps> = ({ game }) => {
     const v = dealt[i][j];
     const [from, to] = [pilots[i], pilots[j]];
     if (i === j) return { share: null, text: v > 0 ? round(v) : '–', title: `${from.name}: ${round(v)} self-damage` };
-    return { share: v > 0 && total > 0 ? v / total : null, text: v > 0 ? round(v) : '–', title: `${from.name} on ${to.name}${mate[i][j] ? ' (teammate)' : ''}: ${round(v)} damage, ${percent(total ? v / total : 0, 1)} of the match's damage to other pilots` };
+    return {
+      share: v > 0 && total > 0 ? v / total : null,
+      text: v > 0 ? round(v) : '–',
+      title: `${from.name} on ${to.name}${mate[i][j] ? ' (teammate)' : ''}: ${round(v)} damage, ${percent(total ? v / total : 0, 1)} of the match's damage to other pilots${mate[i][j] ? '' : '. Opens their tale of the tape'}.`,
+      // teammates are never a tape's opponents
+      to: mate[i][j] ? undefined : urlFor('tape', from.name, to.name)
+    };
   };
 
   return (
     <section className="bg-surface-card border border-line p-4 rounded-card" aria-labelledby="damage-flow-title">
       <h3 id="damage-flow-title" className="text-gray-300 mb-2 font-bold">Damage flow</h3>
       <p className="text-xs text-gray-400 mb-3">
-        {round(total)} damage dealt to other pilots in this match's damage log. Rows deal, columns take{team ? ', grouped by team' : ''}; a lighter cell is a larger share. Self-damage sits on the diagonal, uncoloured.
+        {round(total)} damage dealt to other pilots in this match's damage log. Rows deal, columns take{team ? ', grouped by team' : ''}; a lighter cell is a larger share. Self-damage sits on the diagonal, uncoloured. Click a cell between two opponents for their tale of the tape.
       </p>
       <HeatTable
         caption="Damage by each pilot (rows) on each pilot (columns) from the match's damage log, coloured by the share of the damage dealt to other pilots; the diagonal is self-damage."

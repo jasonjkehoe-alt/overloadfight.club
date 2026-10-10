@@ -1,21 +1,21 @@
 // The <title> and share-preview tags (og:title, og:description, og:url and,
 // for a page with a share card, og:image) for a page URL. index.js fills them
 // into index.html for every page it serves, so a link pasted into Discord
-// previews the pilot, match, fight night or map it opens.
+// previews the pilot, match, fight night, map or tape it opens.
 import fs from 'fs';
 import db from './db.js';
 import { parseRoute, pageTitle } from './lib/siteRoutes.js';
-import { SERVER_WINDOW_DEFAULT } from './lib/gameParse.js';
+import { SERVER_WINDOW_DEFAULT, tapeMode } from './lib/gameParse.js';
 import { regionLabel } from './lib/serverRegions.js';
 import { count, percent } from './lib/matchResult.js';
-import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard } from './lib/shareCards.js';
+import { cardKey, cardUrl, fightNightCard, mapCard, matchCard, pilotCard, tapeCard } from './lib/shareCards.js';
 import { CARD_SIZE } from './lib/cardLayout.js';
 import { cardFailed } from './services/cardService.js';
 
 const SITE_DESCRIPTION = 'Live Overload servers, match results and pilot stats.';
 
-// The pilot, match, fight-night and map pages describe themselves with their
-// share card's own sentence (shareCards.js), so the preview's text and its
+// The pilot, match, fight-night, map and tape pages describe themselves with
+// their share card's own sentence (shareCards.js), so the preview's text and its
 // image read the same numbers.
 const withCard = (card, extra = {}) => (card ? { ...extra, card, description: card.description } : {});
 
@@ -50,6 +50,13 @@ function mapMeta(name) {
     // undefined until the image route has downloaded it
     const stat = file && fs.statSync(file, { throwIfNoEntry: false });
     return withCard(mapCard(intel, stat ? { file, mtime: stat.mtimeMs } : null));
+}
+
+// "WD-40 vs OKSTER: OKSTER leads 5–3, 1 tie, in 9 ranked matches." Nothing
+// for an unknown pilot or one pilot twice (the page says why).
+function tapeMeta(a, b, mode) {
+    const tape = db.getTape(a, b, tapeMode(mode));
+    return tape.pilots ? withCard(tapeCard(tape)) : {};
 }
 
 // "Power rankings for 2026-10-08: 1. WD-40 (1612), 2. OKSTER (1580), 3. RAZOR (1555)."
@@ -97,9 +104,10 @@ function serverMeta(ip) {
     return { name: s.name, description: `${name} (${regionLabel(s.region)})${parts.length ? `: ${parts.join(', ')}` : ''}. Join at ${ip}.` };
 }
 
-function routeMeta({ view, param }, query) {
+function routeMeta({ view, param, other }, query) {
     switch (view) {
         case 'pilot': return pilotMeta(param);
+        case 'tape': return tapeMeta(param, other, query.get('mode'));
         case 'game-detail': return matchMeta(param);
         case 'fight-night': return fightNightMeta(param);
         case 'maps': return param ? mapMeta(param) : {};
@@ -115,16 +123,18 @@ function routeMeta({ view, param }, query) {
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
 // The views with a share card.
-const CARD_VIEWS = new Set(['pilot', 'game-detail', 'fight-night', 'maps']);
+const CARD_VIEWS = new Set(['pilot', 'game-detail', 'fight-night', 'maps', 'tape']);
 
 /**
- * The share card of the page at `pathname`, or null for a page without one
- * (server/routes/cards.js). Throws when the lookup does.
+ * The share card of the page at `pathname` with `query` (a tape's ?mode=), or
+ * null for a page without one (server/routes/cards.js). Throws when the
+ * lookup does.
  * @param {string} pathname
+ * @param {URLSearchParams} [query]
  */
-export function pageCard(pathname) {
+export function pageCard(pathname, query = new URLSearchParams()) {
     const route = parseRoute(pathname);
-    return CARD_VIEWS.has(route.view) ? routeMeta(route, new URLSearchParams()).card ?? null : null;
+    return CARD_VIEWS.has(route.view) ? routeMeta(route, query).card ?? null : null;
 }
 
 /**

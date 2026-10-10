@@ -100,8 +100,11 @@ as `726e536`), with no owner commits after it.
 S18 is merged into `main` (PR #19, squash-merged 2026-10-09 21:25 UTC
 as `6e7ed6d`), with no owner commits after it.
 
-S19 is on branch `ofc/s19-og-share-cards`, based on `6e7ed6d`, its PR
-(#20) open against `main` and not merged, 2026-10-09 UTC.
+S19 is merged into `main` (PR #20, squash-merged 2026-10-10 00:38 UTC
+as `00fa782`), with no owner commits after it.
+
+S20 is on branch `ofc/s20-tale-of-the-tape`, based on `00fa782`, its PR
+(#21) open against `main` and not merged, 2026-10-10 UTC.
 
 On 2026-10-06 the repo owner purged the leaked password from history and
 force-pushed `main`. Every commit SHA changed. The audits' base `10223be` is
@@ -112,11 +115,126 @@ pre-rewrite history: work from a fresh clone and never push a branch that
 descends from `10223be`. The local docs branch
 `overload-site-redesign-13ed9872` is on the old history; do not use it.
 
-Counts: 19 of 28 sessions done (S1 to S18 merged, S19 in its PR).
-Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 2/11. The Node 26
+Counts: 20 of 28 sessions done (S1 to S19 merged, S20 in its PR).
+Phase 1: 6/6. Phase 2: 5/5. Phase 3: 6/6. Phase 4: 3/11. The Node 26
 maintenance item does not count toward the 28.
 
-## Validated (as of 2026-10-09 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S18 and Node 26 merged into `main`, `main` at 6e7ed6d, S19 on `ofc/s19-og-share-cards`)
+## Validated (as of 2026-10-10 UTC, audits at 10223be = 2c4f174 after the rewrite, S1 to S19 and Node 26 merged into `main`, `main` at 00fa782, S20 on `ofc/s20-tale-of-the-tape`)
+
+- S20, first move on Node 26.11.1, on `main` at `00fa782` (PR #20 merged,
+  no owner commits after it; `git diff origin/ofc/s19-og-share-cards
+  origin/main` is empty; `10223be` is not an object here, so the
+  pre-rewrite check fails as it should): `npx vitest run` passed 21 files,
+  356 tests (the prompt said 352; S19's review fixes in `d4d348d` added
+  four). `npx vite build` wrote the entry at 233.36 KB raw / 74.78 KB
+  gzip, `PilotDetail` 56.91 KB / 14.57 KB and `GameList` 41.71 KB / 11.43
+  KB gzip; `npx tsc --noEmit` exited 0. All match the S19 records. `wc -l`
+  before building: `PilotDetail.tsx` 928, `pilotTelemetry.js` 449,
+  `rivals.js` 80, `siteRoutes.js` 98, `pageMeta.js` 166, `shareCards.js`
+  139, `cardLayout.js` 72, `cardService.js` 143.
+- S20, the owner's answers at the start (see the decisions): every
+  recommended option but the matches, where the owner chose a `?mode=`
+  switch, and the links, where the owner chose all four places.
+- S20, tests: `npx vitest run` passes 22 files, 387 tests (356 at the
+  start). New: `server/db/analytics/tape.test.js` (15 tests on a temp
+  database of the sample with 72099 and 72098 carrying their logs: the
+  record, logged kills and damage and map splits of STITCH and PHOENIX
+  read by hand from the fixtures, both orders, the mode filter, the
+  careers against `getPilotPPI` and `getPilotRating`, the duels of WD-40
+  and OKSTER and of JFTP and ".", a pair that never met, a missing pilot
+  and one pilot twice, the opponent list and its order, the routes, the
+  card route in a mode, the share tags, a stale row removed by a refresh,
+  a key change rebuilding the table); in `gameParse.test.js` `boutsOf`
+  and `rivalPass`'s bouts (mirrored rows, W+L+T, the rating's games, the
+  sums against `pilot_rivals`, a log-only pilot's pair); `tapeCard`,
+  `boutLead` and `recordText`, and the route in `siteRoutes.test.js`.
+- S20, mutations (`mutate.py` in the scratch folder: each edit on a
+  source file restored from a copy named by its absolute path, six test
+  files run): 27 of 28 edits fail a test. The first run caught 22; the six
+  it missed got tests (a log-only pilot's pair, a match with no map, the
+  opponent order decided by deaths, the card route's mode, a key change)
+  or, for the one that changed nothing (a rating guarded by its match
+  count, already null without one), the dead guard went. `git status`
+  after each run showed only the session's own changes.
+- S20, real data (`real.mjs` run by plain `node` on `/tmp/ofc-data`,
+  which the tracker sync took from 49 to 62 matches during the session):
+  `boutsOf` recounted over every stored match gives the same record for
+  220 of 220 pairs as `pilot_bouts`; its sums equal all 98 `pilot_rivals`
+  rows; every row has its mirror and W+L+T equal to matches; both reads
+  search the primary key. The first start built the table ("[Bouts] 514
+  bout rows: 514 written") and the start after /simplify rebuilt it from
+  the changed marker with `pilot_rivals` unchanged ("98 rival pairs: 0
+  written").
+- S20, `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` on the built `dist/`:
+  `/api/stats/global` (`total_games: 62`), `/api/stats/pilots`,
+  `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`,
+  `/api/pilot/WD-40/career`, `/api/stats/regions`,
+  `/api/server/143.110.230.67/history`, `/api/stats/weapons`,
+  `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/WD-40/rivalry`,
+  `/api/card/pilot/WD-40` and `/api/health` all 200, and the S19 cards
+  for a match, the fight night and a map still `image/png`. New:
+  `/api/pilot/futzpimmel/tape/badass` and `/opponents` 200;
+  `/api/pilot/NOBODY/tape/badass` 200 `{"missing":["NOBODY"]}`, one pilot
+  twice 200 `{"same":"WD-40"}`; `/api/card/tape/futzpimmel/badass` (and
+  `?mode=ANARCHY`) 200 `image/png`, `/api/card/tape/NOBODY/badass` 404.
+  curl on `/tape/futzpimmel/badass`: `og:description` "FUTZPIMMEL vs
+  BADASS: BADASS leads 3–2 in 5 ranked matches, kills 41–21 in 3 logged
+  matches.", `og:image` on `/api/card/tape/FUTZPIMMEL/BADASS?v=...`, its
+  size, alt and `twitter:card`; `?mode=ctf` gives "no ranked CTF match
+  between them yet" and a CTF card; an unknown pilot or one pilot twice
+  gets the site description and no `og:image`. The two cards looked at
+  (FUTZPIMMEL vs BADASS, WD-40 vs OKSTER) read in S19's layout with no
+  overflow.
+- S20, headless Chrome 154 over CDP (`checks.mjs` on my own 87-line
+  client, `cdp.mjs`, over Node's WebSocket on port 9333 with its own
+  profile and a Fetch-domain mock list), at 1,280 and 390 px: 164 of 168.
+  The tape of FUTZPIMMEL and BADASS (title, corners, who leads, the record,
+  logged kills and damage and map splits equal to the API, career rows,
+  the mode buttons, no Recharts chunk, no overflow); the switch by click,
+  in the URL, across a reload and back to all modes; `?mode=anarchy` in
+  lower case; a mode they never met in; WD-40 and WILLIE, who never met;
+  an unknown pilot; one pilot twice; the duel record of WD-40 and CHEKM8;
+  mocked: held, failed then Retry, and a 4,000-match tape with two
+  32-character names and 30 maps. The pilot page's list equals
+  `/opponents` and links to the tapes, the old card is gone, one `/ppi`
+  request (two before), the kill-log rivals' "Tape" links, a click staying
+  in the document, and the list held, failed and empty. `/rivals`' pair
+  links, the duel ladder's links against the row above, and the damage
+  grid's cells on match 78782 (dealer first, in the Tab order, none on a
+  teammate). The dashboard (no Recharts chunk), fight night, leaderboard,
+  rankings, ladders, rivalries, a pilot, maps, history, a match and admin
+  load with their titles and fit. The 4 failures are map-image 404s from
+  overloadmaps.com: maps 62, 88, 151 and 424 on `/history`, 640 on
+  `/maps` (the S18 and S19 flags). The first run also showed the tape's
+  own 404 and 400 logged as console errors, which led to the 200 answers.
+- S20, dataviz `validate_palette.js --mode dark --surface "#111111"` on
+  the corners' `chart.team` pair (#d95926, #3987e5): every check passes,
+  worst adjacent CVD ΔE 26.8 (protan), normal vision 31.8.
+- S20, /code-review found 10 issues; 7 fixed (the opponent order read one
+  row's kills, damage cells out of the Tab order, `?mode=` case on the
+  client, duels under a mode, a corner's totals read for its name, a key
+  change not rebuilding a table, the logged base worded as part of the
+  record, plus no link on a teammate's cell), 2 skipped and flagged
+  (`/breakdown` still building rivals; a general bare-route fallback,
+  which would change what `/game` alone opens). /simplify (four agents)
+  summed `pilot_rivals` from the bout rows, put `/tape` in the rivals
+  row's aliases, forwarded the card route's query, named every key in
+  the built marker, shared the mode list with the pilot page and the
+  tape's words between page and card, and read the opponents' names in
+  one query; skipped: deriving every route's parameter count, a lighter
+  read for the card, fetching the tape once for every mode, passing
+  `ratingSides` between passes, `recordText` on the older ladders, and a
+  shared Back button.
+- S20, CI on PR #21 at `d5ce7f6`: `check` (tsc, vite build, vitest)
+  passed in 1m02s and `build` (the Docker image) in 1m14s.
+- S20, sizes on Node 26.11.1 at the end: entry 234.10 KB raw / 75.04 KB
+  gzip (233.36 / 74.78 before: the route, the shared mode list and
+  wording), `Tape` 10.74 KB / 3.56 KB gzip (new), `PilotDetail` 52.02 KB
+  / 13.47 KB (56.91 / 14.57), `GameList` 41.74 / 11.45 (41.71 / 11.43),
+  `Rivals` 7.32 / 2.48 (7.00 / 2.38), `Ladders` 8.15 / 2.51 (7.54 /
+  2.38), `GameDetail` 124.19 / 40.12 (123.94 / 40.03), `HeatTable` 1.76 /
+  0.79. `PilotDetail.tsx` is 707 lines (928); every new module is under
+  500 (`tape.js` 110, `Tape.tsx` 95, `TapeHeadToHead.tsx` 90).
 
 - S19, first move on Node 26.11.1, on `main` at `6e7ed6d` (PR #19
   merged, no owner commits after it; `git diff
@@ -2124,6 +2242,17 @@ maintenance item does not count toward the 28.
 
 ## NOT validated, do not claim these work
 
+- S20: no tape link was pasted into Discord or any other chat, so the
+  tape's preview is checked by curl and by looking at the PNG only.
+- S20: `pilot_bouts` at production size. 520 rows for 62 local matches;
+  nobody ran the S13 bench's 75,000 synthetic matches through the new
+  pass, so its row count, the worker's comparison time and the first
+  write on the NAS are unknown.
+- S20: no screen reader was tried on the tape; the split bars carry a
+  screen-reader sentence each and the map splits a caption.
+- S20: the tape was not checked in Safari or on a phone, only in
+  headless Chrome at 390 px.
+
 - No link was pasted into Discord, X, Slack or anything else: the site is
   not public from this machine. Whether Discord shows the card large,
   which needs `twitter:card` and a fetch of `/api/card/...`, is unknown,
@@ -2536,12 +2665,12 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 21 files, 352 tests pass on 26.11.1 (S19; 313 at its start) | 2026-10-09 |
+| `npx vitest run` | all pass | 22 files, 387 tests pass on 26.11.1 (S20; 356 at its start) | 2026-10-10 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
-| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 233.36 KB raw / 74.78 KB gzip (S19; 74.80 at its start, the same raw size), admin page `AdminPanel` 35.18 KB / 9.32 KB gzip, dashboard `GameList` 41.71 KB / 11.43 KB gzip and no Recharts on its first visit, `FightNightSection` 14.13 KB / 3.05 KB gzip, `PilotDetail` 56.91 KB / 14.57 KB gzip, `matchResult` 4.82 KB / 2.45 KB gzip, on 26.11.1. S17's other chunks unchanged: `GameDetail` 123.94 KB / 40.03 KB, `MapLibrary` 34.22 KB / 8.92 KB, `Ladders` 7.54 KB / 2.38 KB, `Rivals` 7.00 KB / 2.38 KB gzip (one 351.07 KB chunk before S4) | 2026-10-09 |
-| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S19) | 2026-10-09 |
-| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S19 on `/tmp/ofc-data`: `total_games: 49`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/WD-40/rivalry` and `/api/health` all 200; new `/api/card/<page>` 200 `image/png` 1200 × 630 for the four kinds of page, 404 for others | 2026-10-09 |
-| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep -E 'og:\|twitter:'` (and a match, a fight night and a map) | the page's own `og:title`, `og:description`, `og:url`; since S19 `og:image` on the request's origin, its size and alt, `twitter:card` | "WD-40: 23 matches, 380 kills, last match 2026-10-07.", `og:image` `http://localhost:3100/api/card/pilot/WD-40?v=36686f7e352a`; match, fight night and map likewise, none on list pages (S19) | 2026-10-09 |
+| `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 234.10 KB raw / 75.04 KB gzip (S20; 233.36 / 74.78 at its start), new `Tape` 10.74 KB / 3.56 KB, `PilotDetail` 52.02 KB / 13.47 KB, dashboard `GameList` 41.74 KB / 11.45 KB gzip and no Recharts on its first visit, `GameDetail` 124.19 KB / 40.12 KB, `Rivals` 7.32 KB / 2.48 KB, `Ladders` 8.15 KB / 2.51 KB gzip, on 26.11.1. Unchanged since S19: `AdminPanel` 35.18 KB / 9.32 KB, `FightNightSection` 14.13 KB / 3.05 KB, `MapLibrary` 34.26 KB / 8.93 KB (one 351.07 KB chunk before S4) | 2026-10-10 |
+| `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S20) | 2026-10-10 |
+| `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` then `curl -s localhost:3100/api/stats/global` | JSON body | JSON on 26.11.1, S20 on `/tmp/ofc-data`: `total_games: 62`; `/api/stats/pilots`, `/api/pilot/WD-40/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/WD-40/career`, `/api/stats/regions`, `/api/server/143.110.230.67/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/WD-40/rivalry`, `/api/card/pilot/WD-40` and `/api/health` all 200; new `/api/pilot/:a/tape/:b` and `/api/pilot/:name/opponents` 200, `/api/card/tape/:a/:b` 200 `image/png`, 404 for an unknown pilot | 2026-10-10 |
+| Same server, `curl -s localhost:3100/pilot/WD-40 \| grep -E 'og:\|twitter:'` (and a match, a fight night and a map) | the page's own `og:title`, `og:description`, `og:url`; since S19 `og:image` on the request's origin, its size and alt, `twitter:card` | "WD-40: 23 matches, 380 kills, last match 2026-10-07." with its `og:image` (S20, unchanged); the tape: "FUTZPIMMEL vs BADASS: BADASS leads 3–2 in 5 ranked matches, kills 41–21 in 3 logged matches.", `og:image` `/api/card/tape/FUTZPIMMEL/BADASS?v=...`, `?mode=` carried into both; none for an unknown pilot (S20) | 2026-10-10 |
 | `docker build -t ofc . && docker run -e ADMIN_PASSWORD=.. -e SESSION_SECRET=.. ofc`, then `docker inspect -f '{{.State.Health.Status}}'` | `healthy`, uid 1000 | `node:26-alpine` (cached locally), arm64: healthy, uid 1000, resvg's `linux-arm64-musl` prebuild with no object file, a card drawn in the container, 619 MB (S19) | 2026-10-09 |
 | Same container, `docker stop` | exits 0 in well under 10 s, `[Shutdown] Done.` logged | 0.21 s, exit 0, `[Shutdown] Done.` logged (Node 26). S6: under 1 s, no `-wal` left | 2026-10-08 |
 | `npx vitest run server/gamePlayers.test.js` (the query-plan tests) | pilot queries on `idx_game_players_name_date`, dated leaderboard on `idx_game_players_date` | both, covering for the pilot lookups, in hot and cold (S5) | 2026-10-07 |
@@ -2583,6 +2712,11 @@ maintenance item does not count toward the 28.
 | S19 `server/services/cardService.test.js`: a temp database of the fixtures, satori counted through a mock that delegates to it, the card router on a local server | the cards' numbers counted from the fixtures, one draw per card, caps, wait limit, fonts, failures, tags, route answers | 19 of 19 (S19) | 2026-10-09 |
 | S19 `checks.mjs`: headless Chrome over CDP, every main page plus `/admin` with a real login at 1,280 and 390 px; on the card pages `og:image` read from the DOM and loaded as an image | titles, content, no overflow, `og:image` on the card pages only, the card 1200 × 630, no console errors but the S1 401 | 166 of 172; the 6 failures are map-image 404s on `/history` and `/maps` from overloadmaps.com (S19) | 2026-10-09 |
 | S19 `mutate.py`: 26 edits to the S19 rules, each restored from a copy, six test files run | every edit fails a test | 26 of 26 (S19) | 2026-10-09 |
+| S20 `server/db/analytics/tape.test.js`: a temp database of the fixtures with two logged matches, the pilots router and the card router on a local server | the tape's numbers counted from the fixtures by hand, the opponent list, the routes, the card in a mode, the share tags, a stale row removed, a key change rebuilt | 15 of 15 (S20) | 2026-10-10 |
+| S20 `real.mjs`, run by `node` on `/tmp/ofc-data`: `boutsOf` over every stored match against `pilot_bouts`, its sums against `pilot_rivals`, the mirrors, the query plans | the same records and sums; every row mirrored; primary-key searches | 220 of 220 pairs, 98 of 98 rows, 0 bad rows, both reads on the primary key, 62 matches (S20) | 2026-10-10 |
+| S20 `checks.mjs`: headless Chrome over CDP, the tape (a pair that met, a mode by click, URL, reload and lower case, a mode they never met in, two who never met, an unknown pilot, one pilot twice, the duels; held, failed and Retry, a full mocked tape), the pilot page's list (held, failed, empty), the links from `/rivals`, the ladder and the damage grid, then the dashboard, fight night, leaderboard, rankings, ladders, rivalries, a pilot, maps, history, a match and admin, at 1,280 and 390 px | numbers equal the API, the shared states, no Recharts on the tape or the dashboard, no wider than the window, no console errors but the S1 401 | 164 of 168; the 4 failures are map-image 404s on `/history` and `/maps` from overloadmaps.com (S20) | 2026-10-10 |
+| S20 `mutate.py`: 28 edits to the S20 rules, reads, builders and routes, each restored from a copy, six test files run | every edit fails a test | 27 of 28; the one left changed nothing and its guard was removed (S20) | 2026-10-10 |
+| dataviz `validate_palette.js --mode dark --surface "#111111"` on the tape's corners, `chart.team` | every check passes | passes, worst adjacent CVD ΔE 26.8 (S20) | 2026-10-10 |
 | Negative check: `git diff --stat origin/main -- . ':!docs'` on the tracker-only branch | empty | empty | 2026-10-06 |
 
 ## [HUMAN] tasks
@@ -3216,7 +3350,106 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          1,280 and 390 px; the dashboard, fight night, leaderboard,
          rankings, ladders, rivalries, pilot pages, maps, match page and
          the admin page still work.
-- [ ] **S20 Tale of the Tape permalinks** (M). `/tape/:a/:b`.
+- [x] **S20 Tale of the Tape permalinks** (M). PR #21. `/tape/:a/:b`. The owner
+      decided at the start of S20: the tape sets the two pilots' head-to-head
+      (ranked matches as opponents with W-L-T, kills and damage each way from
+      the logs, the 1v1 duel record, map splits) beside their career numbers
+      (rating and standing, ranked matches, win rate, Combat Ratio,
+      Lethality); Threat Centrality and Dominance Index go. Ranked matches
+      only, all time, with a `?mode=` switch that filters the head-to-head
+      and leaves the career rows all-mode. The URL keeps the order given (A
+      the red corner). An unknown pilot gets a not-found state and no card,
+      the same pilot twice a prompt with a link to that pilot, two pilots who
+      never met their career rows and a line saying so. "Frequent
+      Adversaries" and the tape inside it go; a list of the pilot's
+      opponents linking to their tapes takes their place. The tape gets a
+      card in S19's layout. The tape is linked from `/rivals`' pairs, the
+      kill-log rivals, the duel ladder and the match page's damage grid.
+      Done when (written at the start of S20):
+      1. `server/lib/gameParse.js` owns the head-to-head rule, tested on
+         fixture games: `boutsOf` gives every pair of named pilots on
+         different sides of a rated match (`ratingSides`: ranked, a result,
+         a team-game pilot without a team sitting out, a pilot listed twice
+         once), each with the first pilot's outcome by the two sides'
+         scores (equal scores a tie), the match's mode (`matchModeOf`) and
+         map (`mapKey`). `TAPE_MODES` lists the mode switch (Anarchy, Team
+         Anarchy, CTF, Monsterball, the pilot page's four; named
+         `MATCH_MODES` after /simplify, when the pilot page took it too).
+      2. The stats worker builds `pilot_bouts(pilot, opponent, mode, map,
+         matches, wins, losses, ties, logged, kills, deaths, damage_dealt,
+         damage_taken)` in the same scan, both directions, keyed by its first
+         four columns (the derived-table list learns a key size, used by the
+         schema, the worker's comparison and the write step), joined to
+         `DERIVED_TABLES` with a migration decision entry. The record comes
+         from `boutsOf`; `logged`, kills and damage from `opponentsOf`,
+         `weaponKills` and `damageFlows`, so no S17 rule is copied. Tested
+         on fixture data: every row mirrors its other direction; wins,
+         losses and ties add up to matches; a pair's matches equal the
+         rated matches the two played apart; over modes and maps a pair's
+         logged matches, kills, deaths and damage equal its `pilot_rivals`
+         row.
+      3. New endpoints in `routes/pilots.js`, reads in a new
+         `server/db/analytics/tape.js` with `db` keys, read through
+         `apiService` (null on failure) and `useLoad`, no route cache:
+         `GET /api/pilot/:name/tape/:opponent?mode=` (both pilots' stored
+         names and career numbers: rating, RD and standing from
+         `getPilotRating`, ranked matches, win rate, Combat Ratio and
+         Lethality from `pilot_stats_cache` as the pilot page's career
+         cards; from A's side in the mode the record, the logged matches,
+         kills and damage each way and the map splits; the modes the two
+         met in with their counts; the duel record from `pilot_duels`),
+         and, answered 200 like an unknown server's history so the page's
+         states log no error, `{ missing }` naming an unknown pilot and
+         `{ same }` for the same pilot twice (amended during S20: the first
+         draft said 404 and 400, which Chrome logs as errors); and
+         `GET /api/pilot/:name/opponents` (the opponents with the most
+         ranked matches against the pilot, each with the record and logged
+         kills each way). The existing endpoints answer as before and no
+         request walks the stored matches.
+      4. A `/tape/:a/:b` view: a two-part route in `siteRoutes.js`
+         (`parseRoute`, `urlFor('tape', a, b)`, `pageTitle` "A vs B", the
+         pilots nav section), a share description in `pageMeta.js`, lazy in
+         `App.tsx`. A in the red corner, B in the blue (`chart.team`'s
+         ORANGE and BLUE, the pair S12 validated), each linked to their
+         page; the career rows side by side with the better side marked;
+         the head-to-head in the mode (`?mode=`, all modes left out of the
+         URL): record, kills and damage each way with words that say only
+         logged matches count, the duel record, the map splits as a table.
+         Loading, failure, an unknown pilot, the same pilot twice, two
+         pilots who never met and a mode they never met in each get the
+         shared states or a line. 390 px wide at 390 px. No Recharts.
+      5. The pilot page: "Frequent Adversaries" and the tape inside it go
+         (the picked rival with them, closing the S8 flag); "Tale of the
+         Tape" lists the pilot's opponents from `/opponents` (matches,
+         W-L-T, logged kills each way), each a link to
+         `/tape/<pilot>/<opponent>`, with the shared states. "Rivals from
+         the kill log" rows link to the tape too.
+         `/api/pilot/:name/breakdown` answers as before.
+      6. Links to the tape: each pair on `/rivals` (leader first), each
+         duel-ladder row from the second down (against the pilot one row
+         above), and each cell between two pilots in the match page's
+         damage grid (dealer first).
+      7. The share card: `tapeCard` in `shareCards.js`, tested on fixture
+         data, builds the card and the page's `og:description` from one
+         object (the record, kills each way and logged matches, or the
+         ratings for two pilots who never met), drawn in S19's layout (kind
+         "Tale of the Tape", title "A vs B", tiles "a–b" from A's side) at
+         `/api/card/tape/A/B` (with `?mode=` when set); the tape is in
+         `CARD_VIEWS`; an unknown pilot or the same pilot twice gets no
+         card and the site description.
+      8. Charts stay out of the entry chunk and the dashboard's first visit
+         loads no Recharts chunk; the entry, `PilotDetail`, `Rivals`,
+         `Ladders`, `GameDetail` and the new view's chunk are recorded
+         before and after.
+      9. Checked with curl against the local server (the tape's share tags
+         and its card, looked at) and in headless Chrome at 1,280 and
+         390 px: the tape on local data (a pair that met, a mode, two
+         pilots who never met, an unknown pilot, the same pilot twice) and
+         Fetch-domain mocks for loading, failure and full tables; the pilot
+         page's list; the links from `/rivals`, the ladder and the damage
+         grid; the dashboard, fight night, leaderboard, rankings, ladders,
+         rivalries, pilot pages, maps, match page and admin page still
+         work, and the S19 cards still draw.
 - [ ] **S21 Belts and achievements** (M).
 - [ ] **S22 Fight-night schedule and iCal** (S). Events table, `.ics` feed,
       dashboard countdown; remove the calendar iframe.
@@ -5332,6 +5565,151 @@ Not counted in the 28 sessions.
   `cardLayout.js` imports from the repo root. The image is 619 MB against
   599 MB. Rejected: `@resvg/resvg-wasm` (no native code, but on the main
   thread), a headless browser, font files committed to the repo.
+- 2026-10-09 (S20): The owner's answers at the start of S20. What the tape
+  compares: the head-to-head (ranked matches as opponents with W-L-T, kills
+  and damage each way from the logs, the 1v1 duel record, map splits)
+  beside the careers (rating and standing, ranked matches, win rate, Combat
+  Ratio, Lethality), the recommended option. Over which matches: ranked
+  matches, all time, with a `?mode=` switch (not the recommended
+  all-modes-only; the owner picked the mode filter). The mode filters the
+  head-to-head only; the career rows stay all-mode (recommended). The URL
+  keeps the order given, A the red corner (recommended). An unknown pilot
+  gets a not-found state, the same pilot twice a prompt with a link to the
+  pilot, two pilots who never met their careers and a line saying so
+  (recommended). "Frequent Adversaries" and the tape inside it go, and a
+  list of the pilot's opponents linking to their tapes takes their place
+  (recommended). A share card in S19's layout (recommended). Links to the
+  tape from all four places offered: `/rivals`' pairs, the kill-log rivals,
+  the duel ladder and the match page's damage grid. Rejected: today's six
+  rows plus the head-to-head (Threat Centrality and Dominance Index rest on
+  scoreboard estimates that count teammates, the S2/S13/S17 flags), a
+  head-to-head without careers, a `?days=` window (per-day rows, a far
+  larger table), one sorted URL per pair, a layout of the tape's own, no
+  card.
+- 2026-10-09 (S20): How each number counts. A bout is a game of the
+  rating's: `boutsOf` takes `ratingSides`, so a bout is a ranked match with
+  a result, the two pilots on different sides, a team-game pilot without a
+  team sitting out and a pilot listed twice counted once; the outcome comes
+  from the two sides' scores (team score in team games, in-game score in
+  FFA), equal scores a tie. The logged numbers are the S17 rules with
+  nothing copied: `logged` counts `opponentsOf` pairs (ranked, a kill or
+  damage log), kills come from `weaponKills` (no suicide, team kill or
+  death without an attacker) and damage from `damageFlows`. The two
+  populations differ: a logged match without a result counts in `logged`
+  and not in `matches`, and a pilot who changed team pairs by
+  `opponentsOf`'s rule in the logs and by their listed team in the record.
+  The page and the card say "kills in N logged matches" and not "of the
+  M" (/code-review: the logged matches are not a subset of the record),
+  and they equal the kill-log rivals card's numbers for the pair. The duel
+  record is `pilot_duels` (S16) as it is, shown under all modes only:
+  `pilot_duels` keeps no mode, so a mode's tape cannot split it
+  (/code-review; the first draft showed it under Anarchy and Team Anarchy
+  too). The careers are the pilot page's cards: ranked matches, record,
+  win rate, Combat Ratio (negative shown as 0) and Lethality from
+  `pilot_stats_cache`, the rating, RD and standing from `getPilotRating`.
+  The map splits leave out matches that name no map.
+- 2026-10-09 (S20): `pilot_bouts(pilot, opponent, mode, map, matches, wins,
+  losses, ties, logged, kills, deaths, damage_dealt, damage_taken)` joins
+  `DERIVED_TABLES`, built by `rivalPass` in the worker's one scan: the
+  bouts come from every rated match, the logged columns from the same
+  per-match calls that filled `pilot_rivals`, and since /simplify a pair's
+  `pilot_rivals` row is its bout rows summed (a pair met in a logged match
+  or traded a kill or damage), so the two tables cannot drift. Seen
+  locally: the rebuilt `pilot_rivals` wrote 0 rows, the same 98. Both
+  directions, like
+  `pilot_rivals`, so a pilot's opponents are one key range. `mode` is
+  `matchModeOf` ('' for none) and `map` `mapKey` ('' for none). Damage is
+  stored unrounded (REAL) and rounded once after summing, so a pair's rows
+  add up to the damage `pilot_rivals` rounds per pair (tested on the
+  fixtures and on every local pair). The table is keyed by its first four
+  columns: the derived-table list gained `key` (default two) and
+  `derivedKey`, which the schema (`ensureDerivedTables`), the worker's
+  comparison (`tableChanges`) and the delete in `writeChanges` now read.
+  `ensureDerivedTables` drops a table whose key differs from the list as
+  well as one whose columns do, and the built marker names every table's
+  key (/code-review: a key change alone would have kept the old key).
+  First build: `ensureDerivedTables` creates it empty at startup and the
+  new list changes the built marker, so the first start refreshes once
+  (seen locally: "[Bouts] 514 bout rows: 514 written, 0 removed"). A
+  restart needs no repair; every refresh brings it in line, and
+  `restoreHot` creates it for a backup that lacks it. Rollback: revert,
+  pull the old image, and `DROP TABLE pilot_bouts;` on `tracker.db`, or
+  leave it (nothing older reads it; the S19 code's marker check refreshes
+  once). Size: 514 rows for 61 local matches; at the 75,000 matches the S13
+  bench assumed, the row count is unmeasured (NOT validated).
+- 2026-10-09 (S20): Endpoints in `routes/pilots.js`, reads in a new
+  `server/db/analytics/tape.js` with `db` keys `getTape` and
+  `getPilotOpponents`, no route cache (the S16 rule). `GET
+  /api/pilot/:name/tape/:opponent?mode=` answers `{ pilots, mode, modes,
+  record, logged, maps, duels }` from the first pilot's side; `mode` is
+  read by `tapeMode` (a `MATCH_MODES` id in any case, anything else every
+  mode). A pilot with no stored match gets `{ missing: [names] }` and one
+  pilot twice `{ same: name }`, both with a 200: the first draft answered
+  404 and 400, which Chrome logs as console errors on the page's own
+  not-found and same-pilot states, so it follows S15's unknown server and
+  S17's empty rivalry instead. A corner's name and career come from
+  `pilot_stats_cache` first; only a pilot with no ranked match costs the
+  totals over every match (`getPilotSummary`) (/code-review). `GET
+  /api/pilot/:name/opponents` answers the nine opponents with the most
+  bouts (then the summed kills exchanged, then key; /code-review found the
+  first draft ordering by one row's kills), each with the record,
+  `logged`, kills and deaths, and the opponents' names from
+  `pilot_stats_cache` in one read prepared on first use, since the cache
+  table exists only after the first refresh (/simplify). The client reads them
+  through `fetchTape` and `fetchPilotOpponents` (null on failure) and
+  `useLoad`.
+- 2026-10-09 (S20): The URL. `/tape/:a/:b` is a `pair` row in
+  `siteRoutes.js`: `parseRoute` gives `{ view: 'tape', param, other }`,
+  `urlFor('tape', a, b)` writes both names encoded, a tape short of a name
+  (`/tape`, `/tape/A`) opens `/rivals` (`/tape` alone through the rivals
+  row's aliases, /simplify), and `pageTitle` is "A vs B". The
+  order is the one given, so `/tape/B/A` is the same tape mirrored with B
+  in the red corner. `?mode=` holds the switch (all modes left out), read
+  by `tapeMode` on the page as on the server, so `?mode=ctf` shows what
+  its preview shows (/code-review). The mode list is `MATCH_MODES` in
+  `gameParse.js`, which the pilot page's filter now reads too, and the
+  words "N ranked <mode> matches" and "No ranked <mode> match between them
+  yet" are `rankedMatches` and `noBouts` in `matchResult.js`, shared by
+  the page and the card (/simplify). The
+  view is `components/Tape.tsx`, lazy, with `tape/TapeHeadToHead.tsx`,
+  `tape/TapeCareer.tsx` and `tape/SplitBar.tsx`, in the pilots nav section,
+  with a Back button to `/rivals`. Corners use `chart.team`'s ORANGE (red
+  corner) and BLUE, the S12 pair, which the dataviz validator passes again
+  on `#111111` (worst adjacent CVD ΔE 26.8). Who leads is `boutLead` in
+  `matchResult.js`, shared with the card. No Recharts: the bars are divs.
+- 2026-10-09 (S20): The pilot page. "Frequent Adversaries & Combat
+  Rivalries" and the tape inside it are gone, with the picked rival (the S8
+  flag closes: the pick is now a tape URL), the `RivalStat` type and the
+  page's own `/api/pilot/:name/ppi` request, which only the old tape read
+  (`PilotPerformanceCard` still makes its own). `pilotDetail/TapeOpponents`
+  lists `/opponents` as links to `/tape/<pilot>/<opponent>`. The page still
+  reads `/breakdown` for the map table; the endpoint still answers `rivals`
+  as before, unread. `PilotDetail.tsx` went from 928 to 707 lines.
+- 2026-10-09 (S20): The links. `/rivals`: each pair's kills cell opens the
+  pair's tape, the side with more kills first. The kill-log rivals card: a
+  "Tape" link per opponent. The duel ladder: a last column with a link, from
+  the second row down, to the tape against the pilot one row above (the
+  ladder has no pair of its own; one row above is the nearest challenge);
+  at 390 px the column sits in the table's horizontal scroll. The match
+  page's damage grid: each cell between two opponents opens their tape,
+  dealer first, through `HeatTable`'s new optional `to`, a link that fills
+  the cell and takes focus (/code-review: the first draft kept it out of
+  the Tab order, so a keyboard could not reach the tape there); a
+  teammate's cell has no link, since teammates are never a tape's
+  opponents.
+- 2026-10-09 (S20): The share card. `tapeCard` in `shareCards.js` builds
+  the card and the page's `og:description` from one object: kind "Tale of
+  the Tape" (", <mode>" with a mode), title "A vs B" under the stored
+  names, the line "<who leads> in N ranked matches", tiles Record (A's
+  W–L–T), Kills (A–B, only with a logged match), 1v1 duels (only with a
+  duel) and Rating; for two pilots who never met (in the mode), Rating,
+  Ranked matches, Combat Ratio and Win rate as A–B, a dash for what one
+  lacks. The tape joined `CARD_VIEWS`. A card's `path` may now carry the
+  tape's `?mode=`; `cardUrl` then adds `&v=`, and the card route passes
+  its whole query to `pageCard(pathname, query)` as `withPageMeta` does
+  (/simplify). An unknown pilot or
+  one pilot twice gets no card and the site description. No layout change,
+  so `CARD_LAYOUT` stays 2.
 - Closed, do not re-propose: one-click join via an `olmod://` protocol. The
   olmod README documents no URL handler; this is an upstream change.
 - Closed, do not re-propose: league standings or brackets. otl.gg owns them.
@@ -6343,6 +6721,55 @@ Not counted in the 28 sessions.
   resvg's musl binary and the two Fontsource packages (2.7 MB, every
   subset and weight, of which the cards load six files).
 
+- (S20) Earlier flags that name S20, the tape, rivals, head-to-head, the
+  dominance index, "Frequent Adversaries" or the rival picker, decided:
+  - (S8) The rival picked on a pilot page is not in the URL: closed. The
+    picker is gone; each opponent is a link to `/tape/<pilot>/<opponent>`.
+  - (S2, audit item 15; S17) "Frequent Adversaries" counts teammates and
+    team kills, beside S17's opponents-only card: closed for the page,
+    which no longer shows it. `/api/pilot/:name/breakdown` still builds
+    and answers `rivals` that way, walking every match of the pilot on the
+    request, and nothing reads it now. Dropping the field changes a public
+    answer; the owner's call.
+  - (S2, S13, S16, S17) Multi-player head-to-head and the dominance index
+    compare raw kills, teammates included: still open in
+    `pilot_stats_cache` and the PPI card. The tape no longer shows the
+    dominance index or Threat Centrality.
+  - (S19) The tape's card waited for S20: built.
+- (S20) `pilot_duels` keeps no mode, so the tape shows the duel record
+  under all modes only. A mode column there would let the Anarchy and
+  Team Anarchy tapes show their own duels.
+- (S20) `pilot_bouts` holds a row per pair, mode and map, both ways: 514
+  rows for 61 local matches. At the 75,000 matches the S13 bench assumed
+  nobody measured it; the worker's comparison holds every row in memory
+  once per refresh. A one-direction table (half the rows) was rejected to
+  keep a pilot's opponents one key range, as `pilot_rivals` does.
+- (S20) The pilot page's opponent names and the tape's corners come from
+  `pilot_stats_cache` through `COLLATE NOCASE`, which folds ASCII only
+  (the S5 flag): an opponent whose name has a non-ASCII capital shows as
+  the lower-case key in the list, and a corner falls back to the totals
+  read for its name.
+- (S20) Not built, from the plan page's tape item: a link from fight-night
+  upsets (Biggest Upset still names the top fragger, the S2 flag, so there
+  is no pair to link) and links from the map splits to the maps page (the
+  splits use `mapKey`'s upper-case name; whether the maps page opens it
+  was not checked).
+- (S20) At 390 px the duel ladder's tape column sits in the table's
+  horizontal scroll, as its other right-hand columns do.
+- (S20 /code-review, skipped) A general fallback for every detail path
+  without its parameter would also send `/game` alone to the history, which
+  changes what an existing URL opens. `/tape` alone goes through the
+  rivals row's aliases instead.
+- (S20 /simplify, skipped) A parameter count per route instead of the
+  `pair` row (one two-part route so far); a lighter read for the card than
+  `getTape`; fetching the tape once for every mode so the switch needs no
+  request (the careers and modes come again on each click); passing
+  `ratingSides` between the worker's passes (three calls per match:
+  ratings, duels, bouts); `recordText` on the duel ladder and the
+  objective boards, which still write "3-0-2" with hyphens where the tape
+  writes "3–0–2"; one Back button for the tape, the pilot page and the
+  match page.
+
 ## Rollback
 
 Each session is one PR. Rollback is `git revert` of that merge commit followed
@@ -6377,6 +6804,12 @@ S19 adds no table, setting or file: its cards live in memory. After its
 revert the pages lose `og:image` and previews fall back to text; links
 already posted keep the image their chat client cached, and a fresh fetch
 of `/api/card/...` answers the API's 404.
+S20 adds `pilot_bouts` to `tracker.db`, derived: after its revert `DROP
+TABLE pilot_bouts;` or leave it (nothing older reads it). The S19 code's
+built marker names its own list, so the first start after the revert
+refreshes once, and its `rivalPass` writes `pilot_rivals` the old way,
+with the same rows. Tape links already posted open the dashboard (the
+older router has no `/tape`).
 
 ## Open questions
 
@@ -6399,6 +6832,12 @@ of `/api/card/...` answers the API's 404.
   build) were settled by the owner at its start; see the S19 decisions.
   The cache key is a hash of the card rather than the stamps the answer
   named (see the rendering decision).
+- S20's six (what the tape compares, over which matches, the URL's order,
+  the edge cases, the pilot page's rival card, the share card), plus which
+  pages link to the tape, were settled by the owner at its start; see the
+  S20 decisions. The 404 and 400 the first draft answered became 200s with
+  `{ missing }` and `{ same }` during the session (see the endpoints
+  decision).
 
 ## Skills to load
 
@@ -7126,13 +7565,31 @@ measurement builds. The deploy workflow relies on the rewrite; leave it alone.
   map-image 404s from overloadmaps.com (now five maps). The image builds
   on `node:26-alpine` from resvg's musl prebuild with nothing compiled.
   PR #20 opened against `main`, not merged.
+- 2026-10-10, S20 (Claude Opus 5.5): Tale of the Tape permalinks. PR #20
+  had merged, so the branch came off `00fa782`. The owner took every
+  recommendation but two: the head-to-head gets a `?mode=` switch, and
+  the tape is linked from all four places offered. A bout is a game of
+  the rating's (`boutsOf` on `ratingSides`), counted per pair, mode and
+  map into `pilot_bouts`, which needed the derived-table list to learn a
+  key longer than two columns. Recounting every local match by hand
+  matched all 220 pairs. The first browser run showed the not-found and
+  same-pilot states logging the API's own 404 and 400, so those answer
+  200 like S15's unknown server; I amended the Done-when item. A 4,000-
+  match mock with 32-character names pushed seven-digit damage out of its
+  column at 390 px. /code-review found ten issues, seven fixed (an ORDER
+  BY that read one row instead of the sum, damage-grid links a keyboard
+  could not reach, a lower-case `?mode=` reading differently on the page
+  than in its preview); /simplify made `pilot_rivals` a sum of the bout
+  rows. 27 of 28 mutants fail a test. Chrome: 164 of 168, the failures
+  the known map-image 404s. PR #21 opened against `main`, CI green on
+  both jobs, not merged.
 
 ## Next session prompt
 
 Copy everything inside the fence into a new conversation.
 
 ```
-Continue the overloadfight.club roadmap. This session is S20: Tale of the Tape permalinks.
+Continue the overloadfight.club roadmap. This session is S21: Belts and achievements.
 
 Repo: git@github.com:jasonjkehoe-alt/overloadfight.club.git. Work in this worktree only.
 The queue is docs/ROADMAP.md. Read it in full first (a hook blocks reads over 350 lines, so read it in sections), then verify its status line against the repo before building on anything in it.
@@ -7141,53 +7598,53 @@ The owner rewrote history on 2026-10-06 to purge a leaked password. Work only fr
 
 Set up:
   git fetch origin
-  S19 is on branch ofc/s19-og-share-cards, PR #20. PRs #1 to #19 are merged.
-  If PR #20 is merged:
-    git checkout -B ofc/s20-tale-of-the-tape origin/main
-  If PR #20 is still open:
-    git checkout -B ofc/s20-tale-of-the-tape origin/ofc/s19-og-share-cards
-    and open the S20 PR against main anyway; say in its description that it sits on PR #20.
-  Check again before opening the PR: if PR #20 merged during the session, rebase onto origin/main first.
+  S20 is on branch ofc/s20-tale-of-the-tape, PR #21. PRs #1 to #20 are merged.
+  If PR #21 is merged:
+    git checkout -B ofc/s21-belts-and-achievements origin/main
+  If PR #21 is still open:
+    git checkout -B ofc/s21-belts-and-achievements origin/ofc/s20-tale-of-the-tape
+    and open the S21 PR against main anyway; say in its description that it sits on PR #21.
+  Check again before opening the PR: if PR #21 merged during the session, rebase onto origin/main first.
   `git checkout -B ... origin/...` sets the remote branch as upstream; run `git branch --unset-upstream` so a bare push cannot go to main.
-  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #20 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
+  The owner sometimes pushes straight to main (44e4792 during S5; ebe30dd, 35cddfd and fb4064a before S6; 95196e7, 887934e, 45cb57b and 5afcdf5 during S10). If origin/main has commits PR #21 lacks, diff them before building, and settle any conflict with your branch before opening the PR.
   source ~/.nvm/nvm.sh && nvm use 26
   npm ci
 `nvm use` does not carry over between tool calls: prefix every command that needs Node with `source ~/.nvm/nvm.sh && nvm use 26 &&`.
-If neither origin/main nor origin/ofc/s19-og-share-cards has docs/ROADMAP.md, stop and tell me.
+If neither origin/main nor origin/ofc/s20-tale-of-the-tape has docs/ROADMAP.md, stop and tell me.
 
-Before building, ask me the questions the S20 entry leaves open: what the tape compares (the pilot page's "Tale of the Tape" card today sets the pilot's career numbers against one rival from "Frequent Adversaries", which counts teammates as rivals; S17 built kill-log rivals from opponents only, S16 the 1v1 duel records, S13 the ratings), and over which matches (all, ranked, a mode, a window); whether /tape/:a/:b is one canonical order (A/B sorted, the other order redirecting or reading the same) or keeps the order given; what an unknown pilot, the same pilot twice or two pilots who never met show; whether the pilot page's rival picker writes the tape URL (the S8 flag: the picked rival is not in the URL) and whether the old card and "Frequent Adversaries" go (the S17 flag says replacing them changes the tape); and whether the tape gets a share card in S19's layout (two names, the tiles as A against B) or a layout of its own. Do not pick silently.
+Before building, ask me the questions the S21 entry leaves open: what a belt is (the power rankings' #1 from S13, the duel ladder's #1 from S16, a belt per mode or per map, or a lineal title that changes hands only when someone beats the holder in a ranked match, which the S20 bouts can count) and how often it is decided (each refresh, each fight-night day, weekly); what an achievement is (milestones such as kills, matches or wins; feats such as first blood, late kills or kills while trailing from S17's clutch counts, duel streaks; whether they come from every stored match back to 2019 or only from now) and whether achievements carry tiers; where belts and achievements show (the pilot page, a new view, the tape's corners, the leaderboard, the share cards from S19, the Discord recap from S18) and whether a belt change posts to Discord; and what a pilot with no belt or no achievement sees. Do not pick silently.
 
 Read first:
-- docs/ROADMAP.md, the S20 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the pilot page, the rivalry tables and the share cards already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S8 decisions (URLs, share tags), S10 (Combat Ratio and Lethality, the tape's career numbers), S13 (ratings), S16 (duels, pilot_duels), S17 (pilot_rivals, opponentsOf, the rivals card), S19 (shareCards.js, cardLayout.js, cardService.js, routes/cards.js, CARD_VIEWS in pageMeta.js, the cache key, og:image), and every "Flagged, not fixed" item that names S20, the tape, rivals, head-to-head, the dominance index, "Frequent Adversaries" or the rival picker.
-- components/PilotDetail.tsx (the tape and the rival picker), server/db/analytics/pilotTelemetry.js (getPilotBreakdown, the rivals it gives), server/db/analytics/rivals.js, server/lib/siteRoutes.js, server/pageMeta.js, server/lib/shareCards.js, server/lib/cardLayout.js and server/services/cardService.js. Re-count with wc -l before quoting any.
+- docs/ROADMAP.md, the S21 entry. That entry is the scope; it has no Done-when list yet, so write one into the tracker before building, from the entry and what the ratings, the ladders, the rivalry and tape tables, the share cards and the Discord service already have, and quote it in the PR description. Also "Canonical contract", "Open questions", the S8 decisions (URLs, share tags), S10 (Combat Ratio and Lethality), S13 (ratings, rankStatus, powerRankings, rating_snapshots), S14 (the fight-night day, pilot_months), S16 (duels, pilot_duels, duel_snapshots, the ladders), S17 (pilot_clutch, CLUTCH), S18 (the Discord service, discord_posts, the recap embed), S19 (shareCards.js, cardLayout.js, CARD_VIEWS, the cache key), S20 (pilot_bouts, boutsOf, the derived-table key size, MATCH_MODES, the tape), and every "Flagged, not fixed" item that names S21, belts, achievements, streaks, the power rankings, the duel ladder or the Discord recap.
+- server/lib/gameParse.js (the rating, duel and clutch rules), server/lib/statsPasses.js (DERIVED_TABLES, rivalPass, duelPass, ratingPass), server/db/analytics/ratings.js, server/db/analytics/meta.js, server/db/analytics/tape.js, server/services/discordService.js, server/lib/discordMessages.js, server/lib/shareCards.js, server/pageMeta.js and components/PilotDetail.tsx. Re-count with wc -l before quoting any.
 
 Binding decisions, do not re-derive:
 - Test runner is vitest (`npx vitest run`). Tests live beside the code as *.test.js (services/apiService.test.ts for the client service); DB tests set DATA_DIR to a temp dir before importing server/db.js and share fixtures through server/testFixtures.js. vitest's module runner defines CommonJS `module`, so check ES-module-only behaviour from a script run by `node`.
-- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every number the tape shows ships with a test on fixture data.
+- gamelist_sample.json and game_detail_sample.json at the repo root are the test fixtures and part of the canonical contract. Moving them needs my say-so. Every belt and achievement ships with a test on fixture data.
 - types.ts is canonical contract: widen a type locally where a component reads a field it lacks and flag the gap; do not edit types.ts without my say-so.
 - Secrets come from the environment or admin-only storage, never from tracked files, logs, error messages, API answers to non-admins or share tags.
 - server/db.js is the entry and keeps its `db` keys; new reads go in the matching module under server/db/ and get a key in db.js. A new table or cache on disk gets a migration decision entry (how it is built the first time, how a restart repairs it, how to roll it back). New routes go in the matching file under server/routes/. Do not change the public API paths (add endpoints if needed) or the `games(id, date, ip, details)` table and hot/cold split.
-- server/lib/gameParse.js owns the game rules; server/lib/matchResult.js the shared wording; server/lib/siteRoutes.js the page URLs (`urlFor`, `parseRoute`, `pageTitle`); server/lib/shareCards.js what a share card says, built from the same object as the page's og:description. A page reads the same numbers the pilot page and the rivalry tables show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request.
-- A new view is React.lazy in App.tsx behind the one Suspense, with its route, title and nav section in siteRoutes.js and its share description in pageMeta.js; charts stay out of the entry chunk and the dashboard's first visit loads no Recharts chunk. Record the entry size (S19 left 233.36 KB raw / 74.78 KB gzip) and the view's and PilotDetail's chunks before and after.
+- server/lib/gameParse.js owns the game rules; server/lib/matchResult.js the shared wording; server/lib/siteRoutes.js the page URLs (`urlFor`, `parseRoute`, `pageTitle`); server/lib/shareCards.js what a share card says, built from the same object as the page's og:description. A page reads the same numbers the pilot page, the rankings, the ladders and the rivalry tables show; never copy a rule. A pass over every stored match belongs in the stats worker or the nightly job, not on a request. A derived table goes in DERIVED_TABLES (with `key` when it is keyed by more than two columns). A page's not-found state comes from a 200 answer, so the browser logs no error (S15, S17, S20).
+- A new view is React.lazy in App.tsx behind the one Suspense, with its route, title and nav section in siteRoutes.js and its share description in pageMeta.js; charts stay out of the entry chunk and the dashboard's first visit loads no Recharts chunk. Record the entry size (S20 left 234.10 KB raw / 75.04 KB gzip) and the view's and PilotDetail's chunks before and after.
 - Colours, radius and small text come from designTokens.js; chart colours from `chart` there, checked with the dataviz validator for any new pair. Shared states (Loading, EmptyState, ErrorState) for loading, nothing and failure; 390 px wide at 390 px.
 - `npx tsc --noEmit` exits 0 and CI (.github/workflows/ci.yml) runs it with the vite build and vitest on every PR. Keep all three green.
 - Keep new components and modules under 500 lines (S11).
 - Build with `npx vite build`, never `npm run build` (its prebuild rewrites the tracked public/version.json). Node 26 everywhere (.nvmrc, the Dockerfile, CI). A new dependency gets a decision entry; none is expected.
-- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (49 local matches at the end of S19; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the pages' tags (and a tape card, if there is one) with curl, and the pages in headless Chrome over CDP, as S4 and S7 to S19 did (S19's harness was a 144-line CDP client over Node's WebSocket on its own port and profile; write your own, with a Fetch-domain mock list that fulfils, fails or holds for the empty, failed and loading states); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/history` and `/maps` also log 404s for five map images overloadmaps.com lacks (S18 and S19 flags); report them, do not filter them.
+- No production database exists locally. Run `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` with a built dist and wait for `Startup sync complete` in the log before checking (62 local matches at the end of S20; the server stores the tracker's server browser every minute, so a running local server makes network calls to tracker.otl.gg). Check the pages' tags (and any new card) with curl, and the pages in headless Chrome over CDP, as S4 and S7 to S20 did (S20's harness was an 87-line CDP client over Node's WebSocket on port 9333 with its own profile; write your own, with a Fetch-domain mock list that fulfils, fails or holds for the empty, failed and loading states; read text with textContent, since innerText applies the uppercase CSS); never use the claude-in-chrome tools. Before launching headless Chrome, make sure no earlier instance holds the debugging port, and use your own profile. Every page logs a 401 for `/api/overload/status` without an admin session (S1); filter that one and no other. `/history` and `/maps` also log 404s for map images overloadmaps.com lacks (maps 62, 88, 151 and 424 on `/history`, 640 on `/maps`; S18 to S20 flags); report them, do not filter them.
 - Subagents share the session's scratch folder: give each its own subfolder and never copy from a shared path into the repo. When a mutation check edits a source file, restore it from a copy kept in the scratch folder, named by absolute path, not with `git checkout`, which also discards uncommitted work. Run `git status` after every mutation run.
 
 Rules for this session:
-- One PR, scope is the S20 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
-- Add decision entries for the owner's answers, what the tape compares and how each number counts, the URL and its canonical order, any change to the pilot page's rival card, the tape's share card, any new table, setting or cache and its migration, and any new endpoint.
+- One PR, scope is the S21 entry as you wrote its Done-when list. Flag anything else in the tracker's "Flagged, not fixed".
+- Add decision entries for the owner's answers, what a belt and each achievement are and how each counts, when they are decided, where they show, any Discord post, any share card, any new table, setting or cache and its migration, and any new endpoint.
 - Do not merge the PR. Do not push to main.
 - No Co-Authored-By or attribution trailers in commits.
 - Apply the unslop skill to the PR description, the tracker prose and the page's words.
 - Run /code-review on the diff before opening the PR, then /simplify, and fix what they find.
-- Before ending: tick S20 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S21 using this prompt as the template. Commit that in the same PR.
-- End the turn after the PR is open. Do not start S21.
+- Before ending: tick S21 in docs/ROADMAP.md, fill Validated and NOT validated with what you actually ran and its output, update the Verification table rows you exercised, correct the counts in the Status section, append to the session log, and rewrite the "Next session prompt" section for S22 using this prompt as the template. Commit that in the same PR.
+- End the turn after the PR is open. Do not start S22.
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S19 left 21 files, 352 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|GameList)-.*\.js"` (the Verification table records the entry at 74.78 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S20 Done-when list into the tracker.
-Done when: every item of the S20 Done-when list is true and checked on fixture data and in headless Chrome at 1,280 and 390 px (the tape on local data plus Fetch-domain mocks for its states), with curl against the local server for its share tags; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, pilot pages, maps, match page and the admin page still work, and the S19 cards still draw; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S20 PR; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/:name/rivalry`, `/api/card/pilot/:name` and `/api/health`; and the PR is open with the tracker updated.
+First move: run `npx vitest run` (S20 left 22 files, 387 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|PilotDetail|GameList|Tape)-.*\.js"` (the Verification table records the entry at 75.04 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S21 Done-when list into the tracker.
+Done when: every item of the S21 Done-when list is true and checked on fixture data and in headless Chrome at 1,280 and 390 px (the new views on local data plus Fetch-domain mocks for their states), with curl against the local server for any share tags; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, a tape, pilot pages, maps, match page and the admin page still work, and the S19 and S20 cards still draw; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S20 PR; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/pilot/:name/rivalry`, `/api/pilot/:name/tape/:opponent`, `/api/pilot/:name/opponents`, `/api/card/pilot/:name`, `/api/card/tape/:a/:b` and `/api/health`; and the PR is open with the tracker updated.
 ```

@@ -9,6 +9,8 @@ import { useLoad } from '../../hooks/useLoad';
 
 // The 1v1 duel ladder (S16): every pilot with a duel by duel rating, the
 // listed ones (DUEL.listedAfter duels or more) above the provisional ones.
+// From the second row down, a link to the tape against the pilot one row
+// above (S20).
 const DuelLadder: React.FC = () => {
     const { data: ladder, failed, retry } = useLoad(fetchDuelLadder, []);
 
@@ -30,6 +32,7 @@ const DuelLadder: React.FC = () => {
                             <th className="p-3 text-right" title="Wins, losses and ties in duels">W-L-T</th>
                             <th className="p-3 text-right">Duels</th>
                             <th className="p-3 text-right hidden sm:table-cell" title={`The day of the last duel (${FIGHT_NIGHT_DAY_TEXT}).`}>Last duel</th>
+                            <th className="p-3 text-center" title="The tale of the tape against the pilot one row above"><span className="sr-only">Tale of the tape against the pilot above</span><Swords size={13} className="inline" aria-hidden /></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
@@ -37,11 +40,12 @@ const DuelLadder: React.FC = () => {
                             const url = urlFor('pilot', p.name);
                             const provisional = p.status === 'provisional';
                             const first = i === ladder.listed;
+                            const above = ladder.pilots[i - 1];
                             return (
                                 <React.Fragment key={p.pilot}>
                                     {first && (
                                         <tr className="bg-surface-raised/60">
-                                            <td colSpan={7} className="px-3 py-1.5 text-2xs uppercase tracking-wider text-gray-500">Provisional: under {DUEL.listedAfter} duels</td>
+                                            <td colSpan={8} className="px-3 py-1.5 text-2xs uppercase tracking-wider text-gray-500">Provisional: under {DUEL.listedAfter} duels</td>
                                         </tr>
                                     )}
                                     <tr className={`hover:bg-surface-raised transition-colors ${provisional ? 'text-gray-400' : ''}`}>
@@ -52,6 +56,13 @@ const DuelLadder: React.FC = () => {
                                         <LinkCell to={url} className="p-3 text-right text-gray-300 whitespace-nowrap">{p.wins}-{p.losses}-{p.ties}</LinkCell>
                                         <LinkCell to={url} className="p-3 text-right text-gray-300">{p.matches.toLocaleString()}</LinkCell>
                                         <LinkCell to={url} cellClassName="hidden sm:table-cell" className="p-3 text-right text-gray-500 text-xs">{p.last}</LinkCell>
+                                        <td className="p-0 text-center">
+                                            {above && (
+                                                <Link to={urlFor('tape', p.name, above.name)} className="block p-3 text-gray-500 hover:text-brand" title={`Tale of the tape: ${p.name} against ${above.name}`} aria-label={`Tale of the tape: ${p.name} against ${above.name}, one row above`}>
+                                                    <Swords size={13} className="inline" aria-hidden />
+                                                </Link>
+                                            )}
+                                        </td>
                                     </tr>
                                 </React.Fragment>
                             );

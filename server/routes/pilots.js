@@ -1,8 +1,9 @@
 import express from 'express';
 import db from '../db.js';
 import cacheService from '../services/cacheService.js';
+import { tapeMode } from '../lib/gameParse.js';
 
-// /pilot/:name/*: one pilot's stats, weapons, PPI, rating, career, rivalry, breakdown and match history.
+// /pilot/:name/*: one pilot's stats, weapons, PPI, rating, career, rivalry, tape, opponents, breakdown and match history.
 const router = express.Router();
 
 // GET /api/pilot/:name/stats - Detailed Pilot Stats
@@ -135,6 +136,33 @@ router.get('/pilot/:name/rivalry', (req, res) => {
     } catch (e) {
         console.error("Pilot Rivalry Error:", e);
         res.status(500).json({ error: "Failed to fetch pilot rivalry" });
+    }
+});
+
+// GET /api/pilot/:name/tape/:opponent?mode= - the Tale of the Tape (S20): the
+// two pilots' career numbers and their head-to-head from the first's side,
+// from pilot_bouts and pilot_duels. `{ missing: [names] }` for a pilot with no
+// stored match and `{ same: name }` for one pilot twice, answered 200 like an
+// unknown server's history (S15), so the page's own states log no error. No
+// route cache, as for the rivalry.
+router.get('/pilot/:name/tape/:opponent', (req, res) => {
+    try {
+        res.json(db.getTape(req.params.name, req.params.opponent, tapeMode(req.query.mode)));
+    } catch (e) {
+        console.error("Pilot Tape Error:", e);
+        res.status(500).json({ error: "Failed to fetch the tape" });
+    }
+});
+
+// GET /api/pilot/:name/opponents - the opponents the pilot met in the most
+// rated matches (S20), from pilot_bouts, for the pilot page's links to the
+// tape; a pilot with none gets an empty list.
+router.get('/pilot/:name/opponents', (req, res) => {
+    try {
+        res.json(db.getPilotOpponents(req.params.name));
+    } catch (e) {
+        console.error("Pilot Opponents Error:", e);
+        res.status(500).json({ error: "Failed to fetch pilot opponents" });
     }
 });
 

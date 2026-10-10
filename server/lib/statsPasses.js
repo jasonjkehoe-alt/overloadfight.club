@@ -3,7 +3,7 @@
 // once, parsed, and server/db.js writes what they return. Each pass is
 // add(row, game) per stored game (game is null when details do not parse),
 // then a finishing call.
-import { OUTCOME_FIELD, addToLine, addToObjectives, careerMonth, clutchOf, damageFlows, duelMatch, hasDamageLog, hasKillLog, emptyLine, emptyObjectives, combatRatio, durationOf, hasDate, lethality, mapKey, netKills, objectiveMode, opponentsOf, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
+import { OPPOSITE_OUTCOME, OUTCOME_FIELD, addToLine, addToObjectives, boutsOf, careerMonth, clutchOf, damageFlows, duelMatch, hasDamageLog, hasKillLog, emptyLine, emptyObjectives, combatRatio, durationOf, hasDate, lethality, mapKey, matchModeOf, netKills, objectiveMode, opponentsOf, outcomeOf, pairOutcome, pilotKey, rankedMatch, ratingSides, ratingSnapshots, weaponKills, winRate, winnerOf } from './gameParse.js';
 import { regionOf, UNKNOWN_REGION } from './serverRegions.js';
 
 // pilot_stats_cache rows, one per pilotKey(), and (months()) the same totals
@@ -368,9 +368,13 @@ export function duelPass() {
 // of match (ffa or team), the clutch counts of clutchOf(). `name` and
 // `opponent_name` are each pilot's latest spelling among the logged matches,
 // so the reads need no join (pilot_stats_cache keeps the latest of all).
+// pilot_bouts rows (S20) come from the same matches and every other rated one:
+// per pair, both directions, mode and map, the bouts (boutsOf) with the
+// record, and the logged matches, kills and damage above split the same way;
+// a pair's pilot_rivals row is its bout rows added up.
 export function rivalPass() {
-    const pairs = new Map();
     const clutch = new Map();
+    const bouts = new Map();
     // pilotKey -> { name, date }: the spelling of the latest match
     const names = new Map();
     const spell = (name, date) => {
@@ -379,10 +383,10 @@ export function rivalPass() {
         if (key && (!seen || date > seen.date)) names.set(key, { name: String(name).trim(), date });
         return key;
     };
-    const pair = (pilot, opponent) => {
-        const key = `${pilot}\n${opponent}`;
-        if (!pairs.has(key)) pairs.set(key, { pilot, opponent, matches: 0, kills: 0, deaths: 0, damage_dealt: 0, damage_taken: 0 });
-        return pairs.get(key);
+    const bout = (pilot, opponent, mode, map) => {
+        const key = `${pilot}\n${opponent}\n${mode}\n${map}`;
+        if (!bouts.has(key)) bouts.set(key, { pilot, opponent, mode, map, matches: 0, wins: 0, losses: 0, ties: 0, logged: 0, kills: 0, deaths: 0, damage_dealt: 0, damage_taken: 0 });
+        return bouts.get(key);
     };
     const line = (pilot, kind) => {
         const key = `${pilot}\n${kind}`;
@@ -391,8 +395,17 @@ export function rivalPass() {
     };
 
     function add(row, g) {
+        const rated = g && boutsOf(g);
+        for (const { a, b, outcome } of rated?.pairs ?? []) {
+            for (const [me, them, result] of [[a, b, outcome], [b, a, OPPOSITE_OUTCOME[outcome]]]) {
+                const r = bout(me, them, rated.mode, rated.map);
+                r.matches++;
+                r[OUTCOME_FIELD[result]]++;
+            }
+        }
         // most stored matches have no log: skip them before the rules' own checks
         if (!g || (!hasKillLog(g) && !hasDamageLog(g))) return;
+        const [mode, map] = [matchModeOf(g), mapKey(g) ?? ''];
         const met = opponentsOf(g);
         const kills = weaponKills(g);
         const flows = damageFlows(g);
@@ -401,21 +414,21 @@ export function rivalPass() {
         const date = row.date || g.date || '';
         const listed = new Set(g.players.map(p => spell(p?.name, date)).filter(Boolean));
         for (const [a, b] of met) {
-            pair(a, b).matches++;
-            pair(b, a).matches++;
+            bout(a, b, mode, map).logged++;
+            bout(b, a, mode, map).logged++;
         }
         // a pilot named only in a log keeps that spelling until a listing has one
         const key = name => spell(name, '');
         for (const k of kills) {
             const [a, b] = [key(k.attacker), key(k.defender)];
             if (!b) continue;
-            pair(a, b).kills++;
-            pair(b, a).deaths++;
+            bout(a, b, mode, map).kills++;
+            bout(b, a, mode, map).deaths++;
         }
         for (const f of flows) {
             const [a, b] = [key(f.attacker), key(f.defender)];
-            pair(a, b).damage_dealt += f.damage;
-            pair(b, a).damage_taken += f.damage;
+            bout(a, b, mode, map).damage_dealt += f.damage;
+            bout(b, a, mode, map).damage_taken += f.damage;
         }
         if (match) {
             const kind = match.team ? 'team' : 'ffa';
@@ -430,12 +443,30 @@ export function rivalPass() {
         }
     }
     const nameOf = key => names.get(key)?.name ?? key;
+    // a pair met in a logged match or traded a kill or damage: its bout rows
+    // over every mode and map, damage rounded per pair
+    function pairs() {
+        const sums = new Map();
+        for (const b of bouts.values()) {
+            if (!(b.logged || b.kills || b.deaths || b.damage_dealt || b.damage_taken)) continue;
+            const key = `${b.pilot}\n${b.opponent}`;
+            const p = sums.get(key) ?? sums.set(key, { pilot: b.pilot, opponent: b.opponent, matches: 0, kills: 0, deaths: 0, damage_dealt: 0, damage_taken: 0 }).get(key);
+            p.matches += b.logged;
+            p.kills += b.kills;
+            p.deaths += b.deaths;
+            p.damage_dealt += b.damage_dealt;
+            p.damage_taken += b.damage_taken;
+        }
+        return [...sums.values()].map(p => ({
+            ...p, name: nameOf(p.pilot), opponent_name: nameOf(p.opponent), damage_dealt: Math.round(p.damage_dealt), damage_taken: Math.round(p.damage_taken)
+        }));
+    }
     return {
         add,
-        pairs: () => [...pairs.values()].map(p => ({
-            ...p, name: nameOf(p.pilot), opponent_name: nameOf(p.opponent), damage_dealt: Math.round(p.damage_dealt), damage_taken: Math.round(p.damage_taken)
-        })),
-        clutch: () => [...clutch.values()].map(c => ({ ...c, name: nameOf(c.pilot) }))
+        pairs,
+        clutch: () => [...clutch.values()].map(c => ({ ...c, name: nameOf(c.pilot) })),
+        // damage unrounded, so a pair's rows add up to the damage pilot_rivals rounds
+        bouts: () => [...bouts.values()]
     };
 }
 
@@ -446,7 +477,7 @@ export function rivalPass() {
 // startup check, the worker and the write step agree: `columns` with their
 // types (the first two are the key), the `pass` that builds the table (a key
 // of the worker's passes), `rows` from those passes, and the log line's tag
-// and noun.
+// and noun. `key` is the number of leading key columns when it is not two.
 const RATING_COLUMNS = ['pilot TEXT', 'day TEXT', 'name TEXT', 'rating REAL', 'rd REAL', 'volatility REAL', 'matches INTEGER'];
 export const DERIVED_TABLES = {
     rating_snapshots: { columns: RATING_COLUMNS, pass: 'ratings', rows: p => p.ratings.rows(), log: ['Ratings', 'daily rating snapshots'] },
@@ -459,13 +490,16 @@ export const DERIVED_TABLES = {
     pilot_duels: { columns: ['pilot TEXT', 'opponent TEXT', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'last TEXT'], pass: 'duels', rows: p => p.duels.pairs(), log: ['Duels', 'duel records'] },
     pilot_objectives: { columns: ['pilot TEXT', 'mode TEXT', 'name TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'kills INTEGER', 'deaths INTEGER', 'assists INTEGER', 'goals INTEGER', 'goal_assists INTEGER', 'blunders INTEGER', 'captures INTEGER', 'returns INTEGER', 'pickups INTEGER', 'carrier_kills INTEGER'], pass: 'pilots', rows: p => p.pilots.objectives(), log: ['Objectives', 'objective rows'] },
     pilot_rivals: { columns: ['pilot TEXT', 'opponent TEXT', 'name TEXT', 'opponent_name TEXT', 'matches INTEGER', 'kills INTEGER', 'deaths INTEGER', 'damage_dealt INTEGER', 'damage_taken INTEGER'], pass: 'rivals', rows: p => p.rivals.pairs(), log: ['Rivals', 'rival pairs'] },
-    pilot_clutch: { columns: ['pilot TEXT', 'kind TEXT', 'name TEXT', 'matches INTEGER', 'first_bloods INTEGER', 'kills INTEGER', 'late_kills INTEGER', 'trailing_kills INTEGER'], pass: 'rivals', rows: p => p.rivals.clutch(), log: ['Clutch', 'clutch rows'] }
+    pilot_clutch: { columns: ['pilot TEXT', 'kind TEXT', 'name TEXT', 'matches INTEGER', 'first_bloods INTEGER', 'kills INTEGER', 'late_kills INTEGER', 'trailing_kills INTEGER'], pass: 'rivals', rows: p => p.rivals.clutch(), log: ['Clutch', 'clutch rows'] },
+    pilot_bouts: { columns: ['pilot TEXT', 'opponent TEXT', 'mode TEXT', 'map TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'logged INTEGER', 'kills INTEGER', 'deaths INTEGER', 'damage_dealt REAL', 'damage_taken REAL'], key: 4, pass: 'rivals', rows: p => p.rivals.bouts(), log: ['Bouts', 'bout rows'] }
 };
 // A derived table's column names, in table order.
 export const derivedColumns = table => DERIVED_TABLES[table].columns.map(c => c.split(' ')[0]);
+// Its key columns: the first two, or the first `key`.
+export const derivedKey = table => derivedColumns(table).slice(0, DERIVED_TABLES[table].key ?? 2);
 // The value of the built marker (analytics/meta.js) once a refresh has
-// written every table in the list: a new table or column changes it.
-export const DERIVED_TABLES_VERSION = Object.entries(DERIVED_TABLES).map(([table, { columns }]) => `${table}(${columns.join(',')})`).join(';');
+// written every table in the list: a new table, column or key changes it.
+export const DERIVED_TABLES_VERSION = Object.keys(DERIVED_TABLES).map(table => `${table}(${DERIVED_TABLES[table].columns.join(',')};key ${derivedKey(table).join(',')})`).join(';');
 
 // rating_snapshots rows (S13): every rated match, hot and cold, kept as its
 // sides and replayed in date order once every game has been read.
