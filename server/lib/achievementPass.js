@@ -4,7 +4,7 @@
 // earned on the match whose count first passes it and Boss Slayer knows who
 // held the belt at the time. The rules are gameParse.js's.
 import {
-    ACHIEVEMENTS, beltMatch, beltStep, clutchOf, duelMatch, durationOf, fightNightDay, hasDate, killStreaksOf,
+    ACHIEVEMENTS, beltMatch, beltStep, clutchOf, duelMatch, durationOf, fightNightDay, hasDate, inDateOrder, killStreaksOf,
     netKills, outcomeOf, pilotKey, rankedMatch, tierOf, winnerOf
 } from './gameParse.js';
 
@@ -89,10 +89,9 @@ export function achievementPass(today) {
 
         const holders = new Map();
         const reigns = [];
-        // dated matches in the rating's order (inDateOrder); an undated one
-        // still counts, first, with no day
-        const at = e => (hasDate(e.date) ? Date.parse(e.date) : -Infinity);
-        const ordered = [...entries].sort((a, b) => at(a) - at(b) || a.id - b.id);
+        // dated matches in the rating's order (inDateOrder, as beltReigns()
+        // plays the belt); an undated one still counts, first, with no day
+        const ordered = [...entries.filter(e => !hasDate(e.date)).sort((a, b) => a.id - b.id), ...inDateOrder(entries)];
         for (const entry of ordered) {
             const once = new Set();
             for (const { key, kills, outcome } of entry.players) {

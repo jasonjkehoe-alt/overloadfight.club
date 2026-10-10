@@ -1205,9 +1205,10 @@ export const BELT_HINT = `One belt per mode, held until the champion loses. The 
 
 // The belt's view of one match: { mode, sides, champion }, `sides` from
 // ratingSides() and `champion` the { key, name } of the top scorer on the
-// side that won outright (the pilot in FFA; in a team game the highest
-// in-game score, ties by listing order), or null when the top is shared.
-// Null for a match that is not rated or not in a MATCH_MODES mode.
+// side that won outright (the pilot in FFA; in a team game the most of the
+// mode's headline count, OBJECTIVE_MODES' `sort` field (captures, goals),
+// then the highest in-game score, then listing order), or null when the top
+// is shared. Null for a match that is not rated or not in a MATCH_MODES mode.
 export function beltMatch(game) {
     const mode = matchModeOf(game);
     if (!MATCH_MODES.some(m => m.id === mode)) return null;
@@ -1216,12 +1217,15 @@ export function beltMatch(game) {
     const top = Math.max(...sides.map(s => s.score));
     const won = sides.filter(s => s.score === top);
     if (won.length > 1) return { mode, sides, champion: null };
+    // a CTF or Monsterball side scores by captures or goals, not kills
+    const headline = OBJECTIVE_FIELDS.find(f => f.field === OBJECTIVE_MODES[mode]?.sort)?.player;
     const score = new Map();
     for (const p of game.players) {
         const key = pilotKey(p?.name);
-        if (key && !score.has(key)) score.set(key, Number(p.kills) || 0);
+        if (key && !score.has(key)) score.set(key, [headline ? Number(p[headline]) || 0 : 0, Number(p.kills) || 0]);
     }
-    return { mode, sides, champion: won[0].pilots.reduce((best, p) => (score.get(p.key) > score.get(best.key) ? p : best)) };
+    const ahead = (a, b) => a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]);
+    return { mode, sides, champion: won[0].pilots.reduce((best, p) => (ahead(score.get(p.key), score.get(best.key)) ? p : best)) };
 }
 
 // One match of the belt replay: `holders` maps a mode to its reign, `reigns`

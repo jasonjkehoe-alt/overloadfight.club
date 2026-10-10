@@ -50,6 +50,18 @@ describe('beltMatch', () => {
         expect(beltMatch(level).champion.name).toBe('PHOENIX');
     });
 
+    it('takes the most captures in CTF and the most goals in Monsterball, kills after them', () => {
+        // 72102 as CTF won 3-1 by BLUE: INSANER made the captures, PHOENIX the most kills
+        const ctf = { ...byId(72102), settings: { ...byId(72102).settings, matchMode: 'CTF' }, teamScore: { BLUE: 3, ORANGE: 1 } };
+        ctf.players = ctf.players.map(p => ({ ...p, captures: p.name === 'INSANER' ? 3 : 0 }));
+        expect(beltMatch(ctf)).toMatchObject({ mode: 'CTF', champion: { name: 'INSANER' } });
+        // level on captures, the kills decide
+        ctf.players = ctf.players.map(p => ({ ...p, captures: 1 }));
+        expect(beltMatch(ctf).champion.name).toBe('PHOENIX');
+        const ball = { ...ctf, settings: { ...ctf.settings, matchMode: 'MONSTERBALL' }, players: ctf.players.map(p => ({ ...p, goals: p.name === 'INSANER' ? 2 : 0 })) };
+        expect(beltMatch(ball)).toMatchObject({ mode: 'MONSTERBALL', champion: { name: 'INSANER' } });
+    });
+
     it('is null for a match the rating does not count or a mode without a belt', () => {
         const short = { ...byId(72084), players: byId(72084).players.slice(0, 1) };
         expect(beltMatch(short)).toBeNull();

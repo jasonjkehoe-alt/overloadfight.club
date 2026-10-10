@@ -78,12 +78,12 @@ function laddersMeta(board) {
     return { description: `Duel ladder for ${day}: ${top}.` };
 }
 
-// "Rivalries from the kill log: FUTZPIMMEL 41-21 BADASS (3 matches), ..." for the
-// three pairs with the most kills exchanged (each read from the leader's side).
 // "Champions: Anarchy WD-40 (since 2026-10-06, 3 defenses), ..." (S21);
 // nothing while no mode has a champion.
 const beltsMeta = () => withCard(beltsCard(db.getBelts()));
 
+// "Rivalries from the kill log: FUTZPIMMEL 41-21 BADASS (3 matches), ..." for the
+// three pairs with the most kills exchanged (each read from the leader's side).
 function rivalsMeta() {
     const { pairs } = db.getRivalNetwork();
     if (pairs.length === 0) return {};

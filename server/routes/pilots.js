@@ -166,10 +166,6 @@ router.get('/pilot/:name/opponents', (req, res) => {
     }
 });
 
-// GET /api/pilot/:name/weapon-mix - the pilot's logged kills per weapon family
-// beside the community's (S16), from pilot_weapons and map_weapons; a pilot
-// with no logged kill gets zeros, not a 404. No route cache: the tables change
-// only when a refresh writes them.
 // GET /api/pilot/:name/achievements - the belts the pilot held and every
 // achievement with its count and tier (S21); zeros for a pilot with none.
 router.get('/pilot/:name/achievements', (req, res) => {
@@ -181,6 +177,10 @@ router.get('/pilot/:name/achievements', (req, res) => {
     }
 });
 
+// GET /api/pilot/:name/weapon-mix - the pilot's logged kills per weapon family
+// beside the community's (S16), from pilot_weapons and map_weapons; a pilot
+// with no logged kill gets zeros, not a 404. No route cache: the tables change
+// only when a refresh writes them.
 router.get('/pilot/:name/weapon-mix', (req, res) => {
     try {
         res.json(db.getPilotWeaponMix(req.params.name));
