@@ -109,7 +109,10 @@ describe('pilotCard with belts and achievements (S21)', () => {
         expect(stat(card, 'Belt')).toEqual({ label: 'Belt', value: 'Anarchy', note: 'Since Tue, Oct 6, 2026' });
         expect(card.description).toBe('WD-40: 1,234 matches, 5,678 kills, last match 2026-10-07. Anarchy champion since Tue, Oct 6, 2026, 3 defenses.');
         const two = pilotCard(summary, ranked, null, honours([reign('ANARCHY', 'Anarchy'), reign('CTF', 'CTF')], []));
-        expect(stat(two, 'Belts')).toEqual({ label: 'Belts', value: 'Anarchy, CTF', note: undefined });
+        expect(stat(two, 'Belts')).toEqual({ label: 'Belts', value: '2', note: 'Anarchy, CTF' });
+        // all four: a count, so no mode is cut from the tile
+        const four = pilotCard(summary, ranked, null, honours([reign('ANARCHY', 'Anarchy'), reign('TEAM ANARCHY', 'Team Anarchy'), reign('CTF', 'CTF'), reign('MONSTERBALL', 'Monsterball')], []));
+        expect(stat(four, 'Belts')).toEqual({ label: 'Belts', value: '4', note: 'Anarchy, Team Anarchy, CTF, Monsterball' });
     });
 
     it('shows the tiers earned instead for a pilot who holds no belt, and nothing for none', () => {

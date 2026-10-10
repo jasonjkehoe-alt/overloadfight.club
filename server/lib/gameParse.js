@@ -1305,7 +1305,7 @@ export const ACHIEVEMENTS = [
     { id: 'duel_streak', group: 'Streaks', name: 'Duelist', counts: '1v1 duel wins in a row', best: true, tiers: [3, 5, 10] },
     { id: 'years', group: 'Streaks', name: 'Anniversary', counts: 'years since the first stored match', tiers: [1, 3, 5] }
 ];
-export const ACHIEVEMENT_HINT = `Counted over every stored match. Kill-log feats need a match whose kill log the tracker kept; a tie or a loss ends a streak, a match with no result does not. ${TIERS.join(', ')} at the thresholds shown.`;
+export const ACHIEVEMENT_HINT = `Counted over every stored match. Kill-log feats need a match whose kill log the tracker kept, and First Blood, Closer and Comeback count Anarchy and Team Anarchy only; a tie or a loss ends a streak, a match with no result does not. ${TIERS.join(', ')} at the thresholds shown.`;
 export const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map(a => [a.id, a]));
 // The tier a count reaches: 0 (none) to TIERS.length.
 export const tierOf = (achievement, value) => achievement.tiers.filter(t => value >= t).length;

@@ -42,7 +42,7 @@ describe('beltMatch', () => {
         expect(beltMatch(byId(72097)).champion.name).toBe('INSANER');
         // 72102: BLUE 42-35, PHOENIX 23 ahead of INSANER 19
         expect(beltMatch(byId(72102)).champion.name).toBe('PHOENIX');
-        // level at 19, PHOENIX is listed first
+        // level at 23, PHOENIX is listed first
         const level = at(72102, LATER, { INSANER: 23 });
         expect(level.players.findIndex(p => p.name === 'PHOENIX')).toBeLessThan(level.players.findIndex(p => p.name === 'INSANER'));
         expect(beltMatch(level).champion.name).toBe('PHOENIX');
@@ -199,6 +199,8 @@ describe('achievementPass', () => {
         }
         expect(counts(pass, 'insaner').kill_streak.value).toBe(3);
         expect(counts(pass, '.').kill_streak.value).toBe(2);
+        // the best match's streak, not the sum: a second copy of 72099 leaves INSANER at 3
+        expect(counts(run([...games, { ...movedTo(teamWithLog, LATER), id: 99010 }]), 'insaner').kill_streak.value).toBe(3);
     });
 
     it('earns each tier on the match whose count first passes it', () => {
@@ -227,6 +229,7 @@ describe('achievementPass', () => {
         const tie = at(72100, '2025-11-24T20:28:00.000Z', { JFTP: 6, '.': 6 }, { id: 99004 });
         const jftp = [72098, 72100, 72101].map(id => (id === 72098 ? ffaWithLog : byId(id)));
         expect(counts(run([...jftp, tie]), 'jftp').win_streak.value).toBe(1);
+        expect(counts(run([...jftp, tie]), 'jftp').duel_streak.value).toBe(1);
         expect(counts(run(jftp), 'jftp').win_streak.value).toBe(2);
         // a pilot listed twice in a win runs their streak once
         const twice = { ...byId(72100), players: [...byId(72100).players, byId(72100).players.find(p => p.name === 'JFTP')] };
@@ -243,6 +246,15 @@ describe('achievementPass', () => {
         expect(counts(pass, 'b2af').boss_slayer).toMatchObject({ value: 1, tier: 1, game: lost.id });
         expect(counts(pass, 'behemoth').boss_slayer).toBeUndefined();
         expect(pass.reigns().filter(r => r.mode === 'ANARCHY').map(r => `${r.reign}:${r.name}`)).toEqual(['1:BEHEMOTH', '2:B2AF']);
+    });
+
+    it('counts Boss Slayer when the holder loses with the top shared and keeps the belt', () => {
+        // as in beltStep's test: OKSTER and LORD JOHN WARFIN level at 30, BEHEMOTH 5
+        const shared = at(72093, LATER, { OKSTER: 30, 'LORD JOHN WARFIN': 30, 'WD-40': 10 });
+        shared.players = [...shared.players, { ...shared.players[2], name: 'BEHEMOTH', kills: 5 }];
+        const pass = run([...games, shared]);
+        expect(counts(pass, 'okster').boss_slayer).toMatchObject({ value: 1, tier: 1, game: shared.id });
+        expect(pass.reigns().filter(r => r.mode === 'ANARCHY').map(r => [r.name, r.defenses])).toEqual([['BEHEMOTH', 1]]);
     });
 
     it('dates the anniversary from the first stored match', () => {

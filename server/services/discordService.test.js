@@ -194,6 +194,9 @@ describe('the recap embed on fixture data', () => {
         const change = { label: 'Anarchy', name: 'B_2AF', from: { name: '*BEHEMOTH*' } };
         const two = recapMessage(recap, rankings, ORIGIN, { belts: [change, belts[0]] }).embeds[0].fields.at(-2);
         expect(two).toEqual({ name: 'New champions', value: 'Anarchy: B\\_2AF took the belt from \\*BEHEMOTH\\*\nTeam Anarchy: INSANER, the first champion' });
+        // a long name is cut with an ellipsis, as on the other lines
+        const long = recapMessage(recap, rankings, ORIGIN, { belts: [{ label: 'Anarchy', name: 'X'.repeat(70), from: null }] }).embeds[0].fields.at(-2);
+        expect(long.value).toBe(`Anarchy: ${'X'.repeat(63)}…, the first champion`);
         // no change, no field
         expect(recapMessage(recap, rankings, ORIGIN, { belts: [] }).embeds[0].fields.some(f => f.name.startsWith('New champion'))).toBe(false);
     });

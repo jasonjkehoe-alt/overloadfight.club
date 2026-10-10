@@ -38,7 +38,9 @@ export function pilotCard(summary, rating, cached, honours) {
     if (cached?.kda != null) stats.push({ label: 'Combat Ratio', value: Math.max(0, cached.kda).toFixed(2) });
     const held = honours?.belts.filter(b => !b.until) ?? [];
     const tiers = honours ? tiersEarned(honours.achievements) : 0;
-    if (held.length > 0) stats.push({ label: held.length === 1 ? 'Belt' : 'Belts', value: held.map(b => b.label).join(', '), note: held.length === 1 ? `Since ${dayLabel(held[0].since)}` : undefined });
+    // two or more belts as a count, the modes in the note, so four fit a tile
+    if (held.length === 1) stats.push({ label: 'Belt', value: held[0].label, note: `Since ${dayLabel(held[0].since)}` });
+    else if (held.length > 1) stats.push({ label: 'Belts', value: count(held.length), note: held.map(b => b.label).join(', ') });
     else if (tiers > 0) stats.push({ label: 'Achievements', value: count(tiers), note: `of ${TIER_TOTAL} tiers` });
     const belts = held.map(b => ` ${championLine(b)}.`).join('');
     return {

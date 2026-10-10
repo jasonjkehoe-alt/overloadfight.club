@@ -192,8 +192,8 @@ router.get('/stats/active-count', async (req, res) => {
     }
 });
 
-// S16 and S17: the weapon meta, the specialist grid, the duel ladder, the
-// objective boards and the rivalries, each from a derived table the stats refresh keeps; no route cache,
+// S16, S17 and S21: the weapon meta, the specialist grid, the duel ladder, the
+// objective boards, the rivalries and the belts, each from a derived table the stats refresh keeps; no route cache,
 // and analytics/meta.js keeps each answer until a refresh has finished writing.
 const derivedRoute = (path, read, label) => router.get(path, (req, res) => {
     try {

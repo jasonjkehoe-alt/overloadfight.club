@@ -10,13 +10,15 @@ import { ACHIEVEMENTS, fightNightDay, shiftDay } from '../../lib/gameParse.js';
 
 // Belts and achievements (S21) through the real refresh, on the sample moved to
 // `day` with 72099 and 72098 carrying their kill logs, the 2019 Monsterball
-// match in cold storage (Soup's first match) and one more match on `day`:
+// match in cold storage (Soup's first match) and two more matches on `day`:
 // 72085 again at 23:00 UTC with B2AF 21 against BEHEMOTH 20, which passes the
-// Anarchy belt. Anarchy: BEHEMOTH crowned by 72084 (the fight-night day before
-// `day`), defended in 72085, lost in 90100. Team Anarchy: INSANER crowned by
+// Anarchy belt, and at 23:30 with BEHEMOTH 21, which wins it back. Anarchy:
+// BEHEMOTH crowned by 72084 (the fight-night day before `day`), defended in
+// 72085, lost in 90100 and won back in 90101. Team Anarchy: INSANER crowned by
 // 72095 on `day`, defended in 72096, 72097, 72099 and 72102.
 const games = sample.map(g => (g.id === 72099 ? teamWithLog : g.id === 72098 ? ffaWithLog : g)).map(g => onDay(structuredClone(g)));
 const upset = { ...movedTo(byId(72085), `${day}T23:00:00.000Z`), id: 90100, players: byId(72085).players.map(p => ({ ...p, kills: p.name === 'B2AF' ? 21 : 20 })) };
+const comeback = { ...movedTo(byId(72085), `${day}T23:30:00.000Z`), id: 90101, players: byId(72085).players.map(p => ({ ...p, kills: p.name === 'BEHEMOTH' ? 21 : 20 })) };
 const template = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'index.html'), 'utf8');
 const ORIGIN = 'https://overloadfight.club';
 const today = fightNightDay(Date.now());
@@ -32,7 +34,7 @@ beforeAll(async () => {
     process.env.DATA_DIR = dataDir;
     db = (await import('../../db.js')).default;
     ({ withPageMeta } = await import('../../pageMeta.js'));
-    db.saveGames([...games, upset, veteranSoup]);
+    db.saveGames([...games, upset, comeback, veteranSoup]);
     await db.refreshPilotStats();
     const app = express();
     app.use('/api', (await import('../../routes/pilots.js')).default);
@@ -61,15 +63,16 @@ describe('getBelts', () => {
         expect(belts.modes.map(m => m.mode)).toEqual(['ANARCHY', 'TEAM ANARCHY', 'CTF', 'MONSTERBALL']);
         const anarchy = mode(belts, 'ANARCHY');
         expect(anarchy.holder).toMatchObject({
-            reign: 2, name: 'B2AF', since: fightNightDay(upset.date), game: 90100, defenses: 0, until: null,
-            from: { pilot: 'behemoth', name: 'BEHEMOTH' }, days: Math.max(0, (Date.parse(today) - Date.parse(fightNightDay(upset.date))) / 86400000)
+            reign: 3, name: 'BEHEMOTH', since: fightNightDay(comeback.date), game: 90101, defenses: 0, until: null,
+            from: { pilot: 'b2af', name: 'B2AF' }, days: Math.max(0, (Date.parse(today) - Date.parse(fightNightDay(comeback.date))) / 86400000)
         });
         // the line of holders, newest first
         expect(anarchy.lineage.map(r => [r.reign, r.name, r.defenses, r.until, r.lost_game])).toEqual([
-            [2, 'B2AF', 0, null, null],
+            [3, 'BEHEMOTH', 0, null, null],
+            [2, 'B2AF', 0, fightNightDay(comeback.date), 90101],
             [1, 'BEHEMOTH', 1, fightNightDay(upset.date), 90100]
         ]);
-        expect(anarchy.lineage[1]).toMatchObject({ since: shiftDay(day, -1), game: 72084, from: null, days: 1 });
+        expect(anarchy.lineage[2]).toMatchObject({ since: shiftDay(day, -1), game: 72084, from: null, days: 1 });
         expect(mode(belts, 'TEAM ANARCHY').holder).toMatchObject({ name: 'INSANER', since: day, game: 72095, defenses: 4, from: null });
         // no rated CTF match with a winner; the 2019 Monsterball is a one-pilot match
         expect(mode(belts, 'CTF')).toMatchObject({ holder: null, lineage: [] });
@@ -87,7 +90,8 @@ describe('getBelts', () => {
         // INSANER's five in a row reached silver, PHOENIX's four bronze; a silver counts toward bronze
         expect(pilots('win_streak')[1]).toBe(1);
         expect(pilots('win_streak')[0]).toBeGreaterThanOrEqual(2);
-        expect(pilots('boss_slayer')).toEqual([1, 0, 0]);
+        // B2AF over BEHEMOTH, then BEHEMOTH over B2AF
+        expect(pilots('boss_slayer')).toEqual([2, 0, 0]);
     });
 });
 
@@ -116,11 +120,14 @@ describe('getPilotAchievements', () => {
         }
     });
 
-    it('gives B2AF the belt and Boss Slayer, BEHEMOTH a reign that ended', () => {
+    it('gives B2AF Boss Slayer and a reign that ended, BEHEMOTH both reigns newest first', () => {
         const b2af = db.getPilotAchievements('b2af');
         expect(achievement(b2af, 'boss_slayer')).toMatchObject({ value: 1, tier: 1, earned: fightNightDay(upset.date), game: 90100 });
-        expect(b2af.belts).toEqual([expect.objectContaining({ mode: 'ANARCHY', reign: 2, until: null, from: { pilot: 'behemoth', name: 'BEHEMOTH' } })]);
-        expect(db.getPilotAchievements('BEHEMOTH').belts).toEqual([expect.objectContaining({ mode: 'ANARCHY', reign: 1, until: fightNightDay(upset.date), lost_game: 90100, defenses: 1 })]);
+        expect(b2af.belts).toEqual([expect.objectContaining({ mode: 'ANARCHY', reign: 2, until: fightNightDay(comeback.date), lost_game: 90101, from: { pilot: 'behemoth', name: 'BEHEMOTH' } })]);
+        expect(db.getPilotAchievements('BEHEMOTH').belts).toEqual([
+            expect.objectContaining({ mode: 'ANARCHY', reign: 3, until: null, from: { pilot: 'b2af', name: 'B2AF' } }),
+            expect.objectContaining({ mode: 'ANARCHY', reign: 1, until: fightNightDay(upset.date), lost_game: 90100, defenses: 1 })
+        ]);
     });
 
     it('dates the anniversary from the first match in cold storage', () => {
@@ -143,7 +150,8 @@ describe('getBeltChanges', () => {
     it('names the belts that changed hands on a fight-night day', () => {
         expect(db.getBeltChanges(day).map(r => [r.mode, r.name, r.from?.name ?? null])).toEqual([
             ['TEAM ANARCHY', 'INSANER', null],
-            ['ANARCHY', 'B2AF', 'BEHEMOTH']
+            ['ANARCHY', 'B2AF', 'BEHEMOTH'],
+            ['ANARCHY', 'BEHEMOTH', 'B2AF']
         ]);
         expect(db.getBeltChanges(shiftDay(day, -1)).map(r => r.name)).toEqual(['BEHEMOTH']);
         expect(db.getBeltChanges(shiftDay(day, 1))).toEqual([]);
@@ -169,7 +177,7 @@ describe('the tables', () => {
 describe('the routes', () => {
     it('answers the belts and a pilot\'s achievements', async () => {
         const belts = await (await fetch(`${base}/api/stats/belts`)).json();
-        expect(mode(belts, 'ANARCHY').holder.name).toBe('B2AF');
+        expect(mode(belts, 'ANARCHY').holder.name).toBe('BEHEMOTH');
         const res = await fetch(`${base}/api/pilot/INSANER/achievements`);
         expect(res.status).toBe(200);
         expect(achievement(await res.json(), 'defenses').value).toBe(4);
@@ -183,7 +191,7 @@ describe('the routes', () => {
         const card = await fetch(`${base}/api/card/belts`);
         expect(card.status).toBe(200);
         expect(card.headers.get('content-type')).toBe('image/png');
-        const pilot = await fetch(`${base}/api/card/pilot/B2AF`);
+        const pilot = await fetch(`${base}/api/card/pilot/BEHEMOTH`);
         expect(pilot.status).toBe(200);
     });
 });
@@ -192,7 +200,7 @@ describe('the share tags', () => {
     it('describes /belts by its champions, with its card', () => {
         const t = tags('/belts');
         expect(t['og:title']).toBe('Belts | overloadfight.club');
-        expect(t['og:description']).toBe(`Champions: Anarchy B2AF (since ${fightNightDay(upset.date)}, 0 defenses), Team Anarchy INSANER (since ${day}, 4 defenses).`);
+        expect(t['og:description']).toBe(`Champions: Anarchy BEHEMOTH (since ${fightNightDay(comeback.date)}, 0 defenses), Team Anarchy INSANER (since ${day}, 4 defenses).`);
         expect(t['og:image']).toMatch(/^https:\/\/overloadfight\.club\/api\/card\/belts\?v=[0-9a-f]{12}$/);
     });
 

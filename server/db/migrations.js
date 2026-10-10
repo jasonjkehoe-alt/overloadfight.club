@@ -206,7 +206,10 @@ migrateGamePlayers();
 // directions. pilot_clutch (S17): a pilot's first bloods, late kills and kills
 // while trailing per kind of match (ffa, team). pilot_bouts (S20): each pair
 // of opponents' rated matches with the record, and their logged matches,
-// kills and damage, per mode and map, both directions. Each is keyed by its
+// kills and damage, per mode and map, both directions. belt_reigns (S21): each
+// mode's reigns in order, with the match and day each began and ended.
+// pilot_achievements (S21): a pilot's count, tier and the day and match it
+// was earned, per achievement above 0. Each is keyed by its
 // first two columns, or by the first `key` (derivedKey).
 export function ensureDerivedTables() {
   for (const [table, { columns }] of Object.entries(DERIVED_TABLES)) {

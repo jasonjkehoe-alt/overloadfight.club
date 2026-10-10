@@ -2,7 +2,8 @@
 // match in the stats worker's scan (server/statsWorker.js), kept per match and
 // replayed in date order once every game has been read, so each tier is
 // earned on the match whose count first passes it and Boss Slayer knows who
-// held the belt at the time. The rules are gameParse.js's.
+// held the belt at the time. The rules are gameParse.js's; tier dating, the
+// streak runs and the anniversary's years are worked out here.
 import {
     ACHIEVEMENTS, ACHIEVEMENT_BY_ID, beltMatch, beltStep, clutchOf, duelMatch, durationOf, fightNightDay, hasDate, inDateOrder,
     killStreaksOf, netKills, outcomeOf, pilotKey, rankedMatch, sideOutcome, tierOf, winnerOf

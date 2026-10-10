@@ -48,7 +48,11 @@ describe('cardTree', () => {
         expect(value('BADASS').fontSize).toBe(34);
         expect(value('FUTZPIMMEL').fontSize).toBe(26);
         expect(value('Tue, Oct 6, 2026')).toMatchObject({ fontSize: 22, lineClamp: 2 });
-        // five tiles (the pilot card with a belt, S21) scale everything by four fifths
+        // five tiles (the pilot card with a belt, S21) scale the type and the
+        // horizontal padding by four fifths
+        const padding = stats => walk(cardTree({ ...card, stats })).find(n => n.props?.style?.flex === 1).props.style.padding;
+        expect(padding(card.stats.slice(0, 4))).toBe('22px 24px');
+        expect(parseFloat(padding([...card.stats.slice(0, 4), { label: 'L', value: 'v' }]).split(' ')[1])).toBeCloseTo(19.2);
         const crowded = v => walk(cardTree({ ...card, stats: [...card.stats.slice(0, 4), { label: 'L', value: v }] })).find(n => n.props?.children === v).props.style;
         expect(crowded('1,234').fontSize).toBe(37);
         expect(crowded('Anarchy').fontSize).toBe(27);

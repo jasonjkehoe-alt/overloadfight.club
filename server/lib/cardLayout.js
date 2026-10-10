@@ -22,18 +22,19 @@ const RADIUS = px(borderRadius.card); // 20 px
 const el = (type, style, children) => ({ type, props: { style, children } });
 // One line of text, cut with an ellipsis where it would overflow.
 const oneLine = { overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' };
+const MAX_TILES = 5;
 
 // Smaller type for longer text, so most names fit a tile (Orbitron's capitals
 // are about 0.85 em wide); past 11 characters a value wraps onto a second
-// line before the ellipsis. The sizes are for four tiles; with more (five on
-// the pilot card with a belt or achievements, S21) each tile is narrower, so
-// its type and padding scale by `fit`, four over the number of tiles.
-const MAX_TILES = 5;
+// line before the ellipsis.
 const titleSize = text => (text.length <= 12 ? 88 : text.length <= 20 ? 72 : text.length <= 27 ? 58 : 48);
 const valueSize = text => (text.length <= 5 ? 46 : text.length <= 7 ? 34 : text.length <= 11 ? 26 : 22);
 // Up to `lines` lines, cut with an ellipsis after the last.
 const clamp = lines => ({ display: 'block', lineClamp: lines, overflow: 'hidden', wordBreak: 'break-word' });
 
+// The sizes are for four tiles; with more (five on the pilot card with a belt
+// or achievements, S21) each tile is narrower, so its type and horizontal
+// padding scale by `fit`, four over the number of tiles.
 function tile({ label, value, note }, fit) {
     return el('div', {
         display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, padding: `22px ${24 * fit}px`,

@@ -14,6 +14,7 @@ export const RECAP_RANKINGS = 5;
 export const PING_SERVERS = 10;
 // The longest pilot name a line holds before it is cut.
 const NAME_MAX = 64;
+const cutName = name => (name.length > NAME_MAX ? `${name.slice(0, NAME_MAX - 1)}…` : name);
 
 // No message pings anyone, whatever a pilot calls himself.
 const NO_MENTIONS = { parse: [] };
@@ -71,7 +72,7 @@ export function recapMessage(recap, rankings, origin, { image = true, belts = []
     if (belts.length > 0) {
         fields.push({
             name: belts.length === 1 ? 'New champion' : 'New champions',
-            value: plain(belts.map(b => beltChange({ ...b, name: b.name.slice(0, NAME_MAX), from: b.from && { name: b.from.name.slice(0, NAME_MAX) } })).join('\n'))
+            value: plain(belts.map(b => beltChange({ ...b, name: cutName(b.name), from: b.from && { name: cutName(b.from.name) } })).join('\n'))
         });
     }
     const top = rankings.pilots.slice(0, RECAP_RANKINGS);

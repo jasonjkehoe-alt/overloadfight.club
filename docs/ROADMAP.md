@@ -148,8 +148,8 @@ maintenance item does not count toward the 28.
   72097, 72099 and 72102, so INSANER has 4 defenses; neither belt changes
   hands in the sample. In 72099's hand-written log INSANER's best kill
   streak is 3, STITCH's 2; in 72098's "." has 2.
-- S21, tests: `npx vitest run` passes 24 files, 426 tests (387 at the
-  start). New: `server/lib/achievementPass.test.js` (21: `beltMatch` on
+- S21, tests: `npx vitest run` passes 24 files, 427 tests (387 at the
+  start). New: `server/lib/achievementPass.test.js` (22: `beltMatch` on
   72084, a 1-1 draw, 72097 and 72102's top scorers, a level team with
   listing order, CTF by captures and Monsterball by goals with kills
   after them, an unrated match, a mode without a belt; the belt replay
@@ -159,23 +159,28 @@ maintenance item does not count toward the 28.
   `killStreaksOf` on both logs and with a suicide, a death with no
   attacker and a team kill added; `tierOf`; the pass's milestones
   against `pilotPass` for every fixture pilot, its kill-log feats
-  against `rivalPass`'s clutch rows, the match each tier is earned on,
-  the streaks with a tie, a pilot listed twice and a match with no
-  result, belts won and Boss Slayer when the belt changes hands, the
+  against `rivalPass`'s clutch rows and the best streak over two logged
+  matches, the match each tier is earned on, the streaks with a tie
+  (ranked and duel), a pilot listed twice and a match with no result,
+  belts won and Boss Slayer when the belt changes hands, Boss Slayer
+  when the holder is beaten with the top shared, the
   anniversary on its day, an undated match, the latest spelling) and
   `server/db/analytics/belts.test.js` (13, through the real refresh on
-  the sample with its two logs, the 2019 match in cold storage and one
-  more match passing the Anarchy belt to B2AF: each mode's champion,
-  lineage and vacancy, the tier counts, a pilot's achievements against
-  `pilot_stats_cache` and `pilot_clutch`, B2AF's belt and Boss Slayer,
+  the sample with its two logs, the 2019 match in cold storage and two
+  more matches passing the Anarchy belt to B2AF and back: each mode's
+  champion, lineage and vacancy, the tier counts, a pilot's achievements
+  against `pilot_stats_cache` and `pilot_clutch`, B2AF's Boss Slayer and
+  BEHEMOTH's two reigns newest first,
   the anniversary from cold storage, an unknown pilot, the belt changes
   on a day, the reign chain and the built marker, both routes, both
   cards, the share tags). `discordService.test.js`: the "New champion"
-  field from `getBeltChanges` on the fixtures, its plural and escaping,
+  field from `getBeltChanges` on the fixtures, its plural, escaping and
+  a long name cut with an ellipsis,
   none on a night without a change, and the posted recap carrying it.
-  `shareCards.test.js`: the pilot card's belt and achievements tiles and
-  description, `beltsCard`. `cardLayout.test.js`: five tiles, sized by
-  four fifths. `siteRoutes.test.js`: `/belts`.
+  `shareCards.test.js`: the pilot card's belt and achievements tiles
+  (two or four belts as a count) and description, `beltsCard`.
+  `cardLayout.test.js`: five tiles, the type and horizontal padding
+  scaled by four fifths. `siteRoutes.test.js`: `/belts`.
 - S21, mutations (`mutate.py` in the scratch folder: each edit on a
   source file restored from a copy named by its absolute path, five test
   files run): 33 of 33 fail a test after /simplify. The first run caught
@@ -2844,7 +2849,7 @@ maintenance item does not count toward the 28.
 |---|---|---|---|
 | `grep -rnE "password=['\"]" scripts/` | no output after S1 | no output (S1) | 2026-10-06 |
 | `nvm use 26 && npm ci` | installs, `better-sqlite3` loads its bundled prebuild, nothing compiles | 26.11.1: exit 0, `build/` holds stamps only, `darwin-arm64.node` loads (Node 26) | 2026-10-08 |
-| `npx vitest run` | all pass | 24 files, 426 tests pass on 26.11.1 (S21; 387 at its start) | 2026-10-10 |
+| `npx vitest run` | all pass | 24 files, 427 tests pass on 26.11.1 (S21; 387 at its start) | 2026-10-10 |
 | `NODE_ENV=production PORT=3100 DATA_DIR=/tmp/ofc-data npm start` without `ADMIN_PASSWORD`/`SESSION_SECRET` | exits 1 with a message naming both | exits 1, message names both | 2026-10-06 |
 | `npx vite build 2>&1 \| grep -E "assets/.*\.js"` | after S4: several chunks, main under 150 KB gzip | entry 234.57 KB raw / 75.21 KB gzip (S21; 234.10 / 75.04 at its start), new `Belts` 7.53 KB / 2.29 KB and `BeltMark` 0.58 KB / 0.39 KB, `PilotDetail` 55.64 KB / 14.33 KB, `PilotsList` 18.42 KB / 5.26 KB, `PowerRankings` 4.33 KB / 1.58 KB, `Ladders` 8.32 KB / 2.59 KB, `Tape` 11.02 KB / 3.67 KB, `Rivals` 7.36 KB / 2.50 KB, dashboard `GameList` 41.75 KB / 11.46 KB gzip and no Recharts on its first visit, on 26.11.1. Unchanged since S20: `GameDetail` 124.19 KB / 40.12 KB; since S19: `AdminPanel` 35.18 KB / 9.32 KB, `FightNightSection` 14.13 KB / 3.05 KB, `MapLibrary` 34.26 KB / 8.93 KB (one 351.07 KB chunk before S4) | 2026-10-10 |
 | `npx tsc --noEmit` | 0 errors with the React types installed | 0 errors on 26.11.1 (S21) | 2026-10-10 |
@@ -3687,7 +3692,11 @@ Effort tags: S under half a day, M a day, L two or more days of agent work.
          days; the kill-log feats equal their `pilot_clutch` rows summed;
          the reigns chain (each one's end is the next one's start, the
          holder's defenses are the matches they kept it through); Boss
-         Slayer counts the bouts won against the holder.
+         Slayer counts the bouts won against the holder. (Amended in the
+         S21 review: the fight-night days are recounted from the matches,
+         since `pilot_months` keeps no days, and Boss Slayer is tested on a
+         belt changing hands and a holder beaten with the top shared, not
+         against `pilot_bouts`.)
       3. New endpoints, reads in a new `server/db/analytics/belts.js` with
          `db` keys, read through `apiService` (null on failure) and
          `useLoad`, no route cache: `GET /api/stats/belts` (each mode's
@@ -6145,12 +6154,14 @@ Not counted in the 28 sessions.
   "Champions: Anarchy B2AF (since 2026-10-06, 0 defenses), ..."; no holder
   anywhere gives no card and the site description. `/belts` joined
   `CARD_VIEWS`, so `/api/card/belts` draws it. The pilot card gains a
-  fifth tile: "Belt" (the mode and the day it was won) for a holder, else
+  fifth tile: "Belt" (the mode and the day it was won) for a holder of
+  one, "Belts" (how many, the modes in the note, so four fit; from the S21
+  review, where the joined modes cut Monsterball) for more, else
   "Achievements" (tiers earned of 42) when any is earned, else none, and a
   holder's description ends with "Anarchy champion since Tue, Oct 6, 2026,
   0 defenses." (`championLine` in `matchResult.js`, shared with the
   page). The S19 sizes are for four tiles; with more, every tile's type
-  and padding scale by four over the number of tiles, 0.8 for five
+  and horizontal padding scale by four over the number of tiles, 0.8 for five
   (/simplify, in place of a second table of sizes; looked at: "COMBAT
   RATIO", "123,456" and "Team Anarchy" fit), and four tiles keep the S19
   sizes. `CARD_LAYOUT` went from 2 to 3, so every card gets a new `?v=`.
@@ -7256,6 +7267,9 @@ Not counted in the 28 sessions.
   which has no index on `pilot`; it holds one row per change of hands, so
   the scan is small, and the pilot page and its share tags each run it
   once per view. An index needs `ensureDerivedTables` to learn indexes.
+  The list has no cap either, unlike a mode's lineage (`LINEAGE`, 10): a
+  plain `LIMIT` could drop a belt the pilot still holds (S21 review,
+  left as is).
 - (S21) The anniversary is worked out when the stats refresh runs (every
   6 hours whether or not a match arrived), so a tier can show up to 6
   hours after its day. Working it out on read needs each pilot's first
@@ -8200,6 +8214,6 @@ Rules for this session:
 
 Load these skills: unslop, code-review, simplify.
 
-First move: run `npx vitest run` (S21 left 24 files, 426 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|AdminPanel|FightNightSection)-.*\.js"` (the Verification table records the entry at 75.21 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S22 Done-when list into the tracker.
+First move: run `npx vitest run` (S21 left 24 files, 427 tests passing), `npx vite build 2>&1 | grep -E "assets/(index|GameList|AdminPanel|FightNightSection)-.*\.js"` (the Verification table records the entry at 75.21 KB gzip) and `npx tsc --noEmit` (0 errors), and record the results. Then ask the questions above, then write the S22 Done-when list into the tracker.
 Done when: every item of the S22 Done-when list is true and checked on fixture data (the DST days included) and in headless Chrome at 1,280 and 390 px (the dashboard and any new view on local data plus Fetch-domain mocks for their states), with curl against the local server for the feed and any share tags, and the feed opened by a calendar parser; the dashboard, fight night, leaderboard, rankings, ladders, rivalries, belts, a tape, pilot pages, maps, match page and the admin page still work, and the S19 to S21 cards still draw; `npx tsc --noEmit`, `npx vite build` and `npx vitest run` pass and CI is green on the S22 PR; `PORT=3100 DATA_DIR=/tmp/ofc-data npm start` still serves `/api/stats/global`, `/api/stats/pilots`, `/api/pilot/:name/stats`, `/api/stats/rankings`, `/api/stats/heatmap`, `/api/pilot/:name/career`, `/api/stats/regions`, `/api/server/:ip/history`, `/api/stats/weapons`, `/api/stats/duels`, `/api/stats/rivalries`, `/api/stats/belts`, `/api/pilot/:name/rivalry`, `/api/pilot/:name/tape/:opponent`, `/api/pilot/:name/opponents`, `/api/pilot/:name/achievements`, `/api/card/pilot/:name`, `/api/card/belts` and `/api/health`; and the PR is open with the tracker updated.
 ```
