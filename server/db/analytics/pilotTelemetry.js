@@ -6,12 +6,16 @@ import { OUTCOME_FIELD, combatRatio, durationOf, lethality, netKills, outcomeOf,
 // profile, and the map and rival breakdown.
 
 // Weapon Normalization & Telemetry Engine
+// First substring match wins. Legacy logs carry olmod's ProjPrefab names: the
+// Cyclone fires proj_vortex (before 'vortex', the Vortex missile), the Crusher
+// proj_shotgun, the Lancer proj_beam and the Nova missile_smart.
 const WEAPON_MAP = {
+    proj_vortex: 'Cyclone',
     driller: 'Driller',
     flak: 'Flak',
-    shotgun: 'Flak',
+    shotgun: 'Crusher',
     thunderbolt: 'Thunderbolt',
-    beam: 'Thunderbolt',
+    beam: 'Lancer',
     impulse: 'Impulse',
     cyclone: 'Cyclone',
     crusher: 'Crusher',
@@ -21,7 +25,7 @@ const WEAPON_MAP = {
     missile_pod: 'Missile Pod',
     pod: 'Missile Pod',
     hunter: 'Hunter',
-    smart: 'Hunter',
+    smart: 'Nova',
     creeper: 'Creeper',
     devastator: 'Devastator',
     timebomb: 'Time Bomb',

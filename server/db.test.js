@@ -449,6 +449,17 @@ describe('getPilotTelemetry and getPilotBreakdown', () => {
         const insaner = db.getPilotBreakdown('MAESTRO').rivals.find(r => r.name === 'INSANER');
         expect(insaner).toMatchObject({ encounters: 7, your_wins: 1, their_wins: 5, ties: 1 });
     });
+
+    it('names legacy olmod projectile weapons after the weapon that fires them', () => {
+        expect(db.normalizeWeaponName('proj_vortex')).toBe('Cyclone');
+        expect(db.normalizeWeaponName('missile_vortex')).toBe('Vortex');
+        expect(db.normalizeWeaponName('proj_shotgun')).toBe('Crusher');
+        expect(db.normalizeWeaponName('proj_flak_cannon')).toBe('Flak');
+        expect(db.normalizeWeaponName('proj_beam')).toBe('Lancer');
+        expect(db.normalizeWeaponName('missile_smart')).toBe('Nova');
+        expect(db.normalizeWeaponName('missile_smart_mini')).toBe('Nova');
+        expect(db.normalizeWeaponName('proj_driller_mini')).toBe('Driller');
+    });
 });
 
 describe('pilot match history (getGamesByPilot, countGamesByPilot)', () => {

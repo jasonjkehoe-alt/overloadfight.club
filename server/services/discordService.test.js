@@ -522,13 +522,15 @@ describe('the reminder before a scheduled night (S22)', () => {
     const MINUTE = 60000;
     const clearEvents = () => { for (const row of db.listFightNightEvents()) db.deleteFightNightEvent(row.id); };
     const nextWeek = () => occurrences(db.listFightNightEvents(), Date.now(), Date.now() + 8 * 86400000);
-    // the next Saturday 20:00 Central from the stored rule, and its reminder key
+    // the next Saturday 20:00 Central from the stored rule not yet started (a
+    // run during one would otherwise take the night under way), and its
+    // reminder key
     let saturday;
     let key;
     beforeAll(() => {
         clearEvents();
         db.saveFightNightEvent({ kind: 'weekly', weekday: 5, date: null, time: '20:00', minutes: 180, title: 'Saturday Night Anarchy', notes: 'Bring a flag; or two' });
-        [saturday] = nextWeek();
+        saturday = nextWeek().find(o => Date.parse(o.start) > Date.now());
         key = reminderKey(saturday);
     });
     const start = () => Date.parse(saturday.start);
