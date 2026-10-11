@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import express from 'express';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { day, onDay, sample, veteranSoup } from '../testFixtures.js';
 import { DAY_MS, fightNightDay } from '../lib/gameParse.js';
 import { FEED_PATH, SCHEDULE, occurrences } from '../lib/fightNightSchedule.js';
@@ -29,6 +29,19 @@ const clear = () => { for (const row of db.listFightNightEvents()) db.deleteFigh
 const oneOff = (days, title = 'Once') => {
     const at = new Date(Date.now() + days * DAY_MS);
     return { kind: 'once', date: fightNightDay(at), time: '12:00', minutes: 60, title, notes: '' };
+};
+
+// The schedule and feed tests run on a clock pinned to 17:00 UTC of today's
+// fight-night day (11:00 or 12:00 Central), outside any 20:00 night: a run
+// while the weekly night is under way would see one more of it than the
+// counts below, the one under way.
+const pinnedNow = `${fightNightDay(Date.now())}T17:00:00.000Z`;
+const pinClock = () => {
+    beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(pinnedNow);
+    });
+    afterEach(() => vi.useRealTimers());
 };
 
 beforeAll(async () => {
@@ -107,6 +120,7 @@ describe('the events repo', () => {
 });
 
 describe('GET /api/fight-nights/schedule', () => {
+    pinClock();
     it('answers the coming nights to the horizon, one under way included', async () => {
         clear();
         db.saveFightNightEvent({ ...weekly, date: null });
@@ -138,6 +152,7 @@ describe('GET /api/fight-nights/schedule', () => {
 });
 
 describe('the .ics feed', () => {
+    pinClock();
     it('answers text/calendar at the root and under /api with the coming nights and the fixture recap', async () => {
         clear();
         const sat = db.saveFightNightEvent({ ...weekly, date: null });
