@@ -27,8 +27,8 @@ const pilotRows = hotDb.prepare('SELECT achievement, value, tier, earned, game F
 // days; `until` null while it lasts), the days held up to `today`, and who it
 // was taken from (null for a mode's first champion).
 const reignOf = (r, today) => {
-  const since = fightNightDay(r.since);
-  const end = r.until ? fightNightDay(r.until) : null;
+  const since = /^\d{4}-\d{2}-\d{2}$/.test(r.since) ? r.since : fightNightDay(r.since);
+  const end = r.until ? (/^\d{4}-\d{2}-\d{2}$/.test(r.until) ? r.until : fightNightDay(r.until)) : null;
   return {
     mode: r.mode,
     label: modeLabel(r.mode),
@@ -40,18 +40,18 @@ const reignOf = (r, today) => {
     defenses: r.defenses,
     until: end,
     lost_game: r.lost_game || null,
+    vacated: r.vacated ? 1 : 0,
     days: since ? Math.max(0, daysBetween(since, end ?? today)) : 0,
     from: r.from_pilot ? { pilot: r.from_pilot, name: r.from_name } : null
   };
 };
 
 // { day, modes, achievements }: for each MATCH_MODES mode its champion (the
-// newest reign, which always lasts: a reign ends only as the next one starts;
-// its `reign` is how many the mode has had; null before the mode's first
-// decisive match) and its last LINEAGE reigns, newest first; and
-// { [achievement]: [pilots per tier] }, how many pilots reached each tier, a
-// higher tier counting toward the lower ones. Kept per day until the next
-// refresh writes.
+// newest reign, which lasts while its until is empty; otherwise holder is null
+// and the mode exposes vacant: true and last_holder) and its last LINEAGE reigns,
+// newest first; and { [achievement]: [pilots per tier] }, how many pilots reached
+// each tier, a higher tier counting toward the lower ones. Kept per day until the
+// next refresh writes.
 export const getBelts = (today = fightNightDay(Date.now())) => until(`belts\n${today}`, () => {
   const reached = Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, TIERS.map(() => 0)]));
   for (const { achievement, tier, pilots } of tierCounts.all()) {
@@ -62,7 +62,15 @@ export const getBelts = (today = fightNightDay(Date.now())) => until(`belts\n${t
     day: today,
     modes: MATCH_MODES.map(({ id, label }) => {
       const reigns = lineage.all(id, LINEAGE).map(r => reignOf(r, today));
-      return { mode: id, label, holder: reigns[0] ?? null, lineage: reigns };
+      const newest = reigns[0] ?? null;
+      const holder = newest && !newest.until ? newest : null;
+      return {
+        mode: id,
+        label,
+        holder,
+        ...(holder ? {} : { vacant: true, last_holder: newest }),
+        lineage: reigns
+      };
     }),
     achievements: reached
   };

@@ -766,14 +766,15 @@ export interface BeltReign {
     defenses: number;
     until: string | null;
     lost_game: number | null;
+    vacated?: number;
     days: number;
     // the champion it was taken from, null for a mode's first
     from: { pilot: string; name: string } | null;
 }
 export interface Belts {
     day: string;
-    // `holder` is the newest reign, null before the mode's first; its `reign` counts the mode's reigns
-    modes: { mode: string; label: string; holder: BeltReign | null; lineage: BeltReign[] }[];
+    // `holder` is the newest reign, null before the mode's first or when vacant; its `reign` counts the mode's reigns
+    modes: { mode: string; label: string; holder: BeltReign | null; vacant?: boolean; last_holder?: BeltReign | null; lineage: BeltReign[] }[];
     // per achievement id, the pilots who reached each tier (or a higher one)
     achievements: Record<string, number[]>;
 }
