@@ -343,11 +343,16 @@ describe('kill log replay', () => {
         expect(weaponFamily('missile_hunter')).toBe('missile');
         expect(weaponFamily('missile_timebomb')).toBe('mine');
         expect(weaponFamily('missile_devastator_mini')).toBe('heavy');
-        expect(weaponFamily('proj_beam')).toBe('thunderbolt');
+        expect(weaponFamily('proj_beam')).toBe('driller');
+        expect(weaponFamily('proj_vortex')).toBe('laser');
+        expect(weaponFamily('missile_vortex')).toBe('heavy');
+        expect(weaponFamily('missile_smart')).toBe('heavy');
+        expect(weaponFamily('missile_smart_mini')).toBe('heavy');
+        expect(weaponFamily('proj_driller_mini')).toBe('driller');
         expect(weaponFamily('proj_driller')).toBe('driller');
         const listed = WEAPON_FAMILIES.flatMap(f => f.weapons);
         expect(new Set(listed).size).toBe(listed.length);
-        expect(listed).toHaveLength(34);
+        expect(listed).toHaveLength(35);
     });
 });
 
