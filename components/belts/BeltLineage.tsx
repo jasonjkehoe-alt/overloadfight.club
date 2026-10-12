@@ -35,7 +35,7 @@ const BeltLineage: React.FC<{ label: string; lineage: BeltReign[] }> = ({ label,
                             <td className="p-3 text-right text-gray-300">{count(r.days)}</td>
                             <td className="p-3 text-right text-brand font-bold">{count(r.defenses)}</td>
                             <td className="p-3 text-right text-gray-400 whitespace-nowrap">
-                                {r.lost_game ? <Link to={urlFor('game-detail', r.lost_game)} className="hover:text-brand underline decoration-gray-700">{r.until}</Link> : <span className="text-brand">Holds it</span>}
+                                {r.vacated ? <span className="text-amber-400/90">vacated {r.until}</span> : r.lost_game ? <Link to={urlFor('game-detail', r.lost_game)} className="hover:text-brand underline decoration-gray-700">{r.until}</Link> : <span className="text-brand">Holds it</span>}
                             </td>
                         </tr>
                     ))}

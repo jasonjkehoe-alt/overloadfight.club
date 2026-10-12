@@ -76,8 +76,8 @@ describe('the belt replay', () => {
     it('gives each mode its first champion and their defenses', () => {
         const reigns = reignsOf(sample);
         expect(reigns).toEqual([
-            { mode: 'ANARCHY', reign: 1, pilot: 'behemoth', name: 'BEHEMOTH', since: byId(72084).date, game: 72084, defenses: 1, until: '', lost_game: 0 },
-            { mode: 'TEAM ANARCHY', reign: 1, pilot: 'insaner', name: 'INSANER', since: byId(72095).date, game: 72095, defenses: 4, until: '', lost_game: 0 }
+            { mode: 'ANARCHY', reign: 1, pilot: 'behemoth', name: 'BEHEMOTH', since: byId(72084).date, game: 72084, defenses: 1, until: '', lost_game: 0, vacated: 0 },
+            { mode: 'TEAM ANARCHY', reign: 1, pilot: 'insaner', name: 'INSANER', since: byId(72095).date, game: 72095, defenses: 4, until: '', lost_game: 0, vacated: 0 }
         ]);
         // the same whatever order the matches come in
         expect(reignsOf([...sample].reverse())).toEqual(reigns);
@@ -89,9 +89,9 @@ describe('the belt replay', () => {
         const reigns = reignsOf([...sample, lost, draw]);
         const anarchy = reigns.filter(r => r.mode === 'ANARCHY');
         expect(anarchy).toEqual([
-            { mode: 'ANARCHY', reign: 1, pilot: 'behemoth', name: 'BEHEMOTH', since: byId(72084).date, game: 72084, defenses: 1, until: LATER, lost_game: lost.id },
+            { mode: 'ANARCHY', reign: 1, pilot: 'behemoth', name: 'BEHEMOTH', since: byId(72084).date, game: 72084, defenses: 1, until: LATER, lost_game: lost.id, vacated: 0 },
             // a draw at the top is a defense
-            { mode: 'ANARCHY', reign: 2, pilot: 'b2af', name: 'B2AF', since: LATER, game: lost.id, defenses: 1, until: '', lost_game: 0 }
+            { mode: 'ANARCHY', reign: 2, pilot: 'b2af', name: 'B2AF', since: LATER, game: lost.id, defenses: 1, until: '', lost_game: 0, vacated: 0 }
         ]);
         // Team Anarchy is untouched
         expect(reigns.find(r => r.mode === 'TEAM ANARCHY')).toMatchObject({ reign: 1, defenses: 4 });

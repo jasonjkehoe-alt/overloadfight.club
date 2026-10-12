@@ -75,8 +75,38 @@ describe('getBelts', () => {
         expect(anarchy.lineage[2]).toMatchObject({ since: shiftDay(day, -1), game: 72084, from: null, days: 1 });
         expect(mode(belts, 'TEAM ANARCHY').holder).toMatchObject({ name: 'INSANER', since: day, game: 72095, defenses: 4, from: null });
         // no rated CTF match with a winner; the 2019 Monsterball is a one-pilot match
-        expect(mode(belts, 'CTF')).toMatchObject({ holder: null, lineage: [] });
-        expect(mode(belts, 'MONSTERBALL').holder).toBeNull();
+        expect(mode(belts, 'CTF')).toMatchObject({ holder: null, vacant: true, last_holder: null, lineage: [] });
+        expect(mode(belts, 'MONSTERBALL')).toMatchObject({ holder: null, vacant: true, last_holder: null });
+    });
+
+    it('exposes vacant: true and last_holder when the newest reign ended or mode has no champion', () => {
+        const belts = db.getBelts();
+        const ctf = mode(belts, 'CTF');
+        expect(ctf).toMatchObject({ holder: null, vacant: true, last_holder: null });
+
+        // If a mode's newest reign has an until date (e.g. vacated), holder is null and last_holder is newest reign
+        const conn = new Database(path.join(dataDir, 'tracker.db'));
+        try {
+            conn.prepare("UPDATE belt_reigns SET until = '2026-03-01', vacated = 1 WHERE mode = 'ANARCHY' AND reign = 3").run();
+        } finally {
+            conn.close();
+        }
+        const refreshed = db.getBelts('2026-03-15');
+        const vacantAnarchy = mode(refreshed, 'ANARCHY');
+        expect(vacantAnarchy.holder).toBeNull();
+        expect(vacantAnarchy.vacant).toBe(true);
+        expect(vacantAnarchy.last_holder).toMatchObject({
+            reign: 3,
+            name: 'BEHEMOTH',
+            until: '2026-03-01',
+            vacated: 1
+        });
+        const conn2 = new Database(path.join(dataDir, 'tracker.db'));
+        try {
+            conn2.prepare("UPDATE belt_reigns SET until = '', vacated = 0 WHERE mode = 'ANARCHY' AND reign = 3").run();
+        } finally {
+            conn2.close();
+        }
     });
 
     it('counts the pilots who reached each tier of each achievement', () => {

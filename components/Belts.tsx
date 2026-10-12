@@ -15,8 +15,8 @@ type Mode = BeltsAnswer['modes'][number];
 
 // A mode's champion: who holds the belt, since when, for how many days, their
 // defenses and who they took it from; "Vacant" before the mode's first
-// decisive match.
-const ChampionCard: React.FC<{ mode: Mode }> = ({ mode: { mode, label, holder } }) => (
+// decisive match or after vacating for inactivity.
+const ChampionCard: React.FC<{ mode: Mode }> = ({ mode: { mode, label, holder, last_holder } }) => (
     <div className={`bg-surface-card border rounded-card p-4 min-w-0 ${holder ? 'border-brand/40' : 'border-line'}`} data-mode={mode}>
         <div className="text-2xs uppercase tracking-wider font-bold text-brand flex items-center gap-1.5"><Award size={12} aria-hidden /> {label}</div>
         {holder ? (
@@ -28,6 +28,18 @@ const ChampionCard: React.FC<{ mode: Mode }> = ({ mode: { mode, label, holder } 
                 <p className="text-xs font-mono text-gray-500 mt-1">
                     {holder.from ? <>Took it from <Link to={urlFor('pilot', holder.from.name)} className="text-gray-300 hover:text-brand">{holder.from.name}</Link></> : 'The first champion'}
                     {' '}in <Link to={urlFor('game-detail', holder.game)} className="underline decoration-gray-700 hover:text-brand">match {holder.game}</Link>.
+                </p>
+            </>
+        ) : last_holder ? (
+            <>
+                <div className="mt-1 flex items-center gap-2">
+                    <span className="px-2 py-0.5 text-xs font-bold uppercase tracking-wider rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">Vacant</span>
+                </div>
+                <p className="text-xs font-mono text-gray-400 mt-2">
+                    VACANT — last held by <Link to={urlFor('pilot', last_holder.name)} className="text-gray-300 hover:text-brand font-bold">{last_holder.name}</Link> ({last_holder.days} days, vacated for inactivity)
+                </p>
+                <p className="text-xs font-mono text-gray-500 mt-1">
+                    Held since {dayLabel(last_holder.since)} until {dayLabel(last_holder.until!)}{last_holder.defenses ? <>, <span className="text-brand font-bold">{plural(last_holder.defenses, 'defense', 'defenses')}</span></> : ''}.
                 </p>
             </>
         ) : (
@@ -53,7 +65,8 @@ const Belts: React.FC = () => {
     } else if (!data) {
         body = <Loading label="Loading the belts..." />;
     } else {
-        const decided = data.modes.filter(m => m.holder);
+        const decided = data.modes.filter(m => m.holder || m.lineage.length > 0);
+        const withLineage = data.modes.filter(m => m.lineage.length > 0);
         body = (
             <>
                 <section aria-labelledby="belts-champions" className="space-y-3">
@@ -67,11 +80,11 @@ const Belts: React.FC = () => {
                     )}
                 </section>
 
-                {decided.length > 0 && (
+                {withLineage.length > 0 && (
                     <section aria-labelledby="belts-lineage" className="space-y-3">
                         <h2 id="belts-lineage" className="text-gray-500 font-bold text-xs uppercase tracking-widest">Line of holders</h2>
                         <p className="text-xs font-mono text-gray-500">Fight-night days ({FIGHT_NIGHT_DAY_TEXT}); each links to the match that started or ended the reign.</p>
-                        {decided.map(m => <BeltLineage key={m.mode} label={m.label} lineage={m.lineage} />)}
+                        {withLineage.map(m => <BeltLineage key={m.mode} label={m.label} lineage={m.lineage} />)}
                     </section>
                 )}
 
@@ -95,7 +108,7 @@ const Belts: React.FC = () => {
             <div className="text-xs font-mono text-gray-500 flex flex-wrap gap-4">
                 <Link to={urlFor('rankings')} className="text-brand hover:text-brand-hover underline">Power rankings</Link>
                 <Link to={urlFor('pilots')} className="text-brand hover:text-brand-hover underline">Leaderboard</Link>
-                {data && <span>{plural(data.modes.reduce((n, m) => n + (m.holder?.reign ?? 0), 0), 'reign', 'reigns')} in all</span>}
+                {data && <span>{plural(data.modes.reduce((n, m) => n + (m.lineage[0]?.reign ?? 0), 0), 'reign', 'reigns')} in all</span>}
             </div>
         </div>
     );

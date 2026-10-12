@@ -12,7 +12,7 @@ import { FIGHT_NIGHT_PING, browserPilots } from './gameParse.js';
 import { DUEL, OBJECTIVE_FIELDS, OBJECTIVE_MODES, addToObjectives, duelLadder, duelMatch, emptyObjectives, objectiveMode, weaponKills } from './gameParse.js';
 import { CLUTCH, clutchOf, damageFlows, damageGrid, opponentsOf } from './gameParse.js';
 import { duelPass, rivalPass, weaponPass } from './statsPasses.js';
-import { OPPOSITE_OUTCOME, MATCH_MODES, boutsOf, tapeMode } from './gameParse.js';
+import { OPPOSITE_OUTCOME, MATCH_MODES, boutsOf, tapeMode, BELT_VACANCY_DAYS, beltStep } from './gameParse.js';
 import { byId, detailSample, ffaWithDamage, ffaWithLog, sample, teamWithDamage, teamWithLog } from '../testFixtures.js';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -1311,6 +1311,128 @@ describe('the Tale of the Tape (S20)', () => {
             // "." took 180.5 from JFTP: kept unrounded until it is summed
             expect(sum('jftp', '.', 'damage_dealt')).toBe(210);
             expect(sum('.', 'jftp', 'damage_dealt')).toBe(180.5);
+        });
+    });
+
+    describe('beltStep belt vacancies', () => {
+        const makeMatch = (id, date, mode, champKey, champName, score = 10) => ({
+            id,
+            date,
+            mode,
+            sides: [
+                { score, pilots: [{ key: champKey, name: champName }] },
+                { score: score - 5, pilots: [{ key: 'opponent', name: 'OPPONENT' }] }
+            ],
+            champion: { key: champKey, name: champName }
+        });
+
+        it('vacates a reign when holder is idle > 90 days, setting until = last day + 90, and crowns new champion', () => {
+            const holders = new Map();
+            const reigns = [];
+            const lastSeen = new Map();
+
+            // Day 0: CHAMP wins the belt
+            const day0 = '2025-01-01T20:00:00.000Z';
+            const m1 = makeMatch(1, day0, 'ANARCHY', 'champ', 'CHAMP');
+            const modeLastSeen = new Map([['champ', fightNightDay(day0)]]);
+            lastSeen.set('ANARCHY', modeLastSeen);
+            const won1 = beltStep(holders, reigns, lastSeen, m1);
+            expect(won1.won).toMatchObject({ reign: 1, pilot: 'champ', defenses: 0, vacated: 0 });
+            expect(holders.get('ANARCHY')).toMatchObject({ pilot: 'champ' });
+
+            // Day 91: CHAMP has been idle for 91 days (> BELT_VACANCY_DAYS = 90)
+            // A new match is played between CHALLENGER and OPPONENT
+            const day91 = '2025-04-02T20:00:00.000Z';
+            expect(daysBetween(fightNightDay(day0), fightNightDay(day91))).toBe(91);
+            const m2 = makeMatch(2, day91, 'ANARCHY', 'challenger', 'CHALLENGER');
+            modeLastSeen.set('challenger', fightNightDay(day91));
+            modeLastSeen.set('opponent', fightNightDay(day91));
+
+            const won2 = beltStep(holders, reigns, lastSeen, m2);
+            // CHAMP's reign ends marked vacated: 1, with until = last day + 90
+            expect(reigns[0]).toMatchObject({
+                pilot: 'champ',
+                vacated: 1,
+                until: shiftDay(fightNightDay(day0), BELT_VACANCY_DAYS)
+            });
+            // Next decisive match crowns CHALLENGER as new champion (reign 2, vacated: 0)
+            expect(won2.won).toMatchObject({
+                reign: 2,
+                pilot: 'challenger',
+                vacated: 0,
+                until: ''
+            });
+            expect(holders.get('ANARCHY')).toMatchObject({ pilot: 'challenger', reign: 2 });
+        });
+
+        it('keeps reign when holder plays on day 89 after last match', () => {
+            const holders = new Map();
+            const reigns = [];
+            const lastSeen = new Map();
+
+            // Day 0: CHAMP wins belt
+            const day0 = '2025-01-01T20:00:00.000Z';
+            const m1 = makeMatch(1, day0, 'ANARCHY', 'champ', 'CHAMP');
+            const modeLastSeen = new Map([['champ', fightNightDay(day0)]]);
+            lastSeen.set('ANARCHY', modeLastSeen);
+            beltStep(holders, reigns, lastSeen, m1);
+
+            // Day 89: CHAMP plays again (defends)
+            const day89 = '2025-03-31T20:00:00.000Z';
+            expect(daysBetween(fightNightDay(day0), fightNightDay(day89))).toBe(89);
+            const m2 = makeMatch(2, day89, 'ANARCHY', 'champ', 'CHAMP');
+            modeLastSeen.set('champ', fightNightDay(day89));
+
+            const step = beltStep(holders, reigns, lastSeen, m2);
+            expect(step.defended).toMatchObject({ pilot: 'champ', defenses: 1, until: '', vacated: 0 });
+            expect(holders.get('ANARCHY')).toMatchObject({ pilot: 'champ', defenses: 1, vacated: 0 });
+            expect(reigns[0].vacated).toBe(0);
+            expect(reigns[0].until).toBe('');
+        });
+
+        it('crowns ex-champion again as a new reign when they return and win after a vacancy', () => {
+            const holders = new Map();
+            const reigns = [];
+            const lastSeen = new Map();
+
+            // Day 0: CHAMP wins belt
+            const day0 = '2025-01-01T20:00:00.000Z';
+            const m1 = makeMatch(1, day0, 'ANARCHY', 'champ', 'CHAMP');
+            const modeLastSeen = new Map([['champ', fightNightDay(day0)]]);
+            lastSeen.set('ANARCHY', modeLastSeen);
+            beltStep(holders, reigns, lastSeen, m1);
+
+            // Day 91: A draw match between other players vacates the belt without crowning anyone
+            const day91 = '2025-04-02T20:00:00.000Z';
+            const draw = {
+                id: 2,
+                date: day91,
+                mode: 'ANARCHY',
+                sides: [
+                    { score: 10, pilots: [{ key: 'p1', name: 'P1' }] },
+                    { score: 10, pilots: [{ key: 'p2', name: 'P2' }] }
+                ],
+                champion: null
+            };
+            const stepDraw = beltStep(holders, reigns, lastSeen, draw);
+            expect(stepDraw.won).toBeNull();
+            expect(holders.has('ANARCHY')).toBe(false);
+            expect(reigns[0]).toMatchObject({ pilot: 'champ', vacated: 1 });
+
+            // Day 100: CHAMP returns as a contender and wins
+            const day100 = '2025-04-11T20:00:00.000Z';
+            const m3 = makeMatch(3, day100, 'ANARCHY', 'champ', 'CHAMP');
+            const step3 = beltStep(holders, reigns, lastSeen, m3);
+
+            expect(step3.won).toMatchObject({
+                reign: 2,
+                pilot: 'champ',
+                vacated: 0,
+                until: '',
+                game: 3
+            });
+            expect(holders.get('ANARCHY')).toMatchObject({ pilot: 'champ', reign: 2 });
+            expect(reigns).toHaveLength(2);
         });
     });
 });

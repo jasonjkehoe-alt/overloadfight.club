@@ -14,7 +14,7 @@ const Reign: React.FC<{ reign: BeltReign }> = ({ reign }) => (
         <Award size={14} className={`mt-0.5 shrink-0 ${reign.until ? 'text-gray-600' : 'text-brand'}`} aria-hidden />
         <span>
             {reign.until
-                ? <>{reign.label} champion from {dayLabel(reign.since)} to <Link to={urlFor('game-detail', reign.lost_game!)} className="underline decoration-gray-700 hover:text-brand">{dayLabel(reign.until)}</Link>, {plural(reign.defenses, 'defense', 'defenses')}</>
+                ? <>{reign.label} champion from {dayLabel(reign.since)} to {reign.lost_game ? <Link to={urlFor('game-detail', reign.lost_game)} className="underline decoration-gray-700 hover:text-brand">{dayLabel(reign.until)}</Link> : dayLabel(reign.until)}{reign.vacated ? ' (vacated)' : ''}, {plural(reign.defenses, 'defense', 'defenses')}</>
                 : <><strong className="text-brand">{championLine(reign)}</strong> ({plural(reign.days, 'day', 'days')})</>}
         </span>
     </li>

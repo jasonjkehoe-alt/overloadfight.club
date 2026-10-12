@@ -494,7 +494,7 @@ export const DERIVED_TABLES = {
     pilot_bouts: { columns: ['pilot TEXT', 'opponent TEXT', 'mode TEXT', 'map TEXT', 'matches INTEGER', 'wins INTEGER', 'losses INTEGER', 'ties INTEGER', 'logged INTEGER', 'kills INTEGER', 'deaths INTEGER', 'damage_dealt REAL', 'damage_taken REAL'], key: 4, pass: 'rivals', rows: p => p.rivals.bouts(), log: ['Bouts', 'bout rows'] },
     // S21 (achievementPass.js): `since` and `until` are match dates, `until`
     // '' and `lost_game` 0 while the reign lasts; `earned` is a fight-night day
-    belt_reigns: { columns: ['mode TEXT', 'reign INTEGER', 'pilot TEXT', 'name TEXT', 'since TEXT', 'game INTEGER', 'defenses INTEGER', 'until TEXT', 'lost_game INTEGER'], pass: 'achievements', rows: p => p.achievements.reigns(), log: ['Belts', 'belt reigns'] },
+    belt_reigns: { columns: ['mode TEXT', 'reign INTEGER', 'pilot TEXT', 'name TEXT', 'since TEXT', 'game INTEGER', 'defenses INTEGER', 'until TEXT', 'lost_game INTEGER', 'vacated INTEGER'], pass: 'achievements', rows: p => p.achievements.reigns(), log: ['Belts', 'belt reigns'] },
     pilot_achievements: { columns: ['pilot TEXT', 'achievement TEXT', 'name TEXT', 'value INTEGER', 'tier INTEGER', 'earned TEXT', 'game INTEGER'], pass: 'achievements', rows: p => p.achievements.achievements(), log: ['Achievements', 'pilot achievements'] }
 };
 // A derived table's column names, in table order.

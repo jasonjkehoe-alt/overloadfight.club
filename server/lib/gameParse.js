@@ -1261,17 +1261,35 @@ export function beltMatch(game) {
     return { mode, sides, champion: won[0].pilots.reduce((best, p) => (ahead(score.get(p.key), score.get(best.key)) ? p : best)) };
 }
 
+export const BELT_VACANCY_DAYS = 90;
+
 // One match of the belt replay: `holders` maps a mode to its reign, `reigns`
 // collects every reign ({ mode, reign, pilot, name, since, game, defenses,
-// until, lost_game }, `until` '' and `lost_game` 0 while it lasts), and `m` is
+// until, lost_game, vacated }, `until` '' and `lost_game` 0 while it lasts),
+// `lastSeen` maps mode -> Map(pilotKey -> fight-night day), and `m` is
 // { id, date, ...beltMatch() }. Returns what the match did: `won` (a reign
 // that started), `defended` (the reign the holder kept by winning or drawing
 // at the top) and `slayers`, the pilotKey()s on the sides that outscored the
 // holder's.
-export function beltStep(holders, reigns, { id, date, mode, sides, champion }) {
-    const held = holders.get(mode);
+export function beltStep(holders, reigns, lastSeen, m) {
+    if (!m && lastSeen && typeof lastSeen.get !== 'function') {
+        m = lastSeen;
+        lastSeen = undefined;
+    }
+    const { id, date, mode, sides, champion } = m;
+    let held = holders.get(mode);
+    if (held) {
+        const last = lastSeen?.get(mode)?.get(held.pilot) ?? fightNightDay(held.since);
+        if (last && daysBetween(last, fightNightDay(date)) > BELT_VACANCY_DAYS) {
+            held.until = shiftDay(last, BELT_VACANCY_DAYS);
+            held.vacated = 1;
+            holders.delete(mode);
+            held = null;
+        }
+    }
     const crown = () => {
-        const next = { mode, reign: (held?.reign ?? 0) + 1, pilot: champion.key, name: champion.name, since: date, game: id, defenses: 0, until: '', lost_game: 0 };
+        const lastReign = reigns.filter(r => r.mode === mode).at(-1)?.reign ?? held?.reign ?? 0;
+        const next = { mode, reign: lastReign + 1, pilot: champion.key, name: champion.name, since: date, game: id, defenses: 0, until: '', lost_game: 0, vacated: 0 };
         holders.set(mode, next);
         reigns.push(next);
         return next;

@@ -5,7 +5,7 @@
 // held the belt at the time. The rules are gameParse.js's; tier dating, the
 // streak runs and the anniversary's years are worked out here.
 import {
-    ACHIEVEMENTS, ACHIEVEMENT_BY_ID, beltMatch, beltStep, clutchOf, duelMatch, durationOf, fightNightDay, hasDate, inDateOrder,
+    ACHIEVEMENTS, ACHIEVEMENT_BY_ID, BELT_VACANCY_DAYS, beltMatch, beltStep, clutchOf, daysBetween, duelMatch, durationOf, fightNightDay, hasDate, inDateOrder,
     killStreaksOf, netKills, outcomeOf, pilotKey, rankedMatch, sideOutcome, tierOf, winnerOf
 } from './gameParse.js';
 
@@ -99,6 +99,7 @@ export function achievementPass(today) {
 
         const holders = new Map();
         const reigns = [];
+        const lastSeen = new Map(); // mode -> Map(pilotKey -> day)
         // dated matches in the rating's order (inDateOrder); an undated one
         // still counts, first, with no day
         const ordered = [...entries.filter(e => !hasDate(e.date)).sort((a, b) => a.id - b.id), ...inDateOrder(entries)];
@@ -125,7 +126,21 @@ export function achievementPass(today) {
             for (const [key, streak] of entry.streaks) best(key, 'kill_streak', streak, entry);
             for (const [key, outcome] of entry.duel ?? []) run(key, 'duel', 'duel_streak', outcome, entry);
             if (entry.belt && hasDate(entry.date)) {
-                const { won, defended, slayers } = beltStep(holders, reigns, { id: entry.id, date: entry.date, ...entry.belt });
+                let modeLastSeen = lastSeen.get(entry.belt.mode);
+                if (!modeLastSeen) {
+                    modeLastSeen = new Map();
+                    lastSeen.set(entry.belt.mode, modeLastSeen);
+                }
+                const held = holders.get(entry.belt.mode);
+                const prevHeldDay = held ? modeLastSeen.get(held.pilot) : undefined;
+                for (const p of entry.players) {
+                    const key = p?.key ?? pilotKey(p?.name);
+                    if (key) modeLastSeen.set(key, entry.day);
+                }
+                if (held && prevHeldDay && daysBetween(prevHeldDay, entry.day) > BELT_VACANCY_DAYS) {
+                    modeLastSeen.set(held.pilot, prevHeldDay);
+                }
+                const { won, defended, slayers } = beltStep(holders, reigns, lastSeen, { id: entry.id, date: entry.date, ...entry.belt });
                 if (won) add(won.pilot, 'belts', 1, entry);
                 if (defended) add(defended.pilot, 'defenses', 1, entry);
                 for (const key of slayers) add(key, 'boss_slayer', 1, entry);
